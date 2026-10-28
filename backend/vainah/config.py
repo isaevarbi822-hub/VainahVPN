@@ -1,6 +1,6 @@
 """Safe public configuration. Credentials must never be returned to the web client."""
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
