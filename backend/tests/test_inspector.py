@@ -1,4 +1,5 @@
 import base64
+
 import pytest
 
 from vainah.inspector import InvalidSubscription, inspect_subscription
