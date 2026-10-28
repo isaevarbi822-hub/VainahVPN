@@ -110,13 +110,13 @@ function subscription(){
  '<div class="grid equal-columns">'+card("Статус подписки",'<div class="value-line"><span>Тариф</span><strong>Не подключён</strong></div><div class="value-line"><span>Дата окончания</span><strong>—</strong></div><div class="value-line"><span>Использовано устройств</span><strong>—</strong></div><div class="value-line"><span>Провайдер</span><strong>H1Cloud · планируется</strong></div>')+
  card("Авторизация",empty("lock","Вход пока недоступен","Интеграция Clerk требует серверной проверки личности. До неё никакие персональные данные не показываем."))+'</div>'+
  '<div class="section-intro"><h2>Проверка конфигурации</h2><span>Локальный разбор формата</span></div>'+
- card("Проверить VLESS или HTTPS-ссылку",'<form id="inspect-form" autocomplete="off"><label class="field-label" for="subscription-input">VLESS-ключ или ссылка на подписку</label><textarea class="textarea" id="subscription-input" name="subscription" spellcheck="false" maxlength="65536" placeholder="vless://…  или  https://…"></textarea><div class="field-hint">Ключ отправляется в этот Python API для проверки формата, но не сохраняется. Не вводите реальные ключи на чужих публичных стендах. HTTPS-ссылку сервер не скачивает.</div><div class="field-actions"><span class="muted" style="font-size:11px">Проверка формата ≠ реальное VPN-подключение</span><button type="submit" class="btn btn-primary">'+icon("check-circle")+' Проверить формат</button></div></form><div id="inspection-result" aria-live="polite"></div>') ;
+ card("Проверить VLESS или HTTPS-ссылку",'<form id="inspect-form" autocomplete="off"><label class="field-label" for="subscription-input">VLESS-ключ или ссылка на подписку</label><textarea class="textarea" id="subscription-input" name="subscription" spellcheck="false" maxlength="65536" placeholder="vless://…  или  https://…"></textarea><div class="field-hint">Ключ отправляется в этот Python API для проверки формата, но не сохраняется. Не вводите реальные ключи на чужих публичных стендах. HTTPS-ссылку сервер не скачивает.</div><div class="field-actions"><span class="muted" class="fineprint">Проверка формата ≠ реальное VPN-подключение</span><button type="submit" class="btn btn-primary">'+icon("check-circle")+' Проверить формат</button></div></form><div id="inspection-result" aria-live="polite"></div>') ;
 }
 function devices(){
  return heading("МОИ УСТРОЙСТВА","Устройства","Управление активными устройствами и платформами — с единым представлением для аккаунта.")+
  card("Привязанные устройства",empty("laptop","Устройства не загружены","После подключения защищённого кабинета здесь появятся реальные устройства из H1Cloud."))+
  '<div class="section-intro"><h2>Платформы Vainah VPN</h2><span>План поддержки</span></div>'+
- '<div class="grid equal-columns">'+(state.platforms?.items||[]).map(p=>'<div class="card"><div class="card-head"><h2>'+escapeHtml(p.name)+'</h2>'+badge(p.state==="research"?"Изучаем":"В разработке")+'</div><p class="muted" style="font-size:12px;line-height:1.7;margin:0">'+escapeHtml(p.detail)+'</p></div>').join("")+'</div>';
+ '<div class="grid equal-columns">'+(state.platforms?.items||[]).map(p=>'<div class="card"><div class="card-head"><h2>'+escapeHtml(p.name)+'</h2>'+badge(p.state==="research"?"Изучаем":"В разработке")+'</div><p class="muted" class="paragraph-compact">'+escapeHtml(p.detail)+'</p></div>').join("")+'</div>';
 }
 function diagnostics(){
  const checks=state.diagnostics?.checks||[];
@@ -130,7 +130,7 @@ function security(){
  const s=state.security||{};
  return heading("ЗАЩИТА","Безопасность","Прозрачные настройки защиты и безопасная обработка конфигураций.")+
  '<div class="grid equal-columns">'+card("Основные меры",'<div class="value-line"><span>Проверка HTTPS-сертификатов</span>'+badge(s.tls_verification?"Включена":"Неизвестно",s.tls_verification?"green":"grey")+'</div><div class="value-line"><span>Приём платежей</span>'+badge("Отключён")+'</div><div class="value-line"><span>Хранение ссылок в Python API</span>'+badge("Не сохраняются","green")+'</div><div class="value-line"><span>Нативный туннель</span>'+badge("Не подключён")+'</div>')+
- card("Политика приватности",'<p class="muted" style="font-size:12px;line-height:1.8">В демонстрационном кабинете нет личных аккаунтов, переписок, истории просмотров, реального VPN-трафика и платежей.</p>'+info('<strong>На следующих этапах:</strong> авторизация и контроль доступа, шифрованное хранилище на устройстве, минимальные логи без секретов.') )+'</div>'+
+ card("Политика приватности",'<p class="muted" class="paragraph-privacy">В демонстрационном кабинете нет личных аккаунтов, переписок, истории просмотров, реального VPN-трафика и платежей.</p>'+info('<strong>На следующих этапах:</strong> авторизация и контроль доступа, шифрованное хранилище на устройстве, минимальные логи без секретов.') )+'</div>'+
  '<div class="section-intro"><h2>Правила защиты</h2></div><div class="tip-grid">'+[
  ["lock","Ключи вне GitHub","API-токены и подписки должны находиться только в защищённых переменных и локальном хранилище."],
  ["shield-check","TLS без исключений","Никакого отключения сертификатов ради исправления ошибок 403 и timeout."],
@@ -185,7 +185,7 @@ function render(){
 function setPage(p){
  if(!pages[p])p="overview";
  state.page=p;render();closeMenu();
- window.scrollTo({top:0,behavior:"instant"});
+ window.scrollTo({top:0,behavior:"auto"});
 }
 function closeMenu(){document.body.classList.remove("menu-open");document.getElementById("menu-toggle").setAttribute("aria-expanded","false");document.getElementById("scrim").hidden=true}
 function toggleTheme(){
