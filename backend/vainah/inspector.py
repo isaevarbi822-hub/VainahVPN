@@ -60,7 +60,10 @@ def inspect_subscription(raw: str) -> dict:
     value = _unpack_text(raw)
     # Remote URLs are recognized, never fetched from the API (SSRF protection).
     if value.startswith(("https://", "http://")) and "\n" not in value:
-        u = urlsplit(value)
+        try:
+            u = urlsplit(value)
+        except ValueError as exc:
+            raise InvalidSubscription("Некорректная HTTPS-ссылка подписки.") from exc
         if u.scheme != "https" or not u.hostname or u.username or u.password or u.fragment:
             raise InvalidSubscription("Ссылка подписки должна быть HTTPS без логина и фрагмента.")
         try:
