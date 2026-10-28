@@ -4,7 +4,6 @@ All customer-specific endpoints are deliberately absent until authorization exis
 Do not put tokens, VLESS keys or subscription URLs in logs.
 """
 from pathlib import Path
-import secrets
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
