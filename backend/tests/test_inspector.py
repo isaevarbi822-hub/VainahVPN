@@ -22,7 +22,7 @@ def test_base64_subscription():
 @pytest.mark.parametrize("raw", [
     "", "not a subscription", "vless://oops@server.example:443?security=reality",
     "http://example.com/list", "https://localhost/key",
-    "https://127.0.0.1/list", "vless://nope@server.example:443",
+    "https://127.0.0.1/list", "https://[broken", "vless://nope@server.example:443",
 ])
 def test_invalid_input(raw):
     with pytest.raises(InvalidSubscription):
