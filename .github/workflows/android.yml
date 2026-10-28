@@ -1,0 +1,96 @@
+name: Vainah VPN Next Android
+
+on:
+  push:
+    branches:
+      - rewrite/android-v1
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Build Android Next with real libbox + run tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Clean build, compiled libbox adapter and Kotlin tests
+        run: |
+          gradle -p android \
+            -PvainahEnableLibbox=true \
+            -PvainahIsolatedPreview=true \
+            :app:clean :app:assembleDebug :app:testDebugUnitTest \
+            --no-daemon --stacktrace
+      - name: Store isolated Android preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: VainahVPN-Next-Android-1.0.0-alpha.1-libbox
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  clerk:
+    name: Optional Clerk-enabled Android Next preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CLERK_PUBLIC_KEY: ${{ vars.VAINAH_CLERK_PUBLISHABLE_KEY || vars.CLERK_PUBLISHABLE_KEY || secrets.VAINAH_CLERK_PUBLISHABLE_KEY || secrets.CLERK_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Check a real Clerk publishable key
+        id: check
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64,os,re
+          from pathlib import Path
+          pub=os.getenv("CLERK_PUBLIC_KEY","")
+          match=re.fullmatch(r"pk_(?:test|live)_([A-Za-z0-9_=-]{12,512})",pub)
+          try:
+              domain=base64.urlsafe_b64decode(match.group(1)+"="*((-len(match.group(1)))%4)).decode("ascii") if match else ""
+          except (UnicodeError,ValueError):
+              domain=""
+          valid=bool(domain.endswith("$") and "." in domain and len(domain)<254)
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as f:
+              f.write("available="+("true" if valid else "false")+"\n")
+          if not valid:
+              print("No valid public Clerk key: full-login build will be skipped.")
+          PY
+      - name: Build libbox + real Clerk preview and run tests
+        if: steps.check.outputs.available == 'true'
+        shell: bash
+        run: |
+          gradle -p android \
+            -PvainahEnableLibbox=true \
+            -PvainahEnableClerk=true \
+            -PvainahIsolatedPreview=true \
+            "-PvainahClerkPublishableKey=$CLERK_PUBLIC_KEY" \
+            :app:clean :app:assembleDebug :app:testDebugUnitTest \
+            --no-daemon --stacktrace
+      - name: Upload libbox and Clerk preview
+        if: steps.check.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: VainahVPN-Next-Android-1.0.0-alpha.1-libbox-Clerk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
