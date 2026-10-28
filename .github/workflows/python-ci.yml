@@ -19,3 +19,5 @@ jobs:
           python -m pytest -q
           python -m compileall -q vainah
           ruff check vainah tests
+      - name: Check web JavaScript syntax
+        run: node --check web/app.js
