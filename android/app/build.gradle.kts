@@ -21,17 +21,17 @@ android {
     compileSdk = if (clerkEnabled) 36 else 35
 
     defaultConfig {
-        applicationId = "app.vainah.vpn"
-        manifestPlaceholders["vainahAppLabel"] = "@string/app_name"
+        applicationId = "app.vainah.vpn.next"
+        manifestPlaceholders["vainahAppLabel"] = "Vainah VPN Next"
         minSdk = 26
         targetSdk = 35
-        versionCode = 31
-        versionName = "0.5.15"
+        versionCode = 100
+        versionName = "1.0.0-alpha.1"
         buildConfigField("boolean", "VAINAH_CLERK_ENABLED", if (clerkEnabled) "true" else "false")
         buildConfigField("String", "VAINAH_CLERK_PUBLISHABLE_KEY",
             "\""+clerkPublishableKey.replace("\\","").replace("\"","")+"\"")
         buildConfigField("boolean", "VAINAH_DIRECT_CHECKOUT_ENABLED",
-            if (standaloneCheckout) "true" else "false")
+            "false")
     }
     buildFeatures {
         compose = clerkEnabled
@@ -51,7 +51,7 @@ android {
             if (isolatedPreview) {
                 applicationIdSuffix = ".preview"
                 versionNameSuffix = "-preview"
-                manifestPlaceholders["vainahAppLabel"] = "Vainah VPN Preview"
+                manifestPlaceholders["vainahAppLabel"] = "Vainah VPN Next (Preview)"
             }
         }
     }
