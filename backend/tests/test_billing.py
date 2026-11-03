@@ -388,3 +388,93 @@ def test_provider_accepts_non_prefix_opaque_id_without_weakening_sandbox():
     assert created["mode"] == "provider"
     assert asyncio.run(service.refresh(order_id))["status"] == "paid"
     assert service.read(order_id)["vpn_delivered"] is False
+
+
+def test_local_sandbox_ledger_survives_restart_and_keeps_paylinks_off_disk(tmp_path):
+    db_path = str(tmp_path / "sandbox-orders.sqlite3")
+    first = BillingSandbox("mock", ledger_path=db_path)
+    created = asyncio.run(first.create("30"))
+    assert created["status"] == "created"
+    assert first.activation_preview(created["order_id"])["status"] == "blocked"
+
+    simulated = first.simulate(created["order_id"])
+    assert simulated["status"] == "paid"
+    preview = first.activation_preview(created["order_id"])
+    assert preview["status"] == "demo_ready"
+    assert preview["duration_days"] == 30
+    assert preview["device_limit"] == 3
+    assert preview["h1cloud_connected"] is False
+    assert preview["vpn_delivered"] is False
+    assert preview["subscription_url"] is None
+
+    after_restart = BillingSandbox("mock", ledger_path=db_path)
+    restored = after_restart.read(created["order_id"])
+    assert restored["status"] == "paid"
+    assert restored["pay_url"] is None
+    assert after_restart.list_test_orders()[0]["pay_url"] is None
+    assert b"rpk_live_" not in (tmp_path / "sandbox-orders.sqlite3").read_bytes()
+
+
+def test_provider_payment_status_restored_from_local_sandbox_ledger(tmp_path):
+    db_path = str(tmp_path / "payment-orders.sqlite3")
+    def fake_provider(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            data = json.loads(request.content)
+            return httpx.Response(200, json={
+                "order_id": data["order_id"],
+                "payment_id": "opaque_123456",
+                "amount": "1000.00",
+                "payment_currency": "RUB",
+                "test": True,
+                "environment": "sandbox",
+                "status": "created",
+                "pay_url": "https://pay.rollypay.io/pay/abc123456",
+            })
+        assert request.method == "GET"
+        return httpx.Response(200, json={
+            "order_id": created["order_id"],
+            "payment_id": "opaque_123456",
+            "amount": "1000.00",
+            "payment_currency": "RUB",
+            "test": True,
+            "environment": "sandbox",
+            "status": "paid",
+        })
+
+    transport = httpx.MockTransport(fake_provider)
+    first = BillingSandbox("provider", "sandbox-test-key", transport,
+                           ledger_path=db_path)
+    created = asyncio.run(first.create("365-family"))
+    assert created["status"] == "created"
+    assert created["pay_url"].startswith("https://pay.rollypay.io/")
+    assert b"pay.rollypay.io" not in (
+        tmp_path / "payment-orders.sqlite3"
+    ).read_bytes()
+
+    after_restart = BillingSandbox("provider", "sandbox-test-key", transport,
+                                   ledger_path=db_path)
+    assert after_restart.read(created["order_id"])["pay_url"] is None
+    checked = asyncio.run(after_restart.refresh(created["order_id"]))
+    assert checked["status"] == "paid"
+    preview = after_restart.activation_preview(created["order_id"])
+    assert preview["duration_days"] == 365
+    assert preview["device_limit"] == 6
+    assert preview["status"] == "demo_ready"
+    assert preview["vpn_delivered"] is False
+
+
+def test_activation_preview_protected_by_operator_token():
+    r = client.get(
+        "/api/shop/sandbox/vainah_test_" + "a" * 32 + "/activation-preview"
+    )
+    assert r.status_code == 401
+    r = client.get("/api/shop/sandbox/orders")
+    assert r.status_code == 401
+
+
+def test_sandbox_previews_cannot_turn_canceled_payment_into_vpn():
+    svc = BillingSandbox("mock")
+    order = asyncio.run(svc.create("30"))
+    assert svc.activation_preview(order["order_id"])["status"] == "blocked"
+    assert svc.activation_preview(order["order_id"])["h1cloud_connected"] is False
+    assert svc.activation_preview(order["order_id"])["vpn_delivered"] is False
