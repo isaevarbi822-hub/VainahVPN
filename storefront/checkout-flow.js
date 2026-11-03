@@ -47,6 +47,16 @@
       return json;
     } finally {clearTimeout(timer);}
   }
+  function displayTestOrder(order) {
+    state.testOrder = order;
+    $("shop-test-resume").value = order.order_id;
+    $("shop-test-simulate").hidden = order.mode !== "mock" || order.status !== "created";
+    $("shop-test-refresh").hidden = order.mode !== "provider";
+    $("shop-test-activation").hidden = false;
+    testMessage("Тестовый заказ: " + order.order_id +
+      "\nСтатус: " + order.status + "\nСумма: " + order.amount_rub +
+      " ₽\nТестовый режим, VPN не выдан.");
+  }
   function select(id) {
     const plan = state.plans.find(p => p.id === id);
     if (!plan) return;
@@ -62,6 +72,7 @@
     state.testOrder = null;
     $("shop-test-simulate").hidden = true;
     $("shop-test-refresh").hidden = true;
+    $("shop-test-activation").hidden = true;
     $("shop-test-link").hidden = true;
     $("shop-test-link").removeAttribute("href");
     testMessage("");
@@ -170,11 +181,7 @@
         headers: {"Content-Type": "application/json", "X-Sandbox-Token": token},
         body: JSON.stringify({plan: state.selected.id})
       });
-      state.testOrder = created;
-      testMessage("Тестовый заказ: " + created.order_id + "\nСтатус: " + created.status +
-        "\nСумма: " + created.amount_rub + " ₽\nVPN не выдан, реального списания нет.");
-      $("shop-test-simulate").hidden = created.mode !== "mock";
-      $("shop-test-refresh").hidden = created.mode !== "provider";
+      displayTestOrder(created);
       if (created.pay_url) {
         const url = new URL(created.pay_url);
         if (url.protocol !== "https:" || url.host !== "pay.rollypay.io" ||
@@ -198,9 +205,7 @@
         encodeURIComponent(order.order_id), {
           headers: {"X-Sandbox-Token": $("shop-test-token").value}
         });
-      testMessage("RollyPay sandbox заказ: " + result.order_id +
-        "\nСтатус: " + result.status + "\nСумма: " + result.amount_rub +
-        " ₽\nРеальных списаний нет, VPN не выдан.");
+      displayTestOrder(result);
     } catch (err) {
       testMessage("RollyPay не подтвердил статус: " + (err.message || "Ошибка сети"));
     } finally {
@@ -216,11 +221,72 @@
       const reply = await api("/api/shop/sandbox/" + encodeURIComponent(order.order_id) + "/simulate", {
         method: "POST", headers: {"X-Sandbox-Token": $("shop-test-token").value}
       });
+      displayTestOrder(reply);
       testMessage("Симуляция завершена: " + reply.status +
         "\nЭто не настоящая оплата и не активная VPN-подписка.");
-      $("shop-test-simulate").hidden = true;
     } catch (err) {testMessage("Ошибка симуляции: " + (err.message || "Ошибка сети"));}
     finally {state.busy = false;}
+  });
+  $("shop-test-orders").addEventListener("click", async () => {
+    if(state.busy) return;
+    state.busy = true;
+    try {
+      const result = await api("/api/shop/sandbox/orders", {
+        headers: {"X-Sandbox-Token": $("shop-test-token").value}
+      });
+      const orders = Array.isArray(result.items) ? result.items.slice(0, 10) : [];
+      testMessage(orders.length
+        ? "Последние тестовые заказы (без ссылок и ключей):\n" +
+          orders.map(o => o.order_id + " — " + o.status + " — " +
+            o.amount_rub + " ₽").join("\n") +
+          "\nВведи нужный ID в поле ниже и нажми «Восстановить заказ»."
+        : "Сохранённых тестовых заказов пока нет.");
+    }catch(err){
+      testMessage("Не удалось загрузить историю: " + explainProviderError(err.message));
+    }finally{
+      state.busy = false;
+    }
+  });
+  $("shop-test-resume-button").addEventListener("click", async () => {
+    if(state.busy) return;
+    const id = $("shop-test-resume").value.trim();
+    if(!/^vainah_test_[a-f0-9]{32}$/.test(id)){
+      testMessage("Проверь ID тестового заказа.");
+      return;
+    }
+    state.busy = true;
+    try {
+      const order = await api("/api/shop/sandbox/" + encodeURIComponent(id), {
+        headers: {"X-Sandbox-Token": $("shop-test-token").value}
+      });
+      displayTestOrder(order);
+      $("shop-test-link").hidden = true;
+      $("shop-test-link").removeAttribute("href");
+    }catch(err){
+      testMessage("Не удалось восстановить заказ: " + explainProviderError(err.message));
+    }finally{
+      state.busy = false;
+    }
+  });
+  $("shop-test-activation").addEventListener("click", async () => {
+    if(state.busy || !state.testOrder) return;
+    state.busy = true;
+    const orderId = state.testOrder.order_id;
+    try {
+      const info = await api("/api/shop/sandbox/" +
+        encodeURIComponent(orderId) + "/activation-preview", {
+          headers: {"X-Sandbox-Token": $("shop-test-token").value}
+        });
+      testMessage("План выдачи VPN — только демо\nЗаказ: " + info.order_id +
+        "\nСтатус оплаты: " + info.payment_status +
+        "\nПериод: " + info.duration_days + " дней" +
+        "\nУстройств: " + info.device_limit +
+        "\nH1Cloud подключён: нет\nVPN выдан: нет\n" + info.message);
+    }catch(err){
+      testMessage("План выдачи VPN не готов: " + explainProviderError(err.message));
+    }finally{
+      state.busy = false;
+    }
   });
   load();
 })();
