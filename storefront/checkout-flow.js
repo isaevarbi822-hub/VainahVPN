@@ -149,8 +149,8 @@
           headers: {"X-Sandbox-Token": $("shop-test-token").value}
         });
       testMessage("RollyPay sandbox заказ: " + result.order_id +
-        "\\nСтатус: " + result.status + "\\nСумма: " + result.amount_rub +
-        " ₽\\nРеальных списаний нет, VPN не выдан.");
+        "\nСтатус: " + result.status + "\nСумма: " + result.amount_rub +
+        " ₽\nРеальных списаний нет, VPN не выдан.");
     } catch (err) {
       testMessage("RollyPay не подтвердил статус: " + (err.message || "Ошибка сети"));
     } finally {
