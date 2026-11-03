@@ -129,6 +129,42 @@ async def security():
         "native_tunnel_attached": False,
     }
 
+@app.get("/api/site/services")
+async def public_site_services():
+    """Read-only preview status: never probes private H1Cloud or claims live availability."""
+    from .billing import sandbox
+
+    return {
+        "mode": "preview",
+        "services": {
+            "api": {
+                "status": "ok",
+                "message": "Python API отвечает.",
+            },
+            "database": {
+                "status": "not_connected",
+                "message": "PostgreSQL в тестовой версии не подключён.",
+            },
+            "h1": {
+                "status": "not_connected",
+                "message": "Панель H1Cloud пока не подключена к этому сайту. Состояние VPN-серверов неизвестно.",
+            },
+            "rollypay": {
+                "status": "sandbox" if sandbox.mode == "mock" else "not_verified",
+                "message": (
+                    "Доступна только локальная симуляция. Реальных списаний нет."
+                    if sandbox.mode == "mock"
+                    else "Тестовый режим провайдера выбран; связь с кассой здесь не проверялась."
+                ),
+            },
+            "webhook": {
+                "status": "not_verified",
+                "message": "Подпись вебхука проверяется тестами; реальная доставка не подтверждена.",
+            },
+        },
+    }
+
+
 @app.get("/api/site/locations")
 async def public_site_locations():
     return {"locations": [], "source": "not_connected"}
