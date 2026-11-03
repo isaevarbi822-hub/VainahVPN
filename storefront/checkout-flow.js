@@ -33,6 +33,7 @@
     if (history.replaceState) history.replaceState(null, "", "?plan=" + encodeURIComponent(id));
     state.testOrder = null;
     $("shop-test-simulate").hidden = true;
+    $("shop-test-refresh").hidden = true;
     $("shop-test-link").hidden = true;
     $("shop-test-link").removeAttribute("href");
     testMessage("");
@@ -123,6 +124,7 @@
       testMessage("Тестовый заказ: " + created.order_id + "\nСтатус: " + created.status +
         "\nСумма: " + created.amount_rub + " ₽\nVPN не выдан, реального списания нет.");
       $("shop-test-simulate").hidden = created.mode !== "mock";
+      $("shop-test-refresh").hidden = created.mode !== "provider";
       if (created.pay_url) {
         const url = new URL(created.pay_url);
         if (url.protocol !== "https:" || url.host !== "pay.rollypay.io" ||
@@ -134,6 +136,27 @@
       }
     } catch (err) { testMessage("Не удалось создать тестовый заказ: " + (err.message || "Ошибка сети")); }
     finally {state.busy = false; $("shop-test-create").disabled = false;}
+  });
+  $("shop-test-refresh").addEventListener("click", async () => {
+    const order = state.testOrder;
+    if (state.busy || !order || order.mode !== "provider") return;
+    state.busy = true;
+    $("shop-test-refresh").disabled = true;
+    testMessage("Проверяем реальный тестовый статус у RollyPay…");
+    try {
+      const result = await api("/api/shop/sandbox/" +
+        encodeURIComponent(order.order_id), {
+          headers: {"X-Sandbox-Token": $("shop-test-token").value}
+        });
+      testMessage("RollyPay sandbox заказ: " + result.order_id +
+        "\\nСтатус: " + result.status + "\\nСумма: " + result.amount_rub +
+        " ₽\\nРеальных списаний нет, VPN не выдан.");
+    } catch (err) {
+      testMessage("RollyPay не подтвердил статус: " + (err.message || "Ошибка сети"));
+    } finally {
+      state.busy = false;
+      $("shop-test-refresh").disabled = false;
+    }
   });
   $("shop-test-simulate").addEventListener("click", async () => {
     const order = state.testOrder;
