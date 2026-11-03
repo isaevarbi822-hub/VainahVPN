@@ -9,7 +9,7 @@
   function message(text) { $("shop-config-status").textContent = text; }
   function testMessage(text) { $("shop-test-result").textContent = text; }
   function explainProviderError(message) {
-    const match = String(message || "").match(/^PROVIDER_HTTP_(\\d{3})$/);
+    const match = String(message || "").match(/^PROVIDER_HTTP_(\d{3})$/);
     if(match){
       const code = Number(match[1]);
       const reasons = {
@@ -26,6 +26,9 @@
       };
       return "RollyPay HTTP " + code + ". " + (reasons[code] || "Проверить настройки кассы и доступность API.");
     }
+    if(message === "PROVIDER_PAYMENT_ID_MISSING") return "Ответ RollyPay не содержит payment_id. Операция не подтверждена.";
+    if(message === "PROVIDER_PAYMENT_ID_FORMAT") return "RollyPay вернул payment_id неожиданного формата. Проверка остановлена.";
+    if(message === "PROVIDER_PAYMENT_STATUS_INVALID") return "RollyPay вернул неожиданный статус нового платежа. Проверка остановлена.";
     if(message === "PROVIDER_SANDBOX_NOT_CONFIRMED") return "RollyPay не подтвердил тестовый режим. Создание счёта остановлено без перехода к оплате.";
     if(message === "PROVIDER_TIMEOUT") return "Истекло время ожидания ответа RollyPay.";
     if(message === "PROVIDER_NETWORK") return "Ошибка соединения с API RollyPay.";
