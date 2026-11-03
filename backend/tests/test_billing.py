@@ -299,7 +299,7 @@ def test_provider_diagnostics_reports_only_http_code():
 @pytest.mark.parametrize(("payment_id", "status", "expected"), [
     (None, "created", "PROVIDER_PAYMENT_ID_MISSING"),
     ("", "created", "PROVIDER_PAYMENT_ID_MISSING"),
-    ("unexpected", "created", "PROVIDER_PAYMENT_ID_FORMAT"),
+    ("bad/id", "created", "PROVIDER_PAYMENT_ID_FORMAT"),
     ("pay_test_1234567890", "unexpected", "PROVIDER_PAYMENT_STATUS_INVALID"),
 ])
 def test_provider_creation_errors_identify_which_field_failed(
@@ -323,3 +323,68 @@ def test_provider_creation_errors_identify_which_field_failed(
     with pytest.raises(ProviderError, match=expected):
         asyncio.run(service.create("30"))
     assert service.orders == {}
+
+
+@pytest.mark.parametrize("id_value", [
+    "pay_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "2188771099347",
+    "id_AB12cd34",
+])
+def test_provider_accepts_safe_opaque_payment_ids(id_value):
+    from vainah.billing import PAYMENT_ID_RE
+
+    assert PAYMENT_ID_RE.fullmatch(id_value)
+
+
+@pytest.mark.parametrize("id_value", [
+    "../pay_a1b2c3",
+    "pay_abcdef?x=y",
+    "pay_abcdef/anything",
+    "pay_abcdef#fragment",
+    "pay_%2Fabcdef",
+    "pay_abcdef\\\\other",
+    "a" * 129,
+    "short",
+])
+def test_provider_rejects_unsafe_payment_ids(id_value):
+    from vainah.billing import PAYMENT_ID_RE
+
+    assert PAYMENT_ID_RE.fullmatch(id_value) is None
+
+
+def test_provider_accepts_non_prefix_opaque_id_without_weakening_sandbox():
+    from vainah.billing import BillingSandbox
+
+    opaque_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+    def provider_response(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            created = json.loads(request.content)
+            return httpx.Response(200, json={
+                "order_id": created["order_id"],
+                "payment_id": opaque_id,
+                "amount": "99.00",
+                "payment_currency": "RUB",
+                "test": True,
+                "environment": "sandbox",
+                "status": "created",
+                "pay_url": "https://pay.rollypay.io/pay/tok_123456",
+            })
+        return httpx.Response(200, json={
+            "order_id": order_id,
+            "payment_id": opaque_id,
+            "amount": "99.00",
+            "payment_currency": "RUB",
+            "test": True,
+            "environment": "sandbox",
+            "status": "paid",
+        })
+
+    service = BillingSandbox("provider", "unit-test-key",
+                             httpx.MockTransport(provider_response))
+    created = asyncio.run(service.create("30"))
+    order_id = created["order_id"]
+    assert created["mode"] == "provider"
+    assert asyncio.run(service.refresh(order_id))["status"] == "paid"
+    assert service.read(order_id)["vpn_delivered"] is False
