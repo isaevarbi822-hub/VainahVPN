@@ -55,3 +55,17 @@ APK — **debug-предпросмотр для безопасного тест�
    как кэш, не заявляя, что они доступны или подписка действительна.
 
 Исходный `Vainahvpn_bot` не изменён этой миграцией.
+
+## Unified Python API + Android status
+
+The repository now contains both the existing Android/VpnService/libbox
+client and an independent Python FastAPI web control plane (`backend/` and
+`web/`). They are **not yet joined by authenticated account APIs**.
+
+Python preview supports `/api/health`, `/api/v1/overview`,
+`/api/v1/diagnostics`, `/api/v1/platforms`, `/api/v1/security` and
+local VLESS input inspection. It does not fetch remote private subscriptions
+or create an Android VPN tunnel.
+
+Android VPN can only be verified on the device with external IP, DNS, IPv6,
+and Wi-Fi/cellular handover tests. CI confirms compilation/tests, not egress.
