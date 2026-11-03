@@ -260,3 +260,37 @@ def test_provider_rejects_status_from_non_sandbox_payment():
     with pytest.raises(ProviderError, match="PROVIDER_SANDBOX_NOT_CONFIRMED"):
         asyncio.run(service.refresh(order_id))
     assert service.read(order_id)["status"] == "created"
+
+
+def test_provider_diagnostics_is_read_only_and_never_exposes_records():
+    seen = []
+    def response(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, str(request.url)))
+        assert request.method == "GET"
+        assert request.url.path == "/api/v1/payments"
+        assert request.url.params["environment"] == "sandbox"
+        assert request.headers["X-API-Key"] == "unit-test-key"
+        return httpx.Response(200, json={"items": [
+            {"payment_id": "secret-payment", "customer_email": "private@example.com"}
+        ], "total": 1})
+
+    provider = BillingSandbox(
+        "provider", "unit-test-key", httpx.MockTransport(response)
+    )
+    result = asyncio.run(provider.provider_diagnostics())
+    assert result["connected"] is True
+    assert result["new_payment_created"] is False
+    assert "private@example.com" not in str(result)
+    assert len(seen) == 1
+
+
+def test_provider_diagnostics_reports_only_http_code():
+    def rejected(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={
+            "error": "private text that must never escape"
+        })
+    provider = BillingSandbox(
+        "provider", "unit-test-key", httpx.MockTransport(rejected)
+    )
+    with pytest.raises(ProviderError, match="PROVIDER_HTTP_503"):
+        asyncio.run(provider.provider_diagnostics())
