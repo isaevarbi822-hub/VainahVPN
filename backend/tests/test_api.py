@@ -40,3 +40,21 @@ def test_http_local_url_blocked():
 def test_oversized_payload_rejected():
     r = client.post("/api/v1/import/inspect", json={"content": "A" * 65537})
     assert r.status_code == 422
+
+
+def test_preview_status_does_not_claim_h1cloud_is_down():
+    r = client.get("/api/site/services")
+    assert r.status_code == 200
+    services = r.json()["services"]
+    assert services["api"]["status"] == "ok"
+    assert services["h1"]["status"] == "not_connected"
+    assert services["database"]["status"] == "not_connected"
+    assert services["rollypay"]["status"] in {"sandbox", "not_verified"}
+    assert "server" not in services["h1"]
+
+
+def test_locations_return_explicit_empty_unconnected_list():
+    r = client.get("/api/site/locations")
+    assert r.status_code == 200
+    assert r.json()["locations"] == []
+    assert r.json()["source"] == "not_connected"
