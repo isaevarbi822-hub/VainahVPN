@@ -181,6 +181,7 @@ def test_provider_rejects_unsafe_return_link_and_does_not_save_order():
         return httpx.Response(200, json={
             "order_id": payload["order_id"], "payment_id": "pay_test_1234567890",
             "amount": "99.00", "payment_currency": "RUB", "status": "created",
+            "test": True, "environment": "sandbox",
             "pay_url": "https://phishing.example/pay/123456",
         })
     provider = BillingSandbox("provider", "unit-test-key", httpx.MockTransport(malicious))
