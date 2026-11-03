@@ -151,7 +151,7 @@ def test_provider_sandbox_create_and_signed_status():
             "order_id": payload["order_id"],
             "payment_id": "pay_test_1234567890",
             "amount": "99.00", "payment_currency": "RUB",
-            "test": True, "status": "created",
+            "test": True, "environment": "sandbox", "status": "created",
             "pay_url": "https://pay.rollypay.io/pay/tok_123456",
         })
     provider = BillingSandbox("provider", "unit-test-key", httpx.MockTransport(mock_response))
@@ -188,3 +188,74 @@ def test_provider_rejects_unsafe_return_link_and_does_not_save_order():
         asyncio.run(provider.create("30"))
     assert str(err.value) == "PROVIDER_PAYMENT_LINK_INVALID"
     assert not provider.orders
+
+
+def test_provider_status_refresh_returns_real_sandbox_status_only():
+    payment_id = "pay_test_1234567890"
+    def provider_response(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            created = json.loads(request.content)
+            return httpx.Response(200, json={
+                "order_id": created["order_id"], "payment_id": payment_id,
+                "amount": "99.00", "payment_currency": "RUB",
+                "test": True, "environment": "sandbox", "status": "created",
+                "pay_url": "https://pay.rollypay.io/pay/tok_123456",
+            })
+        assert request.method == "GET"
+        assert request.url.path.endswith("/" + payment_id)
+        assert request.headers.get("X-Nonce")
+        return httpx.Response(200, json={
+            "order_id": order_id, "payment_id": payment_id,
+            "amount": "99.00", "payment_currency": "RUB",
+            "test": True, "environment": "sandbox", "status": "paid",
+        })
+
+    service = BillingSandbox("provider", "test-key",
+                             httpx.MockTransport(provider_response))
+    created = asyncio.run(service.create("30"))
+    order_id = created["order_id"]
+    updated = asyncio.run(service.refresh(order_id))
+    assert updated["status"] == "paid"
+    assert updated["test_only"] is True
+    assert updated["vpn_delivered"] is False
+
+
+def test_provider_rejects_ambiguous_non_sandbox_payment_at_creation():
+    def provider_response(request: httpx.Request) -> httpx.Response:
+        created = json.loads(request.content)
+        return httpx.Response(200, json={
+            "order_id": created["order_id"],
+            "payment_id": "pay_test_1234567890", "amount": "99.00",
+            "payment_currency": "RUB", "status": "created",
+            "pay_url": "https://pay.rollypay.io/pay/tok_123456",
+        })
+    service = BillingSandbox("provider", "test-key",
+                             httpx.MockTransport(provider_response))
+    with pytest.raises(ProviderError, match="PROVIDER_SANDBOX_NOT_CONFIRMED"):
+        asyncio.run(service.create("30"))
+    assert service.orders == {}
+
+
+def test_provider_rejects_status_from_non_sandbox_payment():
+    payment_id = "pay_test_1234567890"
+    def response(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            created = json.loads(request.content)
+            return httpx.Response(200, json={
+                "order_id": created["order_id"], "payment_id": payment_id,
+                "amount": "99.00", "payment_currency": "RUB",
+                "test": True, "environment": "sandbox",
+                "status": "created",
+                "pay_url": "https://pay.rollypay.io/pay/tok_123456",
+            })
+        return httpx.Response(200, json={
+            "order_id": order_id, "payment_id": payment_id,
+            "amount": "99.00", "payment_currency": "RUB",
+            "test": False, "environment": "production", "status": "paid",
+        })
+    service = BillingSandbox("provider", "test-key", httpx.MockTransport(response))
+    created = asyncio.run(service.create("30"))
+    order_id = created["order_id"]
+    with pytest.raises(ProviderError, match="PROVIDER_SANDBOX_NOT_CONFIRMED"):
+        asyncio.run(service.refresh(order_id))
+    assert service.read(order_id)["status"] == "created"
