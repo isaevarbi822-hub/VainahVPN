@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - rewrite/android-v1
+      - feat/unified-android-python
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
