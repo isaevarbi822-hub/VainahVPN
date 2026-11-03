@@ -1,0 +1,41 @@
+/* Vainah historic design: checkout accessibility and small-screen layout. */
+.checkout-next{padding:0 0 45px;color:#f5f6ff}.checkout-intro{padding-top:62px;padding-bottom:32px}
+.checkout-intro .eyebrow{font-size:12px;color:#b8a3ff;font-weight:800;letter-spacing:1.9px}
+.checkout-intro h1{font-size:clamp(32px,5.3vw,59px);letter-spacing:-1.5px;line-height:1.12;margin:17px 0}
+.checkout-intro h1 .gradient{background:linear-gradient(105deg,#b394ff,#77cbea);-webkit-background-clip:text;background-clip:text;color:transparent}
+.checkout-intro>p{color:#b6bdd2;max-width:775px;line-height:1.8;font-size:15px}
+.shop-notice{padding:16px 19px;margin-top:26px;max-width:900px;background:#20243a;border:1px solid #504b76;border-radius:15px;color:#e8ddff;font-size:13px;line-height:1.7}
+.shop-notice.live{border-color:#5ea88e;background:#1e3534}.shop-notice.warning{border-color:#946b45;background:#322719}
+.checkout-columns{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(310px,.8fr);gap:23px;align-items:start}
+.shop-panel{background:#151a2a;border:1px solid #37364e;border-radius:22px;padding:27px;box-shadow:0 12px 38px #0001}
+.shop-heading{margin-bottom:20px}.shop-heading h2{font-size:23px;letter-spacing:-.6px;margin:11px 0 6px}.shop-heading p{font-size:12px;line-height:1.8;color:#a5afc7;margin:0}
+.tiny-tag{letter-spacing:1.4px;font-size:11px;font-weight:800;color:#b9a5ff}
+.shop-plans{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.shop-plan{position:relative;width:100%;text-align:left;padding:18px;border:1px solid #49465d;background:#1c2033;color:#f6f2ff;border-radius:15px;cursor:pointer;transition:transform .16s,border-color .16s,background .16s}
+.shop-plan:hover,.shop-plan:focus-visible{border-color:#a994ff;background:#26233e;transform:translateY(-1px)}
+.shop-plan[aria-pressed="true"]{border-color:#a38dff;background:#2d264c;box-shadow:inset 0 0 0 1px #947afb}
+.shop-plan strong,.shop-plan small,.shop-plan span{display:block}.shop-plan strong{font-size:15px}.shop-plan small{color:#afb6ce;margin:7px 0 11px;font-size:11px}.shop-plan .price{color:#d5c6ff;font-size:22px;font-weight:800;letter-spacing:-.6px}.shop-plan .price .currency{display:inline;font-size:15px}
+.shop-plan .price-note{font-size:11px;margin-top:5px;color:#8f9db9}
+.shop-line{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:15px 0;border-bottom:1px solid #30384b;font-size:13px}
+.shop-line span{color:#a5b0c7}.shop-line strong{text-align:right;font-size:14px}
+.shop-total{margin-top:8px;border-bottom:0}.shop-total strong{font-size:25px;color:#c6b6ff}
+.payment-method{margin:21px 0;display:flex;gap:12px;align-items:center;border:1px solid #48405c;background:#211f36;border-radius:14px;padding:13px}
+.payment-symbol{background:linear-gradient(145deg,#bb94ff,#7a71ed);height:42px;width:42px;display:grid;place-items:center;border-radius:12px;font-size:22px;font-weight:900;flex:none}
+.payment-method strong{display:block;font-size:13px}.payment-method small{font-size:11px;color:#adb3c6;line-height:1.6;display:block;margin-top:4px}
+.shop-submit,.shop-secondary{border:1px solid #9b86ff;border-radius:11px;min-height:47px;padding:11px 15px;font:700 13px inherit;cursor:pointer;background:#9782fa;color:#100e1f;font-weight:800}
+.shop-submit{width:100%}.shop-submit:hover:not(:disabled){background:#ae9bff}
+.shop-submit:disabled{opacity:.5;cursor:not-allowed;background:#5b5578;border-color:#66607d;color:#fff}
+.shop-secondary{color:#d8cbff;background:#26213d}
+.shop-inline-link{font-size:12px;color:#c2adff}
+.fineprint{font-size:11px;color:#9aa5be;line-height:1.8;margin:13px 0}
+.shop-operator{margin-top:24px}.shop-operator details{border:1px solid #3c4357;background:#111929;border-radius:14px;padding:20px 25px;max-width:920px}
+.shop-operator summary{cursor:pointer;font-weight:800;font-size:13px;color:#cbbcff}
+.shop-operator p{font-size:12px;color:#b0bad0;line-height:1.8;max-width:800px}
+.shop-operator label{display:block;margin:14px 0 8px;color:#d8d4eb;font-size:12px;font-weight:700}
+.shop-operator input{background:#080d1b;color:#fff;border:1px solid #48435c;border-radius:10px;padding:13px 14px;max-width:440px;width:100%;display:block}
+.shop-actions{display:flex;gap:10px;margin:14px 0;flex-wrap:wrap}.shop-actions .shop-submit{width:auto}
+.shop-test-result{font-size:12px;color:#bdc8d9;line-height:1.7;white-space:pre-wrap}
+#shop-test-link{font-size:13px;color:#d1bcff;margin-top:12px;display:inline-block}
+#shop-test-link[hidden],#shop-test-simulate[hidden]{display:none}
+@media(max-width:900px){.checkout-columns{grid-template-columns:1fr}.checkout-intro{padding-top:40px}}
+@media(max-width:520px){.checkout-intro{padding-top:28px}.shop-panel{padding:18px}.shop-plans{gap:8px}.shop-plan{padding:13px}.shop-plan .price{font-size:18px}.shop-plan strong{font-size:13px}.shop-operator details{padding:15px}}
