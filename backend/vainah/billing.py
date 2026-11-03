@@ -20,6 +20,8 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
+from .sandbox_ledger import SandboxLedger
+
 API = "https://rollypay.io/api/v1/payments"
 PAY_URL_RE = re.compile(r"/pay/[A-Za-z0-9_-]{6,255}/?")
 # Payment IDs are opaque. Restrict to safe URL-path bytes rather than pay_-only.
@@ -104,7 +106,8 @@ class BillingSandbox:
     """Sandbox-only in-memory orders. Never use as a production sales ledger."""
 
     def __init__(self, mode: str = "mock", api_key: str = "",
-                 transport: httpx.AsyncBaseTransport | None = None):
+                 transport: httpx.AsyncBaseTransport | None = None,
+                 ledger_path: str | None = None):
         if mode not in {"mock", "provider"}:
             raise ValueError("INVALID_SHOP_MODE")
         self.mode = mode
@@ -112,6 +115,15 @@ class BillingSandbox:
         self.transport = transport
         self.lock = RLock()
         self.orders: dict[str, TestOrder] = {}
+        self.ledger = SandboxLedger(ledger_path) if ledger_path else None
+        if self.ledger:
+            for record in self.ledger.load():
+                if record["mode"] != mode:
+                    continue
+                if not get_plan(record["plan_id"]):
+                    continue
+                order = TestOrder(**record, pay_url=None)
+                self.orders[order.order_id] = order
 
     async def provider_diagnostics(self) -> dict:
         """Read-only, authorized test of merchant API connectivity.
@@ -210,6 +222,8 @@ class BillingSandbox:
             order = TestOrder(order_id, plan_id, amount, payment_id,
                               status, "provider", pay_url)
         with self.lock:
+            if self.ledger:
+                self.ledger.save(order)
             self.orders[order_id] = order
         return self.serialize(order)
 
@@ -272,6 +286,8 @@ class BillingSandbox:
             }:
                 raise ProviderError("PROVIDER_STATUS_REGRESSION")
             order.status = status
+            if self.ledger:
+                self.ledger.save(order)
             return self.serialize(order)
 
     def read(self, order_id: str) -> dict:
@@ -294,6 +310,8 @@ class BillingSandbox:
                 raise HTTPException(403, "PROVIDER_SIMULATION_FORBIDDEN")
             if order.status == "created":
                 order.status = "paid"
+                if self.ledger:
+                    self.ledger.save(order)
             return self.serialize(order)
 
     def process_webhook(self, data: object) -> dict:
@@ -325,8 +343,45 @@ class BillingSandbox:
             }:
                 raise HTTPException(409, "PAYMENT_STATE_REGRESSION")
             order.status = status
+            if self.ledger:
+                self.ledger.save(order)
             return {"ok": True, "test_only": True, "status": order.status,
                     "vpn_delivered": False}
+
+    def list_test_orders(self) -> list[dict]:
+        with self.lock:
+            # Provider IDs and pay URLs must never be exposed in listing.
+            return [
+                {**self.serialize(order), "pay_url": None}
+                for order in reversed(list(self.orders.values()))
+            ][:25]
+
+    def activation_preview(self, order_id: str) -> dict:
+        # Preview ONLY. This method intentionally does not call H1Cloud.
+        self.read(order_id)
+        with self.lock:
+            order = self.orders[order_id]
+            plan = get_plan(order.plan_id)
+            if plan is None:
+                raise HTTPException(409, "PLAN_UNKNOWN")
+            return {
+                "order_id": order.order_id,
+                "payment_status": order.status,
+                "status": "demo_ready" if order.status == "paid" else "blocked",
+                "plan": plan["id"],
+                "duration_days": plan["days"],
+                "device_limit": plan["devices"],
+                "sandbox_only": True,
+                "h1cloud_connected": False,
+                "vpn_delivered": False,
+                "subscription_url": None,
+                "message": (
+                    "Тестовая оплата подтверждена. Это только план выдачи VPN; "
+                    "H1Cloud не подключён и реальный VPN не выдан."
+                    if order.status == "paid" else
+                    "Пока нет подтверждения тестовой оплаты; выдача заблокирована."
+                ),
+            }
 
     @staticmethod
     def serialize(order: TestOrder) -> dict:
@@ -347,6 +402,7 @@ router = APIRouter(prefix="/api/shop", tags=["Shop"])
 sandbox = BillingSandbox(
     mode=os.environ.get("VAINAH_SHOP_SANDBOX_MODE", "mock"),
     api_key=os.environ.get("ROLLYPAY_API_KEY", ""),
+    ledger_path=os.environ.get("VAINAH_SHOP_SANDBOX_LEDGER_FILE") or None,
 )
 
 
@@ -410,6 +466,33 @@ async def start_sandbox(body: StartSandbox,
         raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
     try:
         return await sandbox.create(body.plan)
+    except ProviderError as exc:
+        raise HTTPException(502, exc.code) from None
+
+
+@router.get("/sandbox/orders")
+def sandbox_orders(
+    x_sandbox_token: str | None = Header(default=None),
+) -> dict:
+    _require_operator(x_sandbox_token)
+    return {"items": sandbox.list_test_orders(), "sandbox_only": True}
+
+
+@router.get("/sandbox/{order_id}/activation-preview")
+async def sandbox_activation_preview(
+    order_id: str,
+    x_sandbox_token: str | None = Header(default=None),
+) -> dict:
+    _require_operator(x_sandbox_token)
+    if os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") != "enabled":
+        raise HTTPException(503, "SANDBOX_DISABLED")
+    if sandbox.mode == "provider" and os.environ.get(
+        "VAINAH_SHOP_PROVIDER_TEST_ENABLED"
+    ) != "enabled":
+        raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
+    try:
+        await sandbox.refresh(order_id)
+        return sandbox.activation_preview(order_id)
     except ProviderError as exc:
         raise HTTPException(502, exc.code) from None
 
