@@ -10,6 +10,15 @@ on:
       - "start_windows.cmd"
       - "TEST_ON_WINDOWS.md"
       - ".github/workflows/website-preview.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - "web/**"
+      - "storefront/**"
+      - "preview_server.py"
+      - "start_windows.cmd"
+      - "TEST_ON_WINDOWS.md"
+      - ".github/workflows/website-preview.yml"
   workflow_dispatch:
 
 permissions:
