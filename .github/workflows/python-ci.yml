@@ -1,7 +1,7 @@
 name: Python backend checks
 on:
   push:
-    branches: [main, feat/python-platform-foundation, feat/unified-android-python]
+    branches: [main, feat/python-platform-foundation, feat/unified-android-python, feat/restore-site-rollypay-checkout]
   pull_request:
 
 jobs:
@@ -20,4 +20,8 @@ jobs:
           python -m compileall -q vainah
           ruff check vainah tests
       - name: Check web JavaScript syntax
-        run: node --check web/app.js
+        run: |
+          node --check web/app.js
+          node --check storefront/checkout-flow.js
+          node --check storefront/site-shell.js
+          node --check storefront/experience.js
