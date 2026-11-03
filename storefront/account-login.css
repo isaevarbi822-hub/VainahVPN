@@ -1,0 +1,22 @@
+/* Vainah multi-provider auth: no impersonation or alternative access to Telegram orders. */
+.account-auth-choice{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:22px 0 20px}
+.account-auth-choice button{min-height:48px;border:1px solid #5a5378;border-radius:13px;background:#1c2137;color:#d9d3f0;font-size:12px;font-weight:800;padding:10px;cursor:pointer}
+.account-auth-choice button[aria-selected="true"]{background:linear-gradient(120deg,#604d98,#39375e);border-color:#c5aaff;color:#fff}
+.account-auth-choice button:focus-visible{outline:2px solid #dbc7ff;outline-offset:3px}
+.account-auth-method[hidden],.account-auth [hidden],.account-alt-private[hidden]{display:none!important}
+.account-auth-method{background:#111a2d;border:1px solid #3b415e;border-radius:17px;padding:20px}
+.account-auth-method h3{margin:0 0 9px;font-size:18px}
+.account-auth-method p{font-size:12px;color:#aeb9d0;line-height:1.7;margin:9px 0 12px}
+.account-auth-method label{display:block;font-size:12px;font-weight:800;margin:17px 0 7px}
+.account-auth-method input{display:block;width:100%;border:1px solid #5c557f;background:#0e1526;border-radius:12px;min-height:47px;color:white;padding:12px 14px;font-size:15px}
+.account-auth-method input:focus-visible{outline:2px solid #cbb9ff;outline-offset:2px}
+.account-auth-buttons{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px}
+.account-auth-buttons button,.account-auth-buttons a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border-radius:12px;padding:10px 15px;border:1px solid #6b6090;background:#30284e;color:#f0eaff;font-weight:800;font-size:12px;cursor:pointer}
+.account-auth-buttons button:disabled{opacity:.55;cursor:not-allowed}
+.account-auth-buttons .auth-primary{background:linear-gradient(120deg,#a48bfd,#725bd4);color:#100c25;border-color:transparent}
+.account-auth-message{white-space:pre-line;border:1px solid #625879;background:#27233c;border-radius:13px;padding:14px 15px;font-size:12px;color:#d6cee9;line-height:1.65;margin-top:13px}
+.account-auth-why{font-size:12px;color:#a2b0ce;line-height:1.7;margin-top:18px}
+.account-alt-private{margin-top:25px;border:1px solid #534b73;border-radius:25px;padding:29px;background:radial-gradient(ellipse at 95% 0%,#8c5abe45,transparent 57%),linear-gradient(120deg,#1f213b,#151c2d)}
+.account-alt-private h2{margin:13px 0;font-size:clamp(24px,3.8vw,36px);letter-spacing:-.04em}
+.account-alt-private p{font-size:13px;line-height:1.75;color:#bdc7d8}
+@media(max-width:650px){.account-auth-choice{grid-template-columns:repeat(2,minmax(0,1fr))}.account-auth-method{padding:18px}.account-auth-buttons{flex-direction:column;align-items:stretch}.account-auth-buttons button,.account-auth-buttons a{width:100%}.account-alt-private{padding:21px}}
