@@ -294,3 +294,32 @@ def test_provider_diagnostics_reports_only_http_code():
     )
     with pytest.raises(ProviderError, match="PROVIDER_HTTP_503"):
         asyncio.run(provider.provider_diagnostics())
+
+
+@pytest.mark.parametrize(("payment_id", "status", "expected"), [
+    (None, "created", "PROVIDER_PAYMENT_ID_MISSING"),
+    ("", "created", "PROVIDER_PAYMENT_ID_MISSING"),
+    ("unexpected", "created", "PROVIDER_PAYMENT_ID_FORMAT"),
+    ("pay_test_1234567890", "unexpected", "PROVIDER_PAYMENT_STATUS_INVALID"),
+])
+def test_provider_creation_errors_identify_which_field_failed(
+    payment_id, status, expected,
+):
+    def response(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        return httpx.Response(200, json={
+            "order_id": body["order_id"],
+            "amount": "99.00",
+            "payment_currency": "RUB",
+            "test": True,
+            "environment": "sandbox",
+            "payment_id": payment_id,
+            "status": status,
+            "pay_url": "https://pay.rollypay.io/pay/tok_123456",
+        })
+    service = BillingSandbox(
+        "provider", "unit-test-key", httpx.MockTransport(response)
+    )
+    with pytest.raises(ProviderError, match=expected):
+        asyncio.run(service.create("30"))
+    assert service.orders == {}
