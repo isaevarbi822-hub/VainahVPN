@@ -42,7 +42,7 @@ def test_original_website_is_home_and_next_dashboard_still_available():
     assert checkout.status_code == 200
     assert 'id="shop-plans"' in checkout.text
     assert client.get("/app").status_code == 200
-    assert "VAINAH" in client.get("/app").text
+    assert "Vainah VPN" in client.get("/app").text
 
 
 def test_public_checkout_fail_closed():
@@ -126,7 +126,7 @@ def test_webhook_signature_tamper_and_timestamp_replay_protection():
 
 def test_webhook_fails_without_secret_or_authorized_test_order(monkeypatch):
     monkeypatch.delenv("ROLLYPAY_SIGNING_SECRET", raising=False)
-    assert client.post("/api/shop/webhooks/rollypay", data=b"{}").status_code == 503
+    assert client.post("/api/shop/webhooks/rollypay", content=b"{}").status_code == 503
     monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "valid-sandbox-signing-secret")
     raw = b'{"event_type":"payment.paid","test":true}'
     r = client.post("/api/shop/webhooks/rollypay", content=raw,
