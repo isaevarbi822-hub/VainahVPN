@@ -18,6 +18,9 @@ os.environ["VAINAH_SHOP_SANDBOX_ENABLED"] = "enabled"
 os.environ["VAINAH_SHOP_PROVIDER_TEST_ENABLED"] = "enabled" if USE_PROVIDER else "disabled"
 TOKEN = secrets.token_urlsafe(32)
 os.environ["VAINAH_SANDBOX_TEST_TOKEN"] = TOKEN
+# Local-only testing data persists across Python restarts, without credentials.
+LEDGER_PATH = Path.home() / ".vainahvpn" / "preview-orders.sqlite3"
+os.environ["VAINAH_SHOP_SANDBOX_LEDGER_FILE"] = str(LEDGER_PATH)
 
 from uvicorn import run  # noqa: E402
 from vainah.main import app  # noqa: E402
@@ -30,6 +33,7 @@ if __name__ == "__main__":
     print("Tariffs: http://127.0.0.1:8765/plans.html")
     print("Checkout: http://127.0.0.1:8765/checkout.html")
     print("Mode: " + ("PROVIDER SANDBOX — test:true only" if USE_PROVIDER else "OFFLINE MOCK"))
+    print("Saved test orders (local only): " + str(LEDGER_PATH))
     print("Sandbox token (for checkout test section): " + TOKEN)
     print("Do NOT publish this local token. Press Ctrl+C to stop.")
     print("=" * 62 + "\n", flush=True)
