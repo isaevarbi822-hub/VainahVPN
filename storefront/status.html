@@ -28,12 +28,12 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
     <div class="ux-heading">
       <span class="ux-eyebrow">КОМПОНЕНТЫ СИСТЕМЫ</span>
       <h2 id="status-components">Что отвечает прямо сейчас</h2>
-      <p>Данные приходят из защищённых серверных функций Netlify. На странице не отображаются ключи, реквизиты или VPN-конфигурации.</p>
+      <p>Данные приходят из Python API. Неподключённые сервисы обозначаются отдельно от ошибок — это не проверка реальных VPN-серверов.</p>
     </div>
     <div class="ux-status-grid">
       <article class="ux-status-card" data-status-card="database">
         <div class="ux-status-top"><h2>◫ PostgreSQL</h2><span class="ux-status-label" data-kind="unknown" data-status-label>Ожидаем</span></div>
-        <p>Подключение сайта к Neon и наличие таблиц для пользователей, заказов и подписок.</p>
+        <p>Состояние подключения сайта к PostgreSQL и хранения заказов.</p>
         <div class="ux-status-subtitle" data-status-detail role="status">Проверка ещё не началась.</div>
       </article>
       <article class="ux-status-card" data-status-card="h1">
@@ -43,24 +43,24 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
       </article>
       <article class="ux-status-card" data-status-card="rollypay">
         <div class="ux-status-top"><h2>◇ RollyPay API</h2><span class="ux-status-label" data-kind="unknown" data-status-label>Ожидаем</span></div>
-        <p>Проверка авторизации к платёжному API на чтение. Она не создаёт счёт и не означает, что сейчас можно оплатить VPN.</p>
+        <p>Информация о режиме оплаты: симуляция без денег или неподтверждённое подключение к кассе. Счёт не создаётся.</p>
         <div class="ux-status-subtitle" data-status-detail role="status">Проверка ещё не началась.</div>
       </article>
       <article class="ux-status-card" data-status-card="webhook">
         <div class="ux-status-top"><h2>⛨ Подпись webhook</h2><span class="ux-status-label" data-kind="unknown" data-status-label>Ожидаем</span></div>
-        <p>Наличие секрета и локальная проверка алгоритма подписи. Реальная доставка уведомлений RollyPay проверяется отдельно.</p>
+        <p>Состояние реализации обработки вебхуков. Реальная доставка уведомлений RollyPay здесь не проверяется.</p>
         <div class="ux-status-subtitle" data-status-detail role="status">Проверка ещё не началась.</div>
       </article>
     </div>
     <div class="ux-privacy-note">
-      <strong>Как читать результаты:</strong> «Проверка пройдена» относится только к конкретному API-запросу. «Есть проблема» — сервер ответил с ошибкой или не подтвердил работу; «Нет данных» — результат не удалось загрузить. Эти статусы не означают, что произведена успешная оплата или выдана VPN-ссылка.
+      <strong>Как читать результаты:</strong> «Проверка пройдена» относится только к конкретному API-запросу. «Не подключено» — сайт ещё не настроен на работу с сервисом, а не свидетельство сбоя; «Нет данных» — результат не удалось загрузить. Эти статусы не означают, что произведена успешная оплата или выдана VPN-ссылка.
     </div>
   </section>
   <section class="ux-section" aria-labelledby="status-next">
     <div class="ux-heading">
       <span class="ux-eyebrow">ЕСЛИ ЧТО-ТО НЕ РАБОТАЕТ</span>
       <h2 id="status-next">Что можно сделать дальше?</h2>
-      <p>Если H1Cloud отвечает с ошибкой, лучше дождаться восстановления панели, чем повторно менять ключи или настройки. История покупок в PostgreSQL при этом может оставаться доступной.</p>
+      <p>Если H1Cloud помечен «Не подключено», это относится только к этому тестовому сайту и не означает остановку VPN-серверов. История покупок в PostgreSQL при этом может оставаться доступной.</p>
     </div>
     <div class="ux-grid">
       <article class="ux-card"><span class="ux-card-icon" aria-hidden="true">↯</span><h3>VPN не подключается</h3><p>Простая диагностика импорта конфигурации, клиента и интернет-соединения.</p><a href="troubleshooting.html" class="ux-link">Начать проверку ↗</a></article>
