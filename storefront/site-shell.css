@@ -1,0 +1,163 @@
+/* Vainah VPN / 2026 UI shell. Progressive enhancement for BOTH site design systems. */
+:root{--vx-violet:#b59cff;--vx-mint:#8ce8c5;--vx-ink:#f4f0ff;--vx-line:#484560}
+html{scroll-padding-top:16px!important}
+html,body{max-width:100%;overflow-x:clip}
+body{min-width:280px;-webkit-font-smoothing:antialiased}
+body > header,body > .site-header{
+  /* The old fixed-height sticky header obscured tariff comparisons and mobile content. */
+  position:relative!important;top:auto!important;inset-block-start:auto!important;
+  transform:none!important;backdrop-filter:none!important;z-index:3!important;
+  background:linear-gradient(110deg,#101323f5,#11172cf5)!important;
+  border-bottom:1px solid #524d793e!important
+}
+/* Nested section headings must NEVER inherit old global header{position:sticky}
+   rules from legacy HTML. The last version only fixed body > header. */
+main header, main .ux-page-hero, main .tool-intro {
+  position:static!important;
+  top:auto!important;
+  bottom:auto!important;
+  left:auto!important;
+  right:auto!important;
+  inset:auto!important;
+  z-index:auto!important;
+  transform:none!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+main header::before, main header::after {
+  pointer-events:none;
+}
+
+body > header nav,body > .site-header nav{scroll-margin-top:0}
+:is(.container,.ux-wide,.tool-grid,.ux-card,.panel,.paper,.card,.account-panel){
+  min-width:0
+}
+body :is(.btn,.ux-link,.card-link,.tool-mini-list a):focus-visible{
+  outline:2px solid var(--vx-violet);outline-offset:3px
+}
+body :is(.btn,.ux-card,.panel,.card,.ux-plan,.ux-compare-item,.tool-card,.account-panel){
+  transition:border-color .22s ease,box-shadow .22s ease,background-color .22s ease,transform .22s ease;
+}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){
+ body :is(.ux-card,.panel,.card,.ux-plan,.ux-compare-item,.tool-card):hover{
+  transform:translateY(-3px);border-color:#8170b6;box-shadow:0 18px 35px #07091580
+ }
+}
+body :is(.mobile-nav,.drawer) a:focus-visible{outline-offset:-2px}
+body main :is(h1,h2,h3),body footer{overflow-wrap:break-word}
+body :is(pre,code){overflow-wrap:anywhere}
+body table{max-width:100%}
+body img,body video,body svg{max-width:100%}
+body :is(input,textarea,select){max-width:100%}
+
+/* 8-item desktop menus were too wide between tablet and laptop breakpoints. */
+@media(max-width:1160px){
+  body > header .desktop-nav,body > .site-header .header-links{display:none!important}
+  body > header .hamburger,body > .site-header .menu-toggle{
+    display:inline-flex!important;align-items:center;justify-content:center;flex:none
+  }
+  body > header .nav-side .tiny{display:none!important}
+  body > header .nav-wrap{gap:12px!important}
+  body > .site-header .header-inner{gap:15px!important}
+  body > .site-header .header-actions{margin-left:auto}
+  body > header .mobile-nav.open,
+  body > .site-header .drawer.open{
+    display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+    max-height:min(65svh,500px);overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-color:#8d79c0 #1b1e31;
+    padding:14px 22px 18px;background:#111829;border-top:1px solid #5b5480
+  }
+  body > header .mobile-nav a,
+  body > .site-header .drawer a{line-height:1.4;min-width:0}
+}
+@media(max-width:610px){
+  body > header .nav-wrap{min-height:68px;height:auto!important;padding-top:9px;padding-bottom:9px}
+  body > .site-header .header-inner{min-height:68px!important;padding-top:9px;padding-bottom:9px}
+  body > header .nav-side{margin-left:auto}
+  body > header .nav-side a.vainah-login,
+  body > .site-header .header-actions a.vainah-login{
+    display:inline-flex!important;padding:9px 12px;min-height:41px;min-width:0;font-size:12px
+  }
+  body > header .nav-side a[href="contact.html"],
+  body > .site-header .header-actions a[href="contact.html"]{display:none!important}
+  body > header .mobile-nav.open,body > .site-header .drawer.open{
+    grid-template-columns:minmax(0,1fr)!important;max-height:60svh;padding:12px 17px 18px
+  }
+  body > header .mobile-nav a,body > .site-header .drawer a{
+    padding:11px 14px!important;min-height:42px;display:flex;align-items:center
+  }
+}
+@media(max-width:370px){
+  body > header .logo,body > .site-header .logo{font-size:13px!important;letter-spacing:0!important;gap:7px!important}
+  body > header .logo-mark,body > .site-header .logo-icon{width:36px;height:36px;flex:none}
+  body > header .nav-wrap,body > .site-header .header-inner{gap:5px!important}
+  body > header .nav-side,body > .site-header .header-actions{gap:5px!important}
+  body > header .hamburger,body > .site-header .menu-toggle{width:39px;height:39px}
+}
+/* This in-flow index helps orientation without following or covering the content. */
+.vx-explore{max-width:1190px;margin:86px auto 28px;padding:0 32px;position:relative;isolation:isolate}
+.vx-explore-inner{border:1px solid #544c76;border-radius:28px;padding:30px 35px;background:
+  radial-gradient(ellipse at 90% 0%,#8055c04a,transparent 55%),
+  linear-gradient(120deg,#201d37,#111a2b 80%);box-shadow:0 17px 55px #04071655}
+.vx-explore-kicker{color:#c7afff;font-weight:900;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.vx-explore-head{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:20px;margin:11px 0 22px}
+.vx-explore-head h2{font-size:clamp(23px,3vw,32px);margin:0;line-height:1.2;letter-spacing:-.035em}
+.vx-explore-head p{font-size:12px;color:#b2bad0;margin:7px 0 0}
+.vx-explore-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.vx-explore-link,.vx-explore-search{display:flex;gap:12px;text-align:left;align-items:center;min-width:0;
+ background:#171d32;border:1px solid #484668;border-radius:17px;padding:15px 14px;min-height:72px;
+ text-decoration:none!important;color:#f0ebff;font:inherit;cursor:pointer}
+.vx-explore-link:hover,.vx-explore-search:hover{border-color:#b59cff;background:#272040}
+.vx-explore-icon{flex:none;display:grid;place-items:center;width:39px;height:39px;border-radius:13px;
+ background:#9e7cf429;color:#ceb7ff;font-size:20px}
+.vx-explore-text{display:block;min-width:0;line-height:1.3;font-size:12px;font-weight:800}
+.vx-explore-text small{display:block;margin-top:5px;color:#9faaC7;font-size:10px;font-weight:550}
+.vx-explore-search{appearance:none;width:100%}
+.vx-explore-head .vx-up{font-size:12px;font-weight:750;color:#d3c3ff;text-decoration:underline;text-underline-offset:4px}
+.vx-explore-quick{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:19px}
+.vx-explore-quick a,.vx-explore-quick button{border:0;background:transparent;color:#afbbd3;padding:3px 0;
+ text-decoration:underline;text-underline-offset:4px;font:inherit;font-size:12px;cursor:pointer}
+.vx-explore-quick a:hover,.vx-explore-quick button:hover{color:#fff}
+.vx-current-link{border-color:#b49bff!important;background:#332950!important}
+.vx-current-link .vx-explore-icon{color:white}
+/* Ctrl+K finder uses native <dialog>; the overlay appears ONLY by explicit request. */
+.vx-finder{border:1px solid #8171b7;border-radius:24px;background:#111729;color:#f2efff;
+ box-shadow:0 28px 100px #000c;padding:0;width:min(680px,calc(100vw - 26px));
+ max-height:min(83svh,730px);overflow:hidden}
+.vx-finder::backdrop{background:#050811bb;backdrop-filter:blur(6px)}
+.vx-finder form{margin:0;padding:23px;border-bottom:1px solid #49465f;display:flex;gap:13px;align-items:center}
+.vx-finder label{flex:1;min-width:0;font-size:12px;color:#c8baff;font-weight:850}
+.vx-finder input{display:block;width:100%;margin-top:9px;background:#1d2440;border:1px solid #7364a1;
+ border-radius:13px;padding:13px 14px;color:white;font-size:15px}
+.vx-finder input:focus-visible{outline:2px solid #c8b4ff;outline-offset:2px}
+.vx-finder-close{flex:none;border:1px solid #6a6387;border-radius:12px;background:#282640;
+ color:white;padding:12px 15px;font:inherit;cursor:pointer}
+.vx-finder-list{max-height:min(57svh,520px);overflow:auto;padding:13px}
+.vx-finder-result{display:flex;gap:11px;align-items:center;padding:12px 15px;border-radius:12px;
+ color:#f1edff;text-decoration:none;border:1px solid transparent}
+.vx-finder-result:hover,.vx-finder-result:focus-visible{background:#272544;border-color:#5d5388}
+.vx-finder-result b{display:block;font-size:13px}
+.vx-finder-result small{display:block;margin-top:4px;color:#acb7d1;font-size:11px}
+.vx-finder-empty{padding:23px 15px;color:#b3bfd6;font-size:13px}
+.vx-finder-tip{font-size:11px;color:#abb5cb;padding:10px 22px 18px}
+@media(max-width:950px){.vx-explore-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){
+ .vx-explore{margin:55px auto 20px;padding:0 18px}
+ .vx-explore-inner{padding:22px 18px;border-radius:22px}
+ .vx-explore-grid{grid-template-columns:minmax(0,1fr)}
+ .vx-explore-link,.vx-explore-search{min-height:59px;padding:11px 13px}
+ .vx-finder form{padding:15px}
+ .vx-finder input{font-size:16px}
+ .vx-finder-close{padding:10px}
+}
+@media(prefers-reduced-motion:no-preference){
+  .vx-appear{animation:vx-appear .55s both}
+  @keyframes vx-appear{from{opacity:0;transform:translateY(13px)}to{opacity:1;transform:translateY(0)}}
+}
+@media(prefers-reduced-motion:reduce){
+ html{scroll-behavior:auto!important}
+ body :is(.btn,.ux-card,.panel,.card,.ux-plan,.ux-compare-item,.tool-card){transition:none!important}
+}
