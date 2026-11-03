@@ -56,3 +56,31 @@ or fails to confirm sandbox markers, **do not attempt a live payment**.
 The `localhost` instance cannot receive remote provider webhooks;
 the status refresh tests RollyPay's API instead. Webhook delivery needs a
 separate HTTPS test endpoint before any production release.
+
+
+## Saved test orders and H1Cloud activation preview
+
+The Windows preview now stores sandbox-only orders in the user's profile:
+`%USERPROFILE%\\.vainahvpn\\preview-orders.sqlite3`.
+This database keeps only local test-order records and provider payment identifiers.
+API keys, operator tokens, `pay_url` and VPN subscription links are NOT stored.
+Sandbox mode orders can be restored when the server restarts in that same mode.
+
+On the local checkout page, expand the operator test section:
+
+- Select **Последние тестовые заказы** to view recent test-only orders.
+- Copy a test order ID into **Открыть сохранённый тестовый заказ**
+  and select **Восстановить заказ**.
+- For RollyPay Sandbox use **Проверить статус в RollyPay** after simulating
+  a payment on the provider's explicitly marked sandbox page.
+- Select **Проверить план выдачи VPN (демо)** to see the tariff's duration
+  and device limit. When the confirmed status is `paid`, it displays
+  `demo_ready`; otherwise it remains `blocked`.
+- `demo_ready` is a preparation preview only: it does **not** create
+  an H1Cloud client, access the VPN, or provide any real subscription URL.
+
+For real service delivery we still need a verified customer identity,
+production-grade persistent accounting, approved merchant onboarding,
+reviewed H1Cloud API authentication, and end-to-end payment reconciliation.
+**Never provision real VPN from sandbox `paid`**, even if the sandbox
+payment URL displays successful simulation.
