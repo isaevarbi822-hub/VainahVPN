@@ -1,0 +1,171 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#080b15"><meta name="description" content="Пошаговый мастер Vainah VPN для iPhone, iPad, Android, Windows и macOS: инструкции, диагностика и локальный чек-лист."><title>Мастер подключения — Vainah VPN</title><style>
+:root{color-scheme:dark;--bg:#080b15;--surface:#121626;--surface2:#181b2f;--line:#292d43;--muted:#a0a6bd;--ink:#f5f6ff;--purple:#a98bff;--sky:#79cde9;--green:#70e5b1;--shadow:0 25px 80px #0008}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#080b15;color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55;overflow-x:hidden}body:before{content:"";position:absolute;z-index:-1;top:0;right:-24vw;width:95vw;height:980px;background:radial-gradient(ellipse at 45% 25%,#49307560,transparent 58%);pointer-events:none}a{color:inherit;text-decoration:none}button,input,textarea{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--sky);outline-offset:4px}.container{max-width:1190px;margin:0 auto;padding:0 32px}.skip{position:absolute;top:-100px;left:10px;z-index:90;padding:10px;background:#fff;color:#000}.skip:focus{top:10px}
+body>header{position:relative;top:auto;z-index:30;background:#090d19e8;border-bottom:1px solid #ffffff14;backdrop-filter:blur(22px)}.nav-wrap{height:80px;display:flex;align-items:center;justify-content:space-between;gap:28px}.logo{display:inline-flex;align-items:center;gap:12px;font-size:17px;font-weight:850;letter-spacing:.04em;white-space:nowrap}.logo-mark{width:42px;height:42px;border-radius:14px;background:linear-gradient(130deg,#bd9fff,#653ce0);display:grid;place-items:center;box-shadow:0 10px 26px #a17bff52}.logo-mark svg{width:29px;height:29px}.logo em{font-style:normal;color:#bba6ff}.desktop-nav{display:flex;align-items:center;gap:27px;font-size:13px;color:#b5bad0}.desktop-nav a{transition:color .2s}.desktop-nav a:hover,.desktop-nav a[]{color:#fff}.desktop-nav a[]:after{content:"";display:block;height:2px;border-radius:2px;background:var(--purple);margin-top:3px}.nav-side{display:flex;gap:13px;align-items:center}.nav-side .tiny{font-size:11px;line-height:1.3;color:#b7accf;max-width:95px;text-align:right}.hamburger{display:none;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid #40415d;background:#171b2f;color:white;border-radius:13px;font-size:23px}.mobile-nav{display:none;border-top:1px solid #ffffff1a;padding:12px 32px 20px;background:#0d1020}.mobile-nav.open{display:grid;grid-template-columns:1fr 1fr;gap:7px}.mobile-nav a{padding:13px 12px;border-radius:10px;background:#191d30;font-size:14px}.mobile-nav a[]{color:#c4adff}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:11px;border:1px solid transparent;padding:14px 22px;min-height:48px;border-radius:14px;font-weight:800;font-size:13px;transition:transform .2s,filter .2s;background:#191d30;color:white;text-align:center}.btn:hover{transform:translateY(-2px);filter:brightness(1.1)}.btn-primary{color:#120d22;background:linear-gradient(114deg,#d4b9ff,#9171ff);box-shadow:0 14px 36px #7d52de3d}.btn-border{border-color:#41465f;background:#161b2b}.btn-quiet{background:transparent;border-color:#5d547f;color:#d8cafa}.btn-small{min-height:40px;padding:10px 15px;font-size:12px}.arrow{font-size:19px;font-weight:400;line-height:1}.eyebrow{display:inline-flex;align-items:center;gap:9px;color:#b9a7f9;font-size:11px;font-weight:850;letter-spacing:.16em;text-transform:uppercase}.eyebrow:before{content:"";width:7px;height:7px;border-radius:50%;background:#a68bff;box-shadow:0 0 12px #a68bff}.muted{color:var(--muted)}.gradient{color:transparent;background:linear-gradient(102deg,#cbb4ff 3%,#a08cff 47%,#8dd7ec 90%);background-clip:text;-webkit-background-clip:text}.divider{border:0;border-top:1px solid var(--line);margin:50px 0}.section{padding:94px 0}.section-head{max-width:650px;margin-bottom:35px}.section-head h2,.page-heading h1{font-size:clamp(38px,5vw,59px);line-height:1.12;letter-spacing:-.052em;margin:15px 0}.section-head p,.page-heading p{font-size:15px;color:#afb5cb;max-width:620px}.page-intro{padding:79px 0 42px}.page-heading{max-width:760px}.page-heading h1{font-size:clamp(43px,6vw,70px)}.page-heading p{font-size:16px}
+.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:46px;align-items:center;min-height:685px;padding-top:62px;padding-bottom:72px}.hero h1{font-size:clamp(49px,6.4vw,84px);line-height:1.04;letter-spacing:-.067em;margin:23px 0}.hero-copy{font-size:16px;max-width:540px;color:#b0b7cc;margin:0 0 29px}.action-row{display:flex;flex-wrap:wrap;gap:12px}.footnote{display:flex;align-items:center;gap:10px;margin-top:27px;color:#8992ab;font-size:12px}.footnote:before{content:"✦";color:#81dabc;font-size:17px}.hero-art{height:515px;position:relative;display:flex;align-items:center;justify-content:center}.globe-halo{position:absolute;width:430px;height:430px;background:radial-gradient(circle,#8260db46,transparent 66%);filter:blur(10px)}.orb-shell{width:380px;height:380px;border-radius:50%;border:1px solid #bbabff50;display:grid;place-items:center;position:relative;box-shadow:inset 0 0 70px #7345d250,0 0 85px #825ce52b;background:radial-gradient(circle at 38% 25%,#32315f,#111c35 58%,#090c1c 77%);transform:rotate(-9deg)}.orb-shell:before,.orb-shell:after{content:"";position:absolute;border:1px solid #cab2ff47;border-radius:50%;inset:26px 74px;transform:rotate(24deg)}.orb-shell:after{inset:80px 13px;transform:rotate(-13deg)}.orb-shell svg{height:286px;width:286px;opacity:.87}.connect-chip{position:absolute;border:1px solid #615981;background:#171930e9;backdrop-filter:blur(20px);border-radius:16px;padding:13px 17px;box-shadow:var(--shadow);font-size:11px;color:#9faacc;min-width:163px}.connect-chip b{font-size:13px;color:#fff;display:block}.connect-chip span{color:#80e2b6}.chip-left{top:75px;left:-12px;transform:rotate(-7deg)}.chip-right{right:-9px;bottom:80px;transform:rotate(6deg)}.chip-right span{color:#bdaaff}.orbit{position:absolute;height:9px;width:9px;border-radius:50%;background:#7cebd4;box-shadow:0 0 22px #7cebd4}
+.card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.panel{border:1px solid #34394e;border-radius:23px;padding:28px;background:linear-gradient(150deg,#1b2035,#111522 80%)}.panel h3{margin:0 0 8px;font-size:20px;letter-spacing:-.02em}.panel p{color:#9ea7bd;font-size:13px;margin:0}.panel-icon{height:52px;width:52px;display:grid;place-items:center;border-radius:15px;background:#9473ef24;border:1px solid #9473ef4b;color:#c7b2ff;margin-bottom:22px;font-size:24px}.mini-stat{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #34384e;border-radius:21px;background:#12172a;overflow:hidden}.mini-stat>div{padding:25px 28px;border-right:1px solid #34384e}.mini-stat>div:last-child{border:0}.mini-stat b{display:block;color:#f1eefe;font-size:18px}.mini-stat small{color:#a2a8c0;font-size:12px}
+.plan-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.plan{border:1px solid #333950;border-radius:25px;background:linear-gradient(160deg,#181d31,#111522);padding:31px;display:flex;flex-direction:column;min-height:385px;position:relative}.plan.featured{background:linear-gradient(155deg,#292044,#16192d 72%);border-color:#9c81ec;box-shadow:0 16px 55px #8f67f41a}.badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;border-radius:99px;background:#493a79;color:#e3d7ff;padding:6px 11px;letter-spacing:.03em}.plan .badge{position:absolute;right:19px;top:-15px;background:#c5b1ff;color:#221631}.plan .duration{font-size:12px;color:#beaaff;font-weight:800;letter-spacing:.12em}.plan h3{margin:16px 0 5px;font-size:31px;letter-spacing:-.04em}.price{font-weight:800;font-size:18px;margin:9px 0;color:#efedff}.plan-desc{color:#9ca4b9;font-size:13px;margin:5px 0 17px}.ticks{list-style:none;padding:0;margin:18px 0 30px}.ticks li{display:flex;gap:11px;font-size:13px;color:#c7cddd;margin-bottom:12px}.ticks li:before{content:"✓";font-weight:900;color:var(--green)}.plan .btn{margin-top:auto;width:100%}.small-note{font-size:12px;color:#a1a9c0;max-width:730px}.center{text-align:center}.featureband{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center}.illustration{height:340px;display:flex;align-items:center;justify-content:center;border-radius:26px;border:1px solid #424566;background:radial-gradient(ellipse at 49% 36%,#6447a854,transparent 55%),linear-gradient(140deg,#1b1f39,#101527);overflow:hidden}.ill-app{width:210px;padding:20px;border-radius:26px;border:5px solid #333750;background:#0d1020;box-shadow:0 28px 50px #0008;transform:rotate(7deg);text-align:center}.ill-app .power{height:106px;width:106px;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle,#523a9c,#261c4a 53%,#906deb6b 56%,transparent 65%);margin:16px auto}.ill-app .power span{font-size:40px;color:#c2aaff}.ill-app b{display:block}.ill-app small{color:#949bb8}.featureband h2{font-size:clamp(31px,4vw,45px);letter-spacing:-.045em;line-height:1.14;margin:14px 0}.featureband p{color:#a9b0c4;max-width:480px}.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}.step{padding:26px 0;border-top:1px solid #51536d}.step-index{color:#beaaff;font-weight:850;font-size:12px}.step h3{font-size:18px;margin:15px 0 7px}.step p{font-size:13px;color:#a0a6ba;max-width:340px}.cta{margin:70px 0 30px;padding:50px 47px;border:1px solid #6b5d95;border-radius:27px;background:radial-gradient(ellipse at 85% 12%,#7d4caa75,transparent 49%),linear-gradient(128deg,#252047,#14293c);display:flex;justify-content:space-between;gap:22px;align-items:center}.cta h2{font-size:clamp(28px,4vw,39px);letter-spacing:-.04em;line-height:1.14;margin:10px 0}.cta p{font-size:14px;color:#bcc3dc;margin:0;max-width:580px}.cta .btn{flex-shrink:0}
+.content-grid{display:grid;grid-template-columns:1.4fr .8fr;gap:24px}.paper{border:1px solid #34384d;border-radius:24px;padding:32px;background:#131829}.paper h2{font-size:24px;letter-spacing:-.03em;margin:0 0 14px}.paper h3{margin:26px 0 8px;font-size:17px}.paper p{color:#adb4c9;margin:0 0 12px;font-size:14px}.paper ol{color:#b9c1d7;padding-left:22px;font-size:14px}.paper li{margin:12px 0}.paper a.text-link,.text-link{color:#c6b2ff;text-decoration:underline;text-underline-offset:4px}.pill-tabs{display:flex;gap:9px;flex-wrap:wrap;margin:22px 0 27px}.pill-tab{padding:10px 15px;border:1px solid #40435e;border-radius:99px;background:#191d2f;color:#c3c8de;font-weight:700;font-size:13px}.pill-tab.active{background:#8c6add;color:#160e27;border-color:#a98bff}.tab-body[hidden]{display:none}.callout{border:1px solid #69548c;background:#5d467d28;border-radius:16px;padding:18px 20px;font-size:13px;color:#d3cbe5}.location-layout{display:grid;grid-template-columns:1.5fr .7fr;gap:25px}.locations{display:grid;gap:13px}.location{display:flex;align-items:center;gap:16px;border:1px solid #383e56;background:#161b2e;border-radius:18px;padding:18px 21px}.location .flag{font-size:26px}.location strong{display:block}.location small{color:#abb3c9}.location .pill{margin-left:auto;border-radius:99px;background:#255e4f66;color:#a7ebcf;padding:6px 10px;font-size:11px;font-weight:800}.empty{border:1px dashed #5b5680;background:#211e362b;border-radius:23px;padding:42px;text-align:center}.empty .empty-icon{font-size:32px;margin-bottom:10px}.empty h3{font-size:19px;margin:0 0 9px}.empty p{font-size:13px;color:#a6afc7;max-width:490px;margin:0 auto 15px}
+.faq-search{width:100%;padding:17px 18px;color:white;background:#161b2d;border:1px solid #40445f;border-radius:16px;margin:0 0 27px}.faqs{max-width:850px}.faqs details{border-bottom:1px solid #363a51;padding:21px 3px}.faqs summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;gap:25px;font-weight:750}.faqs summary::-webkit-details-marker{display:none}.faqs summary:after{content:"+";font-size:20px;color:#b29cff}.faqs details[open] summary:after{content:"−"}.faqs p{font-size:14px;color:#aab2c6;max-width:760px;margin:14px 0 0}.no-results{display:none;color:#aab2c6}
+.input-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}.field{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}.field label{font-weight:700;color:#e5e4f4;font-size:13px}.field input,.field textarea{background:#101526;border:1px solid #41465f;color:#fff;border-radius:13px;padding:14px 15px;min-width:0}.field textarea{min-height:152px;resize:vertical}.form-status{font-size:13px;min-height:22px;color:#b7a6fc}.form-status.error{color:#ffb3b7}.form-status.success{color:#83e5b6}.side-box{background:#1a1b31;border:1px solid #373c57;border-radius:22px;padding:26px;align-self:start}.side-box h3{font-size:20px;margin:0 0 10px}.side-box p{font-size:13px;color:#a7aec3}.side-box .copy-address{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}.copy-address code{border-radius:9px;background:#111628;padding:11px;font-size:13px}
+footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;background:#0a0e1b}.footer-grid{display:grid;grid-template-columns:1.3fr .7fr .7fr;gap:55px}.footer-grid h4{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:#bca5ff;margin:0 0 17px}.footer-grid a{font-size:13px;color:#a1a9be;display:block;margin:10px 0}.footer-grid a:hover{color:#fff}.footer-grid p{font-size:12px;color:#98a1b9;max-width:360px}.footer-bottom{border-top:1px solid #262a3b;padding-top:24px;margin-top:32px;color:#7e899d;font-size:11px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.label-bar{font-size:11px;color:#9c9fb8;text-align:center;margin-top:17px}.legal p,.legal li{color:#bac1d3;font-size:14px;line-height:1.8}.legal ul{padding-left:21px}.legal h2{margin-top:36px;font-size:23px}.legal .paper{max-width:850px}
+@media(max-width:1040px){.desktop-nav{gap:15px}.nav-side .tiny{display:none}.hero{gap:24px}.orb-shell{width:320px;height:320px}.hero-art{height:460px}.chip-left{left:-2px}.chip-right{right:0}.container{padding:0 24px}}@media(max-width:780px){.desktop-nav,.nav-side .btn{display:none}.hamburger{display:flex}.nav-wrap{height:70px}.hero{grid-template-columns:1fr;gap:0;min-height:auto;padding-top:70px;padding-bottom:50px}.hero h1{font-size:clamp(48px,10vw,76px)}.hero-art{height:390px}.orb-shell{width:295px;height:295px}.orb-shell svg{height:230px;width:230px}.connect-chip{min-width:auto;padding:10px 12px}.chip-left{left:0;top:34px}.chip-right{right:0;bottom:26px}.mini-stat,.card-grid,.plan-grid,.steps{grid-template-columns:1fr 1fr}.featureband,.content-grid,.location-layout{grid-template-columns:1fr}.featureband .illustration{order:-1}.footer-grid{grid-template-columns:1fr 1fr}.footer-grid>div:first-child{grid-column:span 2}.cta{flex-direction:column;align-items:flex-start}.section{padding:65px 0}.page-intro{padding:57px 0 28px}.plan-grid .plan:last-child{grid-column:span 2}.plan-grid .plan:last-child{min-height:300px}}@media(max-width:520px){.container{padding:0 18px}.logo{font-size:15px}.logo-mark{height:38px;width:38px}.hero h1{font-size:49px}.hero-copy{font-size:14px}.hero-art{height:335px}.orb-shell{width:255px;height:255px}.orb-shell svg{height:190px;width:190px}.connect-chip{font-size:10px}.chip-left{top:35px}.chip-right{bottom:17px}.card-grid,.plan-grid,.mini-stat,.steps,.input-row{grid-template-columns:1fr}.plan-grid .plan:last-child{grid-column:auto}.plan{min-height:340px}.mini-stat>div{border-right:0;border-bottom:1px solid #34384e}.mini-stat>div:last-child{border-bottom:0}.section{padding:52px 0}.section-head h2,.page-heading h1{font-size:39px}.paper{padding:23px}.cta{margin:45px 0 20px;padding:34px 25px}.footer-grid{gap:25px}.footer-grid>div:first-child{grid-column:span 2}.footer-grid h4{font-size:11px}.small-note{font-size:11px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}.btn:hover{transform:none}}
+
+.nav-side .vainah-login{white-space:nowrap;min-width:76px;text-align:center}@media(max-width:1040px){.nav-side a[href="contact.html"]{display:none}}@media(max-width:780px){.nav-side .btn.vainah-login{display:inline-flex;padding:10px 13px;min-height:40px;font-size:12px}}@media(max-width:420px){.nav-wrap{gap:10px}.nav-side{gap:9px}.nav-side .btn.vainah-login{min-width:62px;padding:9px 11px}}</style><link rel="stylesheet" href="experience.css"><script src="experience.js" defer></script><link rel="stylesheet" href="toolkit.css"><script type="module" src="toolkit-ui.mjs"></script><link rel="stylesheet" href="site-shell.css"><script src="site-shell.js" defer></script></head><body><a class="skip" href="#main">Перейти к содержимому</a><header><div class="container nav-wrap"><a href="index.html" class="logo" aria-label="Vainah VPN — Главная"><span class="logo-mark" aria-hidden="true"><svg fill="none" viewBox="0 0 32 32"><path d="m6 9 10 15L26 9" stroke="#fff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/><path d="m16 6 5 8-5 11" stroke="#d1f7ff" stroke-width="2.4" stroke-linecap="round"/></svg></span><span>VAINAH <em>VPN</em></span></a><nav class="desktop-nav" aria-label="Основная навигация"><a href="index.html" >Главная</a><a href="features.html" >Возможности</a><a href="devices.html" >Устройства</a><a href="plans.html" >Тарифы</a><a href="servers.html" >Серверы</a><a href="guide.html" >Подключение</a><a href="help.html" >Помощь</a><a href="about.html" >О сервисе</a></nav><div class="nav-side"><a class="btn btn-primary btn-small vainah-login" href="account.html" aria-label="Войти через Telegram в личный кабинет">Войти</a><span class="tiny">Твоё соединение.<br>Твои правила.</span><a class="btn btn-border btn-small" href="contact.html">Поддержка</a><button class="hamburger" type="button" data-menu-button aria-expanded="false" aria-controls="mobile-nav" aria-label="Открыть меню">☰</button></div></div><nav id="mobile-nav" class="mobile-nav" data-mobile-nav aria-label="Мобильная навигация"><a href="index.html" >Главная</a><a href="plans.html" >Тарифы</a><a href="servers.html" >Серверы</a><a href="guide.html" >Подключение</a><a href="help.html" >Помощь</a><a href="about.html" >О сервисе</a><a href="contact.html" >Поддержка</a><a href="features.html">Возможности</a><a href="devices.html">Устройства</a><a href="security.html">Безопасность</a><a href="speed.html">Скорость</a><a href="troubleshooting.html">Решение проблем</a><a href="compare.html">Сравнение тарифов</a><a href="status.html">Статус сервисов</a><a href="assistant.html">Подбор тарифа</a><a href="device-center.html">Мастер подключения</a><a href="library.html">Библиотека знаний</a></nav></header><main id="main" class="ux-wide tool-page" data-setup-wizard>
+  <header class="tool-intro">
+    <span class="ux-eyebrow">НАСТРОЙКА VAINAH VPN</span>
+    <h1>Подключение <span class="gradient">без путаницы.</span></h1>
+    <p>Выбери устройство и свою ситуацию. Мастер покажет безопасные следующие шаги — от выбора подписки до настройки клиента. Личную VPN-ссылку на этом сайте вводить не нужно.</p>
+    <div class="ux-hero-actions"><a href="account.html" class="btn btn-primary">Мой VPN ↗</a><a href="status.html" class="btn btn-border">Статус H1Cloud</a></div>
+  </header>
+
+  <section class="tool-wizard-grid" aria-labelledby="wizard-heading">
+    <div class="tool-wizard-panel">
+      <span class="tool-tag">ШАГ 01 / УСТРОЙСТВО</span>
+      <h2 id="wizard-heading" style="margin:12px 0 19px;font-size:22px">Что ты используешь?</h2>
+      <div class="tool-choices" role="group" aria-label="Выбери устройство">
+        <button type="button" data-platform-choice="ios" aria-pressed="true">▣ iPhone / iPad <span aria-hidden="true">↗</span></button>
+        <button type="button" data-platform-choice="android" aria-pressed="false">◇ Android <span aria-hidden="true">↗</span></button>
+        <button type="button" data-platform-choice="windows" aria-pressed="false">⌘ Windows <span aria-hidden="true">↗</span></button>
+        <button type="button" data-platform-choice="macos" aria-pressed="false">◆ macOS <span aria-hidden="true">↗</span></button>
+      </div>
+      <span class="tool-tag" style="display:block;margin-top:28px">ШАГ 02 / СИТУАЦИЯ</span>
+      <h3 style="margin:11px 0 16px">На каком ты этапе?</h3>
+      <div class="tool-choices" role="group" aria-label="Выбери этап подключения">
+        <button type="button" data-stage-choice="before" aria-pressed="true">Пока нет подписки <span aria-hidden="true">01</span></button>
+        <button type="button" data-stage-choice="link" aria-pressed="false">Уже есть VPN-ссылка <span aria-hidden="true">02</span></button>
+        <button type="button" data-stage-choice="issue" aria-pressed="false">Возникла проблема <span aria-hidden="true">03</span></button>
+      </div>
+    </div>
+
+    <div class="tool-wizard-answer" data-wizard-answer>
+      <span class="tool-tag">ЧТО ДЕЛАТЬ ДАЛЬШЕ</span>
+      <h3 data-wizard-title>Начни с подписки</h3>
+      <p data-wizard-summary role="status" aria-live="polite">Выбираем рекомендации…</p>
+      <ol data-wizard-steps>
+        <li>Сравни тарифы и выбери подходящий срок.</li>
+      </ol>
+      <a class="btn btn-primary" data-wizard-link href="plans.html" style="text-decoration:none;display:inline-flex;margin-top:22px">Выбрать тариф ↗</a>
+      <p class="tool-small-note">Инструкции общие: конкретные действия зависят от VPN-протокола и приложения. Не отправляй конфигурацию посторонним сайтам или незнакомым людям.</p>
+    </div>
+  </section>
+
+  <section class="tool-section" aria-labelledby="wizard-progress-heading">
+    <div class="tool-section-head">
+      <span class="ux-eyebrow">МОЯ ПОДГОТОВКА</span>
+      <h2 id="wizard-progress-heading">Чек-лист подключения</h2>
+      <p>Отмечай готовые шаги. Прогресс сохраняется только в текущей вкладке браузера — без аккаунта, без загрузки личных данных и без VPN-ссылок. Для каждого устройства он отдельный.</p>
+    </div>
+    <div class="tool-grid">
+      <div class="tool-paper">
+        <div class="tool-steps">
+          <label class="tool-step"><input type="checkbox" data-setup-check><span class="tool-step-body"><b>01 · Тариф выбран</b><span>Я понимаю срок и количество устройств, которые входят в подписку.</span></span></label>
+          <label class="tool-step"><input type="checkbox" data-setup-check><span class="tool-step-body"><b>02 · Доступ получен</b><span>После подтверждённой оплаты персональная ссылка появилась в кабинете.</span></span></label>
+          <label class="tool-step"><input type="checkbox" data-setup-check><span class="tool-step-body"><b>03 · VPN-клиент подготовлен</b><span>На устройстве установлено приложение, совместимое с выданной конфигурацией.</span></span></label>
+          <label class="tool-step"><input type="checkbox" data-setup-check><span class="tool-step-body"><b>04 · Соединение проверено</b><span>Я импортировал конфигурацию в VPN-клиент и проверил подключение.</span></span></label>
+        </div>
+        <div class="tool-progress" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="0" aria-label="Готовые шаги"><span data-setup-progress></span></div>
+        <div class="tool-toolbar"><small data-setup-complete aria-live="polite">0 из 4 шагов отмечено</small><button class="tool-reset" type="button" data-setup-reset>Сбросить чек-лист</button></div>
+      </div>
+      <aside class="tool-paper">
+        <span class="tool-tag">ЕСЛИ НЕ ПОЛУЧАЕТСЯ</span>
+        <h2>Начни с диагностики</h2>
+        <p>Причина может быть в сети, конфигурации, VPN-клиенте или доступности панели. Мастер не проверяет настройки твоего устройства автоматически и не требует его паролей.</p>
+        <div class="tool-mini-list">
+          <a href="troubleshooting.html">↯ Проблема с подключением <span aria-hidden="true">↗</span></a>
+          <a href="devices.html">▣ Инструкции по устройствам <span aria-hidden="true">↗</span></a>
+          <a href="status.html">◉ Проверка H1Cloud <span aria-hidden="true">↗</span></a>
+          <a href="contact.html">? Поддержка Vainah VPN <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="tool-notice">Отметки означают только то, что ты самостоятельно выполнил шаги. Они не являются подтверждением оплаты или работоспособности VPN.</div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="tool-section">
+    <div class="tool-section-head">
+      <span class="ux-eyebrow">ЕЩЁ ПОЛЕЗНО</span><h2>Всё для настройки в одном месте</h2>
+      <p>Инструменты сайта помогут продолжить работу, даже если H1Cloud временно недоступен.</p>
+    </div>
+    <div class="tool-feature-grid">
+      <article class="tool-feature"><h3>▦ Личный кабинет</h3><p>Посмотри свою подписку, историю покупок и срок после входа через Telegram.</p><a href="account.html">Перейти в кабинет ↗</a></article>
+      <article class="tool-feature"><h3>≋ Подбор тарифа</h3><p>Если ещё нет подписки, подбери вариант по сроку и количеству устройств.</p><a href="assistant.html">Открыть помощник ↗</a></article>
+      <article class="tool-feature"><h3>📚 База знаний</h3><p>Материалы о безопасности, подключении, ошибках и работе сервиса.</p><a href="library.html">Найти ответ ↗</a></article>
+    </div>
+  </section>
+</main><footer><div class="container"><div class="footer-grid"><div><a class="logo" href="index.html"><span class="logo-mark" aria-hidden="true"><svg fill="none" viewBox="0 0 32 32"><path d="m6 9 10 15L26 9" stroke="#fff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/><path d="m16 6 5 8-5 11" stroke="#d1f7ff" stroke-width="2.4" stroke-linecap="round"/></svg></span><span>VAINAH <em>VPN</em></span></a><p>Твоё соединение. Твои правила.</p><p>Управление доступом и понятные инструкции. Для подключения к сети нужен совместимый VPN-клиент.</p></div><div><h4>Сервис</h4><a href="plans.html">Тарифы</a><a href="compare.html">Сравнение тарифов</a><a href="status.html">Состояние сервисов</a><a href="servers.html">Локации</a><a href="guide.html">Как подключиться</a><a href="about.html">О Vainah VPN</a></div><div><h4>Информация</h4><a href="help.html">Вопросы и ответы</a><a href="contact.html">Поддержка</a><a href="privacy.html">Конфиденциальность</a><a href="terms.html">Условия сервиса</a></div></div><div class="footer-bottom"><span>© 2026 Vainah VPN. Твоё соединение. Твои правила.</span><span>Сайт и Telegram Mini App — разные интерфейсы одного проекта</span></div></div><div class="container site-explore-links" style="border-top:1px solid #34384e;padding:24px 32px;font-size:13px;display:flex;gap:16px;flex-wrap:wrap;color:#cbbaff"><a href="features.html">Возможности</a><a href="devices.html">Устройства</a><a href="security.html">Безопасность</a><a href="speed.html">Скорость</a><a href="troubleshooting.html">Диагностика</a></div><div class="container" style="border-top:1px solid #34384e;padding:24px 32px;display:flex;gap:12px 22px;flex-wrap:wrap;font-size:13px;color:#cbbaff">
+<a href="start.html">🚀 Быстрый старт</a>
+<a href="glossary.html">📚 Словарь VPN</a>
+<a href="checklist.html">✅ Чек-лист</a>
+<a href="devices.html">📱 Устройства</a>
+<a href="security.html">🛡️ Безопасность</a>
+<a href="troubleshooting.html">🧩 Решение проблем</a>
+<a href="assistant.html">✧ Подбор тарифа</a>
+<a href="device-center.html">▣ Мастер подключения</a>
+<a href="library.html">⌕ Библиотека знаний</a>
+</div></footer><script>
+(() => {
+  const $ = (s, p=document) => p.querySelector(s);
+  const $$ = (s, p=document) => [...p.querySelectorAll(s)];
+  const menu = $('[data-menu-button]');
+  const mobile = $('[data-mobile-nav]');
+  if (menu && mobile) {
+    menu.addEventListener('click', () => {
+      const open = mobile.classList.toggle('open');
+      menu.setAttribute('aria-expanded', String(open));
+      menu.setAttribute('aria-label', open ? 'Закрыть меню' : 'Открыть меню');
+    });
+    $$('.mobile-nav a').forEach(a => a.addEventListener('click', () => {mobile.classList.remove('open');menu.setAttribute('aria-expanded', 'false');}));
+  }
+  $$('.pill-tab').forEach(b => b.addEventListener('click', () => {
+    $$('.pill-tab').forEach(item => {item.classList.remove('active');item.setAttribute('aria-selected','false');});
+    b.classList.add('active');b.setAttribute('aria-selected','true');
+    $$('.tab-body').forEach(panel => {panel.hidden = panel.id !== b.dataset.tab;});
+  }));
+  const search = $('[data-faq-search]');
+  if (search) search.addEventListener('input', () => {
+    let visible = 0;
+    $$('.faqs details').forEach(d => { const found=d.textContent.toLowerCase().includes(search.value.toLowerCase().trim());d.hidden=!found;if(found) visible++; });
+    const empty=$('[data-no-results]'); if(empty) empty.style.display=visible?'none':'block';
+  });
+  $$('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{
+    try {await navigator.clipboard.writeText(b.dataset.copy);const old=b.textContent;b.textContent='Скопировано ✓';setTimeout(()=>{b.textContent=old},1800);}catch{b.textContent='Не удалось скопировать';}
+  }));
+  // Public locations and prices are loaded from the backend; never invent actual live VPN availability.
+  (async()=>{
+    try {
+      const response=await fetch('/api/site/locations',{headers:{Accept:'application/json'}});
+      if(!response.ok) return;
+      const result=await response.json();
+      const box=$('[data-live-locations]');
+      if(!box||!Array.isArray(result.locations)||!result.locations.length) return;
+      box.replaceChildren();
+      result.locations.forEach(loc=>{
+        const article=document.createElement('article');article.className='location';
+        const flag=document.createElement('span');flag.className='flag';flag.textContent=loc.flag||'🌐';
+        const meta=document.createElement('div');const name=document.createElement('strong');name.textContent=loc.name;const detail=document.createElement('small');detail.textContent='Локация VPN';meta.append(name,detail);
+        article.append(flag,meta);
+        box.append(article);
+      });
+    }catch{};
+  })();
+  const form=$('[data-support-form]');
+  if(form) form.addEventListener('submit',async(event)=>{
+    event.preventDefault();
+    const submit=$('[type=submit]',form),status=$('[data-form-status]');
+    status.textContent='Отправляем обращение…';status.className='form-status';submit.disabled=true;
+    const values=Object.fromEntries(new FormData(form).entries());
+    try{
+      const reply=await fetch('/api/site/tickets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});
+      const result=await reply.json();
+      if(!reply.ok) throw Error(result.error||'Не удалось отправить обращение');
+      status.textContent=`Обращение № ${result.ticketId} принято. Сохрани номер, чтобы уточнить статус.`;status.classList.add('success');form.reset();
+    }catch(e){status.textContent=e.message||'Ошибка связи с сервером. Попробуйте позже.';status.classList.add('error');}
+    finally{submit.disabled=false;}
+  });
+})();
+
+</script>
+</body></html>
