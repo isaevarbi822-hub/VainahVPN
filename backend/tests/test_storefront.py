@@ -1,7 +1,6 @@
+import re
 from pathlib import Path
 from urllib.parse import urlsplit
-
-import re
 
 ROOT = Path(__file__).resolve().parents[2]
 STORE = ROOT / "storefront"
@@ -24,7 +23,7 @@ def test_local_page_links_have_files():
     missing = []
     for html in STORE.glob("*.html"):
         source = html.read_text(encoding="utf-8")
-        for match in re.finditer(r'(?:href|src)\s*=\s*["\']([^"\']+)["\']', source):
+        for match in re.finditer(r"""(?:href|src)\s*=\s*["']([^"']+)["']""", source):
             link = match.group(1)
             if not link or link.startswith(("#", "data:", "mailto:", "tel:", "/.netlify/")):
                 continue
