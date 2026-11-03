@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: vainahvpn-python-preview
+    runtime: python
+    plan: free
+    buildCommand: cd backend && pip install -e .
+    startCommand: cd backend && uvicorn vainah.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: VAINAH_MODE
+        value: preview
