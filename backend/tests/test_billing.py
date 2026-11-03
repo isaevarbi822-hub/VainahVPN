@@ -6,6 +6,7 @@ import time
 
 import httpx
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from vainah.billing import (
@@ -166,11 +167,11 @@ def test_provider_sandbox_create_and_signed_status():
     assert provider.process_webhook(event)["status"] == "paid"
     assert provider.process_webhook(event)["status"] == "paid"
     assert provider.read(order["order_id"])["vpn_delivered"] is False
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPException):
         provider.process_webhook({**event, "amount": "1.00"})
     refunded = {**event, "event_type": "payment.refunded", "status": "refunded"}
     assert provider.process_webhook(refunded)["status"] == "refunded"
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPException):
         provider.process_webhook(event)
 
 
