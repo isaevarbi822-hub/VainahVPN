@@ -8,6 +8,31 @@
   const money = amount => Number(amount).toLocaleString("ru-RU", {maximumFractionDigits: 0}) + " ₽";
   function message(text) { $("shop-config-status").textContent = text; }
   function testMessage(text) { $("shop-test-result").textContent = text; }
+  function explainProviderError(message) {
+    const match = String(message || "").match(/^PROVIDER_HTTP_(\\d{3})$/);
+    if(match){
+      const code = Number(match[1]);
+      const reasons = {
+        400:"Касса отклонила параметры или ограничения тестового счёта.",
+        401:"API-ключ недействителен или запрос не авторизован.",
+        403:"Касса не разрешает эту операцию.",
+        404:"Платёж или маршрут API не найден.",
+        409:"Конфликт запроса или повторное использование идентификатора.",
+        429:"Превышен лимит запросов. Не повторяй часто.",
+        500:"RollyPay вернул внутреннюю ошибку.",
+        502:"Промежуточный сервер платёжного сервиса не ответил.",
+        503:"RollyPay временно недоступен.",
+        504:"Истекло время ожидания платёжного сервиса."
+      };
+      return "RollyPay HTTP " + code + ". " + (reasons[code] || "Проверить настройки кассы и доступность API.");
+    }
+    if(message === "PROVIDER_SANDBOX_NOT_CONFIRMED") return "RollyPay не подтвердил тестовый режим. Создание счёта остановлено без перехода к оплате.";
+    if(message === "PROVIDER_TIMEOUT") return "Истекло время ожидания ответа RollyPay.";
+    if(message === "PROVIDER_NETWORK") return "Ошибка соединения с API RollyPay.";
+    if(message === "PROVIDER_NOT_CONFIGURED") return "На Python-сервере нет ROLLYPAY_API_KEY.";
+    if(message === "PROVIDER_MODE_NOT_ENABLED") return "Включён локальный mock, а не RollyPay sandbox.";
+    return String(message || "Неизвестная ошибка");
+  }
   async function api(path, options = {}, timeout = 14000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
@@ -108,6 +133,28 @@
       $("shop-buy").disabled = !state.config?.checkout_ready;
     }
   });
+  $("shop-test-diagnose").addEventListener("click", async () => {
+    if(state.busy) return;
+    state.busy = true;
+    $("shop-test-diagnose").disabled = true;
+    testMessage("Проверяем доступ к RollyPay без создания счёта…");
+    try {
+      const result = await api("/api/shop/sandbox/diagnostics", {
+        headers: {"X-Sandbox-Token": $("shop-test-token").value}
+      });
+      if(result.connected){
+        testMessage("Связь с API RollyPay подтверждена (чтение тестовых платежей). " +
+          "Это ещё не подтверждает возможность создать тестовый счёт.");
+      }else{
+        testMessage("Доступ к RollyPay не проверен: " + explainProviderError(result.reason));
+      }
+    }catch(err){
+      testMessage("Диагностика: " + explainProviderError(err.message));
+    }finally{
+      state.busy = false;
+      $("shop-test-diagnose").disabled = false;
+    }
+  });
   $("shop-test-create").addEventListener("click", async () => {
     if (state.busy || !state.selected || !state.config?.sandbox_available) return;
     const token = $("shop-test-token").value;
@@ -134,7 +181,7 @@
         $("shop-test-link").href = url.href;
         $("shop-test-link").hidden = false;
       }
-    } catch (err) { testMessage("Не удалось создать тестовый заказ: " + (err.message || "Ошибка сети")); }
+    } catch (err) { testMessage("Не удалось создать тестовый заказ: " + explainProviderError(err.message)); }
     finally {state.busy = false; $("shop-test-create").disabled = false;}
   });
   $("shop-test-refresh").addEventListener("click", async () => {
