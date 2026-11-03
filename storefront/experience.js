@@ -38,61 +38,50 @@
 
   const pageStatus=$('[data-service-status]');
   if(pageStatus){
-    const checks=[
-      {id:'database',endpoint:'database-health',ok:'База отвечает, таблицы найдены',bad:'База недоступна или не готова'},
-      {id:'h1',endpoint:'h1-panel-health',ok:'API-панель отвечает',bad:'Не удалось подтвердить доступность панели'},
-      {id:'rollypay',endpoint:'rollypay-health',ok:'Ключ API принят',bad:'Проверка API не пройдена'},
-      {id:'webhook',endpoint:'rollypay-webhook-health',ok:'Локальная проверка подписи работает',bad:'Подпись не настроена или тест не пройден'}
-    ];
+    const checks=['database','h1','rollypay','webhook'];
     const button=$('[data-status-refresh]',pageStatus);
     const updated=$('[data-status-updated]',pageStatus);
-    async function checkOne(check){
-      const element=$('[data-status-card="'+check.id+'"]',pageStatus);
-      const badge=$('[data-status-label]',element);
-      const detail=$('[data-status-detail]',element);
-      badge.dataset.kind='unknown';badge.textContent='Проверяем';
-      detail.textContent='Ожидаем ответ серверной функции…';
-      const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),9500);
-      try{
-        const response=await fetch('/.netlify/functions/'+check.endpoint,{
-          method:'GET',cache:'no-store',credentials:'omit',
-          signal:controller.signal,headers:{Accept:'application/json'}
-        });
-        const data=await response.json();
-        const ok=data&&data.ok===true&&response.ok;
-        badge.dataset.kind=ok?'ok':'problem';
-        badge.textContent=ok?'Проверка пройдена':'Есть проблема';
-        detail.textContent=ok?check.ok:check.bad;
-        if(check.id==='h1'&&!ok && data.reason){
-          const causes={
-            connection_failed:'Соединение или таймаут',
-            server_error:'Ошибка сервера H1Cloud',
-            rate_limited:'Временное ограничение запросов',
-            invalid_response:'Неожиданный ответ панели',
-            api_error:'Ошибка API',
-            unknown_error:'Причина не определена'
-          };
-          detail.textContent+=' · '+(causes[data.reason]||'Причина уточняется');
-        }
-        if(check.id==='webhook'&&ok){
-          detail.textContent+=' · Это не подтверждает получение callback от RollyPay';
-        }
-        return ok;
-      }catch{
-        badge.dataset.kind='unknown';badge.textContent='Нет данных';
-        detail.textContent='Не удалось загрузить результат. Это не доказывает неисправность сервиса.';
-        return false;
-      }finally{clearTimeout(timer)}
-    }
     async function refresh(){
       button.disabled=true;
       button.textContent='Проверяем сервисы…';
-      updated.textContent='Идёт проверка. Это разовый запрос, не постоянный мониторинг.';
+      updated.textContent='Проверяем Python API. H1Cloud без подключённого API не проверяется.';
       try{
-        const answers=await Promise.all(checks.map(checkOne));
-        updated.textContent='Последняя попытка проверки: '+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+
-          '. Успешно: '+answers.filter(Boolean).length+' из '+answers.length+'.';
+        const response=await fetch('/api/site/services',{
+          method:'GET',cache:'no-store',headers:{Accept:'application/json'}
+        });
+        if(!response.ok)throw Error('API '+response.status);
+        const data=await response.json();
+        if(!data||!data.services)throw Error('Некорректный формат');
+        let okCount=0;
+        for(const id of checks){
+          const element=$('[data-status-card="'+id+'"]',pageStatus);
+          if(!element)continue;
+          const badge=$('[data-status-label]',element);
+          const detail=$('[data-status-detail]',element);
+          const item=data.services[id];
+          if(item&&item.status==='ok'){
+            badge.dataset.kind='ok';badge.textContent='Проверка пройдена';okCount++;
+          }else if(item&&item.status==='sandbox'){
+            badge.dataset.kind='unknown';badge.textContent='Тестовый режим';
+          }else{
+            badge.dataset.kind='unknown';badge.textContent='Не подключено';
+          }
+          detail.textContent=item&&item.message?item.message:'Нет подтверждённых данных.';
+        }
+        updated.textContent='Проверено: '+new Date().toLocaleTimeString('ru-RU',{
+          hour:'2-digit',minute:'2-digit'
+        })+'. Подтверждённых работающих сервисов: '+okCount+' из '+checks.length+
+        '. Неподключённые сервисы не считаются неисправными.';
+      }catch(err){
+        for(const id of checks){
+          const element=$('[data-status-card="'+id+'"]',pageStatus);
+          if(!element)continue;
+          const badge=$('[data-status-label]',element);
+          const detail=$('[data-status-detail]',element);
+          badge.dataset.kind='unknown';badge.textContent='Нет данных';
+          detail.textContent='Python API не ответил. Проверь запуск локального сайта.';
+        }
+        updated.textContent='Не удалось получить данные с Python-сервера: '+err.message;
       }finally{
         button.disabled=false;button.textContent='↻ Обновить статусы';
       }
@@ -103,10 +92,10 @@
 
   const launch=$('[data-checkout-message]');
   if(launch){
-    fetch('/.netlify/functions/subscription-plans',{cache:'no-store',credentials:'omit'})
+    fetch('/api/shop/config',{cache:'no-store',credentials:'omit'})
       .then(r=>r.ok?r.json():Promise.reject(Error('plans')))
       .then(data=>{
-        launch.textContent=data.checkoutReady===true?
+        launch.textContent=data.checkout_ready===true?
           'Онлайн-оформление доступно после входа через Telegram.':
           'Онлайн-оплата пока отключена. Тарифы можно изучить без списаний.';
       })
