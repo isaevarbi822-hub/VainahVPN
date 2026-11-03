@@ -26,7 +26,7 @@ import android.widget.TextView
  * VainahVpnService exclusively owns the real libbox VPN session.
  */
 class MainActivity : Activity() {
-    private enum class Page { HOME, ACCOUNT, HELP }
+    private enum class Page { HOME, LOCATIONS, ACCOUNT, DEVICES, DIAGNOSTICS, SECURITY, SETTINGS, MORE }
     private var page = Page.HOME
     private lateinit var source: SubscriptionController
     private var nodes: List<VainahNode> = emptyList()
@@ -167,24 +167,36 @@ class MainActivity : Activity() {
         add(body, tag("VAINAH VPN / NEXT"))
         add(body, t(when (page) {
             Page.HOME -> "Твоё соединение. Твои правила."
+            Page.LOCATIONS -> "Серверы и локации"
             Page.ACCOUNT -> "Мой VPN"
-            Page.HELP -> "Диагностика"
+            Page.DEVICES -> "Мои устройства"
+            Page.DIAGNOSTICS -> "Диагностика"
+            Page.SECURITY -> "Безопасность"
+            Page.SETTINGS -> "Настройки"
+            Page.MORE -> "Больше возможностей"
         }, 25f, white, true), 8)
         add(body, t("Android · " + BuildConfig.VERSION_NAME, 12f, grey), 7)
         when (page) {
             Page.HOME -> home(body)
+            Page.LOCATIONS -> locations(body)
             Page.ACCOUNT -> account(body)
-            Page.HELP -> help(body)
+            Page.DEVICES -> devices(body)
+            Page.DIAGNOSTICS -> help(body)
+            Page.SECURITY -> security(body)
+            Page.SETTINGS -> settings(body)
+            Page.MORE -> more(body)
         }
         val nav = horizontal().apply {
             setBackgroundColor(card)
             setPadding(dp(12), dp(9), dp(12), dp(9))
         }
+        val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
+                Page.SECURITY, Page.SETTINGS)) Page.MORE else page
         for ((target, label) in listOf(
-            Page.HOME to "Главная", Page.ACCOUNT to "Мой VPN",
-            Page.HELP to "Помощь"
+            Page.HOME to "Главная", Page.LOCATIONS to "Серверы",
+            Page.ACCOUNT to "Мой VPN", Page.MORE to "Ещё"
         )) {
-            val button = action(label, target == page).apply {
+            val button = action(label, target == selectedTab).apply {
                 minHeight = dp(44)
                 textSize = 12f
                 setOnClickListener {
@@ -363,6 +375,144 @@ class MainActivity : Activity() {
         val retry = action("Обновить серверы")
         add(info, retry, 12)
         retry.setOnClickListener { page = Page.HOME; render(); refreshServers(true) }
+    }
+
+
+    // Each screen reads actual subscription/service state; no invented ping,
+    // traffic numbers, expiry dates or subscription-device limits.
+    private fun locations(body: LinearLayout) {
+        val locationCard = card()
+        add(body, locationCard, 21)
+        add(locationCard, tag("Локации из подписки"))
+        add(locationCard, t("Доступные серверы", 20f, white, true), 9)
+        add(locationCard, t(source.sourceLabel(), 12f, grey), 9)
+        add(locationCard, t(if (nodes.isEmpty()) "Нет загруженных серверов." else
+            cacheMessage, 12f, grey), 8)
+        lastError?.let { add(locationCard, t(it, 12f, errorColor), 9) }
+        if (nodes.isEmpty()) {
+            add(locationCard, t(
+                "Добавь HTTPS-подписку или VLESS-ключ. Локации, названия " +
+                    "и доступность не подменяются демоданными.", 13f, grey), 13)
+        }
+        for (node in nodes) {
+            val choose = action(
+                (if (node.uri == selected?.uri) "✓  " else "") + node.label)
+            add(locationCard, choose, 8)
+            choose.setOnClickListener {
+                selected = node
+                page = Page.HOME
+                render()
+            }
+        }
+        val refresh = action(if (source.busy) "Обновление…" else "Обновить локации", true)
+        refresh.isEnabled = !source.busy
+        add(locationCard, refresh, 17)
+        refresh.setOnClickListener { refreshServers(true) }
+        val import = action("Добавить подписку")
+        add(locationCard, import, 9)
+        import.setOnClickListener { page = Page.ACCOUNT; render() }
+
+        val note = card()
+        add(body, note, 15)
+        add(note, tag("Задержка и работа серверов"))
+        add(note, t("Пинг не измерен", 17f, white, true), 10)
+        add(note, t("Реальная задержка появится только после проверки сети. " +
+            "Наличие узла в подписке не означает, что сервер сейчас доступен.",
+            12f, grey), 9)
+    }
+
+    private fun devices(body: LinearLayout) {
+        val deviceCard = card()
+        add(body, deviceCard, 21)
+        add(deviceCard, tag("Устройства"))
+        add(deviceCard, t("Этот Android", 19f, white, true), 9)
+        add(deviceCard, t("Android " + Build.VERSION.RELEASE +
+            " · " + android.os.Build.MANUFACTURER, 12f, grey), 10)
+        add(deviceCard, t("Список привязанных устройств и лимиты из H1Cloud " +
+            "появятся только после авторизованной синхронизации. " +
+            "Данные аккаунта здесь не выдумываются.", 12f, grey), 12)
+        val details = card()
+        add(body, details, 15)
+        add(details, tag("Платформы"))
+        for (platform in listOf(
+            "Android · libbox / VpnService",
+            "Windows · отдельный туннель",
+            "macOS · нативный сетевой модуль",
+            "iOS / iPadOS · Network Extension")) {
+            add(details, t("•  " + platform, 13f, grey), 11)
+        }
+        add(details, t("Сборки других платформ ещё не опубликованы.", 12f, teal), 14)
+    }
+
+    private fun security(body: LinearLayout) {
+        val protection = card()
+        add(body, protection, 21)
+        add(protection, tag("Контроль безопасности"))
+        add(protection, t("Только проверенные состояния", 19f, white, true), 9)
+        val snapshot = VpnConnectionState.read(this)
+        add(protection, t(
+            if (snapshot.canDisconnect) "Туннель запущен; защита трафика не подтверждена."
+            else "Нет подтверждённого VPN-соединения.", 13f,
+            if (snapshot.canDisconnect) teal else grey), 12)
+        for (note in listOf(
+            "✓  Конфигурации сохраняются в Android Keystore",
+            "✓  TLS-проверка подписки не отключается",
+            "•  DNS/IPv6-утечки не проверены на этом устройстве",
+            "•  Kill switch требует отдельных системных проверок",
+            "•  Приложение не заявляет об анонимности без тестов")) {
+            add(protection, t(note, 12f, grey), 11)
+        }
+        val diag = action("Открыть диагностику")
+        add(protection, diag, 17)
+        diag.setOnClickListener { page = Page.DIAGNOSTICS; render() }
+    }
+
+    private fun settings(body: LinearLayout) {
+        val preferences = card()
+        add(body, preferences, 21)
+        add(preferences, tag("Настройки подключения"))
+        add(preferences, t("Параметры Vainah Next", 19f, white, true), 8)
+        add(preferences, t(
+            "Смена Wi-Fi/4G/5G, защита от утечек и автоподключение " +
+                "будут включаться по мере тестирования нативного движка.",
+            12f, grey), 11)
+        val subscriptionButton = action("Управление подпиской")
+        add(preferences, subscriptionButton, 14)
+        subscriptionButton.setOnClickListener { page = Page.ACCOUNT; render() }
+        val safe = action("Диагностика DNS, HTTPS и туннеля")
+        add(preferences, safe, 9)
+        safe.setOnClickListener { page = Page.DIAGNOSTICS; render() }
+        val privacy = action("Настройки безопасности")
+        add(preferences, privacy, 9)
+        privacy.setOnClickListener { page = Page.SECURITY; render() }
+
+        val version = card()
+        add(body, version, 15)
+        add(version, tag("О приложении"))
+        add(version, t("Vainah VPN Next " + BuildConfig.VERSION_NAME,
+            16f, white, true), 9)
+        add(version, t("Тестовая сборка. Приложение не связано с " +
+            "действующей оплатой. Не заменяет проверку реального VPN на Android.",
+            12f, grey), 10)
+    }
+
+    private fun more(body: LinearLayout) {
+        val hub = card()
+        add(body, hub, 21)
+        add(hub, tag("VAINAH NEXT / РАЗДЕЛЫ"))
+        add(hub, t("Все инструменты в одном месте", 19f, white, true), 10)
+        add(hub, t("Настройки, устройства и информация о безопасности.",
+            12f, grey), 8)
+        for ((target, label) in listOf(
+            Page.DEVICES to "Мои устройства",
+            Page.DIAGNOSTICS to "Диагностика соединения",
+            Page.SECURITY to "Безопасность и приватность",
+            Page.SETTINGS to "Настройки приложения",
+            Page.ACCOUNT to "Подписка и вход")) {
+            val button = action(label)
+            add(hub, button, 10)
+            button.setOnClickListener { page = target; render() }
+        }
     }
 
     private fun refreshServers(manual: Boolean) {
