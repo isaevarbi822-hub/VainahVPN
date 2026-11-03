@@ -22,6 +22,8 @@ from pydantic import BaseModel, ConfigDict
 
 API = "https://rollypay.io/api/v1/payments"
 PAY_URL_RE = re.compile(r"/pay/[A-Za-z0-9_-]{6,255}/?")
+# Payment IDs are opaque. Restrict to safe URL-path bytes rather than pay_-only.
+PAYMENT_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{5,127}")
 ORDER_RE = re.compile(r"vainah_test_[0-9a-f]{32}")
 STATUS = frozenset(("created", "processing", "paid", "canceled", "expired",
                     "refunded", "chargeback"))
@@ -197,7 +199,7 @@ class BillingSandbox:
             status = result.get("status")
             if not isinstance(payment_id, str) or not payment_id:
                 raise ProviderError("PROVIDER_PAYMENT_ID_MISSING")
-            if not re.fullmatch(r"pay_[A-Za-z0-9_-]{6,127}", payment_id):
+            if not PAYMENT_ID_RE.fullmatch(payment_id):
                 raise ProviderError("PROVIDER_PAYMENT_ID_FORMAT")
             if status not in {"created", "processing"}:
                 raise ProviderError("PROVIDER_PAYMENT_STATUS_INVALID")
@@ -215,7 +217,7 @@ class BillingSandbox:
         """Fetch status from RollyPay; reject any response without sandbox markers."""
         if not self.api_key:
             raise ProviderError("PROVIDER_NOT_CONFIGURED")
-        if not re.fullmatch(r"pay_[A-Za-z0-9_-]{6,127}", payment_id):
+        if not PAYMENT_ID_RE.fullmatch(payment_id):
             raise ProviderError("PROVIDER_PAYMENT_INVALID")
         try:
             async with httpx.AsyncClient(timeout=8, follow_redirects=False,
