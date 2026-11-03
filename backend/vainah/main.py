@@ -10,15 +10,18 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .billing import router as shop_router
 from .config import Settings
 from .inspector import InvalidSubscription, inspect_subscription
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB_DIR = ROOT / "web"
+STORE_DIR = ROOT / "storefront"
 settings = Settings.from_env()
 
 app = FastAPI(title="Vainah VPN", version=settings.version, docs_url="/docs", redoc_url=None)
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
+app.include_router(shop_router)
 
 
 @app.middleware("http")
@@ -27,11 +30,22 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self'; style-src 'self'; "
-        "img-src 'self' data:; connect-src 'self'; object-src 'none'; "
-        "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-    )
+    # Historical storefront uses inline page scripts and style attributes.
+    # Checkout API, billing credentials and web dashboard remain separate.
+    if request.url.path == "/" or request.url.path.endswith(".html"):
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self' 'unsafe-inline' "
+            "https://telegram.org https://oauth.telegram.org; "
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; "
+            "connect-src 'self'; frame-src https://oauth.telegram.org; "
+            "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+        )
+    else:
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self'; style-src 'self'; "
+            "img-src 'self' data:; connect-src 'self'; object-src 'none'; "
+            "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        )
     if request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
     return response
@@ -41,7 +55,7 @@ class ImportRequest(BaseModel):
     content: str = Field(min_length=1, max_length=65536)
 
 
-@app.get("/", include_in_schema=False)
+@app.get("/app", include_in_schema=False)
 async def home():
     return FileResponse(WEB_DIR / "index.html", media_type="text/html")
 
@@ -114,3 +128,12 @@ async def security():
         "user_data_connected": False, "subscription_secrets_stored": False,
         "native_tunnel_attached": False,
     }
+
+@app.get("/api/site/locations")
+async def public_site_locations():
+    return {"locations": [], "source": "not_connected"}
+
+
+# Public historical website is mounted AFTER the API.
+# New standalone dashboard is available at /app.
+app.mount("/", StaticFiles(directory=STORE_DIR, html=True), name="storefront")
