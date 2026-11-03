@@ -162,8 +162,10 @@ class BillingSandbox:
             result = await self.provider_create(order_id, plan)
             if result.get("order_id") != order_id or str(result.get("amount")) != amount:
                 raise ProviderError("PROVIDER_ORDER_OR_AMOUNT_MISMATCH")
-            if result.get("payment_currency") != "RUB" or result.get("test") is False:
-                raise ProviderError("PROVIDER_CURRENCY_OR_MODE_MISMATCH")
+            if (result.get("payment_currency") != "RUB"
+                    or result.get("test") is not True
+                    or result.get("environment") != "sandbox"):
+                raise ProviderError("PROVIDER_SANDBOX_NOT_CONFIRMED")
             payment_id = result.get("payment_id")
             status = result.get("status")
             if (not isinstance(payment_id, str)
@@ -179,6 +181,67 @@ class BillingSandbox:
         with self.lock:
             self.orders[order_id] = order
         return self.serialize(order)
+
+    async def provider_read(self, payment_id: str) -> dict:
+        """Fetch status from RollyPay; reject any response without sandbox markers."""
+        if not self.api_key:
+            raise ProviderError("PROVIDER_NOT_CONFIGURED")
+        if not re.fullmatch(r"pay_[A-Za-z0-9_-]{6,127}", payment_id):
+            raise ProviderError("PROVIDER_PAYMENT_INVALID")
+        try:
+            async with httpx.AsyncClient(timeout=8, follow_redirects=False,
+                                         transport=self.transport) as client:
+                response = await client.get(
+                    API + "/" + payment_id,
+                    headers={"X-API-Key": self.api_key,
+                             "X-Nonce": str(uuid4()),
+                             "Accept": "application/json"},
+                )
+        except httpx.TimeoutException as exc:
+            raise ProviderError("PROVIDER_TIMEOUT") from exc
+        except httpx.RequestError as exc:
+            raise ProviderError("PROVIDER_NETWORK") from exc
+        if not 200 <= response.status_code <= 299:
+            raise ProviderError(f"PROVIDER_HTTP_{response.status_code}")
+        if len(response.content) > 65536:
+            raise ProviderError("PROVIDER_RESPONSE_INVALID")
+        try:
+            result = response.json()
+        except ValueError as exc:
+            raise ProviderError("PROVIDER_RESPONSE_INVALID") from exc
+        if not isinstance(result, dict):
+            raise ProviderError("PROVIDER_RESPONSE_INVALID")
+        return result
+
+    async def refresh(self, order_id: str) -> dict:
+        existing = self.read(order_id)
+        if existing["mode"] != "provider":
+            return existing
+        result = await self.provider_read(self.orders[order_id].payment_id)
+        expected = self.read(order_id)
+        if (result.get("test") is not True
+                or result.get("environment") != "sandbox"):
+            raise ProviderError("PROVIDER_SANDBOX_NOT_CONFIRMED")
+        if (result.get("order_id") != order_id
+                or result.get("payment_id") != self.orders[order_id].payment_id
+                or str(result.get("amount")) != expected["amount_rub"]
+                or result.get("payment_currency") != "RUB"):
+            raise ProviderError("PROVIDER_ORDER_OR_AMOUNT_MISMATCH")
+        status = result.get("status")
+        if status not in STATUS:
+            raise ProviderError("PROVIDER_STATUS_INVALID")
+        with self.lock:
+            order = self.orders[order_id]
+            if order.status in {"refunded", "chargeback"} and status not in {
+                "refunded", "chargeback"
+            }:
+                raise ProviderError("PROVIDER_STATUS_REGRESSION")
+            if order.status == "paid" and status in {
+                "created", "processing", "canceled", "expired"
+            }:
+                raise ProviderError("PROVIDER_STATUS_REGRESSION")
+            order.status = status
+            return self.serialize(order)
 
     def read(self, order_id: str) -> dict:
         if not ORDER_RE.fullmatch(order_id):
@@ -302,10 +365,17 @@ async def start_sandbox(body: StartSandbox,
 
 
 @router.get("/sandbox/{order_id}")
-def sandbox_status(order_id: str,
-                   x_sandbox_token: str | None = Header(default=None)) -> dict:
+async def sandbox_status(order_id: str,
+                         x_sandbox_token: str | None = Header(default=None)) -> dict:
     _require_operator(x_sandbox_token)
-    return sandbox.read(order_id)
+    if sandbox.mode == "provider" and os.environ.get(
+        "VAINAH_SHOP_PROVIDER_TEST_ENABLED"
+    ) != "enabled":
+        raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
+    try:
+        return await sandbox.refresh(order_id)
+    except ProviderError as exc:
+        raise HTTPException(502, exc.code) from None
 
 
 @router.post("/sandbox/{order_id}/simulate")
