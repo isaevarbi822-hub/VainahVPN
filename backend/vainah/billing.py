@@ -195,10 +195,12 @@ class BillingSandbox:
                 raise ProviderError("PROVIDER_SANDBOX_NOT_CONFIRMED")
             payment_id = result.get("payment_id")
             status = result.get("status")
-            if (not isinstance(payment_id, str)
-                    or not re.fullmatch(r"pay_[A-Za-z0-9_-]{6,127}", payment_id)
-                    or status not in {"created", "processing"}):
-                raise ProviderError("PROVIDER_PAYMENT_INVALID")
+            if not isinstance(payment_id, str) or not payment_id:
+                raise ProviderError("PROVIDER_PAYMENT_ID_MISSING")
+            if not re.fullmatch(r"pay_[A-Za-z0-9_-]{6,127}", payment_id):
+                raise ProviderError("PROVIDER_PAYMENT_ID_FORMAT")
+            if status not in {"created", "processing"}:
+                raise ProviderError("PROVIDER_PAYMENT_STATUS_INVALID")
             try:
                 pay_url = safe_pay_url(result.get("pay_url"))
             except ValueError as exc:
