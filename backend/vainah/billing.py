@@ -111,6 +111,33 @@ class BillingSandbox:
         self.lock = RLock()
         self.orders: dict[str, TestOrder] = {}
 
+    async def provider_diagnostics(self) -> dict:
+        """Read-only, authorized test of merchant API connectivity.
+
+        Never returns provider response bodies, payment IDs, tokens or orders.
+        A successful list read proves API access, NOT checkout availability.
+        """
+        if not self.api_key:
+            raise ProviderError("PROVIDER_NOT_CONFIGURED")
+        try:
+            async with httpx.AsyncClient(timeout=8, follow_redirects=False,
+                                         transport=self.transport) as client:
+                response = await client.get(
+                    API + "?environment=sandbox",
+                    headers={"X-API-Key": self.api_key,
+                             "X-Nonce": str(uuid4()),
+                             "Accept": "application/json"},
+                )
+        except httpx.TimeoutException as exc:
+            raise ProviderError("PROVIDER_TIMEOUT") from exc
+        except httpx.RequestError as exc:
+            raise ProviderError("PROVIDER_NETWORK") from exc
+        if not 200 <= response.status_code <= 299:
+            raise ProviderError(f"PROVIDER_HTTP_{response.status_code}")
+        return {"connected": True, "mode": "provider-sandbox",
+                "request": "GET payments?environment=sandbox",
+                "new_payment_created": False, "live_checkout_enabled": False}
+
     async def provider_create(self, order_id: str, plan: dict) -> dict:
         if not self.api_key:
             raise ProviderError("PROVIDER_NOT_CONFIGURED")
@@ -346,6 +373,25 @@ def config() -> dict:
 def public_checkout(_: StartSandbox) -> None:
     # Do not charge guests or pretend successful delivery.
     raise HTTPException(503, "LIVE_CHECKOUT_NOT_READY")
+
+
+@router.get("/sandbox/diagnostics")
+async def sandbox_diagnostics(
+    x_sandbox_token: str | None = Header(default=None),
+) -> dict:
+    _require_operator(x_sandbox_token)
+    if os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") != "enabled":
+        raise HTTPException(503, "SANDBOX_DISABLED")
+    if sandbox.mode != "provider" or os.environ.get(
+        "VAINAH_SHOP_PROVIDER_TEST_ENABLED"
+    ) != "enabled":
+        return {"connected": False, "mode": "mock",
+                "reason": "PROVIDER_MODE_NOT_ENABLED",
+                "new_payment_created": False}
+    try:
+        return await sandbox.provider_diagnostics()
+    except ProviderError as exc:
+        raise HTTPException(502, exc.code) from None
 
 
 @router.post("/sandbox/start")
