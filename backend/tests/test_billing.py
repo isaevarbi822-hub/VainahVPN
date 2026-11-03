@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import hmac
 import json
@@ -9,7 +10,6 @@ from fastapi.testclient import TestClient
 
 from vainah.billing import (
     BillingSandbox,
-    CATALOG,
     ProviderError,
     safe_pay_url,
     verify_signature,
@@ -134,8 +134,7 @@ def test_webhook_fails_without_secret_or_authorized_test_order(monkeypatch):
     assert r.status_code == 403
 
 
-@pytest.mark.asyncio
-async def test_provider_sandbox_create_and_signed_status():
+def test_provider_sandbox_create_and_signed_status():
     payloads = []
 
     def mock_response(request: httpx.Request) -> httpx.Response:
@@ -155,7 +154,7 @@ async def test_provider_sandbox_create_and_signed_status():
             "pay_url": "https://pay.rollypay.io/pay/tok_123456",
         })
     provider = BillingSandbox("provider", "unit-test-key", httpx.MockTransport(mock_response))
-    order = await provider.create("30")
+    order = asyncio.run(provider.create("30"))
     assert order["mode"] == "provider"
     assert order["pay_url"].startswith("https://pay.rollypay.io/")
     assert len(payloads) == 1
@@ -175,8 +174,7 @@ async def test_provider_sandbox_create_and_signed_status():
         provider.process_webhook(event)
 
 
-@pytest.mark.asyncio
-async def test_provider_rejects_unsafe_return_link_and_does_not_save_order():
+def test_provider_rejects_unsafe_return_link_and_does_not_save_order():
     def malicious(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
         return httpx.Response(200, json={
@@ -186,6 +184,6 @@ async def test_provider_rejects_unsafe_return_link_and_does_not_save_order():
         })
     provider = BillingSandbox("provider", "unit-test-key", httpx.MockTransport(malicious))
     with pytest.raises(ProviderError) as err:
-        await provider.create("30")
+        asyncio.run(provider.create("30"))
     assert str(err.value) == "PROVIDER_PAYMENT_LINK_INVALID"
     assert not provider.orders
