@@ -1,7 +1,7 @@
 name: Python backend checks
 on:
   push:
-    branches: [main, feat/python-platform-foundation]
+    branches: [main, feat/python-platform-foundation, feat/unified-android-python]
   pull_request:
 
 jobs:
