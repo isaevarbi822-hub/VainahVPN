@@ -10,9 +10,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .auth import auth_public_config, router as auth_router
 from .billing import router as shop_router
 from .config import Settings
 from .db_health import database_status
+from .h1_panel import public_h1_status, router as h1_router
 from .inspector import InvalidSubscription, inspect_subscription
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,6 +25,8 @@ settings = Settings.from_env()
 app = FastAPI(title="Vainah VPN", version=settings.version, docs_url="/docs", redoc_url=None)
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 app.include_router(shop_router)
+app.include_router(auth_router)
+app.include_router(h1_router)
 
 
 @app.middleware("http")
@@ -91,8 +95,8 @@ async def diagnostics():
     return {
         "checks": [
             {"key": "api", "name": "Python API", "state": "ok", "note": "Сервер отвечает."},
-            {"key": "identity", "name": "Авторизация Clerk", "state": "pending", "note": "Проверка JWT не подключена."},
-            {"key": "provider", "name": "H1Cloud", "state": "pending", "note": "Не подключён реальный API."},
+            {"key": "identity", "name": "Авторизация Clerk", "state": "configured" if auth_public_config()["jwt_verification_ready"] else "pending", "note": "Сервер может проверять JWT, вход на сайте пока отключён." if auth_public_config()["jwt_verification_ready"] else "Проверка JWT не настроена."},
+            {"key": "provider", "name": "H1Cloud", "state": public_h1_status()["status"], "note": public_h1_status()["message"]},
             {"key": "tunnel", "name": "libbox VPN", "state": "pending", "note": "Нужен нативный клиент и VpnService."},
             {"key": "payments", "name": "Платежи", "state": "disabled", "note": "Отключено до безопасной интеграции."},
         ],
@@ -144,10 +148,8 @@ async def public_site_services():
                 "message": "Python API отвечает.",
             },
             "database": db,
-            "h1": {
-                "status": "not_connected",
-                "message": "Панель H1Cloud пока не подключена к этому сайту. Состояние VPN-серверов неизвестно.",
-            },
+            "h1": public_h1_status(),
+            "identity": auth_public_config(),
             "rollypay": {
                 "status": "sandbox" if sandbox.mode == "mock" else "not_verified",
                 "message": (
