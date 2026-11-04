@@ -310,3 +310,94 @@ def test_h1_operator_client_check_requires_token_and_uses_post(monkeypatch):
         secret not in allowed.text for secret in
         ["secret-uuid", "vless://", "user-secret", "subscription_url"]
     )
+
+
+def test_h1_issued_client_read_only_and_redacted(config):
+    import asyncio
+
+    from vainah.h1_panel import read_h1_issued_client_status
+
+    client_name = "vn" + "a" * 28
+    observed = []
+
+    def provider(request: httpx.Request):
+        observed.append((request.method, str(request.url)))
+        return httpx.Response(200, json={
+            "ok": True, "client": {
+                "name": client_name,
+                "expires_at": 2000000000,
+                "device_limit": 3,
+                "subscription_url": "https://sub.example/private-secret",
+                "uuid": "hidden-user-uuid",
+            },
+        })
+
+    result = asyncio.run(read_h1_issued_client_status(
+        client_name, transport=httpx.MockTransport(provider),
+        now=1800000000,
+    ))
+    assert result["active"] is True
+    assert result["found"] is True
+    assert observed == [
+        ("GET", f"https://vpn-panel.example.com/api/info?name={client_name}")
+    ]
+    assert "private-secret" not in str(result)
+    assert "hidden-user-uuid" not in str(result)
+    assert TOKEN not in str(result)
+
+
+@pytest.mark.parametrize("client_name", [
+    "", "vn123", "vn" + "g" * 28, "tg123456",
+    "vn" + "a" * 27 + "/api/create",
+])
+def test_h1_issued_client_rejects_untrusted_names(config, client_name):
+    import asyncio
+
+    from vainah.h1_panel import read_h1_issued_client_status
+
+    with pytest.raises(H1PanelError, match="CLIENT_NAME_INVALID"):
+        asyncio.run(read_h1_issued_client_status(
+            client_name, transport=httpx.MockTransport(
+                lambda _request: pytest.fail("Invalid name must not be sent")
+            )
+        ))
+
+
+def test_h1_operator_client_check_for_issued_name(monkeypatch):
+    from vainah import h1_panel
+
+    issued_name = "vn" + "b" * 28
+    monkeypatch.setenv("VAINAH_SANDBOX_TEST_TOKEN", "x" * 32)
+    seen = []
+
+    async def fake_read(name: str):
+        seen.append(name)
+        return {
+            "panel_ready": True, "found": False, "active": False,
+            "expires_at": None,
+        }
+
+    monkeypatch.setattr(h1_panel, "read_h1_issued_client_status", fake_read)
+    headers = {"X-Sandbox-Token": "x" * 32}
+    response = client.post(
+        "/api/site/integrations/h1cloud/client/check",
+        json={"client_name": issued_name},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": True, "found": False, "active": False,
+        "banned": False, "expires_at": None, "vpn_delivered": False,
+    }
+    assert seen == [issued_name]
+
+    for payload in (
+        {}, {"telegram_id": "123", "client_name": issued_name},
+        {"client_name": "vn123"}, {"client_name": issued_name, "admin": True},
+    ):
+        rejected = client.post(
+            "/api/site/integrations/h1cloud/client/check",
+            json=payload, headers=headers,
+        )
+        assert rejected.status_code == 422
+    assert seen == [issued_name]
