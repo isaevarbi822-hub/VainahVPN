@@ -154,7 +154,7 @@ def test_prior_verified_telegram_email_can_use_same_subscription_portal(
     )
     monkeypatch.setattr(
         customer_portal, "customer_receipts",
-        lambda telegram_id: [] if telegram_id == "123456789" else [],
+        lambda _telegram_id: [],
     )
 
     async def status(telegram_id):
