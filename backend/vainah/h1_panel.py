@@ -18,7 +18,7 @@ from urllib.parse import urlencode, urlsplit
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .billing import _require_operator
 
@@ -136,16 +136,15 @@ def public_h1_status() -> dict:
             "message": "Настройки панели найдены. Проверка связи ещё не выполнена."}
 
 
-async def read_h1_status(telegram_id: str, *,
-                         transport: httpx.AsyncBaseTransport | None = None,
-                         now: float | None = None) -> dict:
-    if not re.fullmatch(r"[1-9][0-9]{0,17}", telegram_id):
-        raise H1PanelError("TELEGRAM_ID_INVALID")
+async def _read_h1_client_name(
+    name: str, *, transport: httpx.AsyncBaseTransport | None = None,
+    now: float | None = None,
+) -> dict:
+    """Read a validated H1 username over verified TLS; redact response."""
     settings = panel_settings()
     if settings is None:
         return {"panel_ready": False, "found": False,
                 "active": False, "expires_at": None}
-    name = settings.prefix + telegram_id
     try:
         async with httpx.AsyncClient(
             timeout=8, follow_redirects=False, trust_env=False,
@@ -201,6 +200,34 @@ async def read_h1_status(telegram_id: str, *,
     }
 
 
+async def read_h1_status(
+    telegram_id: str, *, transport: httpx.AsyncBaseTransport | None = None,
+    now: float | None = None,
+) -> dict:
+    """Legacy Telegram-scoped user lookup."""
+    if not re.fullmatch(r"[1-9][0-9]{0,17}", telegram_id):
+        raise H1PanelError("TELEGRAM_ID_INVALID")
+    settings = panel_settings()
+    if settings is None:
+        return {"panel_ready": False, "found": False,
+                "active": False, "expires_at": None}
+    return await _read_h1_client_name(
+        settings.prefix + telegram_id, transport=transport, now=now
+    )
+
+
+async def read_h1_issued_client_status(
+    client_name: str, *, transport: httpx.AsyncBaseTransport | None = None,
+    now: float | None = None,
+) -> dict:
+    """Look up only Vainah-issued pseudonymous usernames, not arbitrary users."""
+    if not re.fullmatch(r"vn[0-9a-f]{28}", client_name):
+        raise H1PanelError("CLIENT_NAME_INVALID")
+    return await _read_h1_client_name(
+        client_name, transport=transport, now=now
+    )
+
+
 async def inspect_h1_panel(*,
                            transport: httpx.AsyncBaseTransport | None = None) -> dict:
     try:
@@ -242,9 +269,22 @@ async def h1cloud_check(x_sandbox_token: str | None = Header(default=None)) -> d
 
 
 class H1ClientCheckRequest(BaseModel):
-    """Legacy H1 user identifier; never put this in an access-log URL."""
+    """Exactly one H1 username selector; never put identifiers into URL logs."""
 
-    telegram_id: str = Field(pattern=r"^[1-9][0-9]{0,17}$")
+    model_config = ConfigDict(extra="forbid")
+
+    telegram_id: str | None = Field(
+        default=None, pattern=r"^[1-9][0-9]{0,17}$"
+    )
+    client_name: str | None = Field(
+        default=None, pattern=r"^vn[0-9a-f]{28}$"
+    )
+
+    @model_validator(mode="after")
+    def exactly_one_selector(self) -> "H1ClientCheckRequest":
+        if (self.telegram_id is None) == (self.client_name is None):
+            raise ValueError("Provide exactly one H1 client selector")
+        return self
 
 
 @router.post("/h1cloud/client/check")
@@ -259,7 +299,10 @@ async def h1cloud_client_check(
     """
     _require_operator(x_sandbox_token)
     try:
-        status = await read_h1_status(body.telegram_id)
+        if body.client_name is not None:
+            status = await read_h1_issued_client_status(body.client_name)
+        else:
+            status = await read_h1_status(body.telegram_id)
     except H1PanelError as exc:
         # Sanitized codes only; never expose the URL, token or provider text.
         raise HTTPException(status_code=503, detail=exc.code) from None
