@@ -100,6 +100,28 @@ def panel_settings() -> H1PanelSettings | None:
     )
 
 
+
+def panel_tls_verify() -> ssl.SSLContext | bool:
+    """Verify HTTPS by public roots or a deliberately configured private CA.
+
+    Never disable certificate or hostname validation. A private H1Cloud
+    management API may use a private CA: the operator can supply its CA
+    certificate (public material) as PANEL_TLS_CA_PEM in Render.
+    """
+    pem = os.environ.get("PANEL_TLS_CA_PEM", "").strip()
+    if not pem:
+        return True
+    if (len(pem) > 20_000 or not pem.startswith("-----BEGIN CERTIFICATE-----")
+            or "-----END CERTIFICATE-----" not in pem
+            or "PRIVATE KEY" in pem):
+        raise H1PanelError("PANEL_CA_INVALID")
+    try:
+        return ssl.create_default_context(cadata=pem)
+    except (ValueError, ssl.SSLError):
+        raise H1PanelError("PANEL_CA_INVALID") from None
+
+
+
 def public_h1_status() -> dict:
     try:
         settings = panel_settings()
@@ -126,7 +148,7 @@ async def read_h1_status(telegram_id: str, *,
     try:
         async with httpx.AsyncClient(
             timeout=8, follow_redirects=False, trust_env=False,
-            transport=transport
+            verify=panel_tls_verify(), transport=transport
         ) as client:
             response = await client.get(
                 f"{settings.origin}/api/info?{urlencode({'name': name})}",
@@ -186,7 +208,7 @@ async def inspect_h1_panel(*,
         if error.code == "PANEL_UNAUTHORIZED":
             return {"ok": False, "panel": "reachable",
                     "authentication": "rejected"}
-        if error.code in {"PANEL_URL_INVALID", "PANEL_PREFIX_INVALID"}:
+        if error.code in {"PANEL_URL_INVALID", "PANEL_PREFIX_INVALID", "PANEL_CA_INVALID"}:
             return {"ok": False, "panel": "invalid_configuration"}
         return {"ok": False, "panel": "unavailable",
                 "reason": {

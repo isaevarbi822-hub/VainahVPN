@@ -28,6 +28,7 @@ def _fingerprint() -> str:
         "ROLLYPAY_API_KEY", "ROLLYPAY_SIGNING_SECRET",
         "ROLLYPAY_TERMINAL_ID",
         "VAINAH_SHOP_SANDBOX_MODE", "PANEL_DIRECT_HEALTH_URL",
+        "PANEL_TLS_CA_PEM",
     )
     text = "\n".join(os.environ.get(name, "") for name in relevant)
     return hashlib.sha256(text.encode()).hexdigest()

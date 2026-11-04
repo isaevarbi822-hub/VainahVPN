@@ -12,6 +12,7 @@ from vainah.h1_panel import (
     H1PanelError,
     inspect_h1_panel,
     panel_settings,
+    panel_tls_verify,
     public_h1_status,
     read_h1_status,
 )
@@ -27,6 +28,48 @@ def config(monkeypatch):
     monkeypatch.setenv("PANEL_BASE_URL", BASE)
     monkeypatch.setenv("PANEL_API_TOKEN", TOKEN)
     monkeypatch.setenv("PANEL_CLIENT_PREFIX", "tg")
+
+
+def test_h1_public_ca_remains_verified_by_default(monkeypatch):
+    monkeypatch.delenv("PANEL_TLS_CA_PEM", raising=False)
+    assert panel_tls_verify() is True
+
+
+def test_h1_private_ca_pem_preserves_certificate_and_hostname_checks(monkeypatch):
+    from pathlib import Path
+
+    import certifi
+
+    bundle = Path(certifi.where()).read_text(encoding="utf-8")
+    certificate = "-----BEGIN CERTIFICATE-----"
+    certificate += bundle.split("-----BEGIN CERTIFICATE-----", 1)[1].split(
+        "-----END CERTIFICATE-----", 1
+    )[0]
+    certificate += "-----END CERTIFICATE-----"
+    monkeypatch.setenv("PANEL_TLS_CA_PEM", certificate)
+    context = panel_tls_verify()
+    assert isinstance(context, ssl.SSLContext)
+    assert context.check_hostname is True
+    assert context.verify_mode == ssl.CERT_REQUIRED
+
+
+@pytest.mark.parametrize("pem", [
+    "not a certificate",
+    "-----BEGIN CERTIFICATE-----\\nINVALID\\n-----END CERTIFICATE-----",
+    "-----BEGIN PRIVATE KEY-----\\nTOPSECRET\\n-----END PRIVATE KEY-----",
+])
+def test_h1_malformed_custom_ca_fails_closed(config, monkeypatch, pem):
+    import asyncio
+
+    monkeypatch.setenv("PANEL_TLS_CA_PEM", pem)
+    with pytest.raises(H1PanelError, match="PANEL_CA_INVALID"):
+        panel_tls_verify()
+    report = asyncio.run(inspect_h1_panel(
+        transport=httpx.MockTransport(
+            lambda _req: pytest.fail("Invalid CA must never send a request")
+        )
+    ))
+    assert report == {"ok": False, "panel": "invalid_configuration"}
 
 
 def test_h1_origin_requires_https_and_public_hostname(monkeypatch):

@@ -247,10 +247,11 @@ def production_readiness() -> dict:
     """Operator-only non-secret progress snapshot; never opens real checkout."""
     from .email_auth import ready as email_auth_ready
     from .email_delivery import email_service_ready
-    from .h1_panel import H1PanelError, panel_settings
+    from .h1_panel import H1PanelError, panel_settings, panel_tls_verify
 
     try:
         panel = panel_settings() is not None
+        panel_tls_verify()
     except H1PanelError:
         panel = False
     checks = {
@@ -264,6 +265,8 @@ def production_readiness() -> dict:
             len(os.environ.get("ROLLYPAY_SIGNING_SECRET", "")) >= 16
         ),
         "h1cloud_read_configured": panel,
+        "h1cloud_verified_tls_configured": panel,
+        "h1cloud_tls_reachable_and_authorized": False,
         "live_order_ledger_implemented": True,
         "h1cloud_write_contract_verified": False,
         "merchant_authorized_to_take_payments": False,
@@ -277,7 +280,8 @@ def production_readiness() -> dict:
         "message": (
             "Live gateway, signed callback checks and once-only PostgreSQL "
             "claims are prepared. H1Cloud's one-write adapter is gated. "
-            "Production remains disabled pending approved merchant and "
+            "Production remains disabled pending an approved merchant, verified "
+            "HTTPS management transport and "
             "verified real end-to-end delivery."
         ),
     }

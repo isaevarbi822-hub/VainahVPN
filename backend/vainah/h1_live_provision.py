@@ -17,7 +17,7 @@ from urllib.parse import quote, urlsplit
 import httpx
 
 from .billing import get_plan
-from .h1_panel import H1PanelError, panel_settings
+from .h1_panel import H1PanelError, panel_settings, panel_tls_verify
 from .live_ledger import PendingLiveOrder
 from .production_contracts import LIVE_ORDER_RE, H1ProvisionIntent
 
@@ -83,6 +83,7 @@ class LiveH1CloudNode:
             raise LiveH1Error("H1_INTENT_INVALID")
         try:
             settings = panel_settings()
+            tls_verify = panel_tls_verify()
         except H1PanelError:
             raise LiveH1Error("H1_CONFIGURATION_INVALID") from None
         if settings is None:
@@ -95,7 +96,7 @@ class LiveH1CloudNode:
         path = "/api/info?name=" + quote(intent.client_name, safe="")
         async with httpx.AsyncClient(
             timeout=10, follow_redirects=False, trust_env=False,
-            transport=self.transport,
+            verify=tls_verify, transport=self.transport,
         ) as session:
             # Before a write, verify whether the node already has this account.
             # We do not fabricate subscription URLs or claim the VPN is active.
