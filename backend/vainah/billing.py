@@ -6,6 +6,7 @@ accounts, persistent order ledger, approved merchant and H1Cloud activation exis
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import hmac
 import os
@@ -18,6 +19,7 @@ from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 import httpx
+from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
@@ -101,6 +103,32 @@ class TestOrder:
     webhook_received: bool = False
     owner_ref: str | None = None
     receipt_emailed: bool = False
+    receipt_recipient: str | None = None
+
+
+def _receipt_fernet() -> Fernet:
+    """Authenticated encryption for receipt destination, not for VPN keys."""
+    secret = os.environ.get("SESSION_SIGNING_KEY", "")
+    if len(secret) < 32:
+        raise HTTPException(503, "RECEIPT_ENCRYPTION_NOT_CONFIGURED")
+    key = hmac.new(
+        secret.encode(), b"vainah-test-receipt-email-v1", hashlib.sha256,
+    ).digest()
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def _seal_receipt_recipient(email: str) -> str:
+    return _receipt_fernet().encrypt(email.encode("utf-8")).decode("ascii")
+
+
+def _unseal_receipt_recipient(ciphertext: str) -> str:
+    try:
+        email = _receipt_fernet().decrypt(ciphertext.encode("ascii")).decode("utf-8")
+    except (InvalidToken, UnicodeError, ValueError):
+        raise HTTPException(503, "RECEIPT_RECIPIENT_UNAVAILABLE") from None
+    if not (5 <= len(email) <= 254 and email.count("@") == 1):
+        raise HTTPException(503, "RECEIPT_RECIPIENT_UNAVAILABLE")
+    return email
 
 
 class ProviderError(Exception):
@@ -156,6 +184,7 @@ class BillingSandbox:
                     record["webhook_received"] = bool(record.get("webhook_received", False))
                     record["owner_ref"] = record.get("owner_ref")
                     record["receipt_emailed"] = bool(record.get("receipt_emailed", False))
+                    record["receipt_recipient"] = record.get("receipt_recipient")
                     order = TestOrder(**record, pay_url=None)
                     self.orders[order.order_id] = order
             self._ledger_loaded = True
@@ -275,17 +304,23 @@ class BillingSandbox:
             raise ProviderError("PROVIDER_RESPONSE_INVALID")
         return result
 
-    async def create(self, plan_id: str, *, owner_ref: str | None = None) -> dict:
+    async def create(self, plan_id: str, *, owner_ref: str | None = None,
+                     receipt_email: str | None = None) -> dict:
         self._ensure_loaded()
         plan = get_plan(plan_id)
         if not plan:
             raise HTTPException(422, "PLAN_UNKNOWN")
         order_id = "vainah_test_" + uuid4().hex
         amount = price_rub(plan)
+        encrypted_recipient = (
+            _seal_receipt_recipient(receipt_email)
+            if owner_ref and receipt_email else None
+        )
         if self.mode == "mock":
             order = TestOrder(order_id, plan_id, amount,
                               "mock_" + uuid4().hex, "created", "mock",
-                              owner_ref=owner_ref)
+                              owner_ref=owner_ref,
+                              receipt_recipient=encrypted_recipient)
         else:
             result = await self.provider_create(order_id, plan)
             if result.get("order_id") != order_id or str(result.get("amount")) != amount:
@@ -307,7 +342,8 @@ class BillingSandbox:
             except ValueError as exc:
                 raise ProviderError("PROVIDER_PAYMENT_LINK_INVALID") from exc
             order = TestOrder(order_id, plan_id, amount, payment_id,
-                              status, "provider", pay_url, owner_ref=owner_ref)
+                              status, "provider", pay_url, owner_ref=owner_ref,
+                              receipt_recipient=encrypted_recipient)
         with self.lock:
             self._save(order)
             self.orders[order_id] = order
@@ -747,8 +783,13 @@ async def start_sandbox(body: StartSandbox,
     ) != "enabled":
         raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
     try:
+        from .email_auth import current_email
+
+        owner = _verified_sandbox_owner(request)
+        email = current_email(request)
         return await sandbox.create(
-            body.plan, owner_ref=_verified_sandbox_owner(request)
+            body.plan, owner_ref=owner,
+            receipt_email=email if owner and email else None,
         )
     except ProviderError as exc:
         raise HTTPException(502, exc.code) from None
