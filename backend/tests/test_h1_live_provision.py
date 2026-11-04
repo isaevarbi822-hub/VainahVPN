@@ -66,6 +66,9 @@ def test_h1_create_one_write_with_verified_postcheck():
         assert request.headers.get("Authorization") == "Bearer " + TOKEN
         network.append(request.method)
         assert request.url.host == "vpn-panel.example.com"
+        if request.method == "GET":
+            assert request.url.path == "/api/info"
+            assert request.url.params["name"] == intent.client_name
         if request.method == "GET" and len(network) == 1:
             return httpx.Response(404, json={"error": "user_not_found"})
         if request.method == "POST":
@@ -98,6 +101,9 @@ def test_h1_extend_updates_family_device_limit():
 
     def transport(request):
         network.append(request.method)
+        if request.method == "GET":
+            assert request.url.path == "/api/info"
+            assert request.url.params["name"] == intent.client_name
         if request.method == "PATCH":
             assert request.url.path == "/api/edit"
             body = json.loads(request.content)
