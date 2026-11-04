@@ -24,6 +24,7 @@ from .production_contracts import (
     LiveContractError,
     LiveOrderContract,
     verify_live_paid_event,
+    verify_live_reversal_event,
 )
 
 
@@ -364,6 +365,74 @@ class PostgresLiveOrderLedger:
                 return True
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
+    def record_signed_reversal(self, *, raw_body: bytes,
+                               timestamp: str | None,
+                               signature: str | None, secret: str) -> str:
+        """Remove paid access to a refunded/charged-back order atomically.
+
+        The H1 node is NOT modified here; a previously issued profile must
+        be reconciled by an operator. No auto-retries of an H1 edit are safe.
+        """
+        if len(raw_body) > 32768 or not verify_signature(
+            raw_body, timestamp, signature, secret
+        ):
+            raise LiveLedgerError("LIVE_SIGNATURE_INVALID")
+        try:
+            data = json.loads(raw_body)
+        except (ValueError, UnicodeDecodeError):
+            raise LiveLedgerError("LIVE_WEBHOOK_INVALID") from None
+        if not isinstance(data, dict):
+            raise LiveLedgerError("LIVE_WEBHOOK_INVALID")
+        order_id = data.get("order_id")
+        if not isinstance(order_id, str) or not LIVE_ORDER_RE.fullmatch(order_id):
+            raise LiveLedgerError("LIVE_ORDER_UNKNOWN")
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT owner_ref, plan_id, payment_id,
+                           amount_rub, payment_state
+                    FROM vainah_live_orders WHERE order_id = %s
+                    FOR UPDATE
+                """, (order_id,))
+                record = cur.fetchone()
+                if not record or not record[2]:
+                    raise LiveLedgerError("LIVE_ORDER_UNKNOWN")
+                contract = LiveOrderContract(
+                    order_id, record[1], record[0], record[2],
+                    amount_snapshot=str(record[3]),
+                )
+                try:
+                    new_state = verify_live_reversal_event(
+                        raw_body, timestamp=timestamp, signature=signature,
+                        signing_secret=secret, order=contract,
+                    )
+                except LiveContractError:
+                    raise LiveLedgerError("LIVE_PAYMENT_MISMATCH") from None
+                if record[4] == "chargeback":
+                    return "chargeback"
+                if record[4] == new_state:
+                    return new_state
+                if record[4] not in {"created", "paid", "refunded"}:
+                    raise LiveLedgerError("LIVE_PAYMENT_INVALID_STATE")
+                cur.execute("""
+                    UPDATE vainah_live_orders
+                    SET payment_state = %s,
+                        delivery_state = CASE
+                            WHEN delivery_state IN ('claimed', 'delivered')
+                            THEN 'manual_review'
+                            ELSE delivery_state
+                        END,
+                        updated_at = now()
+                    WHERE order_id = %s
+                """, (new_state, order_id))
+                return new_state
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
 
     def claim_delivery_once(self, order_id: str) -> PendingLiveOrder | None:
         """One atomic claim per order across any number of Render workers.
