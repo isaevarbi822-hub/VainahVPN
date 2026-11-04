@@ -20,6 +20,7 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
+from .postgres_ledger import LedgerUnavailable, PostgresSandboxLedger
 from .sandbox_ledger import SandboxLedger
 
 API = "https://rollypay.io/api/v1/payments"
@@ -115,15 +116,55 @@ class BillingSandbox:
         self.transport = transport
         self.lock = RLock()
         self.orders: dict[str, TestOrder] = {}
-        self.ledger = SandboxLedger(ledger_path) if ledger_path else None
-        if self.ledger:
-            for record in self.ledger.load():
-                if record["mode"] != mode:
-                    continue
-                if not get_plan(record["plan_id"]):
-                    continue
-                order = TestOrder(**record, pay_url=None)
-                self.orders[order.order_id] = order
+        self.ledger = None
+        if ledger_path:
+            if ledger_path.startswith(("postgresql://", "postgres://")):
+                self.ledger = PostgresSandboxLedger(ledger_path)
+            else:
+                self.ledger = SandboxLedger(ledger_path)
+        # Do not connect to PostgreSQL during app import: Render must still
+        # start if the database is temporarily unavailable.
+        self._ledger_loaded = False
+
+    def _ensure_loaded(self) -> None:
+        with self.lock:
+            if self._ledger_loaded:
+                return
+            if self.ledger is not None:
+                try:
+                    records = self.ledger.load()
+                except LedgerUnavailable:
+                    raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
+                for record in records:
+                    if record["mode"] != self.mode:
+                        continue
+                    if not get_plan(record["plan_id"]):
+                        continue
+                    if not ORDER_RE.fullmatch(record["order_id"]):
+                        continue
+                    if record["status"] not in STATUS:
+                        continue
+                    order = TestOrder(**record, pay_url=None)
+                    self.orders[order.order_id] = order
+            self._ledger_loaded = True
+
+    def _save(self, order: TestOrder) -> None:
+        if self.ledger is None:
+            return
+        try:
+            self.ledger.save(order)
+        except LedgerUnavailable:
+            # Do not include the connection string or provider error text.
+            raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
+
+    def _set_status(self, order: TestOrder, next_status: str) -> None:
+        old_status = order.status
+        order.status = next_status
+        try:
+            self._save(order)
+        except HTTPException:
+            order.status = old_status
+            raise
 
     async def provider_diagnostics(self) -> dict:
         """Read-only, authorized test of merchant API connectivity.
@@ -191,6 +232,7 @@ class BillingSandbox:
         return result
 
     async def create(self, plan_id: str) -> dict:
+        self._ensure_loaded()
         plan = get_plan(plan_id)
         if not plan:
             raise HTTPException(422, "PLAN_UNKNOWN")
@@ -222,8 +264,7 @@ class BillingSandbox:
             order = TestOrder(order_id, plan_id, amount, payment_id,
                               status, "provider", pay_url)
         with self.lock:
-            if self.ledger:
-                self.ledger.save(order)
+            self._save(order)
             self.orders[order_id] = order
         return self.serialize(order)
 
@@ -285,14 +326,13 @@ class BillingSandbox:
                 "created", "processing", "canceled", "expired"
             }:
                 raise ProviderError("PROVIDER_STATUS_REGRESSION")
-            order.status = status
-            if self.ledger:
-                self.ledger.save(order)
+            self._set_status(order, status)
             return self.serialize(order)
 
     def read(self, order_id: str) -> dict:
         if not ORDER_RE.fullmatch(order_id):
             raise HTTPException(404, "TEST_ORDER_NOT_FOUND")
+        self._ensure_loaded()
         with self.lock:
             order = self.orders.get(order_id)
             if not order:
@@ -302,6 +342,7 @@ class BillingSandbox:
     def simulate(self, order_id: str) -> dict:
         if not ORDER_RE.fullmatch(order_id):
             raise HTTPException(404, "TEST_ORDER_NOT_FOUND")
+        self._ensure_loaded()
         with self.lock:
             order = self.orders.get(order_id)
             if not order:
@@ -309,9 +350,7 @@ class BillingSandbox:
             if order.mode != "mock":
                 raise HTTPException(403, "PROVIDER_SIMULATION_FORBIDDEN")
             if order.status == "created":
-                order.status = "paid"
-                if self.ledger:
-                    self.ledger.save(order)
+                self._set_status(order, "paid")
             return self.serialize(order)
 
     def process_webhook(self, data: object) -> dict:
@@ -324,6 +363,7 @@ class BillingSandbox:
         order_id = data.get("order_id")
         if not isinstance(order_id, str) or not ORDER_RE.fullmatch(order_id):
             raise HTTPException(400, "UNKNOWN_ORDER")
+        self._ensure_loaded()
         with self.lock:
             order = self.orders.get(order_id)
             if not order or order.mode != "provider":
@@ -342,13 +382,12 @@ class BillingSandbox:
                 "created", "processing", "expired", "canceled"
             }:
                 raise HTTPException(409, "PAYMENT_STATE_REGRESSION")
-            order.status = status
-            if self.ledger:
-                self.ledger.save(order)
+            self._set_status(order, status)
             return {"ok": True, "test_only": True, "status": order.status,
                     "vpn_delivered": False}
 
     def list_test_orders(self) -> list[dict]:
+        self._ensure_loaded()
         with self.lock:
             # Provider IDs and pay URLs must never be exposed in listing.
             return [
@@ -402,7 +441,14 @@ router = APIRouter(prefix="/api/shop", tags=["Shop"])
 sandbox = BillingSandbox(
     mode=os.environ.get("VAINAH_SHOP_SANDBOX_MODE", "mock"),
     api_key=os.environ.get("ROLLYPAY_API_KEY", ""),
-    ledger_path=os.environ.get("VAINAH_SHOP_SANDBOX_LEDGER_FILE") or None,
+    ledger_path=(
+        os.environ.get("VAINAH_SHOP_SANDBOX_LEDGER_FILE")
+        or (
+            os.environ.get("DATABASE_URL")
+            if os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") == "enabled"
+            else None
+        )
+    ),
 )
 
 
