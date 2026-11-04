@@ -25,6 +25,7 @@ def _fingerprint() -> str:
     relevant = (
         "PANEL_BASE_URL", "PANEL_API_TOKEN", "PANEL_CLIENT_PREFIX",
         "ROLLYPAY_API_KEY", "ROLLYPAY_SIGNING_SECRET",
+        "ROLLYPAY_TERMINAL_ID",
         "VAINAH_SHOP_SANDBOX_MODE",
     )
     text = "\n".join(os.environ.get(name, "") for name in relevant)
@@ -86,7 +87,10 @@ async def probe_rollypay() -> dict:
     # GET only: no payment, wallet, bill, or refund is created.
     try:
         await asyncio.wait_for(
-            BillingSandbox(mode="provider", api_key=key).provider_diagnostics(),
+            BillingSandbox(
+                mode="provider", api_key=key,
+                terminal_id=os.environ.get("ROLLYPAY_TERMINAL_ID", ""),
+            ).provider_diagnostics(),
             timeout=10,
         )
     except (TimeoutError, ProviderError) as error:
@@ -95,8 +99,20 @@ async def probe_rollypay() -> dict:
         # account balances, API keys, or arbitrary exception strings.
         messages = {
             "PROVIDER_HTTP_400": (
-                "RollyPay отклонил формат безопасного запроса (HTTP 400). "
-                "Проверь тип используемого API-ключа и настройки кассы."
+                "RollyPay вернул HTTP 400 при проверке баланса кассы. "
+                "Причина не входит в список известных; запрос не создавал платёж."
+            ),
+            "PROVIDER_TERMINAL_ID_INVALID": (
+                "Переменная ROLLYPAY_TERMINAL_ID должна содержать корректный UUID кассы. "
+                "Если ключ привязан к кассе, этот параметр можно убрать."
+            ),
+            "PROVIDER_TERMINAL_NOT_FOUND": (
+                "RollyPay ответил: касса не найдена (HTTP 400). "
+                "Проверь Terminal ID и его соответствие API-ключу."
+            ),
+            "PROVIDER_TERMINAL_ID_REQUIRED": (
+                "RollyPay запросил идентификатор кассы (HTTP 400). "
+                "Задай ROLLYPAY_TERMINAL_ID (UUID кассы) в Render."
             ),
             "PROVIDER_HTTP_401": (
                 "RollyPay отклонил авторизацию (HTTP 401). "
@@ -133,6 +149,8 @@ async def probe_rollypay() -> dict:
             "status": "error" if code in {
                 "PROVIDER_HTTP_400", "PROVIDER_HTTP_401", "PROVIDER_HTTP_403",
                 "PROVIDER_HTTP_404", "PROVIDER_RESPONSE_INVALID",
+                "PROVIDER_TERMINAL_ID_INVALID", "PROVIDER_TERMINAL_NOT_FOUND",
+                "PROVIDER_TERMINAL_ID_REQUIRED",
             } else "unavailable",
             "message": messages.get(
                 code,
