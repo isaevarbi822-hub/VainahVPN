@@ -310,11 +310,17 @@
         encodeURIComponent(orderId) + "/activation-preview", {
           headers: {"X-Sandbox-Token": $("shop-test-token").value}
         });
+      const fulfillment = info.fulfillment || {};
+      const readiness = fulfillment.status === "ready_for_review"
+        ? "Подтверждён webhook. План подготовлен к проверке оператором."
+        : "Выдача заблокирована: " + (fulfillment.reason || "нет подтверждения");
       testMessage("План выдачи VPN — только демо\nЗаказ: " + info.order_id +
         "\nСтатус оплаты: " + info.payment_status +
+        "\nПодписанный webhook: " + (fulfillment.signed_webhook_received ? "да" : "нет") +
         "\nПериод: " + info.duration_days + " дней" +
         "\nУстройств: " + info.device_limit +
-        "\nH1Cloud подключён: нет\nVPN выдан: нет\n" + info.message);
+        "\nПроверка выдачи: " + readiness +
+        "\nH1Cloud не изменён; VPN не выдан.\n" + info.message);
     }catch(err){
       testMessage("План выдачи VPN не готов: " + explainProviderError(err.message));
     }finally{
