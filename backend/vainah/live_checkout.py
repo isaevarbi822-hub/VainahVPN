@@ -47,6 +47,7 @@ def live_ready() -> bool:
         "VAINAH_MERCHANT_APPROVED": "approved",
         "VAINAH_H1_WRITE_CONTRACT_APPROVED": "approved",
         "VAINAH_LIVE_FULFILLMENT_APPROVED": "approved",
+        "VAINAH_LIVE_PAID_E2E_VERIFIED": "verified",
     }
     if any(os.environ.get(k) != v for k, v in required.items()):
         return False
@@ -170,10 +171,14 @@ async def handle_live_paid_webhook(
         import json
 
         event = json.loads(raw)
-        if (not isinstance(event, dict)
-                or event.get("event_type") != "payment.paid"
-                or event.get("status") != "paid"
-                or event.get("test") not in (None, False)):
+        if (
+            not isinstance(event, dict)
+            or event.get("event_type") not in {
+                "payment.paid", "payment.refunded", "payment.chargeback",
+                "refund_request.completed",
+            }
+            or event.get("test") not in (None, False)
+        ):
             raise HTTPException(400, "LIVE_PAYMENT_EVENT_UNSUPPORTED")
         order_id = event.get("order_id")
         from .production_contracts import LIVE_ORDER_RE
@@ -181,6 +186,16 @@ async def handle_live_paid_webhook(
         if not isinstance(order_id, str) or not LIVE_ORDER_RE.fullmatch(order_id):
             raise HTTPException(400, "LIVE_ORDER_INVALID")
         ledger = _ledger()
+        if event["event_type"] != "payment.paid":
+            state = ledger.record_signed_reversal(
+                raw_body=raw, timestamp=timestamp,
+                signature=signature, secret=secret,
+            )
+            return {
+                "ok": True, "status": state,
+                "vpn_delivered": False,
+                "manual_h1_revocation_required": True,
+            }
         ledger.record_signed_paid(
             raw_body=raw, timestamp=timestamp,
             signature=signature, secret=secret,
