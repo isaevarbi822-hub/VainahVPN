@@ -55,7 +55,9 @@
     $("shop-test-activation").hidden = false;
     testMessage("Тестовый заказ: " + order.order_id +
       "\nСтатус: " + order.status + "\nСумма: " + order.amount_rub +
-      " ₽\nТестовый режим, VPN не выдан.");
+      " ₽\nАккаунт: " + (order.owner_bound
+        ? "привязан к подтверждённому входу" : "не привязан — войди в аккаунт до создания нового заказа") +
+      "\nТестовый режим, VPN не выдан.");
   }
   function select(id) {
     const plan = state.plans.find(p => p.id === id);
@@ -221,7 +223,10 @@
         // instead of displaying checkout inside the Vainah VPN site.
         $("shop-test-link").href = url.href;
         $("shop-test-link").hidden = false;
-        testMessage("Тестовый счёт создан. Переходим на защищённый сайт RollyPay…");
+        testMessage("Тестовый счёт создан. " +
+          (created.owner_bound ? "Аккаунт подтверждён. " :
+            "Аккаунт не привязан: это только операторский тест. ") +
+          "Переходим на защищённый сайт RollyPay…");
         window.location.assign(url.href);
       }
     } catch (err) { testMessage("Не удалось создать тестовый заказ: " + explainProviderError(err.message)); }
@@ -317,6 +322,7 @@
       testMessage("План выдачи VPN — только демо\nЗаказ: " + info.order_id +
         "\nСтатус оплаты: " + info.payment_status +
         "\nПодписанный webhook: " + (fulfillment.signed_webhook_received ? "да" : "нет") +
+        "\nАккаунт привязан: " + (fulfillment.customer_identity_bound ? "да" : "нет") +
         "\nПериод: " + info.duration_days + " дней" +
         "\nУстройств: " + info.device_limit +
         "\nПроверка выдачи: " + readiness +
