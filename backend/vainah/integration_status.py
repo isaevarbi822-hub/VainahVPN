@@ -12,6 +12,7 @@ import os
 import time
 
 from .billing import BillingSandbox, ProviderError
+from .h1_direct_health import probe_direct_health
 from .h1_panel import inspect_h1_panel, public_h1_status
 
 CACHE_TTL_SECONDS = 180
@@ -26,7 +27,7 @@ def _fingerprint() -> str:
         "PANEL_BASE_URL", "PANEL_API_TOKEN", "PANEL_CLIENT_PREFIX",
         "ROLLYPAY_API_KEY", "ROLLYPAY_SIGNING_SECRET",
         "ROLLYPAY_TERMINAL_ID",
-        "VAINAH_SHOP_SANDBOX_MODE",
+        "VAINAH_SHOP_SANDBOX_MODE", "PANEL_DIRECT_HEALTH_URL",
     )
     text = "\n".join(os.environ.get(name, "") for name in relevant)
     return hashlib.sha256(text.encode()).hexdigest()
@@ -197,12 +198,23 @@ async def integration_status() -> dict:
         if (now < _cached_until and fingerprint == _cached_fingerprint
                 and _cached_report is not None):
             return _cached_report
-        h1, rollypay = await asyncio.gather(probe_h1(), probe_rollypay())
-        report = {
-            "h1": h1,
-            "rollypay": rollypay,
-            "webhook": webhook_status(),
-        }
+        if os.environ.get("PANEL_DIRECT_HEALTH_URL", "").strip():
+            h1, direct, rollypay = await asyncio.gather(
+                probe_h1(), probe_direct_health(), probe_rollypay()
+            )
+            report = {
+                "h1": h1,
+                "h1_direct": direct,
+                "rollypay": rollypay,
+                "webhook": webhook_status(),
+            }
+        else:
+            h1, rollypay = await asyncio.gather(probe_h1(), probe_rollypay())
+            report = {
+                "h1": h1,
+                "rollypay": rollypay,
+                "webhook": webhook_status(),
+            }
         _cached_fingerprint = fingerprint
         _cached_until = time.monotonic() + CACHE_TTL_SECONDS
         _cached_report = report
