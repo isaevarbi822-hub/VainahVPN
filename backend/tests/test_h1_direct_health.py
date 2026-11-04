@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-from urllib.parse import urlsplit
-
 import httpx
 import pytest
 
