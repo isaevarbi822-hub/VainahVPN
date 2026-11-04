@@ -219,3 +219,64 @@ def test_operator_readiness_is_private_and_never_enables_charge(monkeypatch):
     assert data["auto_vpn_delivery_enabled"] is False
     assert "checks" in data
     assert token not in str(data)
+
+
+def test_operator_h1_readiness_tracks_verified_https_only(monkeypatch):
+    from vainah import h1_panel
+
+    token = "operator-test-token-" + "x" * 32
+    monkeypatch.setenv("VAINAH_SANDBOX_TEST_TOKEN", token)
+    monkeypatch.setenv("PANEL_BASE_URL", "https://vpn-panel.example.com/api")
+    monkeypatch.setenv("PANEL_API_TOKEN", "test-panel-token")
+    seen = []
+
+    async def fake_inspect():
+        seen.append("read_only")
+        return {
+            "ok": True, "panel": "reachable",
+            "authentication": "accepted", "vpn_delivered": False,
+        }
+
+    monkeypatch.setattr(h1_panel, "inspect_h1_panel", fake_inspect)
+    with TestClient(app) as client:
+        no_token = client.get("/api/shop/operator/production-readiness")
+        assert no_token.status_code == 401
+        assert seen == []
+
+        verified = client.get(
+            "/api/shop/operator/production-readiness",
+            headers={"X-Sandbox-Token": token},
+        )
+    assert verified.status_code == 200
+    body = verified.json()
+    assert seen == ["read_only"]
+    assert body["checks"]["h1cloud_tls_reachable_and_authorized"] is True
+    assert body["checks"]["h1cloud_write_contract_verified"] is False
+    assert body["real_checkout_enabled"] is False
+    assert body["real_money_can_be_charged"] is False
+    assert body["auto_vpn_delivery_enabled"] is False
+    assert token not in str(body)
+
+
+def test_operator_readiness_bad_h1_response_does_not_enable_payments(monkeypatch):
+    from vainah import h1_panel
+
+    token = "operator-test-token-" + "x" * 32
+    monkeypatch.setenv("VAINAH_SANDBOX_TEST_TOKEN", token)
+    monkeypatch.setenv("PANEL_BASE_URL", "https://vpn-panel.example.com/api")
+    monkeypatch.setenv("PANEL_API_TOKEN", "test-panel-token")
+
+    async def fake_inspect():
+        return {"ok": False, "authentication": "rejected"}
+
+    monkeypatch.setattr(h1_panel, "inspect_h1_panel", fake_inspect)
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/shop/operator/production-readiness",
+            headers={"X-Sandbox-Token": token},
+        )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["checks"]["h1cloud_tls_reachable_and_authorized"] is False
+    assert body["real_checkout_enabled"] is False
+    assert body["auto_vpn_delivery_enabled"] is False
