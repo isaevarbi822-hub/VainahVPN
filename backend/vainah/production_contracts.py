@@ -201,6 +201,47 @@ def verify_live_paid_event(
     return True
 
 
+def verify_live_reversal_event(
+    raw_body: bytes, *, timestamp: str | None, signature: str | None,
+    signing_secret: str, order: LiveOrderContract,
+    now: int | None = None,
+) -> str:
+    """Verify a full refund or chargeback for an immutable real payment.
+
+    Returns the terminal payment state, never an instruction to modify the
+    H1 node. Existing VPN access needs separate operator reconciliation.
+    """
+    if len(raw_body) > 32768 or not verify_signature(
+        raw_body, timestamp, signature, signing_secret, now=now
+    ):
+        raise LiveContractError("LIVE_WEBHOOK_SIGNATURE_INVALID")
+    try:
+        event = json.loads(raw_body)
+    except (ValueError, UnicodeDecodeError):
+        raise LiveContractError("LIVE_WEBHOOK_JSON_INVALID") from None
+    if not isinstance(event, dict):
+        raise LiveContractError("LIVE_WEBHOOK_JSON_INVALID")
+    event_map = {
+        "payment.refunded": "refunded",
+        "payment.chargeback": "chargeback",
+        "refund_request.completed": "refunded",
+    }
+    status = event_map.get(event.get("event_type"))
+    currency = event.get("currency", event.get("payment_currency"))
+    if (
+        status is None or event.get("status") != status
+        or event.get("order_id") != order.order_id
+        or event.get("payment_id") != order.payment_id
+        or currency != "RUB"
+        or event.get("payment_currency", "RUB") != "RUB"
+        or not _same_money(event.get("amount"), order.amount_rub)
+        or event.get("test") not in (None, False)
+        or event.get("environment") in {"sandbox", "test"}
+    ):
+        raise LiveContractError("LIVE_REVERSAL_PAYMENT_MISMATCH")
+    return status
+
+
 @dataclass(frozen=True)
 class H1ProvisionIntent:
     """A proposed H1Cloud action; computing it performs NO H1 API writes."""
