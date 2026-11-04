@@ -24,9 +24,11 @@ class FakeCursor:
         query = " ".join(sql.split()).upper()
         if query.startswith("CREATE TABLE"):
             assert "VAINAH_SANDBOX_ORDERS" in query
+        elif query.startswith("ALTER TABLE"):
+            assert "WEBHOOK_RECEIVED" in query
         elif query.startswith("INSERT"):
             assert "%s" in sql
-            assert params is not None and len(params) == 6
+            assert params is not None and len(params) == 7
             self.storage[params[0]] = tuple(params)
         elif query.startswith("SELECT"):
             self.rows = [
