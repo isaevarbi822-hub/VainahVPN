@@ -25,6 +25,9 @@ class SandboxLedger:
                     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
                 )
             """)
+            fields = {row[1] for row in db.execute("PRAGMA table_info(sandbox_orders)")}
+            if "webhook_received" not in fields:
+                db.execute("ALTER TABLE sandbox_orders ADD COLUMN webhook_received INTEGER NOT NULL DEFAULT 0")
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(str(self.path), timeout=5)
@@ -33,24 +36,25 @@ class SandboxLedger:
         with self._connect() as db:
             db.execute("""
                 INSERT INTO sandbox_orders (
-                    order_id, plan_id, amount, payment_id, status, mode
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    order_id, plan_id, amount, payment_id, status, mode, webhook_received
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(order_id) DO UPDATE SET
                     status=excluded.status,
+                    webhook_received=excluded.webhook_received,
                     updated_at=unixepoch()
             """, (
                 order.order_id, order.plan_id, order.amount, order.payment_id,
-                order.status, order.mode,
+                order.status, order.mode, int(order.webhook_received),
             ))
 
     def load(self) -> list[dict]:
         with self._connect() as db:
             rows = db.execute("""
-                SELECT order_id, plan_id, amount, payment_id, status, mode
+                SELECT order_id, plan_id, amount, payment_id, status, mode, webhook_received
                   FROM sandbox_orders ORDER BY updated_at DESC, rowid DESC
             """).fetchall()
         return [
             dict(zip(("order_id", "plan_id", "amount", "payment_id",
-                      "status", "mode"), row))
+                      "status", "mode", "webhook_received"), row))
             for row in rows
         ]
