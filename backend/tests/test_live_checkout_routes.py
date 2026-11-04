@@ -225,3 +225,95 @@ def test_customer_unpaid_link_is_not_created_from_fake_webhook(
         )
     assert response.status_code == 400
     assert response.json()["detail"] == "LIVE_ORDER_UNKNOWN"
+
+
+def test_refunded_live_webhook_rejects_h1_delivery(
+    simulated_production, monkeypatch
+):
+    class FakeLedger:
+        def __init__(self):
+            self.reversals = []
+
+        def record_signed_reversal(
+            self, *, raw_body, timestamp, signature, secret,
+        ):
+            from vainah.production_contracts import (
+                verify_live_reversal_event,
+            )
+
+            order = LiveOrderContract(
+                ORDER, "30", live_checkout.owner_ref_for_email(EMAIL),
+                PAYMENT_ID,
+            )
+            result = verify_live_reversal_event(
+                raw_body, timestamp=timestamp, signature=signature,
+                signing_secret=secret, order=order,
+            )
+            self.reversals.append(result)
+            return result
+
+    ledger = FakeLedger()
+    monkeypatch.setattr(live_checkout, "_ledger", lambda: ledger)
+
+    async def forbidden_fulfillment(**_kwargs):
+        raise AssertionError("Refund must never issue or extend VPN")
+
+    monkeypatch.setattr(
+        live_checkout, "fulfill_paid_order_once", forbidden_fulfillment
+    )
+    data = {
+        "event_type": "payment.refunded", "status": "refunded",
+        "order_id": ORDER, "payment_id": PAYMENT_ID,
+        "amount": "99.00", "currency": "RUB",
+    }
+    raw = json.dumps(data, separators=(",", ":")).encode()
+    stamp = str(int(time.time()))
+    signature = hmac.new(
+        SIGNATURE_KEY.encode(), stamp.encode() + b"." + raw,
+        hashlib.sha256,
+    ).hexdigest()
+    with TestClient(app, base_url=ORIGIN) as client:
+        response = client.post(
+            "/api/shop/webhooks/rollypay", content=raw,
+            headers={
+                "X-Test-Mode": "false", "X-Timestamp": stamp,
+                "X-Signature": signature,
+            },
+        )
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": True, "status": "refunded",
+        "vpn_delivered": False,
+        "manual_h1_revocation_required": True,
+    }
+    assert ledger.reversals == ["refunded"]
+
+
+def test_verification_rejects_refund_of_other_order(simulated_production):
+    from vainah.production_contracts import (
+        LiveContractError,
+        verify_live_reversal_event,
+    )
+
+    raw = json.dumps({
+        "event_type": "payment.chargeback", "status": "chargeback",
+        "order_id": ORDER, "payment_id": "pay_different0000000",
+        "amount": "99.00", "currency": "RUB",
+    }).encode()
+    stamp = str(int(time.time()))
+    sig = hmac.new(
+        SIGNATURE_KEY.encode(), stamp.encode() + b"." + raw,
+        hashlib.sha256,
+    ).hexdigest()
+    contract = LiveOrderContract(
+        ORDER, "30", live_checkout.owner_ref_for_email(EMAIL), PAYMENT_ID,
+    )
+    try:
+        verify_live_reversal_event(
+            raw, timestamp=stamp, signature=sig,
+            signing_secret=SIGNATURE_KEY, order=contract,
+        )
+    except LiveContractError as err:
+        assert str(err) == "LIVE_REVERSAL_PAYMENT_MISMATCH"
+    else:
+        raise AssertionError("Refund for the wrong payment was accepted")
