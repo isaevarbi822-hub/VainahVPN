@@ -33,6 +33,7 @@ class LiveOrderContract:
     plan_id: str
     owner_ref: str
     payment_id: str
+    amount_snapshot: str | None = None
 
     def __post_init__(self) -> None:
         if not LIVE_ORDER_RE.fullmatch(self.order_id):
@@ -43,9 +44,16 @@ class LiveOrderContract:
             raise LiveContractError("LIVE_OWNER_INVALID")
         if not PAYMENT_ID_RE.fullmatch(self.payment_id):
             raise LiveContractError("LIVE_PAYMENT_ID_INVALID")
+        if self.amount_snapshot is not None:
+            if not _same_money(self.amount_snapshot, self.amount_snapshot):
+                raise LiveContractError("LIVE_AMOUNT_INVALID")
+            if Decimal(self.amount_snapshot) <= 0:
+                raise LiveContractError("LIVE_AMOUNT_INVALID")
 
     @property
     def amount_rub(self) -> str:
+        if self.amount_snapshot is not None:
+            return self.amount_snapshot
         plan = get_plan(self.plan_id)
         if plan is None:
             raise LiveContractError("LIVE_PLAN_INVALID")
