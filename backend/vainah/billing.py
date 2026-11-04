@@ -763,12 +763,21 @@ def plans() -> dict:
 
 @router.get("/config")
 def config() -> dict:
-    return {"gateway": "rollypay", "checkout_ready": False,
+    from .live_checkout import live_ready
+
+    approved = live_ready()
+    return {"gateway": "rollypay", "checkout_ready": approved,
             "sandbox_available": (
                 len(os.environ.get("VAINAH_SANDBOX_TEST_TOKEN", "")) >= 24
                 and os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") == "enabled"
-            ), "customer_accounts_ready": False, "provisioning_ready": False,
-            "message": "Оформление реальных заказов ещё закрыто: нет авторизованной выдачи VPN."}
+            ), "customer_accounts_ready": approved,
+            "provisioning_ready": approved,
+            "message": (
+                "Подтверждённый email и оплата на сайте RollyPay."
+                if approved else
+                "Оформление реальных заказов закрыто до подтверждения "
+                "полного цикла платежа и выдачи VPN."
+            )}
 
 
 @router.get("/operator/production-readiness")
@@ -800,9 +809,15 @@ async def operator_production_readiness(
 
 
 @router.post("/checkout")
-def public_checkout(_: StartSandbox) -> None:
-    # Do not charge guests or pretend successful delivery.
-    raise HTTPException(503, "LIVE_CHECKOUT_NOT_READY")
+async def public_checkout(
+    body: StartSandbox, request: Request,
+    idempotency_key: str | None = Header(default=None),
+) -> dict:
+    from .live_checkout import start_live_checkout
+
+    return await start_live_checkout(
+        request=request, plan_id=body.plan, idempotency_key=idempotency_key,
+    )
 
 
 @router.get("/sandbox/webhook-readiness")
@@ -984,7 +999,11 @@ async def webhook(request: Request, x_signature: str | None = Header(default=Non
     if not verify_signature(raw, x_timestamp, x_signature, secret):
         raise HTTPException(403, "INVALID_SIGNATURE")
     if x_test_mode != "true":
-        raise HTTPException(503, "PRODUCTION_PAYMENTS_DISABLED")
+        from .live_checkout import handle_live_paid_webhook
+
+        return await handle_live_paid_webhook(
+            raw=raw, timestamp=x_timestamp, signature=x_signature,
+        )
     try:
         import json
         data = json.loads(raw)
