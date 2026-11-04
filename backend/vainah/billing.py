@@ -562,9 +562,10 @@ class BillingSandbox:
         """Operator fallback for old bound orders; new orders auto-send."""
         self.require_order_owner(order_id, owner_ref)
         with self.lock:
-            encrypted_recipient_exists = (
-                self.orders[order_id].receipt_recipient is not None
-            )
+            order = self.orders[order_id]
+            if order.mode != "provider" or order.status != "paid" or not order.webhook_received:
+                raise HTTPException(409, "SIGNED_TEST_PAYMENT_REQUIRED")
+            encrypted_recipient_exists = order.receipt_recipient is not None
         if encrypted_recipient_exists:
             # Never let the user change the saved verified destination.
             return await self.send_auto_test_receipt(order_id)
