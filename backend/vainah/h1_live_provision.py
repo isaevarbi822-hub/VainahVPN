@@ -16,6 +16,7 @@ from urllib.parse import quote, urlsplit
 
 import httpx
 
+from .billing import get_plan
 from .h1_panel import H1PanelError, panel_settings
 from .live_ledger import PendingLiveOrder
 from .production_contracts import H1ProvisionIntent, LIVE_ORDER_RE
@@ -75,9 +76,10 @@ class LiveH1CloudNode:
                 or not LIVE_ORDER_RE.fullmatch(claim.order_id)
                 or operation not in {"create", "extend"}):
             raise LiveH1Error("H1_PROVISIONING_DISABLED")
+        plan = get_plan(claim.plan_id)
         if (not re.fullmatch(r"vn[0-9a-f]{28}", intent.client_name)
-                or intent.days <= 0
-                or intent.devices not in {3, 6}):
+                or plan is None or intent.days != plan["days"]
+                or intent.devices != plan["devices"]):
             raise LiveH1Error("H1_INTENT_INVALID")
         try:
             settings = panel_settings()
@@ -159,6 +161,9 @@ class LiveH1CloudNode:
                 raise LiveH1Error("H1_POSTCHECK_UNCERTAIN_MANUAL_REVIEW") from None
             if expiry <= max(int(time.time()), old_expiry):
                 raise LiveH1Error("H1_POSTCHECK_UNCERTAIN_MANUAL_REVIEW")
+            device_limit = account.get("device_limit")
+            if type(device_limit) is not int or device_limit != intent.devices:
+                raise LiveH1Error("H1_DEVICE_LIMIT_UNVERIFIED_MANUAL_REVIEW")
             url = _validate_subscription_url(
                 account.get("subscription_url") or account.get("sub_url")
             )
