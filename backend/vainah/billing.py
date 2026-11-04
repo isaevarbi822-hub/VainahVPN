@@ -148,6 +148,7 @@ class BillingSandbox:
                         continue
                     if record["status"] not in STATUS:
                         continue
+                    record["webhook_received"] = bool(record.get("webhook_received", False))
                     order = TestOrder(**record, pay_url=None)
                     self.orders[order.order_id] = order
             self._ledger_loaded = True
