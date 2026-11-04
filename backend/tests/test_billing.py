@@ -582,3 +582,44 @@ def test_webhook_readiness_reports_configuration_not_delivery(monkeypatch):
     assert result["h1cloud_auto_provisioning_enabled"] is False
     assert "ROLLYPAY_SIGNING_SECRET" not in str(result)
     assert "s" * 32 not in str(result)
+
+
+def test_signed_provider_webhook_receipt_survives_restart(tmp_path):
+    db_path = str(tmp_path / "signed-webhook.sqlite3")
+    def provider_response(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        return httpx.Response(200, json={
+            "order_id": payload["order_id"],
+            "payment_id": "pay_test_signed_123456",
+            "amount": "99.00", "payment_currency": "RUB",
+            "test": True, "environment": "sandbox", "status": "created",
+            "pay_url": "https://pay.rollypay.io/pay/tok_signed_123456",
+        })
+    first = BillingSandbox("provider", "test-key",
+                           httpx.MockTransport(provider_response),
+                           ledger_path=db_path)
+    order = asyncio.run(first.create("30"))
+    assert order["webhook_received"] is False
+    event = {
+        "event_type": "payment.paid", "status": "paid", "test": True,
+        "order_id": order["order_id"], "payment_id": "pay_test_signed_123456",
+        "amount": "99.00", "currency": "RUB",
+    }
+    assert first.process_webhook(event)["vpn_delivered"] is False
+    assert first.read(order["order_id"])["webhook_received"] is True
+    assert first.process_webhook(event)["status"] == "paid"
+    restarted = BillingSandbox("provider", "test-key", ledger_path=db_path)
+    assert restarted.read(order["order_id"])["webhook_received"] is True
+    assert restarted.read(order["order_id"])["vpn_delivered"] is False
+
+
+def test_fake_webhook_never_marks_receipt(tmp_path):
+    svc = BillingSandbox("mock", ledger_path=str(tmp_path / "fake.sqlite3"))
+    order = asyncio.run(svc.create("30"))
+    with pytest.raises(HTTPException):
+        svc.process_webhook({
+            "event_type": "payment.paid", "status": "paid", "test": True,
+            "order_id": order["order_id"], "payment_id": "fake_123456",
+            "amount": "99.00", "currency": "RUB",
+        })
+    assert svc.read(order["order_id"])["webhook_received"] is False
