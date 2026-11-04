@@ -911,6 +911,32 @@ def my_test_orders(request: Request) -> dict:
     return {"items": sandbox.owned_test_orders(owner), "sandbox_only": True}
 
 
+@router.get("/my-test-orders/{order_id}/vpn-access")
+def my_test_vpn_access(order_id: str, request: Request) -> dict:
+    """Reveal test VPN URL only to its original verified email owner."""
+    from .sandbox_auto_h1 import (
+        SandboxAutoH1Error,
+        auto_enabled,
+        read_delivery,
+    )
+
+    owner = _require_verified_sandbox_owner(request)
+    sandbox.require_order_owner(order_id, owner)
+    if not auto_enabled():
+        raise HTTPException(404, "SANDBOX_VPN_NOT_ISSUED")
+    try:
+        state = read_delivery(order_id, owner_ref=owner, with_access=True)
+    except SandboxAutoH1Error:
+        raise HTTPException(503, "SANDBOX_VPN_ACCESS_UNAVAILABLE") from None
+    if not state.get("vpn_delivered") or not state.get("subscription_url"):
+        raise HTTPException(404, "SANDBOX_VPN_NOT_ISSUED")
+    return {
+        "subscription_url": state["subscription_url"],
+        "sandbox_only": True,
+        "test_payment": True,
+    }
+
+
 @router.post("/my-test-orders/{order_id}/email-receipt")
 async def email_test_receipt(order_id: str, request: Request) -> dict:
     """User-triggered email TEST receipt. No real payment or H1Cloud activation."""
@@ -959,7 +985,36 @@ async def sandbox_activation_preview(
     # The operator-only preview uses the signed webhook state already stored
     # in the ledger. Do not require a second provider GET: that call may fail
     # transiently (HTTP 502) even after a valid webhook was recorded.
-    return sandbox.activation_preview(order_id)
+    preview = sandbox.activation_preview(order_id)
+    from .sandbox_auto_h1 import SandboxAutoH1Error, auto_enabled, read_delivery
+
+    if not auto_enabled() or preview["payment_status"] != "paid" or not (
+        preview["fulfillment"]["signed_webhook_received"]
+    ):
+        return preview
+    try:
+        delivery = read_delivery(order_id)
+    except SandboxAutoH1Error:
+        raise HTTPException(503, "SANDBOX_AUTO_H1_DATABASE_UNAVAILABLE") from None
+    preview["fulfillment"]["auto_provisioning_enabled"] = True
+    if delivery["vpn_delivered"]:
+        preview["status"] = "issued"
+        preview["vpn_delivered"] = True
+        preview["h1cloud_connected"] = True
+        preview["fulfillment"]["status"] = "delivered"
+        preview["fulfillment"]["h1cloud_write_performed"] = True
+        preview["fulfillment"]["operator_review_required"] = False
+        preview["message"] = (
+            "Тестовый VPN создан в H1Cloud автоматически после подписанного "
+            "webhook; ссылка доступна только владельцу email-аккаунта."
+        )
+    elif delivery["status"] in {"claimed", "needs_review"}:
+        preview["fulfillment"]["status"] = "needs_review"
+        preview["message"] = (
+            "Автовыдача уже пыталась обработать заказ. "
+            "Повторный H1Cloud POST заблокирован; проверь панель."
+        )
+    return preview
 
 
 @router.get("/sandbox/{order_id}")
@@ -1043,11 +1098,37 @@ async def webhook(request: Request, x_signature: str | None = Header(default=Non
     except HTTPException as exc:
         _log_webhook_rejection(exc, mode="sandbox")
         raise
+    from .sandbox_auto_h1 import (
+        SandboxAutoH1Error, auto_enabled, auto_issue_paid_sandbox,
+        mark_refunded,
+    )
+
+    if auto_enabled() and result["status"] == "paid" and (
+        data.get("event_type") == "payment.paid"
+    ):
+        try:
+            delivery = await auto_issue_paid_sandbox(data["order_id"])
+        except SandboxAutoH1Error:
+            # The webhook is saved; a safe retry cannot bypass the once-only
+            # claim. 503 only for storage errors, never retry an H1 write.
+            raise HTTPException(
+                503, "SANDBOX_AUTO_H1_STORAGE_UNAVAILABLE"
+            ) from None
+        result = {
+            **result, "vpn_delivered": delivery["vpn_delivered"],
+            "delivery_state": delivery["status"],
+        }
+    elif auto_enabled() and result["status"] in {"refunded", "chargeback"}:
+        try:
+            mark_refunded(data["order_id"])
+        except SandboxAutoH1Error:
+            raise HTTPException(
+                503, "SANDBOX_AUTO_H1_STORAGE_UNAVAILABLE"
+            ) from None
     if result["status"] == "paid" and data.get("event_type") == "payment.paid":
         # Only the original account-bound sandbox order has an encrypted email.
-        # Never send credentials or claim a real purchase here.
-        # If Resend is temporarily down, 503 lets RollyPay retry the callback
-        # without losing the already-persisted signed payment status.
+        # A failed test receipt may cause provider retries; delivery stays
+        # idempotent via the durable claim and never reissues a VPN.
         try:
             await sandbox.send_auto_test_receipt(data["order_id"])
         except (HTTPException, ValueError):
