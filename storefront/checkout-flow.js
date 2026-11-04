@@ -53,6 +53,11 @@
     $("shop-test-simulate").hidden = order.mode !== "mock" || order.status !== "created";
     $("shop-test-refresh").hidden = order.mode !== "provider";
     $("shop-test-activation").hidden = false;
+    $("shop-test-email").hidden = !(
+      order.mode === "provider" && order.status === "paid" &&
+      order.webhook_received === true && order.owner_bound === true &&
+      order.receipt_emailed !== true
+    );
     testMessage("Тестовый заказ: " + order.order_id +
       "\nСтатус: " + order.status + "\nСумма: " + order.amount_rub +
       " ₽\nАккаунт: " + (order.owner_bound
@@ -75,6 +80,7 @@
     $("shop-test-simulate").hidden = true;
     $("shop-test-refresh").hidden = true;
     $("shop-test-activation").hidden = true;
+    $("shop-test-email").hidden = true;
     $("shop-test-link").hidden = true;
     $("shop-test-link").removeAttribute("href");
     testMessage("");
@@ -249,6 +255,33 @@
     } finally {
       state.busy = false;
       $("shop-test-refresh").disabled = false;
+    }
+  });
+  $("shop-test-email").addEventListener("click", async () => {
+    const order = state.testOrder;
+    if (state.busy || !order || !order.owner_bound ||
+        order.status !== "paid" || !order.webhook_received || order.receipt_emailed) return;
+    state.busy = true;
+    $("shop-test-email").disabled = true;
+    try {
+      const result = await api(
+        "/api/shop/my-test-orders/" + encodeURIComponent(order.order_id) +
+        "/email-receipt", {method: "POST"}
+      );
+      order.receipt_emailed = true;
+      $("shop-test-email").hidden = true;
+      testMessage(result.already_sent
+        ? "Тестовое подтверждение уже отправлялось на подтверждённую почту."
+        : "ТЕСТОВАЯ квитанция отправлена на подтверждённый email. " +
+          "Реальных списаний не было, настоящий VPN-ключ пока не выдан.");
+    } catch (err) {
+      testMessage("Не удалось отправить тестовое письмо: " +
+        (err.message === "VERIFIED_EMAIL_REQUIRED"
+          ? "Сначала войди через подтверждённую почту и создай новый тестовый заказ."
+          : explainProviderError(err.message)));
+    } finally {
+      state.busy = false;
+      $("shop-test-email").disabled = false;
     }
   });
   $("shop-test-simulate").addEventListener("click", async () => {
