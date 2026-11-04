@@ -45,6 +45,7 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
       <div class="shop-actions"><button type="button" class="shop-submit" id="shop-test-create">Создать тестовый счёт</button>
       <button type="button" class="shop-secondary" id="shop-test-diagnose">Проверить связь с кассой</button>
       <button type="button" class="shop-secondary" id="shop-test-webhook">Проверить готовность webhook</button>
+      <button type="button" class="shop-secondary" id="shop-test-h1-trial">Выдать тестовый VPN на 1 день (1 устройство)</button>
       <button type="button" class="shop-secondary" id="shop-test-simulate" hidden>Симулировать оплату (без денег)</button>
       <button type="button" class="shop-secondary" id="shop-test-refresh" hidden>Проверить статус в RollyPay</button>
       <button type="button" class="shop-secondary" id="shop-test-activation" hidden>Проверить план выдачи VPN (демо)</button>
@@ -54,6 +55,9 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
       <input id="shop-test-resume" type="text" spellcheck="false" autocomplete="off" placeholder="vainah_test_..." />
       <button type="button" class="shop-secondary" id="shop-test-resume-button">Восстановить заказ</button>
       <div id="shop-test-result" aria-live="polite" class="shop-test-result"></div>
+      <label for="shop-h1-issued-link" id="shop-h1-issued-label" hidden>Тестовая HTTPS-подписка H1Cloud — никому не передавай</label>
+      <input id="shop-h1-issued-link" readonly hidden spellcheck="false" autocomplete="off" />
+      <button type="button" class="shop-secondary" id="shop-h1-copy-link" hidden>Скопировать тестовую VPN-ссылку</button>
       <a id="shop-test-link" hidden target="_blank" rel="noopener noreferrer">Открыть тестовую форму RollyPay ↗</a>
     </details>
   </section>
