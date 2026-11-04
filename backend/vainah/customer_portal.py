@@ -7,7 +7,7 @@ RollyPay -> H1Cloud fulfillment transaction.
 from __future__ import annotations
 
 import re
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 import psycopg
@@ -26,7 +26,7 @@ from .email_delivery import (
     start_challenge,
     verified_email,
 )
-from .h1_panel import H1PanelError, panel_settings, read_h1_status
+from .h1_panel import H1PanelError, panel_settings, panel_tls_verify, read_h1_status
 from .telegram_auth import current_user, require_same_origin, require_user
 
 router = APIRouter(prefix="/api/account", tags=["Customer account"])
@@ -162,10 +162,12 @@ async def own_subscription_url(telegram_id: str) -> str:
         if not state.get("active") or settings is None:
             raise HTTPException(409, "H1_SUBSCRIPTION_NOT_ACTIVE")
         name = settings.prefix + telegram_id
-        async with httpx.AsyncClient(timeout=8, follow_redirects=False,
-                                     trust_env=False) as client:
+        async with httpx.AsyncClient(
+            timeout=8, follow_redirects=False, trust_env=False,
+            verify=panel_tls_verify(),
+        ) as client:
             response = await client.get(
-                settings.origin + "/api/clients/" + name,
+                settings.origin + "/api/info?" + urlencode({"name": name}),
                 headers={"Authorization": "Bearer " + settings.token,
                          "Accept": "application/json"},
             )
