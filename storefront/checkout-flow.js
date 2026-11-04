@@ -188,7 +188,7 @@
         (report.checks[key] ? "✓ " : "✗ ") + label
       );
       rows.push("Адрес webhook: " + location.origin + report.webhook_path);
-      rows.push("Доставка webhook: ещё не подтверждена этой проверкой");
+      rows.push("Получено подписанных webhook (тестовые заказы): " + report.verified_test_webhook_order_count);
       rows.push("Автоматическая выдача VPN: отключена");
       testMessage(rows.join(String.fromCharCode(10)));
     } catch (err) {
