@@ -426,12 +426,9 @@ class BillingSandbox:
             except HTTPException:
                 order.webhook_received = previous_webhook
                 raise
-            # Signed provider callbacks only mark sandbox fulfillment as ready
-            # for operator review. Never call H1Cloud or create a subscription.
+            # Keep the provider callback contract stable. Operator-only
+            # fulfillment readiness is exposed via activation-preview instead.
             return {"ok": True, "test_only": True, "status": order.status,
-                    "fulfillment_preview_ready": (
-                        order.status == "paid" and order.webhook_received
-                    ),
                     "vpn_delivered": False}
 
     def list_test_orders(self) -> list[dict]:
