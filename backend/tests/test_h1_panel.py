@@ -1,6 +1,9 @@
 """Read-only H1Cloud integration tests; no live provider needed."""
 from __future__ import annotations
 
+import socket
+import ssl
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -133,3 +136,47 @@ def test_h1_invalid_identity_rejected_without_request(config):
 
     with pytest.raises(H1PanelError):
         asyncio.run(read_h1_status("123/../../no"))
+
+
+@pytest.mark.parametrize(("failure", "reason"), [
+    ("dns", "dns_failed"),
+    ("tls", "tls_failed"),
+    ("connect", "connect_failed"),
+    ("connect_timeout", "connect_timeout"),
+    ("read_timeout", "response_timeout"),
+    ("protocol", "protocol_error"),
+])
+def test_h1_network_diagnostics_redact_errors(config, failure, reason):
+    import asyncio
+
+    def unavailable(request: httpx.Request):
+        if failure == "dns":
+            try:
+                raise socket.gaierror(-2, "secret DNS hostname")
+            except socket.gaierror as exc:
+                raise httpx.ConnectError(
+                    "secret DNS hostname", request=request,
+                ) from exc
+        if failure == "tls":
+            try:
+                raise ssl.SSLCertVerificationError("secret certificate hostname")
+            except ssl.SSLError as exc:
+                raise httpx.ConnectError(
+                    "secret TLS hostname", request=request,
+                ) from exc
+        if failure == "connect":
+            raise httpx.ConnectError("secret address", request=request)
+        if failure == "connect_timeout":
+            raise httpx.ConnectTimeout("secret address", request=request)
+        if failure == "read_timeout":
+            raise httpx.ReadTimeout("secret address", request=request)
+        raise httpx.RemoteProtocolError("secret address", request=request)
+
+    status = asyncio.run(inspect_h1_panel(
+        transport=httpx.MockTransport(unavailable),
+    ))
+    assert status == {
+        "ok": False, "panel": "unavailable", "reason": reason,
+    }
+    assert "secret" not in str(status)
+    assert TOKEN not in str(status)
