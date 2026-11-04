@@ -131,3 +131,27 @@ def test_support_form_does_not_accept_messages_without_working_backend():
     page = (STORE / "contact.html").read_text(encoding="utf-8")
     assert "Форма обращений временно недоступна" in page
     assert "<form name=\"vainah-support\"" not in page
+
+
+def test_telegram_login_assets_are_cache_busted_and_not_stored():
+    from fastapi.testclient import TestClient
+    from vainah.main import app
+
+    page = (STORE / "account.html").read_text(encoding="utf-8")
+    for name in (
+        "telegram-login-widget.js",
+        "account-dashboard.js",
+        "account-login.js",
+    ):
+        assert f'{name}?v=20261104-tg-fresh-1' in page
+    with TestClient(app) as client:
+        for path in (
+            "/account.html",
+            "/telegram-login-widget.js",
+            "/account-dashboard.js",
+            "/account-login.js",
+            "/api/telegram/config",
+        ):
+            response = client.get(path)
+            assert response.status_code == 200, path
+            assert "no-store" in response.headers.get("Cache-Control", ""), path
