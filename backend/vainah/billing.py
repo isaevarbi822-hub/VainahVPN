@@ -707,6 +707,7 @@ router = APIRouter(prefix="/api/shop", tags=["Shop"])
 sandbox = BillingSandbox(
     mode=os.environ.get("VAINAH_SHOP_SANDBOX_MODE", "mock"),
     api_key=os.environ.get("ROLLYPAY_API_KEY", ""),
+    terminal_id=os.environ.get("ROLLYPAY_TERMINAL_ID", ""),
     ledger_path=(
         os.environ.get("VAINAH_SHOP_SANDBOX_LEDGER_FILE")
         or (
@@ -882,7 +883,17 @@ async def sandbox_diagnostics(
     try:
         return await sandbox.provider_diagnostics()
     except ProviderError as exc:
-        raise HTTPException(502, exc.code) from None
+        # A failed balance GET does not mean webhook delivery or checkout
+        # creation failed. Surface an allowlisted reason for operator UI,
+        # without disclosing any merchant secrets or upstream response.
+        return {
+            "connected": False,
+            "mode": "provider-read-only",
+            "reason": exc.code,
+            "check": "GET /api/v1/balance",
+            "new_payment_created": False,
+            "live_checkout_enabled": False,
+        }
 
 
 @router.post("/sandbox/start")
