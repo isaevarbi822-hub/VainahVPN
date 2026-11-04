@@ -9,6 +9,8 @@ from __future__ import annotations
 import ipaddress
 import os
 import re
+import socket
+import ssl
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -27,6 +29,29 @@ class H1PanelError(Exception):
     def __init__(self, code: str):
         super().__init__(code)
         self.code = code
+
+
+def _network_error_code(error: httpx.RequestError) -> str:
+    """Classify transport failures without exposing hostnames or tokens."""
+    if isinstance(error, httpx.ConnectTimeout):
+        return "PANEL_CONNECT_TIMEOUT"
+    if isinstance(error, httpx.TimeoutException):
+        return "PANEL_RESPONSE_TIMEOUT"
+    if isinstance(error, httpx.RemoteProtocolError):
+        return "PANEL_PROTOCOL_ERROR"
+    if isinstance(error, httpx.ConnectError):
+        # httpx/httpcore may wrap DNS or TLS errors in multiple causes.
+        current: BaseException | None = error
+        for _ in range(6):
+            if current is None:
+                break
+            if isinstance(current, socket.gaierror):
+                return "PANEL_DNS_FAILED"
+            if isinstance(current, ssl.SSLError):
+                return "PANEL_TLS_FAILED"
+            current = current.__cause__ or current.__context__
+        return "PANEL_CONNECT_FAILED"
+    return "PANEL_UNREACHABLE"
 
 
 @dataclass(frozen=True)
@@ -103,8 +128,8 @@ async def read_h1_status(telegram_id: str, *,
                 headers={"Authorization": f"Bearer {settings.token}",
                          "Accept": "application/json"},
             )
-    except (httpx.TimeoutException, httpx.RequestError):
-        raise H1PanelError("PANEL_UNREACHABLE") from None
+    except httpx.RequestError as exc:
+        raise H1PanelError(_network_error_code(exc)) from None
     if response.status_code in (401, 403):
         raise H1PanelError("PANEL_UNAUTHORIZED")
     if response.status_code == 429:
@@ -161,6 +186,12 @@ async def inspect_h1_panel(*,
         return {"ok": False, "panel": "unavailable",
                 "reason": {
                     "PANEL_UNREACHABLE": "connection_failed",
+                    "PANEL_CONNECT_FAILED": "connect_failed",
+                    "PANEL_DNS_FAILED": "dns_failed",
+                    "PANEL_TLS_FAILED": "tls_failed",
+                    "PANEL_CONNECT_TIMEOUT": "connect_timeout",
+                    "PANEL_RESPONSE_TIMEOUT": "response_timeout",
+                    "PANEL_PROTOCOL_ERROR": "protocol_error",
                     "PANEL_RATE_LIMITED": "rate_limited",
                     "PANEL_SERVER_ERROR": "server_error",
                     "PANEL_INVALID_RESPONSE": "invalid_response",

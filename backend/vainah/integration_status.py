@@ -64,6 +64,12 @@ async def probe_h1() -> dict:
     reason = report.get("reason")
     reasons = {
         "connection_failed": "Нет ответа API панели H1Cloud.",
+        "connect_failed": "Не удалось установить соединение с API H1Cloud. Проверь адрес и порт 443.",
+        "dns_failed": "Домен API H1Cloud не разрешается в DNS с сервера Render.",
+        "tls_failed": "HTTPS-сертификат панели H1Cloud не проходит проверку TLS.",
+        "connect_timeout": "Render не может подключиться к API H1Cloud за 8 секунд.",
+        "response_timeout": "API H1Cloud установил соединение, но не ответил вовремя.",
+        "protocol_error": "API H1Cloud прервал HTTPS-соединение без корректного ответа.",
         "rate_limited": "H1Cloud ограничил частоту проверок.",
         "server_error": "API панели H1Cloud сообщил о временной ошибке.",
         "invalid_response": "API H1Cloud вернул ответ неожиданного формата.",
