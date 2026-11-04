@@ -10,11 +10,13 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from .auth import auth_public_config, router as auth_router
+from .auth import auth_public_config
+from .auth import router as auth_router
 from .billing import router as shop_router
 from .config import Settings
 from .db_health import database_status
-from .h1_panel import public_h1_status, router as h1_router
+from .h1_panel import public_h1_status
+from .h1_panel import router as h1_router
 from .inspector import InvalidSubscription, inspect_subscription
 
 ROOT = Path(__file__).resolve().parents[2]

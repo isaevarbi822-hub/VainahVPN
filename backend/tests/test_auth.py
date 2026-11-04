@@ -96,7 +96,7 @@ def test_rejects_forged_malformed_and_missing_bearer(clerk_keys):
         "/api/auth/me",
         headers={"Authorization": "Bearer " + jwt.encode(
             {"iss": ISSUER, "sub": "user_FAKED", "exp": int(time.time()) + 100},
-            "attacker-secret",
+            "attacker-secret-at-least-32-characters",
             algorithm="HS256",
         )},
     ).status_code == 401

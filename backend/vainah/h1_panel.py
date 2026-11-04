@@ -11,7 +11,7 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 import httpx
@@ -143,7 +143,7 @@ async def read_h1_status(telegram_id: str, *,
         "active": not banned and expiry > (time.time() if now is None else now),
         "banned": banned,
         "expires_at": datetime.fromtimestamp(
-            expiry, timezone.utc
+            expiry, UTC
         ).isoformat() if expiry else None,
     }
 
