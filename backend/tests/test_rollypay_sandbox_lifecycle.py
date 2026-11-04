@@ -339,7 +339,7 @@ def test_real_signed_test_webhook_calls_auto_h1_only_after_paid(sandbox, monkeyp
     async def fake_issue(order_id):
         issued.append(order_id)
         return {
-            "status": "issued" if len(issued) == 1 else "issued",
+            "status": "issued",
             "vpn_delivered": True,
         }
 
