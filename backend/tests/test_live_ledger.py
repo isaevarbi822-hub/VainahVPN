@@ -144,7 +144,7 @@ def test_live_paid_event_uses_signed_original_payment_record(monkeypatch):
     order_id = "vainah_live_" + uuid4().hex
     payment_id = "pay_" + uuid4().hex
     owner = "v1_" + "a" * 64
-    cursor = FakeCursor([(owner, "30", payment_id, "created")])
+    cursor = FakeCursor([(owner, "30", payment_id, "99.00", "created")])
     store = setup_connection(monkeypatch, cursor)
     body = json.dumps({
         "order_id": order_id, "payment_id": payment_id,
