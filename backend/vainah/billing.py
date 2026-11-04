@@ -9,6 +9,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import logging
 import os
 import re
 import secrets
@@ -982,6 +983,30 @@ def sandbox_simulate(order_id: str,
     return sandbox.simulate(order_id)
 
 
+# Diagnostic categories only. Never log callback body, payment identifiers,
+# IPs, credentials, email, signatures, or provider error text.
+_WEBHOOK_SAFE_REASONS = frozenset({
+    "INVALID_WEBHOOK", "UNSUPPORTED_PAYMENT_EVENT", "UNKNOWN_ORDER",
+    "PAYMENT_MISMATCH", "INVALID_JSON", "LIVE_PAYMENT_EVENT_UNSUPPORTED",
+    "LIVE_ORDER_INVALID", "LIVE_PAYMENT_MISMATCH",
+    "LIVE_ORDER_UNKNOWN", "LIVE_PAYMENT_INVALID_STATE",
+    "LIVE_WEBHOOK_JSON_INVALID",
+})
+
+
+def _log_webhook_rejection(exc: HTTPException, *, mode: str) -> None:
+    if exc.status_code != 400:
+        return
+    reason = (
+        exc.detail if isinstance(exc.detail, str)
+        and exc.detail in _WEBHOOK_SAFE_REASONS
+        else "UNCLASSIFIED"
+    )
+    logging.getLogger("uvicorn.error").warning(
+        "rollypay_webhook_rejected mode=%s code=%s", mode, reason
+    )
+
+
 @router.post("/webhooks/rollypay")
 async def webhook(request: Request, x_signature: str | None = Header(default=None),
                   x_timestamp: str | None = Header(default=None),
@@ -1001,15 +1026,23 @@ async def webhook(request: Request, x_signature: str | None = Header(default=Non
     if x_test_mode != "true":
         from .live_checkout import handle_live_paid_webhook
 
-        return await handle_live_paid_webhook(
-            raw=raw, timestamp=x_timestamp, signature=x_signature,
-        )
+        try:
+            return await handle_live_paid_webhook(
+                raw=raw, timestamp=x_timestamp, signature=x_signature,
+            )
+        except HTTPException as exc:
+            _log_webhook_rejection(exc, mode="live")
+            raise
     try:
         import json
         data = json.loads(raw)
     except (ValueError, UnicodeDecodeError) as exc:
         raise HTTPException(400, "INVALID_JSON") from exc
-    result = sandbox.process_webhook(data)
+    try:
+        result = sandbox.process_webhook(data)
+    except HTTPException as exc:
+        _log_webhook_rejection(exc, mode="sandbox")
+        raise
     if result["status"] == "paid" and data.get("event_type") == "payment.paid":
         # Only the original account-bound sandbox order has an encrypted email.
         # Never send credentials or claim a real purchase here.
