@@ -1026,9 +1026,19 @@ async def sandbox_status(order_id: str,
     ) != "enabled":
         raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
     try:
-        return await sandbox.refresh(order_id)
+        result = await sandbox.refresh(order_id)
     except ProviderError as exc:
         raise HTTPException(502, exc.code) from None
+    from .sandbox_auto_h1 import SandboxAutoH1Error, auto_enabled, read_delivery
+
+    if auto_enabled() and result["status"] == "paid" and result["webhook_received"]:
+        try:
+            status = read_delivery(order_id)
+        except SandboxAutoH1Error:
+            raise HTTPException(503, "SANDBOX_AUTO_H1_DATABASE_UNAVAILABLE") from None
+        result["vpn_delivered"] = status["vpn_delivered"]
+        result["delivery_state"] = status["status"]
+    return result
 
 
 @router.post("/sandbox/{order_id}/simulate")
