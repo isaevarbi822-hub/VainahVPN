@@ -44,6 +44,42 @@ def test_h1_origin_requires_https_and_public_hostname(monkeypatch):
             panel_settings()
 
 
+def test_h1_dedicated_https_management_port_is_preserved(config, monkeypatch):
+    import asyncio
+
+    expected = "https://vpn-panel.example.com:25626/api"
+    monkeypatch.setenv("PANEL_BASE_URL", expected)
+    settings = panel_settings()
+    assert settings is not None
+    assert settings.origin == "https://vpn-panel.example.com:25626"
+
+    observed = []
+
+    def fake_api(request: httpx.Request):
+        observed.append(str(request.url))
+        return httpx.Response(404, json={"error": "user_not_found"})
+
+    result = asyncio.run(inspect_h1_panel(
+        transport=httpx.MockTransport(fake_api),
+    ))
+    assert result["authentication"] == "accepted"
+    assert observed == [
+        "https://vpn-panel.example.com:25626/api/clients/tg999999999999999999"
+    ]
+
+
+@pytest.mark.parametrize("bad_port_url", [
+    "https://vpn-panel.example.com:0/api",
+    "https://vpn-panel.example.com:22/api",
+    "https://vpn-panel.example.com:99999/api",
+    "https://vpn-panel.example.com:notanumber/api",
+])
+def test_h1_rejects_invalid_or_privileged_port(config, monkeypatch, bad_port_url):
+    monkeypatch.setenv("PANEL_BASE_URL", bad_port_url)
+    with pytest.raises(H1PanelError, match="PANEL_URL_INVALID"):
+        panel_settings()
+
+
 def test_h1_read_only_and_redacted_status(config):
     import asyncio
 

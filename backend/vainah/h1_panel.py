@@ -73,7 +73,8 @@ def panel_settings() -> H1PanelSettings | None:
         if (parsed.scheme != "https" or not host or parsed.username or
                 parsed.password or parsed.query or parsed.fragment or
                 parsed.path not in {"", "/", "/api", "/api/"} or
-                port not in {None, 443} or
+                (port is not None and port != 443
+                 and not 1024 <= port <= 65535) or
                 host.lower() in {"localhost"} or
                 host.lower().endswith((".localhost", ".local", ".internal")) or
                 not re.fullmatch(r"[A-Za-z0-9.-]{4,253}", host)):
@@ -90,8 +91,12 @@ def panel_settings() -> H1PanelSettings | None:
     prefix = os.environ.get("PANEL_CLIENT_PREFIX", "tg").strip()
     if not re.fullmatch(r"[A-Za-z0-9_.-]{1,24}", prefix):
         raise H1PanelError("PANEL_PREFIX_INVALID")
+    # H1Cloud management API may use a dedicated HTTPS port, distinct
+    # from VLESS/Reality on 443. Preserve it for the actual API request.
+    port_suffix = f":{port}" if port not in {None, 443} else ""
     return H1PanelSettings(
-        origin=f"https://{host.lower()}", token=token, prefix=prefix
+        origin=f"https://{host.lower()}{port_suffix}",
+        token=token, prefix=prefix,
     )
 
 
