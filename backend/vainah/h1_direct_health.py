@@ -30,7 +30,7 @@ def _direct_health_url() -> str | None:
         if (
             parts.scheme != "http"
             or not host
-            or not re.fullmatch(r"direct-[a-z0-9-]{3,50}\\.h1cloud\\.net", host)
+            or not re.fullmatch(r"direct-[a-z0-9-]{3,50}\.h1cloud\.net", host)
             or not isinstance(port, int)
             or not 1024 <= port <= 65535
             or parts.path != "/api/health"
