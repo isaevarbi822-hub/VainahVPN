@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass
 from threading import RLock
 from urllib.parse import urlsplit
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -109,12 +109,14 @@ class BillingSandbox:
 
     def __init__(self, mode: str = "mock", api_key: str = "",
                  transport: httpx.AsyncBaseTransport | None = None,
-                 ledger_path: str | None = None):
+                 ledger_path: str | None = None,
+                 terminal_id: str | None = None):
         if mode not in {"mock", "provider"}:
             raise ValueError("INVALID_SHOP_MODE")
         self.mode = mode
         self.api_key = api_key
         self.transport = transport
+        self.terminal_id = terminal_id
         self.lock = RLock()
         self.orders: dict[str, TestOrder] = {}
         self.ledger = None
@@ -175,11 +177,19 @@ class BillingSandbox:
         """
         if not self.api_key:
             raise ProviderError("PROVIDER_NOT_CONFIGURED")
+        params = None
+        if self.terminal_id:
+            # Invalid configuration must fail closed without leaking its value.
+            try:
+                params = {"terminal_id": str(UUID(self.terminal_id.strip()))}
+            except (ValueError, AttributeError) as exc:
+                raise ProviderError("PROVIDER_TERMINAL_ID_INVALID") from exc
         try:
             async with httpx.AsyncClient(timeout=8, follow_redirects=False,
                                          transport=self.transport) as client:
                 response = await client.get(
                     "https://rollypay.io/api/v1/balance",
+                    params=params,
                     headers={"X-API-Key": self.api_key,
                              "X-Nonce": str(uuid4()),
                              "Accept": "application/json"},
@@ -189,6 +199,20 @@ class BillingSandbox:
         except httpx.RequestError as exc:
             raise ProviderError("PROVIDER_NETWORK") from exc
         if not 200 <= response.status_code <= 299:
+            if response.status_code == 400 and len(response.content) <= 2048:
+                try:
+                    body = response.json()
+                except ValueError:
+                    body = None
+                # Only exact, public provider error categories are exposed.
+                # Never print or store arbitrary upstream text or identifiers.
+                if isinstance(body, dict) and isinstance(body.get("error"), str):
+                    reason = body["error"].strip().casefold()
+                    if reason in {"terminal not found", "terminal_id not found"}:
+                        raise ProviderError("PROVIDER_TERMINAL_NOT_FOUND")
+                    if reason in {"terminal_id is required", "terminal_id required",
+                                  "missing terminal_id", "terminal_id is missing"}:
+                        raise ProviderError("PROVIDER_TERMINAL_ID_REQUIRED")
             raise ProviderError(f"PROVIDER_HTTP_{response.status_code}")
         if len(response.content) > 65536:
             raise ProviderError("PROVIDER_RESPONSE_INVALID")
