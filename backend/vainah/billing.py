@@ -562,10 +562,12 @@ class BillingSandbox:
         """Operator fallback for old bound orders; new orders auto-send."""
         self.require_order_owner(order_id, owner_ref)
         with self.lock:
-            order = self.orders[order_id]
-            if order.receipt_recipient is not None:
-                # Never let the user change the saved verified destination.
-                return await self.send_auto_test_receipt(order_id)
+            encrypted_recipient_exists = (
+                self.orders[order_id].receipt_recipient is not None
+            )
+        if encrypted_recipient_exists:
+            # Never let the user change the saved verified destination.
+            return await self.send_auto_test_receipt(order_id)
         async with self.receipt_lock:
             self.require_order_owner(order_id, owner_ref)
             with self.lock:
