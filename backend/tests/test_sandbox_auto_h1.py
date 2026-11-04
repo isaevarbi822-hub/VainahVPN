@@ -5,17 +5,13 @@ The provider stub validates that only one POST is sent per signed test order.
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 import time
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 from vainah import billing, sandbox_auto_h1 as auto
-from vainah.main import app
 from vainah.postgres_ledger import PostgresSandboxLedger
 
 OPERATOR = "test-sandbox-operator-" + "x" * 40
