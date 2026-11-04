@@ -111,7 +111,7 @@ def test_delivery_email_requires_prior_verified_recipient(monkeypatch):
     )) is False
 
     monkeypatch.setattr(mail, "verified_email", lambda _uid: "owner@example.com")
-    async def fake_send(to, subject, body, *, transport=None):
+    async def fake_send(to, subject, body, *, transport=None, idempotency_key=None):
         sent.append((to, subject, body))
     monkeypatch.setattr(mail, "send_email", fake_send)
     assert asyncio.run(mail.email_paid_subscription(
@@ -120,6 +120,8 @@ def test_delivery_email_requires_prior_verified_recipient(monkeypatch):
     assert len(sent) == 1
     assert sent[0][0] == "owner@example.com"
     assert "https://vpn.example/sub/secret" in sent[0][2]
+    assert "квитанция" in sent[0][1].lower()
+    assert "подтверждение" in sent[0][2]
 
     with pytest.raises(ValueError):
         asyncio.run(mail.email_paid_subscription(

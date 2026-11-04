@@ -30,6 +30,8 @@ class SandboxLedger:
                 db.execute("ALTER TABLE sandbox_orders ADD COLUMN webhook_received INTEGER NOT NULL DEFAULT 0")
             if "owner_ref" not in fields:
                 db.execute("ALTER TABLE sandbox_orders ADD COLUMN owner_ref TEXT")
+            if "receipt_emailed" not in fields:
+                db.execute("ALTER TABLE sandbox_orders ADD COLUMN receipt_emailed INTEGER NOT NULL DEFAULT 0")
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(str(self.path), timeout=5)
@@ -38,26 +40,28 @@ class SandboxLedger:
         with self._connect() as db:
             db.execute("""
                 INSERT INTO sandbox_orders (
-                    order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(order_id) DO UPDATE SET
                     status=excluded.status,
                     webhook_received=excluded.webhook_received,
+                    receipt_emailed=excluded.receipt_emailed,
                     updated_at=unixepoch()
             """, (
                 order.order_id, order.plan_id, order.amount, order.payment_id,
                 order.status, order.mode, int(order.webhook_received),
                 getattr(order, "owner_ref", None),
+                int(getattr(order, "receipt_emailed", False)),
             ))
 
     def load(self) -> list[dict]:
         with self._connect() as db:
             rows = db.execute("""
-                SELECT order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref
+                SELECT order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed
                   FROM sandbox_orders ORDER BY updated_at DESC, rowid DESC
             """).fetchall()
         return [
             dict(zip(("order_id", "plan_id", "amount", "payment_id",
-                      "status", "mode", "webhook_received", "owner_ref"), row))
+                      "status", "mode", "webhook_received", "owner_ref", "receipt_emailed"), row))
             for row in rows
         ]

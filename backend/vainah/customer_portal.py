@@ -109,7 +109,7 @@ def customer_receipts(telegram_id: str) -> list[dict]:
                 _receipt_schema(cur)
                 cur.execute("""
                     SELECT order_id, plan_id, payment_status,
-                           delivery_state, created_at
+                           delivery_state, created_at, emailed_at
                     FROM vainah_customer_deliveries
                     WHERE telegram_id = %s
                     ORDER BY created_at DESC LIMIT 30
@@ -120,6 +120,7 @@ def customer_receipts(telegram_id: str) -> list[dict]:
     return [{
         "order_id": row[0],
         "plan_id": row[1],
+        "emailed": row[5] is not None,
         "title": PLAN_LABELS.get(row[1], ("VPN-подписка", 3))[0],
         "status": row[2] if row[3] == "delivered" else "revoked",
         "paid": row[2] == "paid",
@@ -284,10 +285,30 @@ async def notify_confirmed_subscription(telegram_id: str, order_id: str) -> bool
     Never call on an unverified webhook or client input. This function refuses
     to send unless an owner-specific paid + delivered database receipt exists.
     """
-    if not ORDER_RE.fullmatch(order_id):
+    if not ORDER_RE.fullmatch(order_id) or order_id.startswith("vainah_test_"):
         raise ValueError("INVALID_ORDER_ID")
     receipt = active_receipt(telegram_id)
     if not receipt or receipt["order_id"] != order_id:
         return False
+    if receipt.get("emailed") is True:
+        return True
     url = await own_subscription_url(telegram_id)
-    return await email_paid_subscription(telegram_id, order_id, url)
+    title, limit = PLAN_LABELS.get(receipt["plan_id"], ("VPN-подписка", 3))
+    sent = await email_paid_subscription(
+        telegram_id, order_id, url, plan_title=title, device_limit=limit,
+    )
+    if not sent:
+        return False
+    try:
+        with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
+            _receipt_schema(cur)
+            cur.execute("""
+                UPDATE vainah_customer_deliveries
+                SET emailed_at = now()
+                WHERE order_id = %s AND telegram_id = %s
+                  AND payment_status = 'paid' AND delivery_state = 'delivered'
+                  AND emailed_at IS NULL
+            """, (order_id, telegram_id))
+    except psycopg.Error:
+        raise HTTPException(503, "ACCOUNT_DATABASE_UNAVAILABLE") from None
+    return True

@@ -25,10 +25,10 @@ class FakeCursor:
         if query.startswith("CREATE TABLE"):
             assert "VAINAH_SANDBOX_ORDERS" in query
         elif query.startswith("ALTER TABLE"):
-            assert "WEBHOOK_RECEIVED" in query or "OWNER_REF" in query
+            assert any(column in query for column in ("WEBHOOK_RECEIVED", "OWNER_REF", "RECEIPT_EMAILED"))
         elif query.startswith("INSERT"):
             assert "%s" in sql
-            assert params is not None and len(params) == 8
+            assert params is not None and len(params) == 9
             self.storage[params[0]] = tuple(params)
         elif query.startswith("SELECT"):
             self.rows = [

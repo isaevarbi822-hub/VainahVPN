@@ -5,6 +5,7 @@ accounts, persistent order ledger, approved merchant and H1Cloud activation exis
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import os
@@ -20,6 +21,7 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
+from .email_delivery import send_sandbox_receipt
 from .postgres_ledger import LedgerUnavailable, PostgresSandboxLedger
 from .sandbox_ledger import SandboxLedger
 
@@ -98,6 +100,7 @@ class TestOrder:
     pay_url: str | None = None
     webhook_received: bool = False
     owner_ref: str | None = None
+    receipt_emailed: bool = False
 
 
 class ProviderError(Exception):
@@ -120,6 +123,7 @@ class BillingSandbox:
         self.transport = transport
         self.terminal_id = terminal_id
         self.lock = RLock()
+        self.receipt_lock = asyncio.Lock()
         self.orders: dict[str, TestOrder] = {}
         self.ledger = None
         if ledger_path:
@@ -151,6 +155,7 @@ class BillingSandbox:
                         continue
                     record["webhook_received"] = bool(record.get("webhook_received", False))
                     record["owner_ref"] = record.get("owner_ref")
+                    record["receipt_emailed"] = bool(record.get("receipt_emailed", False))
                     order = TestOrder(**record, pay_url=None)
                     self.orders[order.order_id] = order
             self._ledger_loaded = True
@@ -457,6 +462,43 @@ class BillingSandbox:
             ):
                 raise HTTPException(404, "TEST_ORDER_NOT_FOUND")
 
+    async def send_owned_test_receipt(
+        self, order_id: str, owner_ref: str, recipient: str
+    ) -> dict:
+        """Only paid, signed and account-bound provider tests may email receipts.
+
+        Do not store recipient emails in the sandbox ledger or send VPN keys.
+        A durable emailed flag + Resend's idempotency key stop duplicate sends.
+        """
+        async with self.receipt_lock:
+            self.require_order_owner(order_id, owner_ref)
+            with self.lock:
+                order = self.orders[order_id]
+                if order.mode != "provider" or not order.webhook_received or order.status != "paid":
+                    raise HTTPException(409, "SIGNED_TEST_PAYMENT_REQUIRED")
+                if order.receipt_emailed:
+                    return {"sent": False, "already_sent": True, "test_only": True,
+                            "vpn_delivered": False}
+                plan = get_plan(order.plan_id)
+                if plan is None:
+                    raise HTTPException(409, "PLAN_UNKNOWN")
+                title, days, devices, amount = (
+                    plan["title"], plan["days"], plan["devices"], order.amount
+                )
+            await send_sandbox_receipt(
+                recipient, order_id=order_id, plan_title=title,
+                amount_rub=amount, duration_days=days, devices=devices,
+            )
+            with self.lock:
+                order.receipt_emailed = True
+                try:
+                    self._save(order)
+                except HTTPException:
+                    order.receipt_emailed = False
+                    raise
+            return {"sent": True, "already_sent": False, "test_only": True,
+                    "vpn_delivered": False}
+
     def list_test_orders(self) -> list[dict]:
         self._ensure_loaded()
         with self.lock:
@@ -549,6 +591,7 @@ class BillingSandbox:
             "vpn_delivered": False, "pay_url": order.pay_url,
             "webhook_received": order.webhook_received,
             "owner_bound": bool(order.owner_ref),
+            "receipt_emailed": order.receipt_emailed,
         }
 
 
@@ -718,6 +761,22 @@ def my_test_orders(request: Request) -> dict:
     if os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") != "enabled":
         raise HTTPException(503, "SANDBOX_DISABLED")
     return {"items": sandbox.owned_test_orders(owner), "sandbox_only": True}
+
+
+@router.post("/my-test-orders/{order_id}/email-receipt")
+async def email_test_receipt(order_id: str, request: Request) -> dict:
+    """User-triggered email TEST receipt. No real payment or H1Cloud activation."""
+    from .email_auth import current_email
+    from .telegram_auth import require_same_origin
+
+    require_same_origin(request)
+    email = current_email(request)
+    if email is None:
+        raise HTTPException(401, "VERIFIED_EMAIL_REQUIRED")
+    owner = _require_verified_sandbox_owner(request)
+    if os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") != "enabled":
+        raise HTTPException(503, "SANDBOX_DISABLED")
+    return await sandbox.send_owned_test_receipt(order_id, owner, email)
 
 
 @router.get("/my-test-orders/{order_id}/activation-preview")
