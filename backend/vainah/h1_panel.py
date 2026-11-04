@@ -17,7 +17,8 @@ from datetime import UTC, datetime
 from urllib.parse import urlencode, urlsplit
 
 import httpx
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, HTTPException
+from pydantic import BaseModel, Field
 
 from .billing import _require_operator
 
@@ -238,3 +239,35 @@ async def h1cloud_check(x_sandbox_token: str | None = Header(default=None)) -> d
     _require_operator(x_sandbox_token)
     # Read-only probe, never create users and never leak subscription URLs.
     return await inspect_h1_panel()
+
+
+class H1ClientCheckRequest(BaseModel):
+    """Legacy H1 user identifier; never put this in an access-log URL."""
+
+    telegram_id: str = Field(pattern=r"^[1-9][0-9]{0,17}$")
+
+
+@router.post("/h1cloud/client/check")
+async def h1cloud_client_check(
+    body: H1ClientCheckRequest,
+    x_sandbox_token: str | None = Header(default=None),
+) -> dict:
+    """Operator-only read of one existing client. Never create or extend users.
+
+    This intentionally returns no API response body, VLESS secret,
+    subscription link, UUID, or device information.
+    """
+    _require_operator(x_sandbox_token)
+    try:
+        status = await read_h1_status(body.telegram_id)
+    except H1PanelError as exc:
+        # Sanitized codes only; never expose the URL, token or provider text.
+        raise HTTPException(status_code=503, detail=exc.code) from None
+    return {
+        "ok": status["panel_ready"],
+        "found": status["found"],
+        "active": status["active"],
+        "banned": status.get("banned", False),
+        "expires_at": status["expires_at"],
+        "vpn_delivered": False,
+    }
