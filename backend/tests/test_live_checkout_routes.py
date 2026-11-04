@@ -10,7 +10,6 @@ import json
 import time
 from types import SimpleNamespace
 
-import pytest
 from fastapi.testclient import TestClient
 
 from vainah import live_checkout
