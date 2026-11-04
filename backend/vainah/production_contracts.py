@@ -218,7 +218,8 @@ class H1ProvisionIntent:
 
     def extend_payload(self) -> dict:
         # H1Cloud /api/edit adds days; do not retry an uncertain PATCH.
-        return {"name": self.client_name, "days": self.days}
+        return {"name": self.client_name, "days": self.days,
+                "device_limit": self.devices}
 
 
 def h1_provision_intent(
