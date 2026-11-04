@@ -1,6 +1,6 @@
 """Read-only H1Cloud panel adapter ported from Vainah VPN's prior integration.
 
-Panel contract: GET /api/clients/{name}, Bearer PANEL_API_TOKEN.
+Node contract (announced by /api/health): GET /api/info?name=NAME, Bearer PANEL_API_TOKEN.
 The API response may contain VLESS secrets. Return only safe status fields;
 never write, create clients, or disclose links/UUIDs/device identifiers.
 """
@@ -14,7 +14,7 @@ import ssl
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 from fastapi import APIRouter, Header
@@ -129,7 +129,7 @@ async def read_h1_status(telegram_id: str, *,
             transport=transport
         ) as client:
             response = await client.get(
-                f"{settings.origin}/api/clients/{name}",
+                f"{settings.origin}/api/info?{urlencode({'name': name})}",
                 headers={"Authorization": f"Bearer {settings.token}",
                          "Accept": "application/json"},
             )

@@ -64,7 +64,7 @@ def test_h1_dedicated_https_management_port_is_preserved(config, monkeypatch):
     ))
     assert result["authentication"] == "accepted"
     assert observed == [
-        "https://vpn-panel.example.com:25626/api/clients/tg999999999999999999"
+        "https://vpn-panel.example.com:25626/api/info?name=tg999999999999999999"
     ]
 
 
@@ -101,7 +101,7 @@ def test_h1_read_only_and_redacted_status(config):
     assert result["banned"] is False
     assert len(observed) == 1
     assert observed[0] == (
-        "GET", "https://vpn-panel.example.com/api/clients/tg123456789",
+        "GET", "https://vpn-panel.example.com/api/info?name=tg123456789",
         "Bearer " + TOKEN
     )
     assert not any(secret in str(result) for secret in (
@@ -114,7 +114,8 @@ def test_h1_probe_404_missing_sentinel_proves_auth_without_real_user(config):
 
     def provider(request: httpx.Request):
         assert request.method == "GET"
-        assert request.url.path == "/api/clients/tg999999999999999999"
+        assert request.url.path == "/api/info"
+        assert request.url.params.get("name") == "tg999999999999999999"
         return httpx.Response(404, json={"error": "user_not_found"})
 
     result = asyncio.run(inspect_h1_panel(transport=httpx.MockTransport(provider)))

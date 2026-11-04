@@ -92,7 +92,7 @@ class LiveH1CloudNode:
             "Accept": "application/json",
         }
         base = settings.origin
-        path = "/api/clients/" + quote(intent.client_name, safe="")
+        path = "/api/info?name=" + quote(intent.client_name, safe="")
         async with httpx.AsyncClient(
             timeout=10, follow_redirects=False, trust_env=False,
             transport=self.transport,
