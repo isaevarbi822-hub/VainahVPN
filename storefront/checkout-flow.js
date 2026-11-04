@@ -144,8 +144,23 @@
     state.busy = true;
     $("shop-buy").disabled = true;
     try {
+      // Reuse the same server-side intent if network timeouts or repeated
+      // clicks occur: never create a second invoice for an uncertain request.
+      if(!globalThis.crypto || !crypto.randomUUID){
+        throw Error("Для защищённой оплаты нужен современный браузер с HTTPS.");
+      }
+      const intentName = "vainah-live-checkout-intent-v1-" + state.selected.id;
+      let checkoutKey = sessionStorage.getItem(intentName);
+      if(!checkoutKey){
+        checkoutKey = crypto.randomUUID();
+        sessionStorage.setItem(intentName, checkoutKey);
+      }
       const reply = await api("/api/shop/checkout", {
-        method: "POST", headers: {"Content-Type": "application/json"},
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": checkoutKey
+        },
         body: JSON.stringify({plan: state.selected.id})
       });
       const url = new URL(reply.pay_url);
