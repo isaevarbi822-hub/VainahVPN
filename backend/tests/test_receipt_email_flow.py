@@ -254,3 +254,29 @@ def test_tampered_receipt_ciphertext_never_exposes_email(setup):
         billing._unseal_receipt_recipient(stored.receipt_recipient[:-3] + "abc")
     assert exc.value.status_code == 503
     assert sent == []
+
+
+def test_sandbox_issued_receipt_says_vpn_activated(monkeypatch):
+    import asyncio
+
+    captured = []
+
+    async def fake_send(to, subject, body, **_kwargs):
+        captured.append((to, subject, body))
+
+    monkeypatch.setattr(email_delivery, "send_email", fake_send)
+    asyncio.run(email_delivery.send_sandbox_receipt(
+        "buyer@example.com",
+        order_id="vainah_test_" + "a" * 32,
+        plan_title="1 месяц",
+        amount_rub="99.00",
+        duration_days=30,
+        devices=3,
+        vpn_issued=True,
+    ))
+    assert len(captured) == 1
+    body = captured[0][2]
+    assert "ДЕНЬГИ НЕ СПИСАНЫ" in body
+    assert "ТЕСТОВЫЙ VPN АКТИВИРОВАН" in body
+    assert "VPN НЕ АКТИВИРОВАН" not in body
+    assert "https://sub" not in body
