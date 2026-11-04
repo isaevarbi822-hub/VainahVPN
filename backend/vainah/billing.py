@@ -771,6 +771,17 @@ def config() -> dict:
             "message": "Оформление реальных заказов ещё закрыто: нет авторизованной выдачи VPN."}
 
 
+@router.get("/operator/production-readiness")
+def operator_production_readiness(
+    x_sandbox_token: str | None = Header(default=None),
+) -> dict:
+    """Read-only merchant readiness; never returns tokens or creates payments."""
+    _require_operator(x_sandbox_token)
+    from .production_contracts import production_readiness
+
+    return production_readiness()
+
+
 @router.post("/checkout")
 def public_checkout(_: StartSandbox) -> None:
     # Do not charge guests or pretend successful delivery.
