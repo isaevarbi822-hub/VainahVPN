@@ -1113,7 +1113,9 @@ async def webhook(request: Request, x_signature: str | None = Header(default=Non
         _log_webhook_rejection(exc, mode="sandbox")
         raise
     from .sandbox_auto_h1 import (
-        SandboxAutoH1Error, auto_enabled, auto_issue_paid_sandbox,
+        SandboxAutoH1Error,
+        auto_enabled,
+        auto_issue_paid_sandbox,
         mark_refunded,
     )
 
