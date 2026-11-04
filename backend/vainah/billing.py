@@ -97,6 +97,7 @@ class TestOrder:
     mode: str
     pay_url: str | None = None
     webhook_received: bool = False
+    owner_ref: str | None = None
 
 
 class ProviderError(Exception):
@@ -149,6 +150,7 @@ class BillingSandbox:
                     if record["status"] not in STATUS:
                         continue
                     record["webhook_received"] = bool(record.get("webhook_received", False))
+                    record["owner_ref"] = record.get("owner_ref")
                     order = TestOrder(**record, pay_url=None)
                     self.orders[order.order_id] = order
             self._ledger_loaded = True
@@ -268,7 +270,7 @@ class BillingSandbox:
             raise ProviderError("PROVIDER_RESPONSE_INVALID")
         return result
 
-    async def create(self, plan_id: str) -> dict:
+    async def create(self, plan_id: str, *, owner_ref: str | None = None) -> dict:
         self._ensure_loaded()
         plan = get_plan(plan_id)
         if not plan:
@@ -277,7 +279,8 @@ class BillingSandbox:
         amount = price_rub(plan)
         if self.mode == "mock":
             order = TestOrder(order_id, plan_id, amount,
-                              "mock_" + uuid4().hex, "created", "mock")
+                              "mock_" + uuid4().hex, "created", "mock",
+                              owner_ref=owner_ref)
         else:
             result = await self.provider_create(order_id, plan)
             if result.get("order_id") != order_id or str(result.get("amount")) != amount:
@@ -299,7 +302,7 @@ class BillingSandbox:
             except ValueError as exc:
                 raise ProviderError("PROVIDER_PAYMENT_LINK_INVALID") from exc
             order = TestOrder(order_id, plan_id, amount, payment_id,
-                              status, "provider", pay_url)
+                              status, "provider", pay_url, owner_ref=owner_ref)
         with self.lock:
             self._save(order)
             self.orders[order_id] = order
@@ -431,6 +434,29 @@ class BillingSandbox:
             return {"ok": True, "test_only": True, "status": order.status,
                     "vpn_delivered": False}
 
+    def owned_test_orders(self, owner_ref: str) -> list[dict]:
+        """Only account-bound operator sandbox orders; never return provider URLs."""
+        self._ensure_loaded()
+        with self.lock:
+            return [
+                {**self.serialize(order), "pay_url": None}
+                for order in reversed(list(self.orders.values()))
+                if order.owner_ref is not None
+                and secrets.compare_digest(order.owner_ref, owner_ref)
+            ][:20]
+
+    def require_order_owner(self, order_id: str, owner_ref: str) -> None:
+        """Do not allow old anonymous orders to be claimed by knowing their ID."""
+        if not ORDER_RE.fullmatch(order_id):
+            raise HTTPException(404, "TEST_ORDER_NOT_FOUND")
+        self._ensure_loaded()
+        with self.lock:
+            order = self.orders.get(order_id)
+            if not order or order.owner_ref is None or not secrets.compare_digest(
+                order.owner_ref, owner_ref
+            ):
+                raise HTTPException(404, "TEST_ORDER_NOT_FOUND")
+
     def list_test_orders(self) -> list[dict]:
         self._ensure_loaded()
         with self.lock:
@@ -485,7 +511,8 @@ class BillingSandbox:
                 "device_limit": plan["devices"],
                 "signed_webhook_received": signed,
                 "operator_review_required": True,
-                "customer_identity_bound": False,
+                "customer_identity_bound": bool(order.owner_ref),
+                "account_binding_required": not bool(order.owner_ref),
                 "h1cloud_write_performed": False,
                 "auto_provisioning_enabled": False,
                 "subscription_url": None,
@@ -521,6 +548,7 @@ class BillingSandbox:
             "mode": order.mode, "test_only": True, "real_charge": False,
             "vpn_delivered": False, "pay_url": order.pay_url,
             "webhook_received": order.webhook_received,
+            "owner_bound": bool(order.owner_ref),
         }
 
 
@@ -549,6 +577,40 @@ def _require_operator(token: str | None) -> None:
     if (len(expected) < 24 or not token
             or not secrets.compare_digest(expected, token)):
         raise HTTPException(401, "SANDBOX_OPERATOR_TOKEN_REQUIRED")
+
+
+def _verified_sandbox_owner(request: Request) -> str | None:
+    """Opaque, stable ownership proof from an authenticated server session.
+
+    The test order never trusts a user-supplied email or Telegram ID.
+    Older unbound test orders are deliberately not auto-claimed.
+    """
+    from .email_auth import current_email
+    from .telegram_auth import current_user
+
+    email = current_email(request)
+    telegram = current_user(request) if email is None else None
+    if email:
+        principal = "email:" + email.lower()
+    elif telegram:
+        principal = "telegram:" + telegram["telegram_id"]
+    else:
+        return None
+    secret = os.environ.get("SESSION_SIGNING_KEY", "")
+    if len(secret) < 32:
+        return None
+    digest = hmac.new(
+        secret.encode(), ("sandbox-owner-v1:" + principal).encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    return "v1_" + digest
+
+
+def _require_verified_sandbox_owner(request: Request) -> str:
+    owner = _verified_sandbox_owner(request)
+    if owner is None:
+        raise HTTPException(401, "VERIFIED_ACCOUNT_REQUIRED")
+    return owner
 
 
 @router.get("/plans")
@@ -632,6 +694,7 @@ async def sandbox_diagnostics(
 
 @router.post("/sandbox/start")
 async def start_sandbox(body: StartSandbox,
+                        request: Request,
                         x_sandbox_token: str | None = Header(default=None)) -> dict:
     _require_operator(x_sandbox_token)
     if os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") != "enabled":
@@ -641,9 +704,29 @@ async def start_sandbox(body: StartSandbox,
     ) != "enabled":
         raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
     try:
-        return await sandbox.create(body.plan)
+        return await sandbox.create(
+            body.plan, owner_ref=_verified_sandbox_owner(request)
+        )
     except ProviderError as exc:
         raise HTTPException(502, exc.code) from None
+
+
+@router.get("/my-test-orders")
+def my_test_orders(request: Request) -> dict:
+    """Account-visible only for sandbox orders bound at creation time."""
+    owner = _require_verified_sandbox_owner(request)
+    if os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") != "enabled":
+        raise HTTPException(503, "SANDBOX_DISABLED")
+    return {"items": sandbox.owned_test_orders(owner), "sandbox_only": True}
+
+
+@router.get("/my-test-orders/{order_id}/activation-preview")
+def my_test_order_preview(order_id: str, request: Request) -> dict:
+    owner = _require_verified_sandbox_owner(request)
+    if os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") != "enabled":
+        raise HTTPException(503, "SANDBOX_DISABLED")
+    sandbox.require_order_owner(order_id, owner)
+    return sandbox.activation_preview(order_id)
 
 
 @router.get("/sandbox/orders")
