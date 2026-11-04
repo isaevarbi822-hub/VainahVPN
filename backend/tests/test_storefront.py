@@ -144,7 +144,7 @@ def test_telegram_login_assets_are_cache_busted_and_not_stored():
         "account-dashboard.js",
         "account-login.js",
     ):
-        assert f'{name}?v=20261104-tg-fresh-1' in page
+        assert f'{name}?v=20261104-email-login-1' in page
     with TestClient(app) as client:
         for path in (
             "/account.html",
@@ -156,3 +156,17 @@ def test_telegram_login_assets_are_cache_busted_and_not_stored():
             response = client.get(path)
             assert response.status_code == 200, path
             assert "no-store" in response.headers.get("Cache-Control", ""), path
+
+
+def test_email_login_form_and_dashboard_are_wired():
+    page = (STORE / "account.html").read_text(encoding="utf-8")
+    script = (STORE / "account-login.js").read_text(encoding="utf-8")
+    dashboard = (STORE / "account-dashboard.js").read_text(encoding="utf-8")
+    assert 'data-auth-form="email"' in page
+    assert 'data-auth-verify="email"' in page
+    assert 'pattern="[0-9]{6}"' in page
+    assert "/api/email-auth/request" in script
+    assert "/api/email-auth/verify" in script
+    assert "/api/email-auth/config" in script
+    assert "/api/email-auth/account" in dashboard
+    assert "/api/email-auth/logout" in dashboard

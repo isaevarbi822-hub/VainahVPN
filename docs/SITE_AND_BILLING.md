@@ -157,3 +157,26 @@ HttpOnly Secure SameSite=Lax cookie, `GET /api/telegram/account` возвращ�
 подтверждённый email, **только** после того, как доверенная система
 подтвердила оплату и выдачу в H1Cloud. Автоматическое проведение живых
 платежей и выдача пока не внедрены и не включены.
+
+
+## Email login — independently verified passwordless accounts
+
+Email-авторизация теперь отдельная от Telegram. Существующие `RESEND_API_KEY`,
+`VAINAH_EMAIL_FROM`, `DATABASE_URL` и `SESSION_SIGNING_KEY` должны быть
+заданы в Render; новые ключи специально для входа не нужны. Отправитель
+Resend должен иметь право отправлять письма на адреса пользователей.
+
+- `GET /api/email-auth/config` — признаки готовности без секретов.
+- `POST /api/email-auth/request` — отправка 6-значного кода на email через
+  Resend; код живёт 10 минут. Частота ограничена по почте и источнику.
+- `POST /api/email-auth/verify` — проверка кода, его однократное погашение,
+  создание подтверждённой email-учётной записи и выдача HttpOnly/Secure cookie.
+- `GET /api/email-auth/account`, `POST /api/email-auth/logout` — проверка
+  сессии и выход. Отправка и проверка кода требуют правильный Origin.
+
+**Разграничение подписок:** подтверждённый email без Telegram-привязки
+получает собственный пустой кабинет, без чужих ключей. Если этот адрес
+ранее подтверждён владельцем через Telegram, данные берутся только из
+проверенной `vainah_verified_customer_emails` связки. Само по себе
+совпадение введённого username / Telegram ID не даёт доступа. Настоящие
+покупки и автоматическая выдача по email ещё отключены.

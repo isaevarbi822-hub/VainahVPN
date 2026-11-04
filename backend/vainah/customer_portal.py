@@ -15,6 +15,7 @@ from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from .email_auth import current_email
 from .email_delivery import (
     cancel_challenge,
     confirm_challenge,
@@ -26,7 +27,7 @@ from .email_delivery import (
     verified_email,
 )
 from .h1_panel import H1PanelError, panel_settings, read_h1_status
-from .telegram_auth import require_same_origin, require_user
+from .telegram_auth import current_user, require_same_origin, require_user
 
 router = APIRouter(prefix="/api/account", tags=["Customer account"])
 ORDER_RE = re.compile(r"[0-9a-zA-Z_-]{12,100}")
@@ -38,6 +39,41 @@ PLAN_LABELS = {
     "365": ("1 год", 3),
     "365-family": ("Семейный год", 6),
 }
+
+
+
+
+def telegram_id_for_verified_email(email: str) -> str | None:
+    """Only a separately verified Telegram/email mapping can share purchases."""
+    try:
+        with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS vainah_verified_customer_emails (
+                    telegram_id VARCHAR(18) PRIMARY KEY,
+                    email VARCHAR(254) NOT NULL UNIQUE,
+                    verified_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                )
+            """)
+            cur.execute("""
+                SELECT telegram_id FROM vainah_verified_customer_emails
+                WHERE email = %s
+            """, (email,))
+            row = cur.fetchone()
+            return str(row[0]) if row else None
+    except psycopg.Error:
+        raise HTTPException(503, "ACCOUNT_DATABASE_UNAVAILABLE") from None
+
+
+def portal_identity(request: Request) -> tuple[str | None, str | None, str]:
+    """A verified mailbox by itself must not claim arbitrary Telegram IDs."""
+    telegram = current_user(request)
+    if telegram is not None:
+        telegram_id = telegram["telegram_id"]
+        return telegram_id, verified_email(telegram_id), "telegram"
+    email = current_email(request)
+    if email is not None:
+        return telegram_id_for_verified_email(email), email, "email"
+    raise HTTPException(401, "ACCOUNT_LOGIN_REQUIRED")
 
 
 def _receipt_schema(cur) -> None:
@@ -164,9 +200,22 @@ class EmailCode(BaseModel):
 
 @router.get("/overview")
 async def overview(request: Request) -> dict:
-    user = require_user(request)
-    telegram_id = user["telegram_id"]
-    email = verified_email(telegram_id)
+    telegram_id, email, method = portal_identity(request)
+    if telegram_id is None:
+        # A newly verified mailbox is an independent account: do not infer
+        # ownership of H1Cloud clients or expose other customers' orders.
+        return {
+            "authenticated": True,
+            "auth_method": method,
+            "email": {"verified": True, "address": email},
+            "orders": [],
+            "subscription": None,
+            "h1cloud": {
+                "status": "not_linked",
+                "message": "Почта подтверждена. Покупки Telegram появятся, "
+                           "если этот адрес был привязан к Telegram-аккаунту.",
+            },
+        }
     orders = customer_receipts(telegram_id)
     last = next((o for o in orders if o["paid"] and o["delivered"]), None)
     state = await h1_customer_state(telegram_id)
@@ -181,6 +230,7 @@ async def overview(request: Request) -> dict:
         }
     return {
         "authenticated": True,
+        "auth_method": method,
         "email": {"verified": bool(email), "address": email},
         "orders": orders,
         "subscription": subscription,
@@ -190,8 +240,10 @@ async def overview(request: Request) -> dict:
 
 @router.get("/access")
 async def access(request: Request) -> dict:
-    user = require_user(request)
-    return {"subscription_url": await own_subscription_url(user["telegram_id"])}
+    telegram_id, _, _ = portal_identity(request)
+    if telegram_id is None:
+        raise HTTPException(404, "PAID_DELIVERY_NOT_FOUND")
+    return {"subscription_url": await own_subscription_url(telegram_id)}
 
 
 @router.post("/email/request")

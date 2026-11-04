@@ -40,12 +40,19 @@ def _settings() -> tuple[str, str, str] | None:
     return token, secret, username
 
 
+def _email_login_available() -> bool:
+    # Late import avoids circular dependency with the shared origin checker.
+    from .email_auth import ready
+
+    return ready()
+
+
 def public_config() -> dict:
     settings = _settings()
     return {
         "available": settings is not None,
         "bot_username": settings[2] if settings else None,
-        "email_login_available": False,
+        "email_login_available": _email_login_available(),
         "message": (
             "Telegram Login настроен. Необходим разрешённый домен в BotFather."
             if settings else
@@ -201,6 +208,10 @@ async def account_action(request: Request, body: LoginBody, response: Response) 
     require_same_origin(request)
     if body.action == "logout":
         response.delete_cookie(
+            "__Host-vainah_email_session", secure=True, httponly=True,
+            samesite="lax", path="/",
+        )
+        response.delete_cookie(
             SESSION_COOKIE, secure=True, httponly=True, samesite="lax",
             path="/",
         )
@@ -215,6 +226,11 @@ async def account_action(request: Request, body: LoginBody, response: Response) 
     user = verify_login(body.data, settings[0])
     if not user:
         raise HTTPException(403, "TELEGRAM_AUTH_INVALID")
+    # A new Telegram login replaces any previous email-only session.
+    response.delete_cookie(
+        "__Host-vainah_email_session", secure=True, httponly=True,
+        samesite="lax", path="/",
+    )
     response.set_cookie(
         SESSION_COOKIE,
         make_session(user, settings[1]),

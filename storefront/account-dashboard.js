@@ -1,4 +1,4 @@
-/* Authenticated Telegram dashboard. Never fabricate purchases, access or VPN links. */
+/* Verified Telegram and email dashboard. Never fabricate subscriptions. */
 (() => {
   'use strict';
   const $=id=>document.getElementById(id);
@@ -50,10 +50,15 @@
     hide('account-private',!user);
     hide('account-alt-private',true);
     hide('account-exit',!user);
+    const emailUser=user?.auth_method==='email';
     write('account-user',user
-      ? (user.username?'@'+user.username:'Telegram ID '+user.telegram_id)
+      ? (emailUser?user.email:(user.username?'@'+user.username:'Telegram ID '+user.telegram_id))
       :'Гость');
-    write('account-avatar',user?(user.first_name||'T').slice(0,1).toUpperCase():'V');
+    write('account-avatar',user
+      ? (emailUser?user.email.slice(0,1):(user.first_name||'T').slice(0,1)).toUpperCase()
+      :'V');
+    hide('account-email-form',!!emailUser);
+    hide('account-email-verify',true);
     if(user)void refresh();
   }
   function errorMessage(error){
@@ -75,6 +80,8 @@
       showSession(result.user);
     }catch(error){write('account-auth-status',errorMessage(error));}
   };
+  window.onVainahEmailAuth=next=>showSession(next);
+
   async function refresh(){
     if(!user)return;
     const refreshButton=$('account-refresh');
@@ -145,9 +152,9 @@
   const logout=$('account-exit');
   if(logout)logout.addEventListener('click',async()=>{
     try{
-      await api('/api/telegram/account',{
+      await api('/api/email-auth/logout',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:'logout'})
+        body:JSON.stringify({})
       });
     }catch{write('account-auth-status','Не удалось выйти из аккаунта.');return;}
     showSession(null);
@@ -192,8 +199,22 @@
     }catch(error){write('account-email-status','Не удалось подтвердить почту: '+error.message);}
     finally{button.disabled=false;}
   });
-  api('/api/telegram/account').then(result=>showSession(result.user)).catch(()=>{
+  async function resumeSession(){
+    try{
+      const tg=await api('/api/telegram/account');
+      if(tg.authenticated&&tg.user){
+        showSession({...tg.user,auth_method:'telegram'});
+        return;
+      }
+    }catch{ /* Email is independent of Telegram availability. */ }
+    try{
+      const email=await api('/api/email-auth/account');
+      if(email.authenticated&&email.user){
+        showSession(email.user);
+        return;
+      }
+    }catch{ /* No active email session. */ }
     showSession(null);
-    write('account-auth-status','Не удалось проверить сессию Telegram.');
-  });
+  }
+  void resumeSession();
 })();
