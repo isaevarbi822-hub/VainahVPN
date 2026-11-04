@@ -120,7 +120,8 @@ def test_delivery_claim_is_atomic_one_time_and_no_automatic_lease_reclaim(monkey
 
 def test_mark_delivered_requires_postcheck_and_encrypts_link(monkeypatch):
     order_id = "vainah_live_" + uuid4().hex
-    store = setup_connection(monkeypatch, FakeCursor([(order_id,)]))
+    cursor = FakeCursor([(order_id,)])
+    store = setup_connection(monkeypatch, cursor)
     with pytest.raises(LiveLedgerError, match="UNVERIFIED"):
         store.mark_delivered(
             order_id=order_id, subscription_url="https://sub.example/abc"
@@ -130,15 +131,13 @@ def test_mark_delivered_requires_postcheck_and_encrypts_link(monkeypatch):
         panel_confirmed=True,
     )
     sql, params = next(
-        (sql, args) for sql, args in store_connection_commands(store, monkeypatch)
-    ) if False else (None, None)
-    # The connection mock above returns one row only after the authenticated
-    # postcheck flag; no public route exposes this method.
-    assert sql is None and params is None
-
-
-def store_connection_commands(_store, _monkeypatch):
-    return []
+        (statement, args) for statement, args in cursor.commands
+        if "SET delivery_state = 'delivered'" in statement
+    )
+    assert "payment_state = 'paid'" in sql
+    assert "delivery_state = 'claimed'" in sql
+    assert "https://sub.example/abc" not in str(params)
+    assert unseal_live_secret(params[0]) == "https://sub.example/abc"
 
 
 def test_live_paid_event_uses_signed_original_payment_record(monkeypatch):
