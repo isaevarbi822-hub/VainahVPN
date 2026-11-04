@@ -34,6 +34,7 @@ EVENT_TO_STATUS = {
     "payment.created": "created", "payment.paid": "paid",
     "payment.canceled": "canceled", "payment.expired": "expired",
     "payment.refunded": "refunded", "payment.chargeback": "chargeback",
+    "refund_request.completed": "refunded",
 }
 CATALOG = (
     {"id": "30", "title": "1 месяц", "days": 30, "kopeks": 9900, "devices": 3},
@@ -167,10 +168,10 @@ class BillingSandbox:
             raise
 
     async def provider_diagnostics(self) -> dict:
-        """Read-only, authorized test of merchant API connectivity.
+        """Verify the merchant API key via a documented, read-only balance GET.
 
-        Never returns provider response bodies, payment IDs, tokens or orders.
-        A successful list read proves API access, NOT checkout availability.
+        Never returns the balance, merchant response, customer records, payment
+        IDs, or tokens. This confirms authentication, NOT payment fulfillment.
         """
         if not self.api_key:
             raise ProviderError("PROVIDER_NOT_CONFIGURED")
@@ -178,7 +179,7 @@ class BillingSandbox:
             async with httpx.AsyncClient(timeout=8, follow_redirects=False,
                                          transport=self.transport) as client:
                 response = await client.get(
-                    API + "?environment=sandbox",
+                    "https://rollypay.io/api/v1/balance",
                     headers={"X-API-Key": self.api_key,
                              "X-Nonce": str(uuid4()),
                              "Accept": "application/json"},
@@ -189,8 +190,18 @@ class BillingSandbox:
             raise ProviderError("PROVIDER_NETWORK") from exc
         if not 200 <= response.status_code <= 299:
             raise ProviderError(f"PROVIDER_HTTP_{response.status_code}")
-        return {"connected": True, "mode": "provider-sandbox",
-                "request": "GET payments?environment=sandbox",
+        if len(response.content) > 65536:
+            raise ProviderError("PROVIDER_RESPONSE_INVALID")
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise ProviderError("PROVIDER_RESPONSE_INVALID") from exc
+        if not isinstance(payload, dict) or not all(
+            field in payload for field in ("available_usdt", "hold_usdt")
+        ):
+            raise ProviderError("PROVIDER_RESPONSE_INVALID")
+        return {"connected": True, "mode": "provider-read-only",
+                "request": "GET /api/v1/balance",
                 "new_payment_created": False, "live_checkout_enabled": False}
 
     async def provider_create(self, order_id: str, plan: dict) -> dict:
