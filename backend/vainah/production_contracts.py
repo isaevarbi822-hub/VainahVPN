@@ -275,8 +275,9 @@ def production_readiness() -> dict:
         "real_money_can_be_charged": False,
         "auto_vpn_delivery_enabled": False,
         "message": (
-            "Live gateway and signed-payment contract are prepared. "
-            "Production payment and H1Cloud writes remain disabled until "
-            "durable ledger, verified merchant and real provisioning tests."
+            "Live gateway, signed callback checks and once-only PostgreSQL "
+            "claims are prepared. H1Cloud's one-write adapter is gated. "
+            "Production remains disabled pending approved merchant and "
+            "verified real end-to-end delivery."
         ),
     }
