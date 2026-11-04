@@ -305,3 +305,24 @@ def test_mock_payment_never_passes_provider_fulfillment_gate():
     assert gate["device_limit"] == 6
     assert gate["duration_days"] == 365
     assert gate["h1cloud_write_performed"] is False
+
+
+
+def test_webhook_400_logs_safe_reason_only(sandbox, caplog):
+    client, fake = sandbox
+    order, payment_id = create_test_order(client, fake)
+    wrong = event(
+        order, payment_id, "payment.paid", "paid", amount="1.00",
+    )
+    with caplog.at_level("WARNING", logger="uvicorn.error"):
+        response = signed_callback(client, wrong)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "PAYMENT_MISMATCH"
+    line = next(
+        msg for msg in caplog.messages
+        if "rollypay_webhook_rejected" in msg
+    )
+    assert line == "rollypay_webhook_rejected mode=sandbox code=PAYMENT_MISMATCH"
+    assert order["order_id"] not in line
+    assert payment_id not in line
+    assert fake.orders[payment_id]["status"] == "created"
