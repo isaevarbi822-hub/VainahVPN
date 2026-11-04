@@ -301,6 +301,66 @@ def test_provider_diagnostics_rejects_unexpected_balance_schema():
         asyncio.run(provider.provider_diagnostics())
 
 
+@pytest.mark.parametrize(("reason", "expected"), [
+    ("terminal not found", "PROVIDER_TERMINAL_NOT_FOUND"),
+    ("terminal_id required", "PROVIDER_TERMINAL_ID_REQUIRED"),
+    ("other private vendor text", "PROVIDER_HTTP_400"),
+])
+def test_read_only_probe_classifies_only_known_400_reasons(reason, expected):
+    def response(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        return httpx.Response(400, json={"error": reason, "private": "account_number"})
+
+    provider = BillingSandbox("provider", "unit-test-key",
+                              httpx.MockTransport(response))
+    with pytest.raises(ProviderError) as exc:
+        asyncio.run(provider.provider_diagnostics())
+    assert exc.value.code == expected
+    assert "other private vendor text" not in str(exc.value)
+    assert "account_number" not in str(exc.value)
+
+
+def test_diagnostics_can_send_configured_terminal_uuid_without_creating_payment():
+    terminal_id = "d290f1ee-6c54-4b01-90e6-d701748f0851"
+    seen = []
+
+    def response(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        assert request.method == "GET"
+        assert request.url.path == "/api/v1/balance"
+        assert request.url.params["terminal_id"] == terminal_id
+        assert request.headers["X-Nonce"]
+        return httpx.Response(200, json={
+            "available_usdt": "0.00", "hold_usdt": "0.00",
+            "terminal_id": terminal_id,
+        })
+
+    provider = BillingSandbox(
+        "provider", "unit-test-key", httpx.MockTransport(response),
+        terminal_id=terminal_id,
+    )
+    result = asyncio.run(provider.provider_diagnostics())
+    assert result["connected"] is True
+    assert terminal_id not in str(result)
+    assert len(seen) == 1
+
+
+def test_invalid_terminal_id_is_blocked_before_any_network_request():
+    seen = []
+    def response(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={})
+
+    provider = BillingSandbox(
+        "provider", "unit-test-key", httpx.MockTransport(response),
+        terminal_id="not-a-valid-uuid",
+    )
+    with pytest.raises(ProviderError, match="PROVIDER_TERMINAL_ID_INVALID"):
+        asyncio.run(provider.provider_diagnostics())
+    assert seen == []
+
+
+
 def test_provider_diagnostics_reports_only_http_code():
     def rejected(request: httpx.Request) -> httpx.Response:
         return httpx.Response(503, json={
