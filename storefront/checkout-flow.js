@@ -217,7 +217,8 @@
       );
       rows.push("Адрес webhook: " + location.origin + report.webhook_path);
       rows.push("Получено подписанных webhook (тестовые заказы): " + report.verified_test_webhook_order_count);
-      rows.push("Автоматическая выдача VPN: отключена");
+      rows.push("Автоматическая выдача VPN (тест): " +
+        (report.checks.sandbox_h1_auto_enabled ? "включена" : "отключена"));
       testMessage(rows.join(String.fromCharCode(10)));
     } catch (err) {
       testMessage("Проверка webhook: " + explainProviderError(err.message));
@@ -440,17 +441,45 @@
           headers: {"X-Sandbox-Token": $("shop-test-token").value}
         });
       const fulfillment = info.fulfillment || {};
-      const readiness = fulfillment.status === "ready_for_review"
-        ? "Подтверждён webhook. План подготовлен к проверке оператором."
-        : "Выдача заблокирована: " + (fulfillment.reason || "нет подтверждения");
-      testMessage("План выдачи VPN — только демо\nЗаказ: " + info.order_id +
+      const issued = info.vpn_delivered === true &&
+        fulfillment.status === "delivered";
+      const readiness = issued
+        ? "Тестовый VPN уже выдан автоматически через H1Cloud."
+        : fulfillment.status === "needs_review"
+          ? "Выдача остановлена: необходима проверка H1Cloud оператором."
+          : fulfillment.status === "ready_for_review"
+            ? "Подтверждён webhook. План подготовлен к проверке оператором."
+            : "Выдача заблокирована: " + (fulfillment.reason || "нет подтверждения");
+      testMessage((issued ? "Тестовая автовыдача VPN подтверждена" :
+          "План выдачи VPN — только демо") +
+        "\nЗаказ: " + info.order_id +
         "\nСтатус оплаты: " + info.payment_status +
         "\nПодписанный webhook: " + (fulfillment.signed_webhook_received ? "да" : "нет") +
         "\nАккаунт привязан: " + (fulfillment.customer_identity_bound ? "да" : "нет") +
         "\nПериод: " + info.duration_days + " дней" +
         "\nУстройств: " + info.device_limit +
         "\nПроверка выдачи: " + readiness +
-        "\nH1Cloud не изменён; VPN не выдан.\n" + info.message);
+        "\n" + info.message);
+      if(issued){
+        try{
+          const access = await api("/api/shop/my-test-orders/" +
+            encodeURIComponent(orderId) + "/vpn-access");
+          const url = new URL(access.subscription_url);
+          if(url.protocol !== "https:" || url.username || url.password ||
+             url.hash)throw Error("SANDBOX_LINK_INVALID");
+          $("shop-h1-issued-link").value = url.href;
+          $("shop-h1-issued-link").hidden = false;
+          $("shop-h1-issued-label").hidden = false;
+          $("shop-h1-copy-link").hidden = false;
+          testMessage("Тестовая VPN-подписка автоматически выдана после RollyPay. " +
+            "Ссылка готова, нажми «Скопировать тестовую VPN-ссылку»; " +
+            "ключ нельзя публиковать. Списание денег не происходило.");
+        }catch(_error){
+          testMessage("VPN автоматически создан. " +
+            "Чтобы увидеть приватную ссылку, войди в тот же подтверждённый " +
+            "email-аккаунт, в котором оформлялся тестовый заказ.");
+        }
+      }
     }catch(err){
       testMessage("План выдачи VPN не готов: " + explainProviderError(err.message));
     }finally{
