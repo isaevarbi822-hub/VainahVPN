@@ -15,6 +15,7 @@ import re
 import secrets
 import time
 from datetime import UTC, datetime, timedelta
+from email.utils import parseaddr
 
 import psycopg
 from email_validator import EmailNotValidError, validate_email
@@ -42,13 +43,22 @@ def _secret() -> str:
     return secret
 
 
-def ready() -> bool:
+def readiness_checks() -> dict[str, bool]:
+    """Only report validity flags, never values or fragments of secrets."""
     db = os.environ.get("DATABASE_URL", "")
-    return (
-        len(os.environ.get("SESSION_SIGNING_KEY", "")) >= 32
-        and email_service_ready()
-        and db.startswith(("postgresql://", "postgres://"))
-    )
+    sender = os.environ.get("VAINAH_EMAIL_FROM", "")
+    return {
+        "DATABASE_URL": db.startswith(("postgresql://", "postgres://")),
+        "SESSION_SIGNING_KEY": len(os.environ.get("SESSION_SIGNING_KEY", "")) >= 32,
+        "RESEND_API_KEY": len(os.environ.get("RESEND_API_KEY", "")) >= 16,
+        "VAINAH_EMAIL_FROM": (
+            5 <= len(sender) <= 254 and parseaddr(sender)[1].count("@") == 1
+        ),
+    }
+
+
+def ready() -> bool:
+    return all(readiness_checks().values()) and email_service_ready()
 
 
 def normalize_email(value: str) -> str:
@@ -262,14 +272,18 @@ router = APIRouter(prefix="/api/email-auth", tags=["Email login"])
 
 @router.get("/config")
 def login_config() -> dict:
+    checks = readiness_checks()
+    available = ready()
     return {
-        "available": ready(),
+        "available": available,
         "method": "email_code",
         "requires_verified_email": True,
+        "checks": checks,
+        "missing_settings": [name for name, valid in checks.items() if not valid],
         "message": (
-            "Вход по email настроен. Пришли код подтверждения для входа."
-            if ready() else
-            "Не настроены PostgreSQL, SESSION_SIGNING_KEY или отправитель Resend."
+            "Email login is configured. Request a verification code."
+            if available else
+            "Email login is not configured. See missing_settings."
         ),
     }
 

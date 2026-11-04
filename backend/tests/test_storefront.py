@@ -144,7 +144,7 @@ def test_telegram_login_assets_are_cache_busted_and_not_stored():
         "account-dashboard.js",
         "account-login.js",
     ):
-        assert f'{name}?v=20261104-email-login-1' in page
+        assert f'{name}?v=20261104-email-diagnostics-2' in page
     with TestClient(app) as client:
         for path in (
             "/account.html",
@@ -170,3 +170,9 @@ def test_email_login_form_and_dashboard_are_wired():
     assert "/api/email-auth/config" in script
     assert "/api/email-auth/account" in dashboard
     assert "/api/email-auth/logout" in dashboard
+
+
+def test_email_login_shows_safe_missing_configuration_keys():
+    code = (STORE / "account-login.js").read_text(encoding="utf-8")
+    assert "missing_settings" in code
+    assert "В Render проверь переменные" in code

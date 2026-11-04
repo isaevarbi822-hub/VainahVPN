@@ -116,9 +116,13 @@
       if(emailField)emailField.disabled=!ready;
       const button=emailForm?.querySelector('button[type="submit"]');
       if(button)button.disabled=!ready;
+      const missing=Array.isArray(cfg.missing_settings)
+        ?cfg.missing_settings.filter(item=>typeof item==='string').join(', ')
+        :'';
       say(ready
         ?'Введи свою почту. Пришлём код для входа, пароль не нужен.'
-        :(cfg.message||'Вход по email пока не настроен.'));
+        :(missing?'В Render проверь переменные: '+missing:
+          'Вход по email пока не настроен.'));
       if(availability)availability.textContent=ready
         ?'Вход через email активен. Telegram тоже можно использовать отдельно.'
         :'Вход по email требует подтверждённого отправителя и PostgreSQL.';

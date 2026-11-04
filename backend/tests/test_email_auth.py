@@ -185,3 +185,32 @@ def test_email_normalization_rejects_invalid_address():
     with pytest.raises(HTTPException):
         email_auth.normalize_email("hello there")
     assert email_auth.normalize_email("TeSt@Example.COM") == "test@example.com"
+
+
+@pytest.mark.parametrize("missing", [
+    "DATABASE_URL", "SESSION_SIGNING_KEY", "RESEND_API_KEY", "VAINAH_EMAIL_FROM",
+])
+def test_email_config_reports_only_missing_setting_names(environment, monkeypatch, missing):
+    monkeypatch.delenv(missing, raising=False)
+    with TestClient(app, base_url=ORIGIN) as client:
+        response = client.get("/api/email-auth/config")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["available"] is False
+    assert result["missing_settings"] == [missing]
+    assert result["checks"][missing] is False
+    assert set(result["checks"]) == {
+        "DATABASE_URL", "SESSION_SIGNING_KEY", "RESEND_API_KEY", "VAINAH_EMAIL_FROM"
+    }
+    output = str(result)
+    assert SECRET not in output
+    assert "postgresql://fake:" not in output
+    assert "re_example_test" not in output
+
+
+def test_email_config_uses_safe_ascii_message_when_ready(environment):
+    with TestClient(app, base_url=ORIGIN) as client:
+        result = client.get("/api/email-auth/config").json()
+    assert result["available"] is True
+    assert result["missing_settings"] == []
+    assert all(result["checks"].values())
