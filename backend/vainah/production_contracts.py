@@ -89,7 +89,7 @@ def validate_invoice(
             or not _same_money(result.get("amount"), price_rub(plan))
             or result.get("payment_currency") != "RUB"
             or result.get("status") not in {"created", "processing"}
-            or result.get("test") is True
+            or result.get("test") not in (None, False)
             or result.get("environment") in {"sandbox", "test"}):
         raise LiveContractError("LIVE_PAYMENT_RESPONSE_MISMATCH")
     payment_id = result.get("payment_id")
@@ -185,8 +185,9 @@ def verify_live_paid_event(
             or data.get("order_id") != order.order_id
             or data.get("payment_id") != order.payment_id
             or currency != "RUB"
+            or data.get("payment_currency", "RUB") != "RUB"
             or not _same_money(data.get("amount"), order.amount_rub)
-            or data.get("test") is True
+            or data.get("test") not in (None, False)
             or data.get("environment") in {"sandbox", "test"}):
         raise LiveContractError("LIVE_WEBHOOK_PAYMENT_MISMATCH")
     return True
@@ -254,7 +255,7 @@ def production_readiness() -> dict:
             len(os.environ.get("ROLLYPAY_SIGNING_SECRET", "")) >= 16
         ),
         "h1cloud_read_configured": panel,
-        "live_order_ledger_implemented": False,
+        "live_order_ledger_implemented": True,
         "h1cloud_write_contract_verified": False,
         "merchant_authorized_to_take_payments": False,
         "end_to_end_real_delivery_tested": False,
