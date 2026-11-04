@@ -281,7 +281,7 @@ class H1ClientCheckRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def exactly_one_selector(self) -> "H1ClientCheckRequest":
+    def exactly_one_selector(self) -> H1ClientCheckRequest:
         if (self.telegram_id is None) == (self.client_name is None):
             raise ValueError("Provide exactly one H1 client selector")
         return self
