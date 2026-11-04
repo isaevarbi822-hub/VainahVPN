@@ -44,15 +44,11 @@ def test_h1_origin_requires_https_and_public_hostname(monkeypatch):
             panel_settings()
 
 
-def test_h1_dedicated_https_management_port_is_preserved(config):
+def test_h1_dedicated_https_management_port_is_preserved(config, monkeypatch):
     import asyncio
 
     expected = "https://vpn-panel.example.com:25626/api"
-    from vainah.h1_panel import panel_settings
-
-    import os
-
-    os.environ["PANEL_BASE_URL"] = expected
+    monkeypatch.setenv("PANEL_BASE_URL", expected)
     settings = panel_settings()
     assert settings is not None
     assert settings.origin == "https://vpn-panel.example.com:25626"
