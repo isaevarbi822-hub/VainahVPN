@@ -135,6 +135,7 @@ def test_support_form_does_not_accept_messages_without_working_backend():
 
 def test_telegram_login_assets_are_cache_busted_and_not_stored():
     from fastapi.testclient import TestClient
+
     from vainah.main import app
 
     page = (STORE / "account.html").read_text(encoding="utf-8")
