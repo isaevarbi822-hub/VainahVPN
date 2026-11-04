@@ -96,6 +96,7 @@ class TestOrder:
     status: str
     mode: str
     pay_url: str | None = None
+    webhook_received: bool = False
 
 
 class ProviderError(Exception):
@@ -417,7 +418,13 @@ class BillingSandbox:
                 "created", "processing", "expired", "canceled"
             }:
                 raise HTTPException(409, "PAYMENT_STATE_REGRESSION")
-            self._set_status(order, status)
+            previous_webhook = order.webhook_received
+            order.webhook_received = True
+            try:
+                self._set_status(order, status)
+            except HTTPException:
+                order.webhook_received = previous_webhook
+                raise
             return {"ok": True, "test_only": True, "status": order.status,
                     "vpn_delivered": False}
 
@@ -464,6 +471,7 @@ class BillingSandbox:
             "amount_rub": order.amount, "status": order.status,
             "mode": order.mode, "test_only": True, "real_charge": False,
             "vpn_delivered": False, "pay_url": order.pay_url,
+            "webhook_received": order.webhook_received,
         }
 
 
@@ -537,9 +545,16 @@ def sandbox_webhook_readiness(
         ) >= 16,
         "persistent_ledger_configured": sandbox.ledger is not None,
     }
+    sandbox._ensure_loaded()
+    with sandbox.lock:
+        verified_count = sum(
+            1 for order in sandbox.orders.values()
+            if order.mode == "provider" and order.webhook_received
+        )
     return {
         "checks": checks,
         "configured": all(checks.values()),
+        "verified_test_webhook_order_count": verified_count,
         "webhook_path": "/api/shop/webhooks/rollypay",
         "callback_delivery_verified": False,
         "production_checkout_enabled": False,
