@@ -188,8 +188,12 @@
             !/^\/pay\/[A-Za-z0-9_-]{6,255}\/?$/.test(url.pathname) || url.search || url.hash) {
           throw Error("Неверная тестовая ссылка от провайдера");
         }
+        // RollyPay hosts its own payment page: navigate the top-level browser
+        // instead of displaying checkout inside the Vainah VPN site.
         $("shop-test-link").href = url.href;
         $("shop-test-link").hidden = false;
+        testMessage("Тестовый счёт создан. Переходим на защищённый сайт RollyPay…");
+        window.location.assign(url.href);
       }
     } catch (err) { testMessage("Не удалось создать тестовый заказ: " + explainProviderError(err.message)); }
     finally {state.busy = false; $("shop-test-create").disabled = false;}
