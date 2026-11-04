@@ -555,3 +555,30 @@ def test_sandbox_previews_cannot_turn_canceled_payment_into_vpn():
     assert svc.activation_preview(order["order_id"])["status"] == "blocked"
     assert svc.activation_preview(order["order_id"])["h1cloud_connected"] is False
     assert svc.activation_preview(order["order_id"])["vpn_delivered"] is False
+
+
+def test_webhook_readiness_requires_operator_token():
+    response = client.get("/api/shop/sandbox/webhook-readiness")
+    assert response.status_code == 401
+
+
+def test_webhook_readiness_reports_configuration_not_delivery(monkeypatch):
+    from vainah.billing import sandbox
+    monkeypatch.setenv("VAINAH_SANDBOX_TEST_TOKEN", "t" * 32)
+    monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "s" * 32)
+    monkeypatch.setenv("VAINAH_SHOP_SANDBOX_ENABLED", "enabled")
+    response = client.get(
+        "/api/shop/sandbox/webhook-readiness",
+        headers={"X-Sandbox-Token": "t" * 32},
+    )
+    assert response.status_code == 200
+    result = response.json()
+    assert result["checks"]["signing_secret_configured"] is True
+    assert result["checks"]["sandbox_enabled"] is True
+    assert result["checks"]["provider_test_enabled"] is (sandbox.mode == "provider" and
+        __import__("os").environ.get("VAINAH_SHOP_PROVIDER_TEST_ENABLED") == "enabled")
+    assert result["callback_delivery_verified"] is False
+    assert result["production_checkout_enabled"] is False
+    assert result["h1cloud_auto_provisioning_enabled"] is False
+    assert "ROLLYPAY_SIGNING_SECRET" not in str(result)
+    assert "s" * 32 not in str(result)
