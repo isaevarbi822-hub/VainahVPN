@@ -831,7 +831,10 @@ def sandbox_webhook_readiness(
     Production billing and H1Cloud provisioning remain unavailable.
     """
     _require_operator(x_sandbox_token)
+    from .sandbox_auto_h1 import auto_enabled
+
     checks = {
+        "sandbox_h1_auto_enabled": auto_enabled(),
         "sandbox_enabled": os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") == "enabled",
         "provider_test_enabled": (
             sandbox.mode == "provider"
@@ -855,7 +858,8 @@ def sandbox_webhook_readiness(
         "webhook_path": "/api/shop/webhooks/rollypay",
         "callback_delivery_verified": False,
         "production_checkout_enabled": False,
-        "h1cloud_auto_provisioning_enabled": False,
+        "h1cloud_auto_provisioning_enabled": auto_enabled(),
+        "sandbox_auto_h1_test_only": True,
     }
 
 
