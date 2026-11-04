@@ -1,7 +1,7 @@
 """Authenticated ownership for operator sandbox orders, no live money/VPN."""
 from __future__ import annotations
 
-import asyncio
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -65,8 +65,9 @@ def test_verified_email_binds_new_order_and_allows_only_owner_to_view(environmen
     assert own.json()["fulfillment"]["h1cloud_write_performed"] is False
 
     # A signed email session never leaks into the durable order ledger.
-    assert b"alice@example.com" not in open(dbpath, "rb").read()
-    assert KEY.encode() not in open(dbpath, "rb").read()
+    ledger_bytes = Path(dbpath).read_bytes()
+    assert b"alice@example.com" not in ledger_bytes
+    assert KEY.encode() not in ledger_bytes
 
     # After restart, authenticated ownership is retained.
     monkeypatch.setattr(
