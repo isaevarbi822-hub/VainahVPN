@@ -228,6 +228,7 @@ async def send_verification_code(email: str, code: str, *,
 async def send_sandbox_receipt(
     email: str, *, order_id: str, plan_title: str, amount_rub: str,
     duration_days: int, devices: int,
+    vpn_issued: bool = False,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> None:
     """TEST receipt only. MUST be called after the owner's signed paid webhook
@@ -249,8 +250,13 @@ async def send_sandbox_receipt(
         "<p>Условная сумма: " + safe_amount + " RUB</p>"
         "<p>Срок: " + safe_days + " дней. Устройств: " + safe_devices + ".</p>"
         "<p>RollyPay подтвердил тестовую оплату подписанным уведомлением.</p>"
-        "<p>VPN НЕ АКТИВИРОВАН. КЛЮЧ ПОДПИСКИ НЕ ВЫДАН.</p>"
-        "<p>Это тестовое уведомление, не платёжная или фискальная квитанция.</p>"
+        + (
+            "<p>ТЕСТОВЫЙ VPN АКТИВИРОВАН. Личная ссылка доступна "
+            "в аккаунте, оформившем тестовый заказ.</p>"
+            if vpn_issued else
+            "<p>VPN НЕ АКТИВИРОВАН. КЛЮЧ ПОДПИСКИ НЕ ВЫДАН.</p>"
+        )
+        + "<p>Это тестовое уведомление, не платёжная или фискальная квитанция.</p>"
     )
     await send_email(
         email, "Vainah VPN — ТЕСТОВАЯ квитанция (без списания)", body,
