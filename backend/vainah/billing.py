@@ -498,14 +498,74 @@ class BillingSandbox:
             ):
                 raise HTTPException(404, "TEST_ORDER_NOT_FOUND")
 
+    async def send_auto_test_receipt(self, order_id: str) -> dict:
+        """Send a TEST receipt automatically after the signed paid callback.
+
+        Concurrent workers claim one recipient via the persistent ledger.
+        Resend receives the same idempotency key on safe retries.
+        """
+        self._ensure_loaded()
+        async with self.receipt_lock:
+            with self.lock:
+                order = self.orders.get(order_id)
+                if not order or order.mode != "provider" or (
+                    order.status != "paid" or not order.webhook_received
+                    or not order.owner_ref or not order.receipt_recipient
+                    or order.receipt_emailed
+                ):
+                    return {"sent": False, "already_sent": bool(
+                        order and order.receipt_emailed
+                    ), "test_only": True, "vpn_delivered": False}
+                plan = get_plan(order.plan_id)
+                if plan is None:
+                    raise HTTPException(409, "PLAN_UNKNOWN")
+                encrypted = order.receipt_recipient
+                title, days, devices, amount = (
+                    plan["title"], plan["days"], plan["devices"], order.amount
+                )
+            if self.ledger is not None:
+                try:
+                    encrypted = self.ledger.claim_receipt(order_id)
+                except (LedgerUnavailable, OSError):
+                    raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
+                if encrypted is None:
+                    return {"sent": False, "already_sent": False,
+                            "test_only": True, "vpn_delivered": False}
+            try:
+                recipient = _unseal_receipt_recipient(encrypted)
+                await send_sandbox_receipt(
+                    recipient, order_id=order_id, plan_title=title,
+                    amount_rub=amount, duration_days=days, devices=devices,
+                )
+                if self.ledger is not None:
+                    try:
+                        self.ledger.finish_receipt(order_id)
+                    except (LedgerUnavailable, OSError):
+                        raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
+                with self.lock:
+                    order.receipt_emailed = True
+                    if self.ledger is None:
+                        self._save(order)
+                return {"sent": True, "already_sent": False,
+                        "test_only": True, "vpn_delivered": False}
+            except (HTTPException, ValueError):
+                if self.ledger is not None:
+                    try:
+                        self.ledger.release_receipt(order_id)
+                    except (LedgerUnavailable, OSError):
+                        pass
+                raise
+
     async def send_owned_test_receipt(
         self, order_id: str, owner_ref: str, recipient: str
     ) -> dict:
-        """Only paid, signed and account-bound provider tests may email receipts.
-
-        Do not store recipient emails in the sandbox ledger or send VPN keys.
-        A durable emailed flag + Resend's idempotency key stop duplicate sends.
-        """
+        """Operator fallback for old bound orders; new orders auto-send."""
+        self.require_order_owner(order_id, owner_ref)
+        with self.lock:
+            order = self.orders[order_id]
+            if order.receipt_recipient is not None:
+                # Never let the user change the saved verified destination.
+                return await self.send_auto_test_receipt(order_id)
         async with self.receipt_lock:
             self.require_order_owner(order_id, owner_ref)
             with self.lock:
@@ -899,4 +959,14 @@ async def webhook(request: Request, x_signature: str | None = Header(default=Non
         data = json.loads(raw)
     except (ValueError, UnicodeDecodeError) as exc:
         raise HTTPException(400, "INVALID_JSON") from exc
-    return sandbox.process_webhook(data)
+    result = sandbox.process_webhook(data)
+    if result["status"] == "paid" and data.get("event_type") == "payment.paid":
+        # Only the original account-bound sandbox order has an encrypted email.
+        # Never send credentials or claim a real purchase here.
+        # If Resend is temporarily down, 503 lets RollyPay retry the callback
+        # without losing the already-persisted signed payment status.
+        try:
+            await sandbox.send_auto_test_receipt(data["order_id"])
+        except (HTTPException, ValueError):
+            raise HTTPException(503, "TEST_RECEIPT_DELIVERY_RETRY") from None
+    return result
