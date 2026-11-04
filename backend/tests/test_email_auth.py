@@ -134,7 +134,9 @@ def test_unlinked_email_gets_empty_portal_not_other_users_keys(
         assert page.json()["email"] == {"verified": True, "address": EMAIL}
         assert page.json()["orders"] == []
         assert page.json()["subscription"] is None
-        assert page.json()["h1cloud"]["status"] == "not_linked"
+        # The new read-only H1 lookup reports explicit unconfigured state.
+        # No link or other customer's purchases are exposed.
+        assert page.json()["h1cloud"]["status"] == "not_configured"
         assert client.get("/api/account/access").status_code == 404
         assert client.post(
             "/api/account/email/request",
