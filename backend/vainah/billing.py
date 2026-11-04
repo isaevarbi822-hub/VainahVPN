@@ -1045,8 +1045,28 @@ async def sandbox_status(order_id: str,
         raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
     try:
         result = await sandbox.refresh(order_id)
+        result["provider_status_fresh"] = True
     except ProviderError as exc:
-        raise HTTPException(502, exc.code) from None
+        # A provider HTTP 5xx/timeout must not erase a previously validated
+        # signed webhook. Only display a clearly labeled, cached paid state.
+        # Never use this fallback for a new or merely polled paid order.
+        retryable = {
+            "PROVIDER_TIMEOUT", "PROVIDER_NETWORK",
+            "PROVIDER_HTTP_429", "PROVIDER_HTTP_500",
+            "PROVIDER_HTTP_502", "PROVIDER_HTTP_503",
+            "PROVIDER_HTTP_504",
+        }
+        if exc.code not in retryable:
+            raise HTTPException(502, exc.code) from None
+        snapshot = sandbox.read(order_id)
+        if snapshot["status"] != "paid" or snapshot["webhook_received"] is not True:
+            raise HTTPException(502, exc.code) from None
+        result = {
+            **snapshot,
+            "provider_status_fresh": False,
+            "source": "last_signed_webhook",
+            "provider_read_error": exc.code,
+        }
     from .sandbox_auto_h1 import SandboxAutoH1Error, auto_enabled, read_delivery
 
     if auto_enabled() and result["status"] == "paid" and result["webhook_received"]:
