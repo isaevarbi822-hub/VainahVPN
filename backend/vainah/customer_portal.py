@@ -197,6 +197,56 @@ async def h1_email_customer_state(email: str) -> dict:
     }
 
 
+def live_paid_email_orders(email: str) -> list[dict]:
+    """Customer-only order list without credentials, links or other owners."""
+    from .live_checkout import live_account_ready, owner_ref_for_email
+    from .live_ledger import LiveLedgerError, PostgresLiveOrderLedger
+
+    if not live_account_ready():
+        return []
+    try:
+        rows = PostgresLiveOrderLedger(
+            os.environ["DATABASE_URL"]
+        ).owner_orders(owner_ref_for_email(email))
+    except LiveLedgerError:
+        raise HTTPException(503, "ACCOUNT_DATABASE_UNAVAILABLE") from None
+    return [
+        {
+            "order_id": row["order_id"], "plan_id": row["plan_id"],
+            "title": PLAN_LABELS.get(
+                row["plan_id"], ("VPN-подписка", 3)
+            )[0],
+            "status": (
+                "delivered" if row["payment_state"] == "paid"
+                and row["delivery_state"] == "delivered"
+                else row["delivery_state"]
+                if row["payment_state"] == "paid"
+                else row["payment_state"]
+            ),
+            "paid": row["payment_state"] == "paid",
+            "delivered": (
+                row["payment_state"] == "paid"
+                and row["delivery_state"] == "delivered"
+            ),
+            "created_at": row["created_at"],
+        } for row in rows
+    ]
+
+
+def live_paid_email_access(email: str) -> str | None:
+    from .live_checkout import live_account_ready, owner_ref_for_email
+    from .live_ledger import LiveLedgerError, PostgresLiveOrderLedger
+
+    if not live_account_ready():
+        return None
+    try:
+        return PostgresLiveOrderLedger(
+            os.environ["DATABASE_URL"]
+        ).owner_subscription_url(owner_ref_for_email(email))
+    except LiveLedgerError:
+        raise HTTPException(503, "ACCOUNT_DATABASE_UNAVAILABLE") from None
+
+
 async def own_subscription_url(telegram_id: str) -> str:
     # Restrict this to authenticated + owned, paid, delivered receipt.
     receipt = active_receipt(telegram_id)
@@ -254,15 +304,31 @@ class EmailCode(BaseModel):
 async def overview(request: Request) -> dict:
     telegram_id, email, method = portal_identity(request)
     if telegram_id is None:
-        # Email account is independent; use only its deterministic signed
-        # H1 profile name for read-only status. No paid receipt means no access.
+        # Email-only identity: query only orders signed to this exact mailbox.
+        # A Vainah H1 profile alone is never proof of a paid order.
         state = await h1_email_customer_state(email)
+        orders = live_paid_email_orders(email)
+        delivered = next((
+            order for order in orders
+            if order["paid"] and order["delivered"]
+        ), None)
+        subscription = None
+        if delivered and state["status"] == "active":
+            title, devices = PLAN_LABELS.get(
+                delivered["plan_id"], ("VPN-подписка", 3)
+            )
+            subscription = {
+                "status": "delivered", "paid": True,
+                "order_id": delivered["order_id"],
+                "plan_title": title, "device_limit": devices,
+                "expires_at": state.get("expires_at"),
+            }
         return {
             "authenticated": True,
             "auth_method": method,
             "email": {"verified": True, "address": email},
-            "orders": [],
-            "subscription": None,
+            "orders": orders,
+            "subscription": subscription,
             "h1cloud": state,
         }
     orders = customer_receipts(telegram_id)
@@ -290,6 +356,12 @@ async def overview(request: Request) -> dict:
 @router.get("/access")
 async def access(request: Request) -> dict:
     telegram_id, _, _ = portal_identity(request, include_email=False)
+    # An email session can have a live purchase independently from Telegram.
+    email = current_email(request)
+    if email is not None:
+        owned_link = live_paid_email_access(email)
+        if owned_link is not None:
+            return {"subscription_url": owned_link}
     if telegram_id is None:
         raise HTTPException(404, "PAID_DELIVERY_NOT_FOUND")
     return {"subscription_url": await own_subscription_url(telegram_id)}
