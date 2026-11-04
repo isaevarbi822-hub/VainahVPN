@@ -91,16 +91,53 @@ async def probe_rollypay() -> dict:
         )
     except (TimeoutError, ProviderError) as error:
         code = error.code if isinstance(error, ProviderError) else "TIMEOUT"
-        if code == "PROVIDER_HTTP_401" or code == "PROVIDER_HTTP_403":
-            return {
-                "status": "error",
-                "message": "RollyPay не принял API-ключ. Проверь ключ кассы.",
-            }
+        # Keep diagnostics specific, but never expose provider response data,
+        # account balances, API keys, or arbitrary exception strings.
+        messages = {
+            "PROVIDER_HTTP_400": (
+                "RollyPay отклонил формат безопасного запроса (HTTP 400). "
+                "Проверь тип используемого API-ключа и настройки кассы."
+            ),
+            "PROVIDER_HTTP_401": (
+                "RollyPay отклонил авторизацию (HTTP 401). "
+                "Проверь API-ключ именно кассы и отсутствие пробелов."
+            ),
+            "PROVIDER_HTTP_403": (
+                "RollyPay не разрешил доступ к API (HTTP 403). "
+                "Проверь права и активность кассы."
+            ),
+            "PROVIDER_HTTP_404": (
+                "RollyPay вернул HTTP 404 для проверки баланса. "
+                "Возможно, используемый API-домен не поддерживает этот маршрут."
+            ),
+            "PROVIDER_HTTP_409": (
+                "RollyPay вернул HTTP 409 (конфликт запроса). "
+                "Новый запрос использует уникальный X-Nonce."
+            ),
+            "PROVIDER_HTTP_429": (
+                "RollyPay временно ограничил число запросов (HTTP 429). "
+                "Повтори проверку позднее."
+            ),
+            "PROVIDER_HTTP_500": "RollyPay сообщил о внутренней ошибке (HTTP 500).",
+            "PROVIDER_HTTP_502": "Шлюз RollyPay вернул HTTP 502.",
+            "PROVIDER_HTTP_503": "Сервис RollyPay временно недоступен (HTTP 503).",
+            "PROVIDER_RESPONSE_INVALID": (
+                "RollyPay ответил на GET, но формат JSON не соответствует "
+                "документированной схеме баланса."
+            ),
+            "PROVIDER_TIMEOUT": "Превышено время ожидания ответа RollyPay.",
+            "TIMEOUT": "Превышено время ожидания проверки RollyPay.",
+            "PROVIDER_NETWORK": "Render не смог установить соединение с RollyPay.",
+        }
         return {
-            "status": "unavailable",
-            "message": "RollyPay не подтвердил тестовый доступ к API "
-                       f"({code if code in {'TIMEOUT', 'PROVIDER_TIMEOUT', 'PROVIDER_NETWORK'} else 'HTTP_OR_API_ERROR'}). "
-                       "Реальные платежи выключены.",
+            "status": "error" if code in {
+                "PROVIDER_HTTP_400", "PROVIDER_HTTP_401", "PROVIDER_HTTP_403",
+                "PROVIDER_HTTP_404", "PROVIDER_RESPONSE_INVALID",
+            } else "unavailable",
+            "message": messages.get(
+                code,
+                "RollyPay отклонил API-запрос или вернул неожиданный HTTP-код."
+            ) + " Реальные платежи выключены.",
         }
     return {
         "status": "ok",

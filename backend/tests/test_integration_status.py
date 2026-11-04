@@ -97,3 +97,53 @@ def test_provider_checks_are_cached_and_invalidate_when_config_changes(monkeypat
     monkeypatch.setenv("ROLLYPAY_API_KEY", "different-token")
     asyncio.run(checks.integration_status())
     assert calls == ["h1", "rollypay", "h1", "rollypay"]
+
+
+def test_rollypay_failed_http_status_keeps_specific_code_without_secrets(monkeypatch):
+    from vainah.billing import ProviderError
+
+    monkeypatch.setenv("ROLLYPAY_API_KEY", "private-api-key-do-not-log")
+
+    async def rejected(self):
+        raise ProviderError("PROVIDER_HTTP_404")
+
+    monkeypatch.setattr(checks.BillingSandbox, "provider_diagnostics", rejected)
+    status = asyncio.run(checks.probe_rollypay())
+    assert status["status"] == "error"
+    assert "HTTP 404" in status["message"]
+    assert "private-api-key-do-not-log" not in str(status)
+
+
+def test_rollypay_invalid_schema_has_explanatory_status(monkeypatch):
+    from vainah.billing import ProviderError
+
+    monkeypatch.setenv("ROLLYPAY_API_KEY", "private-api-key-do-not-log")
+
+    async def unexpected(self):
+        raise ProviderError("PROVIDER_RESPONSE_INVALID")
+
+    monkeypatch.setattr(checks.BillingSandbox, "provider_diagnostics", unexpected)
+    status = asyncio.run(checks.probe_rollypay())
+    assert status["status"] == "error"
+    assert "формат JSON" in status["message"]
+    assert "private-api-key-do-not-log" not in str(status)
+
+
+def test_rollypay_throttle_reported_as_unavailable(monkeypatch):
+    from vainah.billing import ProviderError
+
+    monkeypatch.setenv("ROLLYPAY_API_KEY", "private-api-key-do-not-log")
+
+    async def throttled(self):
+        raise ProviderError("PROVIDER_HTTP_429")
+
+    monkeypatch.setattr(checks.BillingSandbox, "provider_diagnostics", throttled)
+    status = asyncio.run(checks.probe_rollypay())
+    assert status["status"] == "unavailable"
+    assert "HTTP 429" in status["message"]
+
+
+def test_empty_webhook_secret_never_claims_connected(monkeypatch):
+    monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "short")
+    status = checks.webhook_status()
+    assert status["status"] == "not_connected"
