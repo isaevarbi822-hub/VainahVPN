@@ -220,3 +220,53 @@ def test_customer_access_rejects_invalid_h1_profile(monkeypatch, client_data):
         asyncio.run(portal.own_subscription_url("123456789"))
     assert error.value.status_code == 503
     assert error.value.detail == "H1_ACCESS_UNAVAILABLE"
+
+
+def test_email_h1_profile_lookup_never_grants_subscription(monkeypatch):
+    from vainah.production_contracts import h1_provision_intent
+
+    secret = "email-h1-test-signing-secret-" + "x" * 32
+    monkeypatch.setenv("SESSION_SIGNING_KEY", secret)
+    seen = []
+
+    async def provider(name):
+        seen.append(name)
+        return {
+            "panel_ready": True, "found": True, "active": True,
+            "expires_at": "2030-01-01T00:00:00+00:00",
+            "subscription_url": "https://secret.example/private-user-url",
+        }
+
+    monkeypatch.setattr(portal, "read_h1_issued_client_status", provider)
+    state = asyncio.run(portal.h1_email_customer_state("OWNER@example.com"))
+    expected = h1_provision_intent(
+        email="owner@example.com", plan_id="30", signing_key=secret,
+    )
+    assert seen == [expected.client_name]
+    assert state["status"] == "active"
+    assert "private-user-url" not in str(state)
+    assert "оплаченная выдача отдельно не подтверждена" in state["message"]
+
+
+def test_email_only_overview_shows_h1_but_no_unpaid_access(client, monkeypatch):
+    monkeypatch.setattr(
+        portal, "portal_identity",
+        lambda _request, include_email=True: (None, "owner@example.com", "email"),
+    )
+    seen = []
+
+    async def state(email):
+        seen.append(email)
+        return {
+            "status": "active",
+            "message": "Read-only account status; no delivery",
+        }
+
+    monkeypatch.setattr(portal, "h1_email_customer_state", state)
+    data = client.get("/api/account/overview")
+    assert data.status_code == 200
+    assert data.json()["h1cloud"]["status"] == "active"
+    assert data.json()["subscription"] is None
+    assert data.json()["orders"] == []
+    assert seen == ["owner@example.com"]
+    assert client.get("/api/account/access").status_code == 404
