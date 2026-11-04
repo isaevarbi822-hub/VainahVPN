@@ -499,7 +499,9 @@ class BillingSandbox:
             ):
                 raise HTTPException(404, "TEST_ORDER_NOT_FOUND")
 
-    async def send_auto_test_receipt(self, order_id: str) -> dict:
+    async def send_auto_test_receipt(
+        self, order_id: str, *, vpn_issued: bool = False,
+    ) -> dict:
         """Send a TEST receipt automatically after the signed paid callback.
 
         Concurrent workers claim one recipient via the persistent ledger.
@@ -537,6 +539,7 @@ class BillingSandbox:
                 await send_sandbox_receipt(
                     recipient, order_id=order_id, plan_title=title,
                     amount_rub=amount, duration_days=days, devices=devices,
+                    **({"vpn_issued": True} if vpn_issued is True else {}),
                 )
                 if self.ledger is not None:
                     try:
@@ -1146,7 +1149,10 @@ async def webhook(request: Request, x_signature: str | None = Header(default=Non
         # A failed test receipt may cause provider retries; delivery stays
         # idempotent via the durable claim and never reissues a VPN.
         try:
-            await sandbox.send_auto_test_receipt(data["order_id"])
+            await sandbox.send_auto_test_receipt(
+                data["order_id"],
+                **({"vpn_issued": True} if result.get("vpn_delivered") is True else {}),
+            )
         except (HTTPException, ValueError):
             raise HTTPException(503, "TEST_RECEIPT_DELIVERY_RETRY") from None
     return result
