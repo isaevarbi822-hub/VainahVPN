@@ -772,14 +772,31 @@ def config() -> dict:
 
 
 @router.get("/operator/production-readiness")
-def operator_production_readiness(
+async def operator_production_readiness(
     x_sandbox_token: str | None = Header(default=None),
 ) -> dict:
-    """Read-only merchant readiness; never returns tokens or creates payments."""
+    """Operator-only live transport check; never charges or creates VPN users."""
     _require_operator(x_sandbox_token)
+    from .h1_panel import inspect_h1_panel
     from .production_contracts import production_readiness
 
-    return production_readiness()
+    report = production_readiness()
+    if report["checks"]["h1cloud_read_configured"]:
+        try:
+            h1 = await asyncio.wait_for(inspect_h1_panel(), timeout=10)
+        except (TimeoutError, OSError):
+            h1 = {"ok": False}
+        report["checks"]["h1cloud_tls_reachable_and_authorized"] = (
+            h1.get("ok") is True and h1.get("authentication") == "accepted"
+        )
+    if report["checks"]["h1cloud_tls_reachable_and_authorized"]:
+        report["message"] = (
+            "H1Cloud accepted a read-only request over verified HTTPS. "
+            "Real checkout and automatic VPN delivery are still disabled until "
+            "the write contract, verified fulfillment and merchant readiness "
+            "have been independently approved."
+        )
+    return report
 
 
 @router.post("/checkout")
