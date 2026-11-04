@@ -40,7 +40,10 @@ def test_h1_private_ca_pem_preserves_certificate_and_hostname_checks(monkeypatch
     from pathlib import Path
 
     bundle = Path(certifi.where()).read_text(encoding="utf-8")
-    certificate = bundle.split("-----END CERTIFICATE-----", 1)[0]
+    certificate = "-----BEGIN CERTIFICATE-----"
+    certificate += bundle.split("-----BEGIN CERTIFICATE-----", 1)[1].split(
+        "-----END CERTIFICATE-----", 1
+    )[0]
     certificate += "-----END CERTIFICATE-----"
     monkeypatch.setenv("PANEL_TLS_CA_PEM", certificate)
     context = panel_tls_verify()
