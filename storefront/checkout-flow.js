@@ -211,6 +211,77 @@
       $("shop-test-webhook").disabled = false;
     }
   });
+  $("shop-test-h1-trial").addEventListener("click", async () => {
+    if(state.busy)return;
+    const token = $("shop-test-token").value;
+    if(!token){
+      testMessage("Введи административный тестовый токен из Render.");
+      return;
+    }
+    const accepted = window.confirm(
+      "Создать один настоящий тестовый VPN-профиль в H1Cloud на 1 день и 1 устройство? " +
+      "Денег не спишется. Повторная выдача заблокирована."
+    );
+    if(!accepted)return;
+    state.busy = true;
+    $("shop-test-h1-trial").disabled = true;
+    $("shop-h1-issued-link").hidden = true;
+    $("shop-h1-issued-label").hidden = true;
+    $("shop-h1-copy-link").hidden = true;
+    testMessage("Проверяем H1Cloud и выполняем одну тестовую выдачу…");
+    try{
+      const result = await api("/api/site/integrations/h1cloud/trial/issue", {
+        method: "POST",
+        headers: {
+          "X-Sandbox-Token": token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({confirm:true})
+      }, 40000);
+      if(result.status !== "issued" || result.test_only !== true ||
+         result.payment_created !== false ||
+         result.days !== 1 || result.device_limit !== 1){
+        throw Error("H1_TRIAL_RESPONSE_UNEXPECTED");
+      }
+      const url = new URL(result.subscription_url);
+      if(url.protocol !== "https:" || url.username || url.password || url.hash){
+        throw Error("H1_TRIAL_LINK_INVALID");
+      }
+      $("shop-h1-issued-link").value = url.href;
+      $("shop-h1-issued-link").hidden = false;
+      $("shop-h1-issued-label").hidden = false;
+      $("shop-h1-copy-link").hidden = false;
+      testMessage("Тестовая VPN-подписка выдана на 1 день, 1 устройство. " +
+        "Создана в H1Cloud без оплаты. Скопируй ссылку и проверь подключение. " +
+        "Никому не передавай адрес подписки.");
+    }catch(err){
+      const codes = {
+        H1_TRIAL_DISABLED:"На Render не разрешён режим одноразового тестирования H1Cloud.",
+        H1_TRIAL_ALREADY_ATTEMPTED:"Тест уже запускался. Вторую выдачу система заблокировала.",
+        H1_TRIAL_USER_EXISTS_OR_PREFLIGHT_FAILED:"Тестовый профиль уже существует или H1Cloud отклонил предварительную проверку.",
+        H1_TRIAL_WRITE_UNCERTAIN:"Неизвестно, выполнил ли H1Cloud создание. Повторно отправлять запрос нельзя: проверь панель.",
+        H1_TRIAL_POSTCHECK_INVALID:"H1Cloud не подтвердил параметры подписки после создания. Нужна ручная проверка.",
+        H1_TRIAL_DATABASE_UNAVAILABLE:"Не удалось сохранить результат выдачи в PostgreSQL.",
+        SANDBOX_OPERATOR_TOKEN_REQUIRED:"Неверный административный тестовый токен."
+      };
+      testMessage("Тестовая выдача не подтверждена: " +
+        (codes[err.message] || err.message || "Неизвестная ошибка"));
+    }finally{
+      state.busy = false;
+      $("shop-test-h1-trial").disabled = false;
+    }
+  });
+  $("shop-h1-copy-link").addEventListener("click", async () => {
+    const value = $("shop-h1-issued-link").value;
+    if(!value)return;
+    try{
+      await navigator.clipboard.writeText(value);
+      testMessage("VPN-ссылка скопирована. Это приватная подписка, не публикуй её.");
+    }catch{
+      $("shop-h1-issued-link").select();
+      testMessage("Выделена ссылка. Скопируй её вручную.");
+    }
+  });
   $("shop-test-create").addEventListener("click", async () => {
     if (state.busy || !state.selected || !state.config?.sandbox_available) return;
     const token = $("shop-test-token").value;
