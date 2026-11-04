@@ -248,7 +248,7 @@ def test_fulfillment_preview_requires_paid_and_signed_webhook(sandbox):
     paid = event(order, payment_id, "payment.paid", "paid")
     response = signed_callback(client, paid)
     assert response.status_code == 200
-    assert response.json()["fulfillment_preview_ready"] is True
+    assert response.json()["vpn_delivered"] is False
     ready = client.get(path, headers=HEADERS).json()
     plan = ready["fulfillment"]
     assert plan["status"] == "ready_for_review"
