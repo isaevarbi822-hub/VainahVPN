@@ -58,3 +58,25 @@ def test_locations_return_explicit_empty_unconnected_list():
     assert r.status_code == 200
     assert r.json()["locations"] == []
     assert r.json()["source"] == "not_connected"
+
+
+def test_live_status_is_read_only_and_does_not_expose_provider_secrets(monkeypatch):
+    from vainah import main
+
+    async def safe_checks():
+        return {
+            "h1": {"status": "ok", "message": "GET only"},
+            "rollypay": {"status": "ok", "message": "GET only"},
+            "webhook": {"status": "configured", "message": "Only handler installed"},
+        }
+
+    monkeypatch.setattr(main, "integration_status", safe_checks)
+    result = client.get("/api/site/services")
+    assert result.status_code == 200
+    services = result.json()["services"]
+    assert services["h1"]["status"] == "ok"
+    assert services["rollypay"]["status"] == "ok"
+    assert services["webhook"]["status"] == "configured"
+    for item in services.values():
+        assert "subscription_url" not in str(item)
+        assert "payment_id" not in str(item)

@@ -44,7 +44,7 @@
     async function refresh(){
       button.disabled=true;
       button.textContent='Проверяем сервисы…';
-      updated.textContent='Проверяем Python API. H1Cloud без подключённого API не проверяется.';
+      updated.textContent='Проверяем доступность API H1Cloud/RollyPay в режиме чтения. Подписка не создаётся.';
       try{
         const response=await fetch('/api/site/services',{
           method:'GET',cache:'no-store',headers:{Accept:'application/json'}
@@ -63,6 +63,12 @@
             badge.dataset.kind='ok';badge.textContent='Проверка пройдена';okCount++;
           }else if(item&&item.status==='sandbox'){
             badge.dataset.kind='unknown';badge.textContent='Тестовый режим';
+          }else if(item&&item.status==='configured'){
+            badge.dataset.kind='unknown';badge.textContent='Настроено';
+          }else if(item&&item.status==='error'){
+            badge.dataset.kind='unknown';badge.textContent='Ошибка доступа';
+          }else if(item&&item.status==='unavailable'){
+            badge.dataset.kind='unknown';badge.textContent='Связь не подтверждена';
           }else{
             badge.dataset.kind='unknown';badge.textContent='Не подключено';
           }

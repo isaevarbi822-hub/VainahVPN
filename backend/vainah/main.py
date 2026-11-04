@@ -17,8 +17,8 @@ from .config import Settings
 from .customer_portal import router as customer_router
 from .db_health import database_status
 from .email_auth import router as email_auth_router
-from .h1_panel import public_h1_status
 from .h1_panel import router as h1_router
+from .integration_status import integration_status
 from .inspector import InvalidSubscription, inspect_subscription
 from .telegram_auth import router as telegram_router
 
@@ -154,32 +154,16 @@ async def security():
 
 @app.get("/api/site/services")
 async def public_site_services():
-    """Read-only preview status: never probes private H1Cloud or claims live availability."""
-    from .billing import sandbox
-
+    """Cached read-only API probes; not evidence of user VPN delivery."""
     db = await database_status()
+    services = await integration_status()
     return {
         "mode": "preview",
         "services": {
-            "api": {
-                "status": "ok",
-                "message": "Python API отвечает.",
-            },
+            "api": {"status": "ok", "message": "Python API отвечает."},
             "database": db,
-            "h1": public_h1_status(),
+            **services,
             "identity": auth_public_config(),
-            "rollypay": {
-                "status": "sandbox" if sandbox.mode == "mock" else "not_verified",
-                "message": (
-                    "Доступна только локальная симуляция. Реальных списаний нет."
-                    if sandbox.mode == "mock"
-                    else "Тестовый режим провайдера выбран; связь с кассой здесь не проверялась."
-                ),
-            },
-            "webhook": {
-                "status": "not_verified",
-                "message": "Подпись вебхука проверяется тестами; реальная доставка не подтверждена.",
-            },
         },
     }
 
