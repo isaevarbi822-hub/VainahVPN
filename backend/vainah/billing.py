@@ -669,11 +669,10 @@ async def sandbox_activation_preview(
         "VAINAH_SHOP_PROVIDER_TEST_ENABLED"
     ) != "enabled":
         raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
-    try:
-        await sandbox.refresh(order_id)
-        return sandbox.activation_preview(order_id)
-    except ProviderError as exc:
-        raise HTTPException(502, exc.code) from None
+    # The operator-only preview uses the signed webhook state already stored
+    # in the ledger. Do not require a second provider GET: that call may fail
+    # transiently (HTTP 502) even after a valid webhook was recorded.
+    return sandbox.activation_preview(order_id)
 
 
 @router.get("/sandbox/{order_id}")
