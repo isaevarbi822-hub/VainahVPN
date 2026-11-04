@@ -200,3 +200,20 @@ def test_production_readiness_never_claims_live_checkout(monkeypatch):
     with TestClient(app) as client:
         response = client.post("/api/shop/checkout", json={"plan": "30"})
         assert response.status_code == 503
+
+
+def test_operator_readiness_is_private_and_never_enables_charge(monkeypatch):
+    token = "test-operator-readiness-" + "u" * 40
+    monkeypatch.setenv("VAINAH_SANDBOX_TEST_TOKEN", token)
+    with TestClient(app) as client:
+        assert client.get("/api/shop/operator/production-readiness").status_code == 401
+        resp = client.get(
+            "/api/shop/operator/production-readiness",
+            headers={"X-Sandbox-Token": token},
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["real_checkout_enabled"] is False
+    assert data["auto_vpn_delivery_enabled"] is False
+    assert "checks" in data
+    assert token not in str(data)
