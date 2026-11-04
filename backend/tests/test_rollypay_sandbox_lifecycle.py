@@ -326,3 +326,98 @@ def test_webhook_400_logs_safe_reason_only(sandbox, caplog):
     assert order["order_id"] not in line
     assert payment_id not in line
     assert fake.orders[payment_id]["status"] == "created"
+
+
+def test_real_signed_test_webhook_calls_auto_h1_only_after_paid(sandbox, monkeypatch):
+    from vainah import sandbox_auto_h1 as auto
+
+    client, fake = sandbox
+    issued = []
+    refunds = []
+    monkeypatch.setattr(auto, "auto_enabled", lambda: True)
+
+    async def fake_issue(order_id):
+        issued.append(order_id)
+        return {
+            "status": "issued" if len(issued) == 1 else "issued",
+            "vpn_delivered": True,
+        }
+
+    monkeypatch.setattr(auto, "auto_issue_paid_sandbox", fake_issue)
+    monkeypatch.setattr(auto, "mark_refunded", lambda oid: refunds.append(oid))
+    order, payment_id = create_test_order(client, fake)
+    paid = event(order, payment_id, "payment.paid", "paid")
+    invalid = signed_callback(client, paid, valid_signature=False)
+    assert invalid.status_code == 403
+    assert issued == []
+
+    mismatched = signed_callback(
+        client, {**paid, "amount": "1.00"},
+    )
+    assert mismatched.status_code == 400
+    assert issued == []
+
+    for _ in range(2):
+        result = signed_callback(client, paid)
+        assert result.status_code == 200
+        assert result.json()["vpn_delivered"] is True
+        assert result.json()["delivery_state"] == "issued"
+        assert result.json()["test_only"] is True
+    assert issued == [order["order_id"], order["order_id"]]
+    # The H1 write itself is safeguarded by durable, once-only claims in auto.
+
+    refunded = signed_callback(
+        client, event(order, payment_id, "payment.refunded", "refunded"),
+    )
+    assert refunded.status_code == 200
+    assert refunds == [order["order_id"]]
+    assert len(issued) == 2
+
+
+def test_test_vpn_link_is_only_for_bound_verified_owner(sandbox, monkeypatch):
+    import asyncio
+
+    from vainah import sandbox_auto_h1 as auto
+
+    client, _fake = sandbox
+    owner = "v1_" + "a" * 64
+    monkeypatch.setenv("SESSION_SIGNING_KEY", "test-verified-email-" + "b" * 40)
+    order = asyncio.run(billing.sandbox.create(
+        "30", owner_ref=owner, receipt_email="buyer@example.com",
+    ))
+    monkeypatch.setattr(auto, "auto_enabled", lambda: True)
+    called = []
+
+    def fake_read(order_id, *, owner_ref=None, with_access=False):
+        called.append((order_id, owner_ref, with_access))
+        return {
+            "status": "issued", "vpn_delivered": True,
+            "subscription_url": "https://sub.example.com/secret-test-link",
+        }
+
+    monkeypatch.setattr(auto, "read_delivery", fake_read)
+    assert client.get(
+        "/api/shop/my-test-orders/" + order["order_id"] + "/vpn-access"
+    ).status_code == 401
+
+    monkeypatch.setattr(
+        billing, "_require_verified_sandbox_owner", lambda _request: "v1_" + "d" * 64
+    )
+    wrong_owner = client.get(
+        "/api/shop/my-test-orders/" + order["order_id"] + "/vpn-access"
+    )
+    assert wrong_owner.status_code == 404
+    assert called == []
+
+    monkeypatch.setattr(
+        billing, "_require_verified_sandbox_owner", lambda _request: owner,
+    )
+    delivered = client.get(
+        "/api/shop/my-test-orders/" + order["order_id"] + "/vpn-access"
+    )
+    assert delivered.status_code == 200
+    assert delivered.json() == {
+        "subscription_url": "https://sub.example.com/secret-test-link",
+        "sandbox_only": True, "test_payment": True,
+    }
+    assert called == [(order["order_id"], owner, True)]
