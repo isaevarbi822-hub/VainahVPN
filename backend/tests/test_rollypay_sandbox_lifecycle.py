@@ -421,3 +421,54 @@ def test_test_vpn_link_is_only_for_bound_verified_owner(sandbox, monkeypatch):
         "sandbox_only": True, "test_payment": True,
     }
     assert called == [(order["order_id"], owner, True)]
+
+
+def test_provider_poll_failure_keeps_last_signed_paid_status(sandbox):
+    client, fake = sandbox
+    order, payment_id = create_test_order(client, fake)
+    path = f'/api/shop/sandbox/{order["order_id"]}'
+
+    # A brand-new order cannot pretend to be paid if provider GET fails.
+    billing.sandbox.transport = httpx.MockTransport(
+        lambda request: httpx.Response(502)
+    )
+    blocked = client.get(path, headers=HEADERS)
+    assert blocked.status_code == 502
+    assert blocked.json()["detail"] == "PROVIDER_HTTP_502"
+
+    # The signed payment callback is independent of provider status polling.
+    paid = event(order, payment_id, "payment.paid", "paid")
+    assert signed_callback(client, paid).status_code == 200
+
+    # Preserve only the signed, durable status, labeled as non-fresh.
+    checked = client.get(path, headers=HEADERS)
+    assert checked.status_code == 200
+    data = checked.json()
+    assert data["status"] == "paid"
+    assert data["webhook_received"] is True
+    assert data["provider_status_fresh"] is False
+    assert data["source"] == "last_signed_webhook"
+    assert data["provider_read_error"] == "PROVIDER_HTTP_502"
+    assert data["real_charge"] is False
+
+
+def test_cashier_diagnostics_explains_balance_failure_without_creating_payment(
+    sandbox,
+):
+    client, fake = sandbox
+
+    def provider(request):
+        assert request.method == "GET"
+        assert request.url.path == "/api/v1/balance"
+        return httpx.Response(503, json={"error": "temporary error"})
+
+    billing.sandbox.transport = httpx.MockTransport(provider)
+    response = client.get("/api/shop/sandbox/diagnostics", headers=HEADERS)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["connected"] is False
+    assert body["reason"] == "PROVIDER_HTTP_503"
+    assert body["check"] == "GET /api/v1/balance"
+    assert body["new_payment_created"] is False
+    assert "fake-sandbox-key" not in response.text
+    assert fake.orders == {}
