@@ -114,14 +114,17 @@ def test_render_owns_deployment():
     assert "healthCheckPath: /api/health" in manifest
 
 
-def test_account_login_uses_no_legacy_serverless_auth_and_is_disabled_without_backend():
+def test_account_login_uses_secure_render_telegram_api():
     code = (STORE / "account-login.js").read_text(encoding="utf-8")
     dashboard = (STORE / "account-dashboard.js").read_text(encoding="utf-8")
-    assert "/api/v1/overview" in dashboard
-    assert "disabled" in code
-    assert "telegram-account" not in dashboard
+    assert "/api/account/overview" in dashboard
+    assert "/api/telegram/config" in code
+    assert "VainahTelegramWidget.mount" in code
+    assert "/api/telegram/account" in dashboard
     assert "alternate-login" not in code
     assert "website-account-overview" not in dashboard
+    assert "telegram-login-widget.js" in (STORE / "account.html").read_text(encoding="utf-8")
+    assert "account-email-form" in (STORE / "account.html").read_text(encoding="utf-8")
 
 
 def test_support_form_does_not_accept_messages_without_working_backend():

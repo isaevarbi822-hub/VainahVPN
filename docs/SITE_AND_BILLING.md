@@ -124,3 +124,36 @@ read-only запроса `GET /api/clients/{name}` с заголовком Beare
 нужно связать проверенный Vainah ID с реальным владельцем подписки,
 включить безопасные серверные сессии, подтвердить учёт заказов и
 идемпотентную выдачу/продление. До этого live checkout остаётся HTTP 503.
+
+
+## Telegram Login и подтверждённая почта на Render
+
+Чтобы включить официальный Telegram Login Widget в Render → Environment,
+укажи `TELEGRAM_BOT_TOKEN` (из BotFather), `SESSION_SIGNING_KEY`
+(случайный секрет от 32 символов), `TELEGRAM_BOT_USERNAME` (публичный
+username, по умолчанию `VainahVPNbot`) и `PUBLIC_SITE_ORIGIN`:
+`https://vainahvpn-python-preview.onrender.com`. В BotFather командой
+`/setdomain` для этого бота разреши `vainahvpn-python-preview.onrender.com`.
+Никогда не публикуй токен бота или ключ сессий в GitHub.
+
+`GET /api/telegram/config` сообщает только о готовности, не раскрывая токен.
+`POST /api/telegram/account` проверяет подпись Telegram и выдаёт
+HttpOnly Secure SameSite=Lax cookie, `GET /api/telegram/account` возвращает
+проверенный профиль. Чужие ID и неподписанные данные отвергаются.
+
+Подтверждение почты для вошедшего пользователя требует `DATABASE_URL`,
+`RESEND_API_KEY` и `VAINAH_EMAIL_FROM` (email отправителя с подтверждённым
+доменом у почтового провайдера). `POST /api/account/email/request` отправляет
+шестизначный код и сохраняет только HMAC, а
+`POST /api/account/email/confirm` сохраняет подтверждённую почту.
+Код действует 10 минут, ограничены частота запросов и число ошибок.
+
+`GET /api/account/overview` показывает только собственный статус,
+подтверждённую почту и оплаченные/выданные заказы. Подписка
+`GET /api/account/access` выдаётся только владельцу подтверждённого
+оплаченного и доставленного заказа и активного профиля H1Cloud.
+Таблица заказов не заполняется через публичные маршруты. Внутренний
+`notify_confirmed_subscription` отправит собственную VPN-ссылку на
+подтверждённый email, **только** после того, как доверенная система
+подтвердила оплату и выдачу в H1Cloud. Автоматическое проведение живых
+платежей и выдача пока не внедрены и не включены.

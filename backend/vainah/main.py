@@ -17,6 +17,8 @@ from .config import Settings
 from .db_health import database_status
 from .h1_panel import public_h1_status
 from .h1_panel import router as h1_router
+from .customer_portal import router as customer_router
+from .telegram_auth import router as telegram_router
 from .inspector import InvalidSubscription, inspect_subscription
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,6 +31,8 @@ app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 app.include_router(shop_router)
 app.include_router(auth_router)
 app.include_router(h1_router)
+app.include_router(telegram_router)
+app.include_router(customer_router)
 
 
 @app.middleware("http")

@@ -1,0 +1,239 @@
+"""Protected subscription portal. Paid orders must be verified before access.
+
+No public endpoint creates receipts or can mark a payment paid.
+Receipt rows are reserved for a future verified and idempotent
+RollyPay -> H1Cloud fulfillment transaction.
+"""
+from __future__ import annotations
+
+import re
+from urllib.parse import urlsplit
+
+import httpx
+import psycopg
+from email_validator import EmailNotValidError, validate_email
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, ConfigDict, Field
+
+from .email_delivery import (
+    cancel_challenge,
+    confirm_challenge,
+    database_url,
+    email_service_ready,
+    email_paid_subscription,
+    send_verification_code,
+    start_challenge,
+    verified_email,
+)
+from .h1_panel import H1PanelError, panel_settings, read_h1_status
+from .telegram_auth import require_same_origin, require_user
+
+router = APIRouter(prefix="/api/account", tags=["Customer account"])
+ORDER_RE = re.compile(r"[0-9a-zA-Z_-]{12,100}")
+PLAN_LABELS = {
+    "30": ("1 месяц", 3),
+    "60": ("2 месяца", 3),
+    "90": ("3 месяца", 3),
+    "180": ("6 месяцев", 3),
+    "365": ("1 год", 3),
+    "365-family": ("Семейный год", 6),
+}
+
+
+def _receipt_schema(cur) -> None:
+    # Only a trusted future fulfillment service may INSERT/UPDATE receipts.
+    # Do not accept test orders or client-originated flags as proof of payment.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS vainah_customer_deliveries (
+            order_id VARCHAR(100) PRIMARY KEY,
+            telegram_id VARCHAR(18) NOT NULL,
+            plan_id VARCHAR(24) NOT NULL,
+            payment_status TEXT NOT NULL CHECK (
+                payment_status IN ('paid', 'refunded', 'chargeback')
+            ),
+            delivery_state TEXT NOT NULL CHECK (
+                delivery_state IN ('delivered', 'revoked')
+            ),
+            emailed_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS vainah_customer_deliveries_owner_idx
+        ON vainah_customer_deliveries(telegram_id, created_at DESC)
+    """)
+
+
+def customer_receipts(telegram_id: str) -> list[dict]:
+    try:
+        with psycopg.connect(database_url(), connect_timeout=4) as conn:
+            with conn.cursor() as cur:
+                _receipt_schema(cur)
+                cur.execute("""
+                    SELECT order_id, plan_id, payment_status,
+                           delivery_state, created_at
+                    FROM vainah_customer_deliveries
+                    WHERE telegram_id = %s
+                    ORDER BY created_at DESC LIMIT 30
+                """, (telegram_id,))
+                rows = cur.fetchall()
+    except psycopg.Error:
+        raise HTTPException(503, "ACCOUNT_DATABASE_UNAVAILABLE") from None
+    return [{
+        "order_id": row[0],
+        "plan_id": row[1],
+        "title": PLAN_LABELS.get(row[1], ("VPN-подписка", 3))[0],
+        "status": row[2] if row[3] == "delivered" else "revoked",
+        "paid": row[2] == "paid",
+        "delivered": row[3] == "delivered",
+        "created_at": row[4].isoformat(),
+    } for row in rows]
+
+
+def active_receipt(telegram_id: str) -> dict | None:
+    return next((item for item in customer_receipts(telegram_id)
+                 if item["paid"] and item["delivered"]), None)
+
+
+async def h1_customer_state(telegram_id: str) -> dict:
+    try:
+        result = await read_h1_status(telegram_id)
+    except H1PanelError:
+        return {"status": "unavailable",
+                "message": "H1Cloud пока недоступен; покупка не подтверждается этим ответом."}
+    if not result["panel_ready"]:
+        return {"status": "not_configured",
+                "message": "Адрес H1Cloud или токен не настроен."}
+    if not result["found"]:
+        return {"status": "not_found", "message": "Профиль H1Cloud не найден."}
+    if not result["active"]:
+        return {"status": "inactive", "message": "VPN-профиль сейчас неактивен."}
+    return {"status": "active", "message": "Профиль H1Cloud активен.",
+            "expires_at": result.get("expires_at")}
+
+
+async def own_subscription_url(telegram_id: str) -> str:
+    # Restrict this to authenticated + owned, paid, delivered receipt.
+    receipt = active_receipt(telegram_id)
+    if receipt is None:
+        raise HTTPException(404, "PAID_DELIVERY_NOT_FOUND")
+    try:
+        state = await read_h1_status(telegram_id)
+        settings = panel_settings()
+        if not state.get("active") or settings is None:
+            raise HTTPException(409, "H1_SUBSCRIPTION_NOT_ACTIVE")
+        name = settings.prefix + telegram_id
+        async with httpx.AsyncClient(timeout=8, follow_redirects=False,
+                                     trust_env=False) as client:
+            response = await client.get(
+                settings.origin + "/api/clients/" + name,
+                headers={"Authorization": "Bearer " + settings.token,
+                         "Accept": "application/json"},
+            )
+        if response.status_code != 200 or len(response.content) > 100000:
+            raise ValueError("bad response")
+        record = response.json()
+        if not isinstance(record, dict) or record.get("ok") is not True:
+            raise ValueError("invalid panel")
+        profile = record.get("client")
+        if not isinstance(profile, dict) or profile.get("name") != name:
+            raise ValueError("mismatched user")
+        value = profile.get("subscription_url") or profile.get("sub_url")
+        if not isinstance(value, str) or len(value) > 2048 or re.search(r"\s", value):
+            raise ValueError("invalid url")
+        url = urlsplit(value)
+        if (url.scheme != "https" or not url.hostname or
+                url.username or url.password or url.fragment):
+            raise ValueError("invalid URL")
+        return value
+    except HTTPException:
+        raise
+    except (H1PanelError, httpx.RequestError, httpx.TimeoutException,
+            ValueError, KeyError, TypeError):
+        raise HTTPException(503, "H1_ACCESS_UNAVAILABLE") from None
+
+
+class EmailRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(min_length=5, max_length=254)
+
+
+class EmailCode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str = Field(pattern=r"^[0-9]{6}$")
+
+
+@router.get("/overview")
+async def overview(request: Request) -> dict:
+    user = require_user(request)
+    telegram_id = user["telegram_id"]
+    email = verified_email(telegram_id)
+    orders = customer_receipts(telegram_id)
+    last = next((o for o in orders if o["paid"] and o["delivered"]), None)
+    state = await h1_customer_state(telegram_id)
+    subscription = None
+    if last and state["status"] == "active":
+        title, limit = PLAN_LABELS.get(last["plan_id"], ("VPN-подписка", 3))
+        subscription = {
+            "status": "delivered", "paid": True,
+            "order_id": last["order_id"],
+            "plan_title": title, "device_limit": limit,
+            "expires_at": state.get("expires_at"),
+        }
+    return {
+        "authenticated": True,
+        "email": {"verified": bool(email), "address": email},
+        "orders": orders,
+        "subscription": subscription,
+        "h1cloud": state,
+    }
+
+
+@router.get("/access")
+async def access(request: Request) -> dict:
+    user = require_user(request)
+    return {"subscription_url": await own_subscription_url(user["telegram_id"])}
+
+
+@router.post("/email/request")
+async def email_request(request: Request, body: EmailRequest) -> dict:
+    require_same_origin(request)
+    user = require_user(request)
+    if not email_service_ready():
+        raise HTTPException(503, "EMAIL_DELIVERY_NOT_CONFIGURED")
+    try:
+        email = validate_email(
+            body.email, check_deliverability=False
+        ).normalized.lower()
+    except EmailNotValidError:
+        raise HTTPException(422, "EMAIL_INVALID") from None
+    code = start_challenge(user["telegram_id"], email)
+    try:
+        await send_verification_code(email, code)
+    except HTTPException:
+        cancel_challenge(user["telegram_id"], code, email)
+        raise
+    return {"sent": True, "valid_minutes": 10}
+
+
+@router.post("/email/confirm")
+def email_confirm(request: Request, body: EmailCode) -> dict:
+    require_same_origin(request)
+    user = require_user(request)
+    email = confirm_challenge(user["telegram_id"], body.code)
+    return {"verified": True, "email": email}
+
+
+async def notify_confirmed_subscription(telegram_id: str, order_id: str) -> bool:
+    """Internal delivery dispatcher reserved for a verified payment reconciler.
+
+    Never call on an unverified webhook or client input. This function refuses
+    to send unless an owner-specific paid + delivered database receipt exists.
+    """
+    if not ORDER_RE.fullmatch(order_id):
+        raise ValueError("INVALID_ORDER_ID")
+    receipt = active_receipt(telegram_id)
+    if not receipt or receipt["order_id"] != order_id:
+        return False
+    url = await own_subscription_url(telegram_id)
+    return await email_paid_subscription(telegram_id, order_id, url)
