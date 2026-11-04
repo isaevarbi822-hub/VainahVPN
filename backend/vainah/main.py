@@ -59,13 +59,14 @@ async def security_headers(request: Request, call_next):
         )
     # Browser caches can preserve disabled Telegram Login JavaScript after deploy.
     # Auth pages and scripts always need the currently deployed revision.
-    if (request.url.path.startswith("/api/")
-            or request.url.path in {
-                "/account.html",
-                "/account-login.js",
-                "/account-dashboard.js",
-                "/telegram-login-widget.js",
-            }):
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    elif request.url.path in {
+        "/account.html",
+        "/account-login.js",
+        "/account-dashboard.js",
+        "/telegram-login-widget.js",
+    }:
         response.headers["Cache-Control"] = "no-store, max-age=0"
         response.headers["Pragma"] = "no-cache"
     return response
