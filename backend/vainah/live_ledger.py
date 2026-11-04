@@ -100,6 +100,18 @@ class PostgresLiveOrderLedger:
             )
         """)
         cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS checkout_nonce_hash CHAR(64)
+        """)
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS pay_url_cipher TEXT
+        """)
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS vainah_live_checkout_nonce_uq
+            ON vainah_live_orders (checkout_nonce_hash)
+        """)
+        cur.execute("""
             CREATE INDEX IF NOT EXISTS vainah_live_orders_owner_idx
             ON vainah_live_orders (owner_ref, created_at DESC)
         """)
@@ -131,6 +143,151 @@ class PostgresLiveOrderLedger:
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
         return order_id
+
+
+    def reserve_checkout(self, *, owner_ref: str, verified_email: str,
+                         plan_id: str, idempotency_key: str) -> tuple[str, str | None]:
+        """One durable invoice intent per browser-generated UUID, per owner.
+
+        A pending intent is never retried automatically: an earlier gateway
+        request might have succeeded before losing its response.
+        """
+        from uuid import UUID
+
+        try:
+            normalized = str(UUID(idempotency_key))
+        except (ValueError, TypeError, AttributeError):
+            raise LiveLedgerError("LIVE_IDEMPOTENCY_INVALID") from None
+        if normalized != idempotency_key or len(idempotency_key) != 36:
+            raise LiveLedgerError("LIVE_IDEMPOTENCY_INVALID")
+        plan = get_plan(plan_id)
+        if plan is None or not isinstance(owner_ref, str):
+            raise LiveLedgerError("LIVE_ORDER_INVALID")
+        try:
+            LiveOrderContract(
+                "vainah_live_" + uuid4().hex, plan_id, owner_ref,
+                "pay_reserved000",
+            )
+        except LiveContractError:
+            raise LiveLedgerError("LIVE_OWNER_INVALID") from None
+        if not isinstance(verified_email, str) or not 5 <= len(verified_email) <= 254:
+            raise LiveLedgerError("LIVE_EMAIL_INVALID")
+        key = os.environ.get("SESSION_SIGNING_KEY", "")
+        if len(key) < 32:
+            raise LiveLedgerError("LIVE_ENCRYPTION_UNAVAILABLE")
+        nonce_hash = hmac.new(
+            key.encode(), ("vainah-live-idempotency-v1:" + owner_ref + ":" +
+                           normalized).encode(), hashlib.sha256,
+        ).hexdigest()
+        order_id = "vainah_live_" + uuid4().hex
+        recipient = seal_live_secret(verified_email.lower())
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    INSERT INTO vainah_live_orders (
+                        order_id, owner_ref, plan_id, amount_rub,
+                        receipt_email_cipher, checkout_nonce_hash
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (checkout_nonce_hash) DO NOTHING
+                    RETURNING order_id
+                """, (order_id, owner_ref, plan_id, price_rub(plan),
+                      recipient, nonce_hash))
+                created = cur.fetchone()
+                if created:
+                    return created[0], None
+                cur.execute("""
+                    SELECT order_id, plan_id, owner_ref, payment_state,
+                           pay_url_cipher
+                    FROM vainah_live_orders
+                    WHERE checkout_nonce_hash = %s
+                """, (nonce_hash,))
+                existing = cur.fetchone()
+                if not existing or existing[1] != plan_id or existing[2] != owner_ref:
+                    raise LiveLedgerError("LIVE_IDEMPOTENCY_CONFLICT")
+                if existing[3] == "created" and existing[4]:
+                    return existing[0], unseal_live_secret(existing[4])
+                raise LiveLedgerError("LIVE_CHECKOUT_RECONCILIATION_REQUIRED")
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
+    def attach_hosted_invoice(self, *,
+                              order_id: str, payment_id: str, pay_url: str) -> bool:
+        """Atomically persist validated hosted URL and provider payment ID."""
+        from .billing import safe_pay_url
+
+        if (not LIVE_ORDER_RE.fullmatch(order_id)
+                or not PAYMENT_ID_RE.fullmatch(payment_id)):
+            raise LiveLedgerError("LIVE_PAYMENT_INVALID")
+        try:
+            safe_pay_url(pay_url)
+        except ValueError:
+            raise LiveLedgerError("LIVE_PAYMENT_URL_INVALID") from None
+        ciphertext = seal_live_secret(pay_url)
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    UPDATE vainah_live_orders
+                    SET payment_id = %s, pay_url_cipher = %s,
+                        payment_state = 'created', updated_at = now()
+                    WHERE order_id = %s
+                        AND payment_id IS NULL AND payment_state = 'reserved'
+                    RETURNING order_id
+                """, (payment_id, ciphertext, order_id))
+                return cur.fetchone() is not None
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
+    def owner_orders(self, owner_ref: str) -> list[dict]:
+        """Never disclose another account's orders or any payment credentials."""
+        if not isinstance(owner_ref, str) or not owner_ref.startswith("v1_"):
+            raise LiveLedgerError("LIVE_OWNER_INVALID")
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT order_id, plan_id, amount_rub,
+                           payment_state, delivery_state, created_at
+                    FROM vainah_live_orders
+                    WHERE owner_ref = %s ORDER BY created_at DESC LIMIT 30
+                """, (owner_ref,))
+                rows = cur.fetchall()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        return [{
+            "order_id": row[0], "plan_id": row[1],
+            "amount_rub": str(row[2]), "payment_state": row[3],
+            "delivery_state": row[4],
+            "created_at": row[5].isoformat(),
+        } for row in rows]
+
+    def owner_subscription_url(self, owner_ref: str) -> str | None:
+        """Decrypt link only after paid+delivered check for the same owner."""
+        if not isinstance(owner_ref, str) or not owner_ref.startswith("v1_"):
+            raise LiveLedgerError("LIVE_OWNER_INVALID")
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT subscription_cipher FROM vainah_live_orders
+                    WHERE owner_ref = %s AND payment_state = 'paid'
+                        AND delivery_state = 'delivered'
+                        AND subscription_cipher IS NOT NULL
+                    ORDER BY delivered_at DESC LIMIT 1
+                """, (owner_ref,))
+                row = cur.fetchone()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        return unseal_live_secret(row[0]) if row else None
 
     def attach_invoice(self, order_id: str, payment_id: str) -> bool:
         if (not LIVE_ORDER_RE.fullmatch(order_id)
