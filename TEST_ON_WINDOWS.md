@@ -84,3 +84,35 @@ production-grade persistent accounting, approved merchant onboarding,
 reviewed H1Cloud API authentication, and end-to-end payment reconciliation.
 **Never provision real VPN from sandbox `paid`**, even if the sandbox
 payment URL displays successful simulation.
+
+
+## PostgreSQL sandbox ledger on Render
+
+The public Render deployment can connect to PostgreSQL when `DATABASE_URL`
+is set in **Render > Service > Environment**. It is **not necessary** to
+duplicate that value in GitHub Actions Secrets.
+
+The PostgreSQL storage implementation writes only to its own
+`vainah_sandbox_orders` table. It saves test order ID, plan, amount,
+provider payment ID, test payment status and mode. It never saves
+`ROLLYPAY_API_KEY`, the operator token, payment URLs, VLESS keys, or VPN
+subscription URLs.
+
+- A successful `/api/site/services` database status (`ok`) proves the
+  connection and `SELECT 1`; it does **not** prove tables have been created
+  or that payments are enabled.
+- Sandbox persistence uses `DATABASE_URL` **only if**
+  `VAINAH_SHOP_SANDBOX_ENABLED=enabled` and no local
+  `VAINAH_SHOP_SANDBOX_LEDGER_FILE` is configured.
+- Without that explicit test flag, Render keeps its public
+  `/api/shop/checkout` disabled and does not initialize the sandbox order
+  table. Do not enable public sandbox payment testing merely to force table
+  creation.
+- The local `preview_server.py` continues to use the user's SQLite test
+  database by default, so local simulation cannot accidentally modify the
+  Render PostgreSQL instance.
+- PostgreSQL errors return `SANDBOX_LEDGER_UNAVAILABLE` on test endpoints.
+  Database credentials are not returned to the browser.
+- Even a paid sandbox test order **never** provisions a real H1Cloud client.
+  Customer login, production accounting, webhook verification and merchant
+  approval are still required before any real charges.
