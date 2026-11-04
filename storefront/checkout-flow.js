@@ -169,6 +169,35 @@
       $("shop-test-diagnose").disabled = false;
     }
   });
+  $("shop-test-webhook").addEventListener("click", async () => {
+    if (state.busy) return;
+    state.busy = true;
+    $("shop-test-webhook").disabled = true;
+    testMessage("Проверяем конфигурацию webhook на Python-сервере…");
+    try {
+      const report = await api("/api/shop/sandbox/webhook-readiness", {
+        headers: {"X-Sandbox-Token": $("shop-test-token").value}
+      });
+      const labels = {
+        sandbox_enabled: "Sandbox",
+        provider_test_enabled: "Тестовая касса RollyPay",
+        signing_secret_configured: "Секрет подписи webhook",
+        persistent_ledger_configured: "Постоянное хранение заказов"
+      };
+      const rows = Object.entries(labels).map(([key, label]) =>
+        (report.checks[key] ? "✓ " : "✗ ") + label
+      );
+      rows.push("Адрес webhook: " + location.origin + report.webhook_path);
+      rows.push("Доставка webhook: ещё не подтверждена этой проверкой");
+      rows.push("Автоматическая выдача VPN: отключена");
+      testMessage(rows.join("\\n"));
+    } catch (err) {
+      testMessage("Проверка webhook: " + explainProviderError(err.message));
+    } finally {
+      state.busy = false;
+      $("shop-test-webhook").disabled = false;
+    }
+  });
   $("shop-test-create").addEventListener("click", async () => {
     if (state.busy || !state.selected || !state.config?.sandbox_available) return;
     const token = $("shop-test-token").value;
