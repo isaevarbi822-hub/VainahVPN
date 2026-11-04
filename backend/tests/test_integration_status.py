@@ -144,6 +144,6 @@ def test_rollypay_throttle_reported_as_unavailable(monkeypatch):
 
 
 def test_empty_webhook_secret_never_claims_connected(monkeypatch):
-    monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "copied-placeholder")
+    monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "short")
     status = checks.webhook_status()
     assert status["status"] == "not_connected"
