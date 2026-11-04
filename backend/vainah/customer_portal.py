@@ -6,6 +6,7 @@ RollyPay -> H1Cloud fulfillment transaction.
 """
 from __future__ import annotations
 
+import os
 import re
 from urllib.parse import urlencode, urlsplit
 
@@ -26,7 +27,11 @@ from .email_delivery import (
     start_challenge,
     verified_email,
 )
-from .h1_panel import H1PanelError, panel_settings, panel_tls_verify, read_h1_status
+from .h1_panel import (
+    H1PanelError, panel_settings, panel_tls_verify, read_h1_issued_client_status,
+    read_h1_status,
+)
+from .production_contracts import LiveContractError, h1_provision_intent
 from .telegram_auth import current_user, require_same_origin, require_user
 
 router = APIRouter(prefix="/api/account", tags=["Customer account"])
@@ -151,6 +156,44 @@ async def h1_customer_state(telegram_id: str) -> dict:
             "expires_at": result.get("expires_at")}
 
 
+async def h1_email_customer_state(email: str) -> dict:
+    """Read-only H1 profile check for a verified email session.
+
+    This does not imply a paid order and never grants subscription access.
+    Names are deterministically generated using the same signed live contract
+    as future purchases, never taken from a caller-supplied client name.
+    """
+    try:
+        intent = h1_provision_intent(
+            email=email, plan_id="30",
+            signing_key=os.environ.get("SESSION_SIGNING_KEY", ""),
+        )
+        result = await read_h1_issued_client_status(intent.client_name)
+    except (H1PanelError, LiveContractError):
+        return {
+            "status": "unavailable",
+            "message": "Проверка профиля H1Cloud по почте временно недоступна.",
+        }
+    if not result["panel_ready"]:
+        return {"status": "not_configured",
+                "message": "H1Cloud API ещё не настроен."}
+    if not result["found"]:
+        return {
+            "status": "not_found",
+            "message": "VPN-профиль для подтверждённой почты пока не создан.",
+        }
+    if not result["active"]:
+        return {
+            "status": "inactive",
+            "message": "VPN-профиль найден, но сейчас неактивен.",
+        }
+    return {
+        "status": "active",
+        "message": "VPN-профиль активен; оплаченная выдача отдельно не подтверждена.",
+        "expires_at": result.get("expires_at"),
+    }
+
+
 async def own_subscription_url(telegram_id: str) -> str:
     # Restrict this to authenticated + owned, paid, delivered receipt.
     receipt = active_receipt(telegram_id)
@@ -208,19 +251,16 @@ class EmailCode(BaseModel):
 async def overview(request: Request) -> dict:
     telegram_id, email, method = portal_identity(request)
     if telegram_id is None:
-        # A newly verified mailbox is an independent account: do not infer
-        # ownership of H1Cloud clients or expose other customers' orders.
+        # Email account is independent; use only its deterministic signed
+        # H1 profile name for read-only status. No paid receipt means no access.
+        state = await h1_email_customer_state(email)
         return {
             "authenticated": True,
             "auth_method": method,
             "email": {"verified": True, "address": email},
             "orders": [],
             "subscription": None,
-            "h1cloud": {
-                "status": "not_linked",
-                "message": "Почта подтверждена. Покупки Telegram появятся, "
-                           "если этот адрес был привязан к Telegram-аккаунту.",
-            },
+            "h1cloud": state,
         }
     orders = customer_receipts(telegram_id)
     last = next((o for o in orders if o["paid"] and o["delivered"]), None)
