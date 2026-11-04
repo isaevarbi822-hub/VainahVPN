@@ -29,6 +29,17 @@ IDEMPOTENCY_RE = re.compile(
 )
 
 
+def live_account_ready() -> bool:
+    """Customer paid-order access can remain on when new sales are paused."""
+    return (
+        os.environ.get("VAINAH_LIVE_CUSTOMER_ACCESS_ENABLED") == "enabled"
+        and os.environ.get("DATABASE_URL", "").startswith(
+            ("postgresql://", "postgres://")
+        )
+        and len(os.environ.get("SESSION_SIGNING_KEY", "")) >= 32
+    )
+
+
 def live_ready() -> bool:
     """The complete merchant and fulfillment gate, disabled unless approved."""
     required = {
@@ -40,6 +51,8 @@ def live_ready() -> bool:
     if any(os.environ.get(k) != v for k, v in required.items()):
         return False
     if not email_login_ready():
+        return False
+    if not live_account_ready():
         return False
     if not os.environ.get("DATABASE_URL", "").startswith(
         ("postgresql://", "postgres://")
