@@ -516,6 +516,37 @@ def public_checkout(_: StartSandbox) -> None:
     raise HTTPException(503, "LIVE_CHECKOUT_NOT_READY")
 
 
+@router.get("/sandbox/webhook-readiness")
+def sandbox_webhook_readiness(
+    x_sandbox_token: str | None = Header(default=None),
+) -> dict:
+    """Operator-only configuration checks; no secrets or customer data.
+
+    This checks local readiness only, not whether a callback was delivered.
+    Production billing and H1Cloud provisioning remain unavailable.
+    """
+    _require_operator(x_sandbox_token)
+    checks = {
+        "sandbox_enabled": os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") == "enabled",
+        "provider_test_enabled": (
+            sandbox.mode == "provider"
+            and os.environ.get("VAINAH_SHOP_PROVIDER_TEST_ENABLED") == "enabled"
+        ),
+        "signing_secret_configured": len(
+            os.environ.get("ROLLYPAY_SIGNING_SECRET", "")
+        ) >= 16,
+        "persistent_ledger_configured": sandbox.ledger is not None,
+    }
+    return {
+        "checks": checks,
+        "configured": all(checks.values()),
+        "webhook_path": "/api/shop/webhooks/rollypay",
+        "callback_delivery_verified": False,
+        "production_checkout_enabled": False,
+        "h1cloud_auto_provisioning_enabled": False,
+    }
+
+
 @router.get("/sandbox/diagnostics")
 async def sandbox_diagnostics(
     x_sandbox_token: str | None = Header(default=None),
