@@ -10,7 +10,6 @@ import hashlib
 import hmac
 import json
 import time
-from uuid import uuid4
 
 import httpx
 import pytest
