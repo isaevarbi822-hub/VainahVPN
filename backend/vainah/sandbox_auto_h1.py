@@ -19,7 +19,7 @@ from urllib.parse import urlencode
 import httpx
 import psycopg
 
-from .billing import ORDER_RE, get_plan, price_rub
+from .billing import ORDER_RE, get_plan
 from .h1_live_provision import LiveH1Error, _client, _validate_subscription_url
 from .h1_panel import H1PanelError, panel_settings, panel_tls_verify
 from .live_ledger import LiveLedgerError, seal_live_secret, unseal_live_secret
