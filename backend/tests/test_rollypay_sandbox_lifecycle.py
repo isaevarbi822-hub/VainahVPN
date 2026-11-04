@@ -225,3 +225,83 @@ def test_real_checkout_stays_off_even_when_sandbox_provider_is_enabled(sandbox):
     assert client.post(
         "/api/shop/checkout", json={"plan": "30"},
     ).status_code == 503
+
+
+def test_fulfillment_preview_requires_paid_and_signed_webhook(sandbox):
+    client, fake = sandbox
+    order, payment_id = create_test_order(client, fake)
+    path = f'/api/shop/sandbox/{order["order_id"]}/activation-preview'
+    assert client.get(path).status_code == 401
+    initial = client.get(path, headers=HEADERS).json()
+    assert initial["fulfillment"]["status"] == "blocked"
+    assert initial["fulfillment"]["preview_idempotency_key"] is None
+
+    # Polling may confirm paid, but must never substitute a signed webhook.
+    fake.orders[payment_id]["status"] = "paid"
+    checked = client.get(f'/api/shop/sandbox/{order["order_id"]}', headers=HEADERS)
+    assert checked.status_code == 200
+    assert checked.json()["status"] == "paid"
+    before_hook = client.get(path, headers=HEADERS).json()
+    assert before_hook["fulfillment"]["reason"] == "SIGNED_WEBHOOK_REQUIRED"
+    assert before_hook["fulfillment"]["status"] == "blocked"
+
+    paid = event(order, payment_id, "payment.paid", "paid")
+    response = signed_callback(client, paid)
+    assert response.status_code == 200
+    assert response.json()["vpn_delivered"] is False
+    ready = client.get(path, headers=HEADERS).json()
+    plan = ready["fulfillment"]
+    assert plan["status"] == "ready_for_review"
+    assert plan["operation"] == "create_or_extend"
+    assert plan["duration_days"] == 30
+    assert plan["device_limit"] == 3
+    assert plan["customer_identity_bound"] is False
+    assert plan["h1cloud_write_performed"] is False
+    assert plan["auto_provisioning_enabled"] is False
+    assert plan["subscription_url"] is None
+    assert plan["preview_idempotency_key"].startswith("sandbox_")
+
+    # An upstream HTTP failure cannot erase a signed sandbox webhook receipt.
+    original = fake.respond
+    def provider_unavailable(request):
+        if request.method == "GET":
+            return httpx.Response(502)
+        return original(request)
+    fake.requests.clear()
+    billing.sandbox.transport = httpx.MockTransport(provider_unavailable)
+    assert client.get(path, headers=HEADERS).json()["fulfillment"] == plan
+    assert not fake.requests
+
+    assert signed_callback(client, paid).status_code == 200
+    after_retry = client.get(path, headers=HEADERS).json()["fulfillment"]
+    assert after_retry["preview_idempotency_key"] == plan["preview_idempotency_key"]
+
+
+def test_refund_blocks_fulfillment_even_after_signed_paid_webhook(sandbox):
+    client, fake = sandbox
+    order, payment_id = create_test_order(client, fake)
+    path = f'/api/shop/sandbox/{order["order_id"]}/activation-preview'
+    paid = event(order, payment_id, "payment.paid", "paid")
+    assert signed_callback(client, paid).status_code == 200
+    assert client.get(path, headers=HEADERS).json()["fulfillment"]["status"] == "ready_for_review"
+    refunded = event(order, payment_id, "payment.refunded", "refunded")
+    assert signed_callback(client, refunded).status_code == 200
+    blocked = client.get(path, headers=HEADERS).json()["fulfillment"]
+    assert blocked["status"] == "blocked"
+    assert blocked["reason"] == "PAYMENT_NOT_PAID"
+    assert blocked["preview_idempotency_key"] is None
+    assert blocked["h1cloud_write_performed"] is False
+
+
+def test_mock_payment_never_passes_provider_fulfillment_gate():
+    mock = billing.BillingSandbox("mock")
+    order = __import__("asyncio").run(mock.create("365-family"))
+    mock.simulate(order["order_id"])
+    preview = mock.activation_preview(order["order_id"])
+    assert preview["status"] == "demo_ready"
+    gate = preview["fulfillment"]
+    assert gate["status"] == "blocked"
+    assert gate["reason"] == "MOCK_PAYMENT_NOT_PROVIDER_VERIFIED"
+    assert gate["device_limit"] == 6
+    assert gate["duration_days"] == 365
+    assert gate["h1cloud_write_performed"] is False

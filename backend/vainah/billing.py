@@ -426,6 +426,8 @@ class BillingSandbox:
             except HTTPException:
                 order.webhook_received = previous_webhook
                 raise
+            # Keep the provider callback contract stable. Operator-only
+            # fulfillment readiness is exposed via activation-preview instead.
             return {"ok": True, "test_only": True, "status": order.status,
                     "vpn_delivered": False}
 
@@ -439,17 +441,59 @@ class BillingSandbox:
             ][:25]
 
     def activation_preview(self, order_id: str) -> dict:
-        # Preview ONLY. This method intentionally does not call H1Cloud.
+        """Deterministic fulfillment plan, not an H1Cloud write or live receipt.
+
+        A provider test must be paid AND confirmed by a signed webhook before
+        it passes the fulfillment gate. Polling alone never grants this gate.
+        No customer identity is associated with sandbox test orders.
+        """
         self.read(order_id)
         with self.lock:
             order = self.orders[order_id]
             plan = get_plan(order.plan_id)
             if plan is None:
                 raise HTTPException(409, "PLAN_UNKNOWN")
+            paid = order.status == "paid"
+            signed = order.mode == "provider" and order.webhook_received
+            gate_open = paid and signed
+            if order.mode == "mock":
+                # Mock payments are useful for previewing tariff details but
+                # can never enter the real-provider fulfillment gate.
+                gate_reason = "MOCK_PAYMENT_NOT_PROVIDER_VERIFIED"
+            elif not paid:
+                gate_reason = "PAYMENT_NOT_PAID"
+            elif not signed:
+                gate_reason = "SIGNED_WEBHOOK_REQUIRED"
+            else:
+                gate_reason = None
+            # One immutable identity for the proposed action per sandbox order:
+            # duplicate webhook deliveries and process restarts give the same ID.
+            # This is a preview key, NOT a production fulfillment receipt.
+            preview_key = (
+                "sandbox_" + hashlib.sha256(
+                    ("vpn-preview:" + order.order_id + ":" + order.plan_id).encode()
+                ).hexdigest()[:32]
+                if gate_open else None
+            )
+            fulfillment = {
+                "status": "ready_for_review" if gate_open else "blocked",
+                "reason": gate_reason,
+                "preview_idempotency_key": preview_key,
+                "operation": "create_or_extend" if gate_open else None,
+                "plan_id": plan["id"],
+                "duration_days": plan["days"],
+                "device_limit": plan["devices"],
+                "signed_webhook_received": signed,
+                "operator_review_required": True,
+                "customer_identity_bound": False,
+                "h1cloud_write_performed": False,
+                "auto_provisioning_enabled": False,
+                "subscription_url": None,
+            }
             return {
                 "order_id": order.order_id,
                 "payment_status": order.status,
-                "status": "demo_ready" if order.status == "paid" else "blocked",
+                "status": "demo_ready" if paid else "blocked",
                 "plan": plan["id"],
                 "duration_days": plan["days"],
                 "device_limit": plan["devices"],
@@ -457,10 +501,14 @@ class BillingSandbox:
                 "h1cloud_connected": False,
                 "vpn_delivered": False,
                 "subscription_url": None,
+                "fulfillment": fulfillment,
                 "message": (
-                    "Тестовая оплата подтверждена. Это только план выдачи VPN; "
-                    "H1Cloud не подключён и реальный VPN не выдан."
-                    if order.status == "paid" else
+                    "Подписанный тестовый webhook подтверждён. План выдачи "
+                    "подготовлен к проверке; H1Cloud не изменён и VPN не выдан."
+                    if gate_open else
+                    "Это демонстрация тарифа. Автовыдача заблокирована: "
+                    "требуется подтверждённый тестовый платёж и привязка аккаунта."
+                    if paid else
                     "Пока нет подтверждения тестовой оплаты; выдача заблокирована."
                 ),
             }
@@ -618,11 +666,10 @@ async def sandbox_activation_preview(
         "VAINAH_SHOP_PROVIDER_TEST_ENABLED"
     ) != "enabled":
         raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
-    try:
-        await sandbox.refresh(order_id)
-        return sandbox.activation_preview(order_id)
-    except ProviderError as exc:
-        raise HTTPException(502, exc.code) from None
+    # The operator-only preview uses the signed webhook state already stored
+    # in the ledger. Do not require a second provider GET: that call may fail
+    # transiently (HTTP 502) even after a valid webhook was recorded.
+    return sandbox.activation_preview(order_id)
 
 
 @router.get("/sandbox/{order_id}")
