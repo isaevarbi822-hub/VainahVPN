@@ -11,8 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .billing import router as shop_router
-from .db_health import database_status
 from .config import Settings
+from .db_health import database_status
 from .inspector import InvalidSubscription, inspect_subscription
 
 ROOT = Path(__file__).resolve().parents[2]
