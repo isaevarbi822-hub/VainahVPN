@@ -262,26 +262,40 @@ def test_provider_rejects_status_from_non_sandbox_payment():
     assert service.read(order_id)["status"] == "created"
 
 
-def test_provider_diagnostics_is_read_only_and_never_exposes_records():
+def test_provider_diagnostics_is_read_only_and_never_exposes_balance():
     seen = []
+
     def response(request: httpx.Request) -> httpx.Response:
         seen.append((request.method, str(request.url)))
         assert request.method == "GET"
-        assert request.url.path == "/api/v1/payments"
-        assert request.url.params["environment"] == "sandbox"
+        assert request.url.path == "/api/v1/balance"
+        assert not request.url.params
         assert request.headers["X-API-Key"] == "unit-test-key"
-        return httpx.Response(200, json={"items": [
-            {"payment_id": "secret-payment", "customer_email": "private@example.com"}
-        ], "total": 1})
+        assert request.headers["X-Nonce"]
+        return httpx.Response(200, json={
+            "available_usdt": "12345.67", "hold_usdt": "50.00",
+            "terminal_id": "merchant-private-value",
+        })
 
     provider = BillingSandbox(
         "provider", "unit-test-key", httpx.MockTransport(response)
     )
     result = asyncio.run(provider.provider_diagnostics())
     assert result["connected"] is True
+    assert result["request"] == "GET /api/v1/balance"
     assert result["new_payment_created"] is False
-    assert "private@example.com" not in str(result)
+    assert "12345.67" not in str(result)
+    assert "merchant-private-value" not in str(result)
     assert len(seen) == 1
+
+
+def test_provider_diagnostics_rejects_unexpected_balance_schema():
+    provider = BillingSandbox(
+        "provider", "unit-test-key",
+        httpx.MockTransport(lambda _: httpx.Response(200, json={"status": "ok"})),
+    )
+    with pytest.raises(ProviderError, match="PROVIDER_RESPONSE_INVALID"):
+        asyncio.run(provider.provider_diagnostics())
 
 
 def test_provider_diagnostics_reports_only_http_code():
