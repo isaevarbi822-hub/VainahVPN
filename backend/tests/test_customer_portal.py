@@ -134,3 +134,89 @@ def test_notify_function_rejects_order_not_owned(monkeypatch):
     assert asyncio.run(portal.notify_confirmed_subscription(
         "123456789", "order_123456789012"
     )) is False
+
+
+def test_paid_customer_access_uses_h1_info_with_verified_tls(monkeypatch):
+    import ssl
+
+    import httpx
+
+    monkeypatch.setenv("PANEL_BASE_URL", "https://vpn-panel.example.com:25105/api")
+    monkeypatch.setenv("PANEL_API_TOKEN", "test-only-provider-token")
+    monkeypatch.setenv("PANEL_CLIENT_PREFIX", "tg")
+    monkeypatch.setattr(
+        portal, "active_receipt", lambda _uid: {"paid": True, "delivered": True}
+    )
+
+    async def fake_read(_uid):
+        return {"panel_ready": True, "active": True}
+
+    monkeypatch.setattr(portal, "read_h1_status", fake_read)
+    custom_ca_context = ssl.create_default_context()
+    monkeypatch.setattr(portal, "panel_tls_verify", lambda: custom_ca_context)
+    requests = []
+    passed_verifiers = []
+    original_client = httpx.AsyncClient
+
+    def provider(request: httpx.Request) -> httpx.Response:
+        requests.append((request.method, str(request.url),
+                         request.headers.get("Authorization")))
+        return httpx.Response(200, json={
+            "ok": True, "client": {
+                "name": "tg123456789",
+                "subscription_url": "https://sub.example.com/private-subscription",
+            },
+        })
+
+    def client_with_fake_network(**kwargs):
+        passed_verifiers.append(kwargs["verify"])
+        return original_client(
+            transport=httpx.MockTransport(provider), **kwargs
+        )
+
+    monkeypatch.setattr(portal.httpx, "AsyncClient", client_with_fake_network)
+    subscription = asyncio.run(portal.own_subscription_url("123456789"))
+    assert subscription == "https://sub.example.com/private-subscription"
+    assert passed_verifiers == [custom_ca_context]
+    assert requests == [
+        ("GET", "https://vpn-panel.example.com:25105/api/info?name=tg123456789",
+         "Bearer test-only-provider-token"),
+    ]
+
+
+@pytest.mark.parametrize("client_data", [
+    {"name": "tg000000000", "subscription_url": "https://sub.example.com/a"},
+    {"name": "tg123456789", "subscription_url": "http://unsafe.example/a"},
+    {"name": "tg123456789", "subscription_url": "https://sub.example.com/a#fragment"},
+])
+def test_customer_access_rejects_invalid_h1_profile(monkeypatch, client_data):
+    import httpx
+    from fastapi import HTTPException
+
+    monkeypatch.setenv("PANEL_BASE_URL", "https://vpn-panel.example.com/api")
+    monkeypatch.setenv("PANEL_API_TOKEN", "test-only-provider-token")
+    monkeypatch.setenv("PANEL_CLIENT_PREFIX", "tg")
+    monkeypatch.setattr(
+        portal, "active_receipt", lambda _uid: {"paid": True, "delivered": True}
+    )
+
+    async def fake_read(_uid):
+        return {"panel_ready": True, "active": True}
+
+    monkeypatch.setattr(portal, "read_h1_status", fake_read)
+    original_client = httpx.AsyncClient
+
+    def client_with_fake_network(**kwargs):
+        return original_client(
+            transport=httpx.MockTransport(
+                lambda _request: httpx.Response(
+                    200, json={"ok": True, "client": client_data}
+                )
+            ), **kwargs
+        )
+
+    monkeypatch.setattr(portal.httpx, "AsyncClient", client_with_fake_network)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(portal.own_subscription_url("123456789"))
+    assert error.value.status_code == 503
+    assert error.value.detail == "H1_ACCESS_UNAVAILABLE"
