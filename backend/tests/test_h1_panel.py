@@ -260,3 +260,53 @@ def test_h1_network_diagnostics_redact_errors(config, failure, reason):
     }
     assert "secret" not in str(status)
     assert TOKEN not in str(status)
+
+
+def test_h1_operator_client_check_requires_token_and_uses_post(monkeypatch):
+    from vainah import h1_panel
+
+    monkeypatch.setenv("VAINAH_SANDBOX_TEST_TOKEN", "x" * 32)
+    called = []
+
+    async def fake_read(telegram_id: str):
+        called.append(telegram_id)
+        return {
+            "panel_ready": True, "found": True, "active": True,
+            "banned": False, "expires_at": "2030-01-01T00:00:00+00:00",
+            "subscription_url": "https://secret.example/user-secret",
+            "uuid": "secret-uuid", "vless": "vless://secret",
+        }
+
+    monkeypatch.setattr(h1_panel, "read_h1_status", fake_read)
+
+    unauthorized = client.post(
+        "/api/site/integrations/h1cloud/client/check",
+        json={"telegram_id": "123456789"},
+    )
+    assert unauthorized.status_code == 401
+    assert called == []
+
+    invalid = client.post(
+        "/api/site/integrations/h1cloud/client/check",
+        headers={"X-Sandbox-Token": "x" * 32},
+        json={"telegram_id": "123/../../oops"},
+    )
+    assert invalid.status_code == 422
+    assert called == []
+
+    allowed = client.post(
+        "/api/site/integrations/h1cloud/client/check",
+        headers={"X-Sandbox-Token": "x" * 32},
+        json={"telegram_id": "123456789"},
+    )
+    assert allowed.status_code == 200
+    assert called == ["123456789"]
+    assert allowed.json() == {
+        "ok": True, "found": True, "active": True,
+        "banned": False, "expires_at": "2030-01-01T00:00:00+00:00",
+        "vpn_delivered": False,
+    }
+    assert all(
+        secret not in allowed.text for secret in
+        ["secret-uuid", "vless://", "user-secret", "subscription_url"]
+    )
