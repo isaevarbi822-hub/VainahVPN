@@ -36,8 +36,9 @@ def test_h1_public_ca_remains_verified_by_default(monkeypatch):
 
 
 def test_h1_private_ca_pem_preserves_certificate_and_hostname_checks(monkeypatch):
-    import certifi
     from pathlib import Path
+
+    import certifi
 
     bundle = Path(certifi.where()).read_text(encoding="utf-8")
     certificate = "-----BEGIN CERTIFICATE-----"
