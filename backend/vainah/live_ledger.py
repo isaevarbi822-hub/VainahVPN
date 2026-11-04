@@ -174,7 +174,7 @@ class PostgresLiveOrderLedger:
             with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
                 self._schema(cur)
                 cur.execute("""
-                    SELECT owner_ref, plan_id, payment_id, payment_state
+                    SELECT owner_ref, plan_id, payment_id, amount_rub, payment_state
                     FROM vainah_live_orders
                     WHERE order_id = %s FOR UPDATE
                 """, (order_id,))
@@ -182,7 +182,8 @@ class PostgresLiveOrderLedger:
                 if not record or not record[2]:
                     raise LiveLedgerError("LIVE_ORDER_UNKNOWN")
                 contract = LiveOrderContract(
-                    order_id, record[1], record[0], record[2]
+                    order_id, record[1], record[0], record[2],
+                    amount_snapshot=str(record[3]),
                 )
                 try:
                     verify_live_paid_event(
@@ -191,11 +192,11 @@ class PostgresLiveOrderLedger:
                     )
                 except LiveContractError:
                     raise LiveLedgerError("LIVE_PAYMENT_MISMATCH") from None
-                if record[3] in {"refunded", "chargeback"}:
+                if record[4] in {"refunded", "chargeback"}:
                     raise LiveLedgerError("LIVE_PAYMENT_ALREADY_REVERSED")
-                if record[3] == "paid":
+                if record[4] == "paid":
                     return True
-                if record[3] != "created":
+                if record[4] != "created":
                     raise LiveLedgerError("LIVE_PAYMENT_INVALID_STATE")
                 cur.execute("""
                     UPDATE vainah_live_orders
