@@ -37,6 +37,10 @@ class PostgresSandboxLedger:
             ALTER TABLE vainah_sandbox_orders
             ADD COLUMN IF NOT EXISTS webhook_received BOOLEAN NOT NULL DEFAULT FALSE
         """)
+        cursor.execute("""
+            ALTER TABLE vainah_sandbox_orders
+            ADD COLUMN IF NOT EXISTS owner_ref TEXT
+        """)
 
     def save(self, order: object) -> None:
         try:
@@ -46,8 +50,8 @@ class PostgresSandboxLedger:
                 self._schema(cursor)
                 cursor.execute("""
                     INSERT INTO vainah_sandbox_orders
-                        (order_id, plan_id, amount, payment_id, status, mode, webhook_received)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        (order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (order_id) DO UPDATE SET
                         status = EXCLUDED.status,
                         webhook_received = EXCLUDED.webhook_received,
@@ -60,6 +64,7 @@ class PostgresSandboxLedger:
                     order.status,
                     order.mode,
                     order.webhook_received,
+                    getattr(order, "owner_ref", None),
                 ))
         except (psycopg.Error, OSError, ValueError):
             raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE") from None
@@ -71,7 +76,7 @@ class PostgresSandboxLedger:
             ) as connection, connection.cursor() as cursor:
                 self._schema(cursor)
                 cursor.execute("""
-                    SELECT order_id, plan_id, amount, payment_id, status, mode, webhook_received
+                    SELECT order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref
                     FROM vainah_sandbox_orders
                     ORDER BY updated_at, order_id
                     LIMIT 5000
@@ -82,7 +87,7 @@ class PostgresSandboxLedger:
 
         return [
             dict(zip(
-                ("order_id", "plan_id", "amount", "payment_id", "status", "mode", "webhook_received"),
+                ("order_id", "plan_id", "amount", "payment_id", "status", "mode", "webhook_received", "owner_ref"),
                 row,
                 strict=True,
             ))
