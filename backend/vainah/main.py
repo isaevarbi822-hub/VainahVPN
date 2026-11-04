@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .billing import router as shop_router
+from .db_health import database_status
 from .config import Settings
 from .inspector import InvalidSubscription, inspect_subscription
 
@@ -134,6 +135,7 @@ async def public_site_services():
     """Read-only preview status: never probes private H1Cloud or claims live availability."""
     from .billing import sandbox
 
+    db = await database_status()
     return {
         "mode": "preview",
         "services": {
@@ -141,10 +143,7 @@ async def public_site_services():
                 "status": "ok",
                 "message": "Python API отвечает.",
             },
-            "database": {
-                "status": "not_connected",
-                "message": "PostgreSQL в тестовой версии не подключён.",
-            },
+            "database": db,
             "h1": {
                 "status": "not_connected",
                 "message": "Панель H1Cloud пока не подключена к этому сайту. Состояние VPN-серверов неизвестно.",
