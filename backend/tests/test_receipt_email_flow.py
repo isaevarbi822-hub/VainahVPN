@@ -245,7 +245,7 @@ def test_missing_verified_email_never_sends_test_receipt(setup):
 def test_tampered_receipt_ciphertext_never_exposes_email(setup):
     from fastapi import HTTPException
 
-    client, provider, _, sent = setup
+    client, _provider, _, sent = setup
     order = create_order(client)
     stored = billing.sandbox.orders[order["order_id"]]
     assert stored.receipt_recipient is not None
