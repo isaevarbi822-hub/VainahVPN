@@ -19,8 +19,8 @@ from .email_delivery import (
     cancel_challenge,
     confirm_challenge,
     database_url,
-    email_service_ready,
     email_paid_subscription,
+    email_service_ready,
     send_verification_code,
     start_challenge,
     verified_email,
@@ -66,8 +66,7 @@ def _receipt_schema(cur) -> None:
 
 def customer_receipts(telegram_id: str) -> list[dict]:
     try:
-        with psycopg.connect(database_url(), connect_timeout=4) as conn:
-            with conn.cursor() as cur:
+        with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
                 _receipt_schema(cur)
                 cur.execute("""
                     SELECT order_id, plan_id, payment_status,

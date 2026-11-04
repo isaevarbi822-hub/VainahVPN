@@ -67,8 +67,7 @@ def schema(cursor) -> None:
 
 def verified_email(telegram_id: str) -> str | None:
     try:
-        with psycopg.connect(database_url(), connect_timeout=4) as conn:
-            with conn.cursor() as cur:
+        with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
                 schema(cur)
                 cur.execute("""
                     SELECT email FROM vainah_verified_customer_emails
@@ -87,8 +86,7 @@ def start_challenge(telegram_id: str, email: str) -> str:
     code = f"{secrets.randbelow(1000000):06d}"
     digest = code_digest(telegram_id, email, code, secret)
     try:
-        with psycopg.connect(database_url(), connect_timeout=4) as conn:
-            with conn.cursor() as cur:
+        with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
                 schema(cur)
                 cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s), 72043)",
                             (telegram_id,))
@@ -122,8 +120,7 @@ def cancel_challenge(telegram_id: str, code: str, email: str) -> None:
     secret = os.environ.get("SESSION_SIGNING_KEY", "")
     digest = code_digest(telegram_id, email, code, secret)
     try:
-        with psycopg.connect(database_url(), connect_timeout=4) as conn:
-            with conn.cursor() as cur:
+        with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
                 cur.execute("""
                     DELETE FROM vainah_email_challenges
                     WHERE telegram_id = %s AND code_hash = %s
@@ -137,8 +134,7 @@ def confirm_challenge(telegram_id: str, code: str) -> str:
     if len(secret) < 32 or not re.fullmatch(r"[0-9]{6}", code):
         raise HTTPException(400, "EMAIL_CODE_INVALID")
     try:
-        with psycopg.connect(database_url(), connect_timeout=4) as conn:
-            with conn.cursor() as cur:
+        with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
                 schema(cur)
                 cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s), 72043)",
                             (telegram_id,))

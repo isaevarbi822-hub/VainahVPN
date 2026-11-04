@@ -6,10 +6,10 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
-from vainah.main import app
 from vainah import customer_portal as portal
 from vainah import email_delivery as mail
-from vainah.telegram_auth import make_session, SESSION_COOKIE
+from vainah.main import app
+from vainah.telegram_auth import SESSION_COOKIE, make_session
 
 ORIGIN = "https://vainahvpn-python-preview.onrender.com"
 SECRET = "test-only-secure-cookie-secret-0123456789"
