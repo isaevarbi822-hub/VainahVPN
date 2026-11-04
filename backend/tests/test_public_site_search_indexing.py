@@ -53,3 +53,13 @@ def test_private_pages_are_not_advertised_for_google_indexing():
             page = client.get(path)
             assert page.status_code == 200
             assert 'name="robots" content="noindex, nofollow"' in page.text
+
+
+def test_homepage_contains_google_search_console_verification_tag():
+    with TestClient(app) as client:
+        homepage = client.get("/")
+        assert homepage.status_code == 200
+        assert (
+            '<meta name="google-site-verification" '
+            'content="flLPB_2_9zWLkQ6Dg_Y9GsTyNtCS1ORGpW0hia6i7hU" />'
+        ) in homepage.text
