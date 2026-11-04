@@ -238,7 +238,7 @@ def production_readiness() -> dict:
     """Operator-only non-secret progress snapshot; never opens real checkout."""
     from .email_auth import ready as email_auth_ready
     from .email_delivery import email_service_ready
-    from .h1_panel import panel_settings, H1PanelError
+    from .h1_panel import H1PanelError, panel_settings
 
     try:
         panel = panel_settings() is not None
