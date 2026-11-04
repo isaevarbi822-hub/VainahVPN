@@ -11,11 +11,10 @@ async def _ping(database_url: str) -> None:
     # No migrations or writes: simple connectivity check.
     async with await psycopg.AsyncConnection.connect(
         database_url, connect_timeout=3, autocommit=True
-    ) as connection:
-        async with connection.cursor() as cursor:
-            await cursor.execute("SELECT 1")
-            if (await cursor.fetchone()) != (1,):
-                raise RuntimeError("DB_PING_FAILED")
+    ) as connection, connection.cursor() as cursor:
+        await cursor.execute("SELECT 1")
+        if (await cursor.fetchone()) != (1,):
+            raise RuntimeError("DB_PING_FAILED")
 
 
 async def database_status() -> dict[str, str]:
@@ -32,7 +31,7 @@ async def database_status() -> dict[str, str]:
         }
     try:
         await asyncio.wait_for(_ping(database_url), timeout=6)
-    except Exception:
+    except (psycopg.Error, OSError, TimeoutError, ValueError, RuntimeError):
         # Provider exceptions may contain the connection string, host or username.
         # Do not emit them to responses or logs.
         return {
