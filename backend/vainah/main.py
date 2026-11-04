@@ -17,9 +17,10 @@ from .config import Settings
 from .customer_portal import router as customer_router
 from .db_health import database_status
 from .email_auth import router as email_auth_router
+from .h1_panel import public_h1_status
 from .h1_panel import router as h1_router
-from .integration_status import integration_status
 from .inspector import InvalidSubscription, inspect_subscription
+from .integration_status import integration_status
 from .telegram_auth import router as telegram_router
 
 ROOT = Path(__file__).resolve().parents[2]
