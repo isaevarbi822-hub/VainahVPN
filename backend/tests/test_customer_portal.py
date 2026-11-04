@@ -270,3 +270,89 @@ def test_email_only_overview_shows_h1_but_no_unpaid_access(client, monkeypatch):
     assert data.json()["orders"] == []
     assert seen == ["owner@example.com"]
     assert client.get("/api/account/access").status_code == 404
+
+
+def test_live_paid_email_access_is_owner_scoped(client, monkeypatch):
+    from vainah import live_checkout, live_ledger
+
+    owner_email = "buyer@example.com"
+    private_url = "https://sub.example.com/owner-private"
+    monkeypatch.setenv("DATABASE_URL", "postgresql://fake/test")
+    monkeypatch.setenv("SESSION_SIGNING_KEY", "test-owner-signing-" + "s" * 44)
+    monkeypatch.setattr(live_checkout, "live_account_ready", lambda: True)
+    monkeypatch.setattr(
+        portal, "portal_identity",
+        lambda _request, include_email=True: (None, owner_email, "email"),
+    )
+    monkeypatch.setattr(portal, "current_email", lambda _request: owner_email)
+    expected_owner = live_checkout.owner_ref_for_email(owner_email)
+    queries = []
+
+    class FakeLedger:
+        def owner_orders(self, owner_ref):
+            queries.append(("orders", owner_ref))
+            return [{
+                "order_id": "vainah_live_" + "b" * 32,
+                "plan_id": "30", "amount_rub": "99.00",
+                "payment_state": "paid", "delivery_state": "delivered",
+                "created_at": "2026-11-04T00:00:00+00:00",
+            }]
+
+        def owner_subscription_url(self, owner_ref):
+            queries.append(("subscription", owner_ref))
+            return private_url
+
+    monkeypatch.setattr(live_ledger, "PostgresLiveOrderLedger",
+                        lambda _database_url: FakeLedger())
+
+    async def h1_state(email):
+        assert email == owner_email
+        return {
+            "status": "active", "expires_at": "2030-01-01T00:00:00+00:00"
+        }
+
+    monkeypatch.setattr(portal, "h1_email_customer_state", h1_state)
+    overview = client.get("/api/account/overview")
+    assert overview.status_code == 200
+    data = overview.json()
+    assert data["orders"][0]["status"] == "delivered"
+    assert data["subscription"]["paid"] is True
+    assert data["subscription"]["plan_title"] == "1 месяц"
+    assert private_url not in overview.text
+
+    result = client.get("/api/account/access")
+    assert result.status_code == 200
+    assert result.json() == {"subscription_url": private_url}
+    assert queries == [
+        ("orders", expected_owner), ("subscription", expected_owner)
+    ]
+
+
+def test_live_email_without_paid_receipt_gets_no_link(client, monkeypatch):
+    from vainah import live_checkout, live_ledger
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://fake/test")
+    monkeypatch.setenv("SESSION_SIGNING_KEY", "test-owner-signing-" + "s" * 44)
+    monkeypatch.setattr(live_checkout, "live_account_ready", lambda: True)
+    monkeypatch.setattr(
+        portal, "portal_identity",
+        lambda _request, include_email=True: (
+            None, "notpaid@example.com", "email",
+        ),
+    )
+    monkeypatch.setattr(
+        portal, "current_email",
+        lambda _request: "notpaid@example.com",
+    )
+
+    class FakeLedger:
+        def owner_subscription_url(self, _owner_ref):
+            return None
+
+    monkeypatch.setattr(
+        live_ledger, "PostgresLiveOrderLedger",
+        lambda _database_url: FakeLedger(),
+    )
+    result = client.get("/api/account/access")
+    assert result.status_code == 404
+    assert result.json()["detail"] == "PAID_DELIVERY_NOT_FOUND"
