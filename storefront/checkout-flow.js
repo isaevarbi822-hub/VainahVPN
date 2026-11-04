@@ -190,7 +190,7 @@
       rows.push("Адрес webhook: " + location.origin + report.webhook_path);
       rows.push("Доставка webhook: ещё не подтверждена этой проверкой");
       rows.push("Автоматическая выдача VPN: отключена");
-      testMessage(rows.join("\\n"));
+      testMessage(rows.join(String.fromCharCode(10)));
     } catch (err) {
       testMessage("Проверка webhook: " + explainProviderError(err.message));
     } finally {
