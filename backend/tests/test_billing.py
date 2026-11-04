@@ -171,6 +171,9 @@ def test_provider_sandbox_create_and_signed_status():
         provider.process_webhook({**event, "amount": "1.00"})
     refunded = {**event, "event_type": "payment.refunded", "status": "refunded"}
     assert provider.process_webhook(refunded)["status"] == "refunded"
+    # RollyPay may send both events for the same completed refund.
+    refund_completed = {**refunded, "event_type": "refund_request.completed"}
+    assert provider.process_webhook(refund_completed)["status"] == "refunded"
     with pytest.raises(HTTPException):
         provider.process_webhook(event)
 
