@@ -45,6 +45,14 @@ class PostgresSandboxLedger:
             ALTER TABLE vainah_sandbox_orders
             ADD COLUMN IF NOT EXISTS receipt_emailed BOOLEAN NOT NULL DEFAULT FALSE
         """)
+        cursor.execute("""
+            ALTER TABLE vainah_sandbox_orders
+            ADD COLUMN IF NOT EXISTS receipt_recipient TEXT
+        """)
+        cursor.execute("""
+            ALTER TABLE vainah_sandbox_orders
+            ADD COLUMN IF NOT EXISTS receipt_claimed_at TIMESTAMPTZ
+        """)
 
     def save(self, order: object) -> None:
         try:
@@ -54,12 +62,15 @@ class PostgresSandboxLedger:
                 self._schema(cursor)
                 cursor.execute("""
                     INSERT INTO vainah_sandbox_orders
-                        (order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed, receipt_recipient)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (order_id) DO UPDATE SET
                         status = EXCLUDED.status,
                         webhook_received = EXCLUDED.webhook_received,
-                        receipt_emailed = EXCLUDED.receipt_emailed,
+                        receipt_emailed = (
+                            vainah_sandbox_orders.receipt_emailed
+                            OR EXCLUDED.receipt_emailed
+                        ),
                         updated_at = NOW()
                 """, (
                     order.order_id,
@@ -71,6 +82,7 @@ class PostgresSandboxLedger:
                     order.webhook_received,
                     getattr(order, "owner_ref", None),
                     bool(getattr(order, "receipt_emailed", False)),
+                    getattr(order, "receipt_recipient", None),
                 ))
         except (psycopg.Error, OSError, ValueError):
             raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE") from None
@@ -82,7 +94,7 @@ class PostgresSandboxLedger:
             ) as connection, connection.cursor() as cursor:
                 self._schema(cursor)
                 cursor.execute("""
-                    SELECT order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed
+                    SELECT order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed, receipt_recipient
                     FROM vainah_sandbox_orders
                     ORDER BY updated_at, order_id
                     LIMIT 5000
@@ -93,9 +105,63 @@ class PostgresSandboxLedger:
 
         return [
             dict(zip(
-                ("order_id", "plan_id", "amount", "payment_id", "status", "mode", "webhook_received", "owner_ref", "receipt_emailed"),
+                ("order_id", "plan_id", "amount", "payment_id", "status", "mode", "webhook_received", "owner_ref", "receipt_emailed", "receipt_recipient"),
                 row,
                 strict=True,
             ))
             for row in rows
         ]
+
+    def claim_receipt(self, order_id: str) -> str | None:
+        """Cross-worker lease; only signed PAID test orders can claim an email."""
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as connection, connection.cursor() as cursor:
+                self._schema(cursor)
+                cursor.execute("""
+                    UPDATE vainah_sandbox_orders
+                    SET receipt_claimed_at = NOW()
+                    WHERE order_id = %s AND mode = 'provider'
+                      AND status = 'paid' AND webhook_received = TRUE
+                      AND owner_ref IS NOT NULL AND receipt_recipient IS NOT NULL
+                      AND receipt_emailed = FALSE
+                      AND (receipt_claimed_at IS NULL OR
+                           receipt_claimed_at < NOW() - interval '2 minutes')
+                    RETURNING receipt_recipient
+                """, (order_id,))
+                row = cursor.fetchone()
+                return str(row[0]) if row else None
+        except (psycopg.Error, OSError, ValueError):
+            raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE") from None
+
+    def finish_receipt(self, order_id: str) -> None:
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as connection, connection.cursor() as cursor:
+                self._schema(cursor)
+                cursor.execute("""
+                    UPDATE vainah_sandbox_orders
+                    SET receipt_emailed = TRUE,
+                        receipt_claimed_at = NULL,
+                        updated_at = NOW()
+                    WHERE order_id = %s AND status = 'paid'
+                      AND webhook_received = TRUE AND receipt_claimed_at IS NOT NULL
+                """, (order_id,))
+        except (psycopg.Error, OSError, ValueError):
+            raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE") from None
+
+    def release_receipt(self, order_id: str) -> None:
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as connection, connection.cursor() as cursor:
+                self._schema(cursor)
+                cursor.execute("""
+                    UPDATE vainah_sandbox_orders
+                    SET receipt_claimed_at = NULL
+                    WHERE order_id = %s AND receipt_emailed = FALSE
+                """, (order_id,))
+        except (psycopg.Error, OSError, ValueError):
+            raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE") from None

@@ -128,11 +128,13 @@ def test_only_verified_paid_owner_gets_test_email_once(setup, monkeypatch):
     assert callback(client, order, payment_id, amount="1.00").status_code == 400
     assert client.post(path, headers={"Origin": ORIGIN}).status_code == 409
     assert callback(client, order, payment_id).status_code == 200
+    # The paid webhook sends immediately, without a customer clicking a button.
+    assert len(sent) == 1
 
     first = client.post(path, headers={"Origin": ORIGIN})
     assert first.status_code == 200, first.text
     assert first.json() == {
-        "sent": True, "already_sent": False,
+        "sent": False, "already_sent": True,
         "test_only": True, "vpn_delivered": False,
     }
     assert len(sent) == 1
@@ -142,6 +144,11 @@ def test_only_verified_paid_owner_gets_test_email_once(setup, monkeypatch):
     assert "ДЕНЬГИ НЕ СПИСАНЫ" in sent[0]["body"]
     assert "КЛЮЧ ПОДПИСКИ НЕ ВЫДАН" in sent[0]["body"]
     assert "https://vpn" not in sent[0]["body"]
+    # No plaintext email is written to the sandbox ledger.
+    assert b"owner@example.com" not in Path(db).read_bytes()
+    assert client.get("/api/shop/my-test-orders").json()["items"][0]["receipt_emailed"] is True
+    assert callback(client, order, payment_id).status_code == 200
+    assert len(sent) == 1
     assert client.post(path, headers={"Origin": ORIGIN}).json()["already_sent"] is True
     assert len(sent) == 1
 
@@ -193,3 +200,57 @@ def test_resend_idempotency_header_is_set_without_exposing_subscription(monkeypa
         transport=httpx.MockTransport(fake_email),
     ))
     assert len(seen) == 1
+
+
+def test_failed_mail_on_webhook_can_retry_safely(setup, monkeypatch):
+    from fastapi import HTTPException
+
+    client, provider, _, sent = setup
+    order = create_order(client)
+    payment_id = next(iter(provider.orders))
+    original = email_delivery.send_email
+
+    async def unavailable(*_args, **_kwargs):
+        raise HTTPException(503, "EMAIL_DELIVERY_UNAVAILABLE")
+
+    monkeypatch.setattr(email_delivery, "send_email", unavailable)
+    failed = callback(client, order, payment_id)
+    assert failed.status_code == 503
+    assert failed.json()["detail"] == "TEST_RECEIPT_DELIVERY_RETRY"
+    assert sent == []
+    assert client.get("/api/shop/my-test-orders").json()["items"][0]["status"] == "paid"
+    # Provider retry uses the already verified callback, same email idempotency key.
+    monkeypatch.setattr(email_delivery, "send_email", original)
+    assert callback(client, order, payment_id).status_code == 200
+    assert len(sent) == 1
+    assert callback(client, order, payment_id).status_code == 200
+    assert len(sent) == 1
+
+
+def test_missing_verified_email_never_sends_test_receipt(setup):
+    client, provider, _, sent = setup
+    client.cookies.clear()
+    response = client.post(
+        "/api/shop/sandbox/start", headers={"X-Sandbox-Token": TOKEN},
+        json={"plan": "30"},
+    )
+    assert response.status_code == 200
+    order = response.json()
+    assert order["owner_bound"] is False
+    pay_id = next(iter(provider.orders))
+    assert callback(client, order, pay_id).status_code == 200
+    assert sent == []
+
+
+def test_tampered_receipt_ciphertext_never_exposes_email(setup):
+    from fastapi import HTTPException
+
+    client, provider, _, sent = setup
+    order = create_order(client)
+    stored = billing.sandbox.orders[order["order_id"]]
+    assert stored.receipt_recipient is not None
+    assert "owner@example.com" not in stored.receipt_recipient
+    with pytest.raises(HTTPException) as exc:
+        billing._unseal_receipt_recipient(stored.receipt_recipient[:-3] + "abc")
+    assert exc.value.status_code == 503
+    assert sent == []

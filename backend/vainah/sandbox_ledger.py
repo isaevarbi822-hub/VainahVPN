@@ -32,6 +32,10 @@ class SandboxLedger:
                 db.execute("ALTER TABLE sandbox_orders ADD COLUMN owner_ref TEXT")
             if "receipt_emailed" not in fields:
                 db.execute("ALTER TABLE sandbox_orders ADD COLUMN receipt_emailed INTEGER NOT NULL DEFAULT 0")
+            if "receipt_recipient" not in fields:
+                db.execute("ALTER TABLE sandbox_orders ADD COLUMN receipt_recipient TEXT")
+            if "receipt_claimed_at" not in fields:
+                db.execute("ALTER TABLE sandbox_orders ADD COLUMN receipt_claimed_at INTEGER")
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(str(self.path), timeout=5)
@@ -40,28 +44,59 @@ class SandboxLedger:
         with self._connect() as db:
             db.execute("""
                 INSERT INTO sandbox_orders (
-                    order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed, receipt_recipient
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(order_id) DO UPDATE SET
                     status=excluded.status,
                     webhook_received=excluded.webhook_received,
-                    receipt_emailed=excluded.receipt_emailed,
+                    receipt_emailed=MAX(sandbox_orders.receipt_emailed, excluded.receipt_emailed),
                     updated_at=unixepoch()
             """, (
                 order.order_id, order.plan_id, order.amount, order.payment_id,
                 order.status, order.mode, int(order.webhook_received),
                 getattr(order, "owner_ref", None),
                 int(getattr(order, "receipt_emailed", False)),
+                getattr(order, "receipt_recipient", None),
             ))
 
     def load(self) -> list[dict]:
         with self._connect() as db:
             rows = db.execute("""
-                SELECT order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed
+                SELECT order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed, receipt_recipient
                   FROM sandbox_orders ORDER BY updated_at DESC, rowid DESC
             """).fetchall()
         return [
             dict(zip(("order_id", "plan_id", "amount", "payment_id",
-                      "status", "mode", "webhook_received", "owner_ref", "receipt_emailed"), row))
+                      "status", "mode", "webhook_received", "owner_ref", "receipt_emailed", "receipt_recipient"), row))
             for row in rows
         ]
+
+    def claim_receipt(self, order_id: str) -> str | None:
+        with self._connect() as db:
+            row = db.execute("""
+                UPDATE sandbox_orders SET receipt_claimed_at = unixepoch()
+                WHERE order_id = ? AND mode = 'provider' AND status = 'paid'
+                  AND webhook_received = 1 AND receipt_emailed = 0
+                  AND owner_ref IS NOT NULL AND receipt_recipient IS NOT NULL
+                  AND (receipt_claimed_at IS NULL OR
+                       receipt_claimed_at < unixepoch() - 120)
+                RETURNING receipt_recipient
+            """, (order_id,)).fetchone()
+        return str(row[0]) if row else None
+
+    def finish_receipt(self, order_id: str) -> None:
+        with self._connect() as db:
+            db.execute("""
+                UPDATE sandbox_orders
+                SET receipt_emailed = 1, receipt_claimed_at = NULL,
+                    updated_at = unixepoch()
+                WHERE order_id = ? AND status = 'paid' AND webhook_received = 1
+                  AND receipt_claimed_at IS NOT NULL
+            """, (order_id,))
+
+    def release_receipt(self, order_id: str) -> None:
+        with self._connect() as db:
+            db.execute("""
+                UPDATE sandbox_orders SET receipt_claimed_at = NULL
+                WHERE order_id = ? AND receipt_emailed = 0
+            """, (order_id,))
