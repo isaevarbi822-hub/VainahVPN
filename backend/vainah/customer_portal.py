@@ -64,12 +64,15 @@ def telegram_id_for_verified_email(email: str) -> str | None:
         raise HTTPException(503, "ACCOUNT_DATABASE_UNAVAILABLE") from None
 
 
-def portal_identity(request: Request) -> tuple[str | None, str | None, str]:
+def portal_identity(
+    request: Request, *, include_email: bool = True
+) -> tuple[str | None, str | None, str]:
     """A verified mailbox by itself must not claim arbitrary Telegram IDs."""
     telegram = current_user(request)
     if telegram is not None:
         telegram_id = telegram["telegram_id"]
-        return telegram_id, verified_email(telegram_id), "telegram"
+        verified = verified_email(telegram_id) if include_email else None
+        return telegram_id, verified, "telegram"
     email = current_email(request)
     if email is not None:
         return telegram_id_for_verified_email(email), email, "email"
@@ -240,7 +243,7 @@ async def overview(request: Request) -> dict:
 
 @router.get("/access")
 async def access(request: Request) -> dict:
-    telegram_id, _, _ = portal_identity(request)
+    telegram_id, _, _ = portal_identity(request, include_email=False)
     if telegram_id is None:
         raise HTTPException(404, "PAID_DELIVERY_NOT_FOUND")
     return {"subscription_url": await own_subscription_url(telegram_id)}

@@ -30,7 +30,9 @@ def test_email_session_signature_and_expiry(environment):
     assert email_auth._read_session(cookie, now=1700000001) == EMAIL
     assert email_auth._read_session(cookie, now=1700000000 + 13 * 3600) is None
     assert email_auth._read_session(cookie + "a", now=1700000001) is None
-    assert email_auth._read_session(cookie.replace("example", "attacker"),
+    payload, signature = cookie.split(".")
+    modified = ("A" if payload[0] != "A" else "B") + payload[1:]
+    assert email_auth._read_session(modified + "." + signature,
                                      now=1700000001) is None
 
 
