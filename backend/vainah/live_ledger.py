@@ -278,6 +278,17 @@ class PostgresLiveOrderLedger:
                 self._database_url, connect_timeout=4
             ) as conn, conn.cursor() as cur:
                 self._schema(cur)
+                # Block all access when a reversal of a previously delivered
+                # profile is awaiting manual H1Cloud reconciliation.
+                cur.execute("""
+                    SELECT 1 FROM vainah_live_orders
+                    WHERE owner_ref = %s
+                        AND payment_state IN ('refunded', 'chargeback')
+                        AND delivery_state = 'manual_review'
+                    LIMIT 1
+                """, (owner_ref,))
+                if cur.fetchone() is not None:
+                    return None
                 cur.execute("""
                     SELECT subscription_cipher FROM vainah_live_orders
                     WHERE owner_ref = %s AND payment_state = 'paid'
