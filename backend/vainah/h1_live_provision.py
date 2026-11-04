@@ -19,7 +19,7 @@ import httpx
 from .billing import get_plan
 from .h1_panel import H1PanelError, panel_settings
 from .live_ledger import PendingLiveOrder
-from .production_contracts import H1ProvisionIntent, LIVE_ORDER_RE
+from .production_contracts import LIVE_ORDER_RE, H1ProvisionIntent
 
 
 class LiveH1Error(Exception):
