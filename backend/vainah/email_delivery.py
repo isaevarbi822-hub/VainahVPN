@@ -178,10 +178,22 @@ def confirm_challenge(telegram_id: str, code: str) -> str:
 
 
 async def send_email(to: str, subject: str, body: str, *,
-                     transport: httpx.AsyncBaseTransport | None = None) -> None:
+                     transport: httpx.AsyncBaseTransport | None = None,
+                     idempotency_key: str | None = None) -> None:
     if not email_service_ready():
         raise HTTPException(503, "EMAIL_DELIVERY_NOT_CONFIGURED")
     sender = os.environ["VAINAH_EMAIL_FROM"]
+    if idempotency_key is not None and (
+        len(idempotency_key) > 180
+        or re.fullmatch(r"[A-Za-z0-9/_-]{1,180}", idempotency_key) is None
+    ):
+        raise ValueError("EMAIL_IDEMPOTENCY_KEY_INVALID")
+    headers = {
+        "Authorization": "Bearer " + os.environ["RESEND_API_KEY"],
+        "Content-Type": "application/json",
+    }
+    if idempotency_key:
+        headers["Idempotency-Key"] = idempotency_key
     try:
         async with httpx.AsyncClient(
             timeout=10, follow_redirects=False, trust_env=False,
@@ -189,10 +201,7 @@ async def send_email(to: str, subject: str, body: str, *,
         ) as client:
             response = await client.post(
                 "https://api.resend.com/emails",
-                headers={
-                    "Authorization": "Bearer " + os.environ["RESEND_API_KEY"],
-                    "Content-Type": "application/json",
-                },
+                headers=headers,
                 json={
                     "from": sender, "to": [to],
                     "subject": subject,
@@ -216,12 +225,48 @@ async def send_verification_code(email: str, code: str, *,
     )
 
 
+async def send_sandbox_receipt(
+    email: str, *, order_id: str, plan_title: str, amount_rub: str,
+    duration_days: int, devices: int,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> None:
+    """TEST receipt only. MUST be called after the owner's signed paid webhook
+    has been verified. Never includes an H1Cloud URL or pretends real payment.
+    """
+    if not re.fullmatch(r"vainah_test_[0-9a-f]{32}", order_id):
+        raise ValueError("TEST_ORDER_ID_INVALID")
+    if duration_days <= 0 or devices <= 0:
+        raise ValueError("TEST_PLAN_INVALID")
+    escaped = [html.escape(str(v)) for v in (
+        order_id, plan_title, amount_rub, duration_days, devices,
+    )]
+    safe_order, safe_title, safe_amount, safe_days, safe_devices = escaped
+    body = (
+        "<h2>Vainah VPN — тестовое подтверждение</h2>"
+        "<p><b>ТЕСТОВЫЙ ЗАКАЗ. ДЕНЬГИ НЕ СПИСАНЫ.</b></p>"
+        "<p>Номер заказа: " + safe_order + "</p>"
+        "<p>Тариф: " + safe_title + "</p>"
+        "<p>Условная сумма: " + safe_amount + " RUB</p>"
+        "<p>Срок: " + safe_days + " дней. Устройств: " + safe_devices + ".</p>"
+        "<p>RollyPay подтвердил тестовую оплату подписанным уведомлением.</p>"
+        "<p>VPN НЕ АКТИВИРОВАН. КЛЮЧ ПОДПИСКИ НЕ ВЫДАН.</p>"
+        "<p>Это тестовое уведомление, не платёжная или фискальная квитанция.</p>"
+    )
+    await send_email(
+        email, "Vainah VPN — ТЕСТОВАЯ квитанция (без списания)", body,
+        transport=transport, idempotency_key="sandbox-receipt/" + order_id,
+    )
+
+
 async def email_paid_subscription(
     telegram_id: str, order_id: str, subscription_url: str, *,
+    plan_title: str | None = None,
+    device_limit: int | None = None,
     transport: httpx.AsyncBaseTransport | None = None
 ) -> bool:
-    """Internal delivery hook. The caller MUST first verify paid + delivered
-    entitlement ownership. Never expose this function via a public API.
+    """Internal receipt + key delivery ONLY after the caller validates a
+    real paid-and-delivered entitlement belonging to this Telegram account.
+    Do not call for sandbox or unprovisioned orders.
     """
     email = verified_email(telegram_id)
     if not email:
@@ -234,14 +279,28 @@ async def email_paid_subscription(
             len(subscription_url) > 2048 or
             re.search(r"\s", subscription_url)):
         raise ValueError("INVALID_SUBSCRIPTION_URL")
-    await send_email(
-        email,
-        "Vainah VPN — твоя личная подписка",
-        "<p>Подписка для подтверждённой покупки " +
-        html.escape(order_id) + ":</p><p><a href=\"" +
+    if not re.fullmatch(r"[0-9a-zA-Z_-]{12,100}", order_id):
+        raise ValueError("INVALID_ORDER_ID")
+    if device_limit is not None and not 1 <= device_limit <= 20:
+        raise ValueError("DEVICE_LIMIT_INVALID")
+    meta = ""
+    if plan_title:
+        meta += "<p>Тариф: " + html.escape(plan_title) + "</p>"
+    if device_limit:
+        meta += "<p>Подключений: до " + str(device_limit) + " устройств.</p>"
+    body = (
+        "<h2>Vainah VPN — подтверждение покупки и ключ подписки</h2>"
+        "<p>Номер подтверждённого заказа: " + html.escape(order_id) + "</p>"
+        "<p>Оплата подтверждена. VPN-подписка активирована.</p>"
+        + meta +
+        "<p>Твоя личная ссылка подписки:</p><p><a href=\"" +
         html.escape(subscription_url, quote=True) + "\">" +
         html.escape(subscription_url) +
-        "</a></p><p>Это личная VPN-ссылка. Не пересылай её другим.</p>",
-        transport=transport,
+        "</a></p><p>Это личная VPN-ссылка. Не пересылай её другим.</p>"
+        "<p>Это подтверждение заказа, не фискальный кассовый чек.</p>"
+    )
+    await send_email(
+        email, "Vainah VPN — квитанция и ключ подписки", body,
+        transport=transport, idempotency_key="delivered-access/" + order_id,
     )
     return True
