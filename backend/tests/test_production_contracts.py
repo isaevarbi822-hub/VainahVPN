@@ -110,6 +110,7 @@ def test_live_gateway_uses_catalog_amount_and_hosted_payment_page():
     {"amount": "1.00"},
     {"payment_currency": "EUR"},
     {"test": True},
+    {"test": "true"},
     {"environment": "sandbox"},
     {"order_id": "wrong"},
     {"pay_url": "https://evil.example/pay/token"},
@@ -139,6 +140,7 @@ def test_signed_live_paid_event_requires_exact_saved_order():
     {"event_type": "payment.refunded", "status": "refunded"},
     {"status": "created"},
     {"test": True},
+    {"test": "true"},
     {"environment": "sandbox"},
 ])
 def test_live_paid_event_rejects_wrong_order_and_sandbox(changes):
@@ -195,7 +197,7 @@ def test_production_readiness_never_claims_live_checkout(monkeypatch):
     assert result["real_checkout_enabled"] is False
     assert result["real_money_can_be_charged"] is False
     assert result["auto_vpn_delivery_enabled"] is False
-    assert result["checks"]["live_order_ledger_implemented"] is False
+    assert result["checks"]["live_order_ledger_implemented"] is True
     assert result["checks"]["h1cloud_write_contract_verified"] is False
     with TestClient(app) as client:
         response = client.post("/api/shop/checkout", json={"plan": "30"})
