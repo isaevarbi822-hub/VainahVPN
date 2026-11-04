@@ -23,7 +23,7 @@ object VainahDesign {
     val inactive: Int = Color.rgb(15, 21, 39)
 }
 
-/** The SAME 6 canonical plans as netlify/functions/lib/plan-catalog.mjs. */
+/** Tariff preview mirrors the six server-owned plans in backend/vainah/billing.py. */
 data class VainahPlan(
     val id: String, val days: Int, val title: String,
     val priceRub: Int, val deviceLimit: Int, val badge: String

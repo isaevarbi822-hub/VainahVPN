@@ -23,10 +23,10 @@ class SubscriptionTimeoutTest {
         assertFalse(connection.instanceFollowRedirects)
     }
 
-    @Test fun h1cloudAndLegacyDomainsKeepOrdinaryTimeouts() {
+    @Test fun h1cloudAndOtherDomainsKeepOrdinaryTimeouts() {
         for (url in listOf(
             "https://my.h1cloud.net/sub?token=SECRET",
-            "https://vainahvpnbot0.netlify.app/sub?token=SECRET",
+            "https://other-vpn.example/sub?token=SECRET",
             "https://unknown.example/sub?token=SECRET"
         )) {
             val connection = Timeout(url)

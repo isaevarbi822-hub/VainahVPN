@@ -16,10 +16,10 @@ class SubscriptionOriginTest {
             ByteArrayInputStream("Forbidden".toByteArray(Charsets.UTF_8))
     }
 
-    @Test fun correctlyIdentifiesOldNetlifyAndPythonRenderWithoutRevealingUrl() {
+    @Test fun correctlyIdentifiesPythonRenderAndOtherHostsWithoutRevealingUrl() {
         val sources = listOf(
-            "https://vainahvpnbot0.netlify.app/.netlify/functions/sub?token=PRIVATE" to
-                SubscriptionOrigin.Kind.LEGACY_NETLIFY,
+            "https://old-vpn.example/sub?token=PRIVATE" to
+                SubscriptionOrigin.Kind.OTHER_HTTPS,
             "https://vainahvpn-python-preview.onrender.com/sub?token=PRIVATE" to
                 SubscriptionOrigin.Kind.PYTHON_RENDER,
             "https://my.h1cloud.net/sub?token=PRIVATE" to

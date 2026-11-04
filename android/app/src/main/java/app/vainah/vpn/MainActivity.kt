@@ -22,7 +22,7 @@ import android.widget.TextView
 
 /**
  * Vainah VPN Next. No fake VPN status, embedded billing, WebView or hard-coded
- * Netlify dependency. Subscription fetching lives in SubscriptionController;
+ * deprecated hosting dependency. Subscription fetching lives in SubscriptionController;
  * VainahVpnService exclusively owns the real libbox VPN session.
  */
 class MainActivity : Activity() {

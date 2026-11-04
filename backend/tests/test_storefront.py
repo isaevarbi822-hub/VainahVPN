@@ -26,7 +26,7 @@ def test_local_page_links_have_files():
         source = html.read_text(encoding="utf-8")
         for match in re.finditer(r"""(?:href|src)\s*=\s*["']([^"']+)["']""", source):
             link = match.group(1)
-            if not link or link.startswith(("#", "data:", "mailto:", "tel:", "/.netlify/")):
+            if not link or link.startswith(("#", "data:", "mailto:", "tel:")):
                 continue
             u = urlsplit(link)
             if u.scheme or u.netloc:
@@ -91,3 +91,40 @@ def test_homepage_has_canonical_public_url():
         '<link rel="canonical" '
         'href="https://vainahvpn-python-preview.onrender.com/">'
     ) in html
+
+
+def test_no_obsolete_provider_dependencies_in_project_sources():
+    # A migration regression must fail even for references hidden in old HTML.
+    forbidden = "net" + "lify"
+    allowed = {".md", ".py", ".html", ".js", ".css", ".kt", ".kts",
+               ".yml", ".yaml", ".toml", ".json", ".xml", ".cmd", ".txt"}
+    for path in ROOT.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in allowed:
+            continue
+        if any(part in {".git", ".venv", "node_modules", "__pycache__"}
+               for part in path.relative_to(ROOT).parts):
+            continue
+        assert forbidden not in path.read_text(encoding="utf-8").lower(), str(path)
+
+
+def test_render_owns_deployment():
+    manifest = (ROOT / "render.yaml").read_text(encoding="utf-8")
+    assert "vainahvpn-python-preview" in manifest
+    assert "uvicorn vainah.main:app" in manifest
+    assert "healthCheckPath: /api/health" in manifest
+
+
+def test_account_login_uses_no_legacy_serverless_auth_and_is_disabled_without_backend():
+    code = (STORE / "account-login.js").read_text(encoding="utf-8")
+    dashboard = (STORE / "account-dashboard.js").read_text(encoding="utf-8")
+    assert "/api/v1/overview" in dashboard
+    assert "disabled" in code
+    assert "telegram-account" not in dashboard
+    assert "alternate-login" not in code
+    assert "website-account-overview" not in dashboard
+
+
+def test_support_form_does_not_accept_messages_without_working_backend():
+    page = (STORE / "contact.html").read_text(encoding="utf-8")
+    assert "Форма обращений временно недоступна" in page
+    assert "<form name=\"vainah-support\"" not in page
