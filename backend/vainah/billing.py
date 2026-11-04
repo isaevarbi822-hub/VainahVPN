@@ -34,6 +34,7 @@ EVENT_TO_STATUS = {
     "payment.created": "created", "payment.paid": "paid",
     "payment.canceled": "canceled", "payment.expired": "expired",
     "payment.refunded": "refunded", "payment.chargeback": "chargeback",
+    "refund_request.completed": "refunded",
 }
 CATALOG = (
     {"id": "30", "title": "1 месяц", "days": 30, "kopeks": 9900, "devices": 3},
