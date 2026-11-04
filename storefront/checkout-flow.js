@@ -32,6 +32,11 @@
     if(message === "PROVIDER_SANDBOX_NOT_CONFIRMED") return "RollyPay не подтвердил тестовый режим. Создание счёта остановлено без перехода к оплате.";
     if(message === "PROVIDER_TIMEOUT") return "Истекло время ожидания ответа RollyPay.";
     if(message === "PROVIDER_NETWORK") return "Ошибка соединения с API RollyPay.";
+    if(message === "PROVIDER_TERMINAL_ID_INVALID") return "ROLLYPAY_TERMINAL_ID в Render имеет неверный формат UUID. Проверь ID кассы.";
+    if(message === "PROVIDER_TERMINAL_NOT_FOUND") return "RollyPay не находит кассу. Сверь Terminal ID с API-ключом.";
+    if(message === "PROVIDER_TERMINAL_ID_REQUIRED") return "RollyPay требует Terminal ID. Укажи UUID кассы в Render.";
+    if(message === "PROVIDER_RESPONSE_INVALID") return "RollyPay ответил, но формат данных баланса неожиданный.";
+    if(message === "SANDBOX_OPERATOR_TOKEN_REQUIRED") return "Тестовый токен неверен или не заполнен. Проверь VAINAH_SANDBOX_TEST_TOKEN.";
     if(message === "PROVIDER_NOT_CONFIGURED") return "На Python-сервере нет ROLLYPAY_API_KEY.";
     if(message === "PROVIDER_MODE_NOT_ENABLED") return "Включён локальный mock, а не RollyPay sandbox.";
     return String(message || "Неизвестная ошибка");
@@ -67,7 +72,14 @@
         order.owner_bound ? "отправится автоматически после paid webhook" :
         "не привязан к заказу"
       ) +
-      "\nТестовый режим, VPN не выдан.");
+      (order.vpn_delivered === true
+        ? "\nТестовый VPN выдан автоматически. Ссылка доступна владельцу заказа."
+        : "\nVPN ещё не выдан или статус выдачи не подтверждён."));
+    if(order.provider_status_fresh === false){
+      testMessage($("shop-test-result").textContent +
+        "\nRollyPay сейчас не отвечает: показан последний подтверждённый подписанным webhook статус. " +
+        "Это не свежая проверка у провайдера.");
+    }
   }
   function select(id) {
     const plan = state.plans.find(p => p.id === id);
@@ -185,10 +197,12 @@
         headers: {"X-Sandbox-Token": $("shop-test-token").value}
       });
       if(result.connected){
-        testMessage("Связь с API RollyPay подтверждена (чтение тестовых платежей). " +
-          "Это ещё не подтверждает возможность создать тестовый счёт.");
+        testMessage("Касса ответила на безопасную проверку баланса RollyPay. " +
+          "API-ключ принят. Это не проверка создания платежей или автовыдачи VPN.");
       }else{
-        testMessage("Доступ к RollyPay не проверен: " + explainProviderError(result.reason));
+        testMessage("Проверка кассы не прошла: " + explainProviderError(result.reason) +
+          "\nПроверка выполняет только GET /api/v1/balance и не создаёт платежей. " +
+          "Ошибки баланса и статуса конкретного платежа — разные проверки.");
       }
     }catch(err){
       testMessage("Диагностика: " + explainProviderError(err.message));
