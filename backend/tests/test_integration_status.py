@@ -147,3 +147,35 @@ def test_empty_webhook_secret_never_claims_connected(monkeypatch):
     monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "short")
     status = checks.webhook_status()
     assert status["status"] == "not_connected"
+
+
+def test_rollypay_terminal_id_is_used_and_does_not_leak(monkeypatch):
+    terminal = "d290f1ee-6c54-4b01-90e6-d701748f0851"
+    monkeypatch.setenv("ROLLYPAY_API_KEY", "private-key")
+    monkeypatch.setenv("ROLLYPAY_TERMINAL_ID", terminal)
+    seen = []
+
+    async def diagnostic(self):
+        seen.append(self.terminal_id)
+        return {"connected": True, "new_payment_created": False}
+
+    monkeypatch.setattr(checks.BillingSandbox, "provider_diagnostics", diagnostic)
+    status = asyncio.run(checks.probe_rollypay())
+    assert seen == [terminal]
+    assert status["status"] == "ok"
+    assert terminal not in str(status)
+
+
+def test_rollypay_known_terminal_not_found_has_safe_message(monkeypatch):
+    from vainah.billing import ProviderError
+
+    monkeypatch.setenv("ROLLYPAY_API_KEY", "private-key")
+
+    async def diagnostic(self):
+        raise ProviderError("PROVIDER_TERMINAL_NOT_FOUND")
+
+    monkeypatch.setattr(checks.BillingSandbox, "provider_diagnostics", diagnostic)
+    status = asyncio.run(checks.probe_rollypay())
+    assert status["status"] == "error"
+    assert "касса не найдена" in status["message"]
+    assert "private-key" not in str(status)
