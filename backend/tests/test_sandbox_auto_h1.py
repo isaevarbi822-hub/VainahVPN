@@ -11,7 +11,8 @@ import time
 import httpx
 import pytest
 
-from vainah import billing, sandbox_auto_h1 as auto
+from vainah import billing
+from vainah import sandbox_auto_h1 as auto
 from vainah.postgres_ledger import PostgresSandboxLedger
 
 OPERATOR = "test-sandbox-operator-" + "x" * 40
