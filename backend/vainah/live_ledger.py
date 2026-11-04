@@ -239,6 +239,37 @@ class PostgresLiveOrderLedger:
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
 
+    def claimed_verified_email(self, *, order_id: str, owner_ref: str) -> str:
+        """Internal-only: reveal the reserved mailbox for a paid claimed order.
+
+        Never expose the returned address through a public endpoint. The H1
+        username is an HMAC of this server-verified email, not client input.
+        """
+        if (not LIVE_ORDER_RE.fullmatch(order_id)
+                or not isinstance(owner_ref, str)
+                or len(owner_ref) != 67
+                or not owner_ref.startswith("v1_")):
+            raise LiveLedgerError("LIVE_CLAIM_INVALID")
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT receipt_email_cipher
+                    FROM vainah_live_orders
+                    WHERE order_id = %s
+                        AND owner_ref = %s
+                        AND payment_state = 'paid'
+                        AND delivery_state = 'claimed'
+                """, (order_id, owner_ref))
+                row = cur.fetchone()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        if not row:
+            raise LiveLedgerError("LIVE_CLAIM_NOT_FOUND")
+        return unseal_live_secret(row[0])
+
     def mark_delivered(self, *, order_id: str, subscription_url: str,
                        panel_confirmed: bool = False) -> bool:
         """Never mark delivered from payment alone or without H1 verification."""
