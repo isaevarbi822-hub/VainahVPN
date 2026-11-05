@@ -1215,7 +1215,12 @@ def operator_live_pilot_status(
         state = _ledger().live_pilot_status()
     except LiveLedgerError:
         raise HTTPException(503, "LIVE_PILOT_STATUS_UNAVAILABLE") from None
-    return {"pilot_checkout_ready": pilot_ready(), **state}
+    configured = pilot_ready()
+    return {
+        "pilot_processing_enabled": configured,
+        "pilot_checkout_ready": configured and not state.get("pilot_order_exists", False),
+        **state,
+    }
 
 
 @router.get("/sandbox/webhook-readiness")
