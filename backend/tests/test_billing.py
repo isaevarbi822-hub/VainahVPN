@@ -174,8 +174,10 @@ def test_provider_sandbox_create_and_signed_status():
     # RollyPay may send both events for the same completed refund.
     refund_completed = {**refunded, "event_type": "refund_request.completed"}
     assert provider.process_webhook(refund_completed)["status"] == "refunded"
-    with pytest.raises(HTTPException):
-        provider.process_webhook(event)
+    stale = provider.process_webhook(event)
+    assert stale["status"] == "refunded"
+    assert stale["stale_event_ignored"] is True
+    assert stale["vpn_delivered"] is False
 
 
 def test_provider_rejects_unsafe_return_link_and_does_not_save_order():
