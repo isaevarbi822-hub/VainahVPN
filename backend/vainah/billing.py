@@ -1135,7 +1135,9 @@ async def operator_production_readiness(
 
     report = production_readiness()
     from .live_checkout import (
-        pilot_processing_ready, pilot_readiness_checks, pilot_ready,
+        pilot_processing_ready,
+        pilot_readiness_checks,
+        pilot_ready,
     )
     pilot_checks = pilot_readiness_checks()
     report["pilot_checkout_configured"] = pilot_ready()
@@ -1212,7 +1214,10 @@ def operator_live_pilot_status(
     """Read-only status of at most one pilot; never returns payment links/PII."""
     _require_operator(x_sandbox_token)
     from .live_checkout import (
-        _ledger, pilot_processing_ready, pilot_ready, require_pilot_operator,
+        _ledger,
+        pilot_processing_ready,
+        pilot_ready,
+        require_pilot_operator,
     )
     from .live_ledger import LiveLedgerError
 
