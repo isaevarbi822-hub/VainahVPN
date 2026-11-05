@@ -546,3 +546,90 @@ def test_payment_diagnostics_never_accepts_other_order_or_paid_without_webhook(
     report = client.get(path, headers=HEADERS).json()
     assert report["reason"] == "PROVIDER_ORDER_MISMATCH"
     assert report["fields"]["order_id"] == "different"
+
+
+def test_postgres_other_worker_finds_paid_order_for_signed_callback(monkeypatch):
+    """Webhook on worker B must find order created on worker A."""
+    from vainah.postgres_ledger import PostgresSandboxLedger
+
+    oid = "vainah_test_" + "c" * 32
+    pid = "pay_test_cross_worker_123456"
+    saved = {
+        "order_id": oid, "plan_id": "30", "amount": "99.00",
+        "payment_id": pid, "status": "created", "mode": "provider",
+        "webhook_received": False, "owner_ref": "v1_" + "d" * 64,
+        "receipt_emailed": False, "receipt_recipient": None,
+    }
+    db = PostgresSandboxLedger("postgresql://mock/test")
+    db.load = lambda: []  # Worker B started before worker A created order.
+    db.load_one = lambda order_id: dict(saved) if order_id == oid else None
+
+    def save(order):
+        saved.update({
+            "status": order.status,
+            "webhook_received": order.webhook_received,
+            "receipt_emailed": order.receipt_emailed,
+        })
+
+    db.save = save
+    store = billing.BillingSandbox("provider", "test-key")
+    store.ledger = db
+    store._ensure_loaded()
+    assert store.orders == {}
+    event_data = {
+        "event_type": "payment.paid", "order_id": oid,
+        "payment_id": pid, "amount": "99.00", "currency": "RUB",
+        "test": True, "status": "paid",
+    }
+    result = store.process_webhook(event_data)
+    assert result["status"] == "paid"
+    assert store.read(oid)["webhook_received"] is True
+    assert saved["status"] == "paid"
+    assert saved["webhook_received"] is True
+    # Duplicate paid callbacks do not create a new payment.
+    assert store.process_webhook(event_data)["status"] == "paid"
+
+
+def test_postgres_order_save_preserves_other_workers_signed_proof(monkeypatch):
+    from types import SimpleNamespace
+
+    from vainah.postgres_ledger import PostgresSandboxLedger
+    from vainah import postgres_ledger
+
+    executed = []
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            return False
+        def execute(self, query, params=None):
+            executed.append((query, params))
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            return False
+        def cursor(self):
+            return FakeCursor()
+
+    monkeypatch.setattr(
+        postgres_ledger.psycopg, "connect",
+        lambda *_a, **_kw: FakeConnection(),
+    )
+    record = SimpleNamespace(
+        order_id="vainah_test_" + "e" * 32, plan_id="30",
+        amount="99.00", payment_id="pay_test_123456",
+        status="created", mode="provider", webhook_received=False,
+        owner_ref=None, receipt_emailed=False, receipt_recipient=None,
+    )
+    PostgresSandboxLedger("postgresql://mock/test").save(record)
+    statement = next(
+        sql for sql, _ in executed
+        if "ON CONFLICT (order_id) DO UPDATE" in sql
+    )
+    assert "vainah_sandbox_orders.webhook_received" in statement
+    assert "OR EXCLUDED.webhook_received" in statement
+    assert "WHEN vainah_sandbox_orders.status = 'paid'" in statement
+    assert "'refunded', 'chargeback'" in statement
