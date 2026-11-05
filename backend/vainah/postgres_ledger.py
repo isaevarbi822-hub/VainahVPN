@@ -65,8 +65,23 @@ class PostgresSandboxLedger:
                         (order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed, receipt_recipient)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (order_id) DO UPDATE SET
-                        status = EXCLUDED.status,
-                        webhook_received = EXCLUDED.webhook_received,
+                        -- Another Render worker may hold a stale in-memory
+                        -- snapshot. Never erase signed callback proof or a
+                        -- terminal paid/refund outcome with older polling data.
+                        status = CASE
+                            WHEN vainah_sandbox_orders.status IN
+                                ('refunded', 'chargeback')
+                                THEN vainah_sandbox_orders.status
+                            WHEN vainah_sandbox_orders.status = 'paid'
+                                 AND EXCLUDED.status IN (
+                                     'created', 'processing', 'expired', 'canceled'
+                                 ) THEN vainah_sandbox_orders.status
+                            ELSE EXCLUDED.status
+                        END,
+                        webhook_received = (
+                            vainah_sandbox_orders.webhook_received
+                            OR EXCLUDED.webhook_received
+                        ),
                         receipt_emailed = (
                             vainah_sandbox_orders.receipt_emailed
                             OR EXCLUDED.receipt_emailed
