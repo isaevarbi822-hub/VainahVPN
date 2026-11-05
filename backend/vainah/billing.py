@@ -1185,10 +1185,10 @@ def own_checkout_intent(
     idempotency_key: str | None = Header(default=None),
 ) -> dict:
     """Owner-only read of a previously submitted invoice; never charges."""
-    from .email_auth import current_email
     from .live_checkout import (
         IDEMPOTENCY_RE,
         _ledger,
+        current_email,
         live_account_ready,
         owner_ref_for_email,
     )
