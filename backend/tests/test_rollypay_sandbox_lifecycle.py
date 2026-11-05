@@ -561,7 +561,7 @@ def test_postgres_other_worker_finds_paid_order_for_signed_callback(monkeypatch)
         "receipt_emailed": False, "receipt_recipient": None,
     }
     db = PostgresSandboxLedger("postgresql://mock/test")
-    db.load = lambda: []  # Worker B started before worker A created order.
+    db.load = list  # Worker B started before worker A created order.
     db.load_one = lambda order_id: dict(saved) if order_id == oid else None
 
     def save(order):
@@ -593,8 +593,8 @@ def test_postgres_other_worker_finds_paid_order_for_signed_callback(monkeypatch)
 def test_postgres_order_save_preserves_other_workers_signed_proof(monkeypatch):
     from types import SimpleNamespace
 
-    from vainah.postgres_ledger import PostgresSandboxLedger
     from vainah import postgres_ledger
+    from vainah.postgres_ledger import PostgresSandboxLedger
 
     executed = []
 
