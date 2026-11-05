@@ -14,7 +14,6 @@ from vainah.live_ledger import (
 )
 from vainah.main import app
 
-
 ORIGIN = "https://vainahvpn-python-preview.onrender.com"
 EMAIL = "operator-health@example.test"
 TOKEN = "s" * 48
