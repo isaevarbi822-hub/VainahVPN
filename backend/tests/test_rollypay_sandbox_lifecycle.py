@@ -472,3 +472,77 @@ def test_cashier_diagnostics_explains_balance_failure_without_creating_payment(
     assert body["new_payment_created"] is False
     assert "fake-sandbox-key" not in response.text
     assert fake.orders == {}
+
+
+def test_operator_only_payment_diagnostics_locates_exact_amount_mismatch(sandbox):
+    client, fake = sandbox
+    order, payment_id = create_test_order(client, fake)
+    original_post_count = sum(
+        request.method == "POST" for request in fake.requests
+    )
+    fake.orders[payment_id]["amount"] = "98.00"
+    path = f'/api/shop/sandbox/{order["order_id"]}/payment-diagnostics'
+
+    assert client.get(path).status_code == 401
+    report_response = client.get(path, headers=HEADERS)
+    assert report_response.status_code == 200
+    report = report_response.json()
+    assert report["reason"] == "PROVIDER_AMOUNT_MISMATCH"
+    assert report["fields"] == {
+        "sandbox_mode": "confirmed_at_creation",
+        "order_id": "match", "payment_id": "match",
+        "amount": "different", "currency": "match",
+        "payment_status": "recognized",
+    }
+    assert report["expected_amount_rub"] == "99.00"
+    assert report["observed_amount_rub"] == "98.00"
+    assert report["new_payment_created"] is False
+    assert report["signed_paid_webhook_received"] is False
+    assert payment_id not in report_response.text
+    assert fake.orders[payment_id]["pay_url"] not in report_response.text
+    assert sum(request.method == "POST" for request in fake.requests) == original_post_count
+    assert client.get(
+        f'/api/shop/sandbox/{order["order_id"]}', headers=HEADERS,
+    ).json()["detail"] == "PROVIDER_AMOUNT_MISMATCH"
+
+
+def test_payment_diagnostics_classifies_missing_or_malformed_fields(sandbox):
+    client, fake = sandbox
+    order, payment_id = create_test_order(client, fake)
+    path = f'/api/shop/sandbox/{order["order_id"]}/payment-diagnostics'
+    fake.orders[payment_id].pop("amount")
+    result = client.get(path, headers=HEADERS).json()
+    assert result["fields"]["amount"] == "missing"
+    assert result["observed_amount_rub"] is None
+    assert result["reason"] == "PROVIDER_AMOUNT_MISMATCH"
+    fake.orders[payment_id]["amount"] = {"private": "provider-specific"}
+    result = client.get(path, headers=HEADERS).json()
+    assert result["fields"]["amount"] == "invalid_format"
+    assert "provider-specific" not in str(result)
+    assert result["reason"] == "PROVIDER_AMOUNT_MISMATCH"
+    fake.orders[payment_id]["amount"] = "99.000000000000"
+    result = client.get(path, headers=HEADERS).json()
+    assert result["fields"]["amount"] == "match"
+    assert result["reason"] == "OK"
+
+
+def test_payment_diagnostics_never_accepts_other_order_or_paid_without_webhook(
+    sandbox,
+):
+    client, fake = sandbox
+    order, payment_id = create_test_order(client, fake)
+    path = f'/api/shop/sandbox/{order["order_id"]}/payment-diagnostics'
+    fake.orders[payment_id]["status"] = "paid"
+    result = client.get(path, headers=HEADERS).json()
+    assert result["reason"] == "OK"
+    assert result["provider_status"] == "paid"
+    assert result["signed_paid_webhook_received"] is False
+    preview = client.get(
+        f'/api/shop/sandbox/{order["order_id"]}/activation-preview',
+        headers=HEADERS,
+    ).json()
+    assert preview["vpn_delivered"] is False
+    fake.orders[payment_id]["order_id"] = "vainah_test_" + "b" * 32
+    report = client.get(path, headers=HEADERS).json()
+    assert report["reason"] == "PROVIDER_ORDER_MISMATCH"
+    assert report["fields"]["order_id"] == "different"
