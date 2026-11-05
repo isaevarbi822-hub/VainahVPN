@@ -61,6 +61,7 @@
     $("shop-test-resume").value = order.order_id;
     $("shop-test-simulate").hidden = order.mode !== "mock" || order.status !== "created";
     $("shop-test-refresh").hidden = order.mode !== "provider";
+    $("shop-test-payment-diagnose").hidden = order.mode !== "provider";
     $("shop-test-activation").hidden = false;
     $("shop-test-email").hidden = !(
       order.mode === "provider" && order.status === "paid" &&
@@ -365,6 +366,58 @@
     } finally {
       state.busy = false;
       $("shop-test-refresh").disabled = false;
+    }
+  });
+  $("shop-test-payment-diagnose").addEventListener("click", async () => {
+    const order = state.testOrder;
+    if(state.busy || !order || order.mode !== "provider")return;
+    const token = $("shop-test-token").value;
+    state.busy = true;
+    $("shop-test-payment-diagnose").disabled = true;
+    testMessage("Сверяем поля тестового платежа с RollyPay без оплаты и без выдачи VPN…");
+    try{
+      const report = await api("/api/shop/sandbox/" +
+        encodeURIComponent(order.order_id) + "/payment-diagnostics", {
+          headers: {"X-Sandbox-Token": token}
+        });
+      const labels = {
+        sandbox_mode: "Тестовый режим",
+        order_id: "Номер заказа",
+        payment_id: "ID платежа",
+        amount: "Сумма",
+        currency: "Валюта",
+        payment_status: "Статус"
+      };
+      const statuses = {
+        match: "совпадает", different: "НЕ СОВПАДАЕТ",
+        missing: "не передано", invalid_format: "неверный формат",
+        confirmed_at_creation: "подтверждён при создании",
+        contradictory: "ПРОТИВОРЕЧИТ тестовому заказу",
+        recognized: "известный", unknown_or_missing: "неизвестный"
+      };
+      const rows = [
+        "Диагностика RollyPay (только чтение)",
+        "Итог: " + report.reason,
+        ...Object.entries(labels).map(([field, label]) =>
+          label + ": " + (statuses[report.fields[field]] || "не проверено")
+        ),
+        "Сумма по заказу: " + report.expected_amount_rub + " RUB",
+        "Сумма в ответе RollyPay: " + (
+          report.observed_amount_rub === null
+            ? "не указана или недопустимый формат"
+            : report.observed_amount_rub + " RUB"
+        ),
+        "Последнее подписанное подтверждение paid: " +
+          (report.signed_paid_webhook_received ? "да" : "нет"),
+        "Эта проверка не создаёт платежи и не изменяет VPN."
+      ];
+      testMessage(rows.join("\n"));
+    }catch(err){
+      testMessage("Не удалось проверить поля платежа: " +
+        explainProviderError(err.message));
+    }finally{
+      state.busy = false;
+      $("shop-test-payment-diagnose").disabled = false;
     }
   });
   $("shop-test-email").addEventListener("click", async () => {
