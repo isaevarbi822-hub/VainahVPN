@@ -107,7 +107,11 @@ def test_operator_pilot_readiness_lists_only_missing_boolean_flags(
         status = report.json()
         assert status["pilot_checkout_configured"] is True
         assert status["pilot_callback_processing_configured"] is True
-        assert status["pilot_missing_requirements"] == []
+        # Unit fixture stubs the infrastructure check; no live DATABASE_URL
+        # exists, so the separate account-readiness check is correctly false.
+        assert status["pilot_missing_requirements"] == [
+            "live_customer_account_enabled"
+        ]
         assert all(type(value) is bool for value in
                    status["pilot_readiness_checks"].values())
         assert EMAIL not in report.text
