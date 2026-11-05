@@ -285,13 +285,11 @@ def test_sandbox_issued_receipt_says_vpn_activated(monkeypatch):
     assert ">https://sub.example.com/private-test-link?x=1&amp;y=2</a>" in body
 
 
-
-
 @pytest.mark.parametrize("vpn_issued, url", [
     (True, None),
     (True, "javascript:alert(1)"),
     (True, "https://sub.example.com/private#fragment"),
-    (True, "https://sub.example.com/private\\nInjected"),
+    (True, "https://sub.example.com/private\nInjected"),
     (False, "https://sub.example.com/not-yet-issued"),
 ])
 def test_sandbox_receipt_never_sends_unverified_or_unissued_link(
@@ -316,6 +314,7 @@ def test_sandbox_receipt_never_sends_unverified_or_unissued_link(
             subscription_url=url,
         ))
     assert not calls
+
 
 def test_callback_retries_receipt_held_by_dead_worker_until_lease_expires(setup):
     import sqlite3
