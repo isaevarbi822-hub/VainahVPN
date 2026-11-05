@@ -11,6 +11,9 @@ import hmac
 import os
 import re
 import secrets
+from uuid import uuid4
+
+import httpx
 
 from fastapi import HTTPException, Request
 
@@ -148,6 +151,11 @@ def pilot_readiness_checks() -> dict[str, bool]:
     }
 
 
+def discount_pilot_enabled() -> bool:
+    return (pilot_ready() and
+            os.environ.get("VAINAH_LIVE_DISCOUNT_PILOT_ENABLED") == "enabled")
+
+
 def require_pilot_operator(pilot_token: str | None) -> None:
     """An extra secret separate from sandbox diagnostics or login cookie."""
     expected = os.environ.get("VAINAH_LIVE_PILOT_OPERATOR_TOKEN", "")
@@ -176,22 +184,104 @@ def owner_ref_for_email(email: str) -> str:
     return "v1_" + digest
 
 
+async def discount_pilot_readiness(*, request: Request) -> dict:
+    """Do not open a second real invoice while the original is still payable.
+
+    RollyPay status must independently confirm an irrevocably terminal unpaid
+    status for the *same immutable payment*. A local CREATED row is insufficient.
+    Fail closed on network errors, mismatches, invalid statuses or unknown data.
+    """
+    if not discount_pilot_enabled():
+        return {"discount_checkout_ready": False, "reason": "DISCOUNT_PILOT_DISABLED"}
+    email = current_email(request)
+    if email is None:
+        raise HTTPException(401, "VERIFIED_EMAIL_REQUIRED")
+    if not secrets.compare_digest(
+        email.strip().lower(),
+        os.environ.get("VAINAH_LIVE_PILOT_EMAIL", "").strip().lower(),
+    ):
+        raise HTTPException(403, "LIVE_PILOT_EMAIL_NOT_ALLOWED")
+    try:
+        ledger = _ledger()
+        state = ledger.discount_pilot_state()
+        if state.get("discount_order_exists"):
+            return {"discount_checkout_ready": False,
+                    "reason": "DISCOUNT_PILOT_ALREADY_RESERVED", **state}
+        original = ledger.original_pilot_payment_for_verification(
+            owner_ref_for_email(email),
+        )
+    except LiveLedgerError:
+        return {"discount_checkout_ready": False,
+                "reason": "LIVE_PILOT_STATUS_UNAVAILABLE"}
+    if (original is None or original.get("plan_id") != "30"
+            or original.get("amount_rub") != "99.00"
+            or original.get("payment_state") != "created"
+            or not original.get("payment_id")):
+        return {"discount_checkout_ready": False,
+                "reason": "ORIGINAL_PILOT_UNVERIFIED"}
+    from .billing import (_matches_exact_rub_amount,
+                          _matches_rub_currency, PAYMENT_ID_RE)
+    payment_id = original["payment_id"]
+    if not isinstance(payment_id, str) or not PAYMENT_ID_RE.fullmatch(payment_id):
+        return {"discount_checkout_ready": False,
+                "reason": "ORIGINAL_PILOT_UNVERIFIED"}
+    try:
+        async with httpx.AsyncClient(
+            timeout=8, follow_redirects=False, trust_env=False,
+        ) as client:
+            response = await client.get(
+                "https://rollypay.io/api/v1/payments/" + payment_id,
+                headers={
+                    "X-API-Key": os.environ["ROLLYPAY_API_KEY"],
+                    "X-Nonce": str(uuid4()),
+                    "Accept": "application/json",
+                },
+            )
+            if response.status_code != 200 or len(response.content) > 65536:
+                raise ValueError("INVALID_PROVIDER_RESPONSE")
+            result = response.json()
+    except (httpx.HTTPError, ValueError, KeyError, RecursionError):
+        return {"discount_checkout_ready": False,
+                "reason": "ORIGINAL_PROVIDER_UNAVAILABLE"}
+    if (not isinstance(result, dict)
+            or result.get("payment_id") != payment_id
+            or result.get("order_id") != original["order_id"]
+            or not _matches_exact_rub_amount(result.get("amount"), "99.00")
+            or not _matches_rub_currency(result)
+            or ("test" in result and result["test"] is not False)):
+        return {"discount_checkout_ready": False,
+                "reason": "ORIGINAL_PROVIDER_MISMATCH"}
+    if result.get("status") not in {"expired", "canceled"}:
+        return {"discount_checkout_ready": False,
+                "reason": "ORIGINAL_PILOT_STILL_ACTIVE"}
+    return {"discount_checkout_ready": True,
+            "reason": "ORIGINAL_PILOT_CLOSED_VERIFIED",
+            "plan_id": "pilot-1d", "amount_rub": "10.00", "days": 1}
+
+
 async def start_live_checkout(
     *, request: Request, plan_id: str, idempotency_key: str | None,
-    pilot: bool = False,
+    pilot: bool = False, discounted_pilot: bool = False,
 ) -> dict:
-    if pilot:
+    if discounted_pilot:
+        if not discount_pilot_enabled():
+            raise HTTPException(503, "DISCOUNT_PILOT_DISABLED")
+        if plan_id != "pilot-1d":
+            raise HTTPException(422, "LIVE_PILOT_PLAN_RESTRICTED")
+    elif pilot:
         if not pilot_ready():
             raise HTTPException(503, "LIVE_PILOT_NOT_READY")
         if plan_id != "30":
             raise HTTPException(422, "LIVE_PILOT_PLAN_RESTRICTED")
     elif not live_ready():
         raise HTTPException(503, "LIVE_CHECKOUT_NOT_READY")
+    if not pilot and not discounted_pilot and plan_id == "pilot-1d":
+        raise HTTPException(422, "LIVE_PILOT_PLAN_RESTRICTED")
     require_same_origin(request)
     email = current_email(request)
     if email is None:
         raise HTTPException(401, "VERIFIED_EMAIL_REQUIRED")
-    if pilot and not secrets.compare_digest(
+    if (pilot or discounted_pilot) and not secrets.compare_digest(
         email.strip().lower(), os.environ["VAINAH_LIVE_PILOT_EMAIL"].strip().lower(),
     ):
         raise HTTPException(403, "LIVE_PILOT_EMAIL_NOT_ALLOWED")
@@ -200,6 +290,10 @@ async def start_live_checkout(
     ):
         raise HTTPException(422, "LIVE_IDEMPOTENCY_REQUIRED")
     owner_ref = owner_ref_for_email(email)
+    if discounted_pilot:
+        readiness = await discount_pilot_readiness(request=request)
+        if not readiness["discount_checkout_ready"]:
+            raise HTTPException(409, readiness["reason"])
     ledger = _ledger()
     try:
         reservation = {
@@ -208,12 +302,14 @@ async def start_live_checkout(
         }
         if pilot:
             reservation["pilot"] = True
+        if discounted_pilot:
+            reservation["discounted_pilot"] = True
         order_id, earlier_url = ledger.reserve_checkout(**reservation)
         if earlier_url:
             return {
                 "order_id": order_id, "pay_url": earlier_url,
                 "status": "created", "gateway": "rollypay",
-                **({"operator_pilot": True} if pilot else {}),
+                **({"operator_pilot": True} if pilot or discounted_pilot else {}),
             }
         invoice = await create_hosted_live_invoice(
             order_id=order_id, plan_id=plan_id,
@@ -244,7 +340,7 @@ async def start_live_checkout(
     return {
         "order_id": order_id, "pay_url": invoice.pay_url,
         "status": "created", "gateway": "rollypay",
-        **({"operator_pilot": True} if pilot else {}),
+        **({"operator_pilot": True} if pilot or discounted_pilot else {}),
     }
 
 
