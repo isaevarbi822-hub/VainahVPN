@@ -623,3 +623,104 @@ def test_fake_webhook_never_marks_receipt(tmp_path):
             "amount": "99.00", "currency": "RUB",
         })
     assert svc.read(order["order_id"])["webhook_received"] is False
+
+
+def test_provider_status_without_optional_sandbox_markers_requires_provenance():
+    """RollyPay's documented GET example omits test/environment fields.
+
+    The creation POST must still confirm both; polling never opens the
+    signed-webhook-only VPN fulfillment gate.
+    """
+    payment_id = "pay_test_0123456789abcdef"
+    original_order = {}
+
+    def response(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            payload = json.loads(request.content)
+            original_order["id"] = payload["order_id"]
+            assert payload["test"] is True
+            return httpx.Response(201, json={
+                "order_id": payload["order_id"],
+                "payment_id": payment_id,
+                "amount": "99.00",
+                "payment_currency": "RUB",
+                "test": True,
+                "environment": "sandbox",
+                "status": "created",
+                "pay_url": "https://pay.rollypay.io/pay/tok_123456",
+            })
+        assert request.method == "GET"
+        assert request.url.path.endswith("/" + payment_id)
+        return httpx.Response(200, json={
+            "order_id": original_order["id"],
+            "payment_id": payment_id,
+            "amount": "99.00",
+            "payment_currency": "RUB",
+            "status": "paid",
+        })
+
+    provider = BillingSandbox(
+        "provider", "unit-test-key", httpx.MockTransport(response),
+    )
+    created = asyncio.run(provider.create("30"))
+    assert created["status"] == "created"
+    polled = asyncio.run(provider.refresh(created["order_id"]))
+    assert polled["status"] == "paid"
+    assert polled["webhook_received"] is False
+    preview = provider.activation_preview(created["order_id"])
+    assert preview["fulfillment"]["status"] == "blocked"
+    assert preview["fulfillment"]["reason"] == "SIGNED_WEBHOOK_REQUIRED"
+    assert preview["vpn_delivered"] is False
+
+
+@pytest.mark.parametrize("overrides", [
+    {"test": False},
+    {"environment": "production"},
+    {"test": None},
+    {"environment": None},
+    {"payment_id": "pay_different_0123456789"},
+    {"order_id": "vainah_test_" + "f" * 32},
+    {"amount": "1.00"},
+    {"payment_currency": "EUR"},
+])
+def test_sandbox_poll_never_accepts_conflicting_markers_or_identity(overrides):
+    order_ref = {}
+    payment_id = "pay_test_1234567890"
+
+    def provider_response(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            created = json.loads(request.content)
+            order_ref["id"] = created["order_id"]
+            return httpx.Response(200, json={
+                "order_id": created["order_id"],
+                "payment_id": payment_id,
+                "amount": "99.00",
+                "payment_currency": "RUB",
+                "test": True,
+                "environment": "sandbox",
+                "status": "created",
+                "pay_url": "https://pay.rollypay.io/pay/tok_123456",
+            })
+        return httpx.Response(200, json={
+            "order_id": order_ref["id"],
+            "payment_id": payment_id,
+            "amount": "99.00",
+            "payment_currency": "RUB",
+            "status": "paid",
+            **overrides,
+        })
+
+    provider = BillingSandbox(
+        "provider", "unit-test-key",
+        httpx.MockTransport(provider_response),
+    )
+    created = asyncio.run(provider.create("30"))
+    with pytest.raises(ProviderError) as err:
+        asyncio.run(provider.refresh(created["order_id"]))
+    expected = (
+        "PROVIDER_SANDBOX_NOT_CONFIRMED"
+        if "test" in overrides or "environment" in overrides
+        else "PROVIDER_ORDER_OR_AMOUNT_MISMATCH"
+    )
+    assert err.value.code == expected
+    assert provider.read(created["order_id"])["status"] == "created"
