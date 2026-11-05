@@ -127,6 +127,15 @@ class PostgresLiveOrderLedger:
         """)
         cur.execute("""
             ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS is_discount_pilot BOOLEAN NOT NULL DEFAULT FALSE
+        """)
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS vainah_live_one_discount_pilot_uq
+            ON vainah_live_orders (is_discount_pilot)
+            WHERE is_discount_pilot = TRUE
+        """)
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
             ADD COLUMN IF NOT EXISTS pay_url_cipher TEXT
         """)
         cur.execute("""
@@ -181,7 +190,8 @@ class PostgresLiveOrderLedger:
 
     def reserve_checkout(self, *, owner_ref: str, verified_email: str,
                          plan_id: str, idempotency_key: str,
-                         pilot: bool = False) -> tuple[str, str | None]:
+                         pilot: bool = False,
+                         discounted_pilot: bool = False) -> tuple[str, str | None]:
         """One durable invoice intent per browser-generated UUID, per owner.
 
         A pending intent is never retried automatically: an earlier gateway
@@ -200,6 +210,14 @@ class PostgresLiveOrderLedger:
             raise LiveLedgerError("LIVE_ORDER_INVALID")
         if pilot is True and plan_id != "30":
             raise LiveLedgerError("LIVE_PILOT_PLAN_NOT_ALLOWED")
+        if discounted_pilot is True and plan_id != "pilot-1d":
+            raise LiveLedgerError("LIVE_PILOT_PLAN_NOT_ALLOWED")
+        if (not pilot and not discounted_pilot) and plan_id == "pilot-1d":
+            raise LiveLedgerError("LIVE_PILOT_PLAN_NOT_ALLOWED")
+        if pilot and discounted_pilot:
+            raise LiveLedgerError("LIVE_PILOT_INVALID")
+        if type(discounted_pilot) is not bool:
+            raise LiveLedgerError("LIVE_PILOT_INVALID")
         if type(pilot) is not bool:
             raise LiveLedgerError("LIVE_PILOT_INVALID")
         try:
@@ -228,26 +246,28 @@ class PostgresLiveOrderLedger:
                 cur.execute("""
                     INSERT INTO vainah_live_orders (
                         order_id, owner_ref, plan_id, amount_rub,
-                        receipt_email_cipher, checkout_nonce_hash, is_pilot
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        receipt_email_cipher, checkout_nonce_hash,
+                        is_pilot, is_discount_pilot
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT DO NOTHING
                     RETURNING order_id
                 """, (order_id, owner_ref, plan_id, price_rub(plan),
-                      recipient, nonce_hash, pilot))
+                      recipient, nonce_hash, pilot, discounted_pilot))
                 created = cur.fetchone()
                 if created:
                     return created[0], None
                 cur.execute("""
                     SELECT order_id, plan_id, owner_ref, payment_state,
-                           pay_url_cipher, is_pilot
+                           pay_url_cipher, is_pilot, is_discount_pilot
                     FROM vainah_live_orders
                     WHERE checkout_nonce_hash = %s
                 """, (nonce_hash,))
                 existing = cur.fetchone()
-                if not existing and pilot:
+                if not existing and (pilot or discounted_pilot):
                     raise LiveLedgerError("LIVE_PILOT_ALREADY_RESERVED")
                 if (not existing or existing[1] != plan_id
-                        or existing[2] != owner_ref or existing[5] is not pilot):
+                        or existing[2] != owner_ref or existing[5] is not pilot
+                        or existing[6] is not discounted_pilot):
                     raise LiveLedgerError("LIVE_IDEMPOTENCY_CONFLICT")
                 if existing[3] == "created" and existing[4]:
                     return existing[0], unseal_live_secret(existing[4])
@@ -295,7 +315,8 @@ class PostgresLiveOrderLedger:
             ) as conn, conn.cursor() as cur:
                 self._schema(cur)
                 cur.execute("""
-                    SELECT is_pilot FROM vainah_live_orders WHERE order_id = %s
+                    SELECT (is_pilot OR is_discount_pilot)
+                    FROM vainah_live_orders WHERE order_id = %s
                 """, (order_id,))
                 row = cur.fetchone()
                 return bool(row and row[0] is True)
@@ -328,6 +349,57 @@ class PostgresLiveOrderLedger:
             "signed_webhook_received": bool(row[2]),
             "h1_delivery_confirmed": bool(row[3]) and row[1] == "delivered",
             "access_email_sent": bool(row[4]),
+        }
+
+    def discount_pilot_state(self) -> dict:
+        """Sanitized private 10-RUB pilot state, no pay URL or identity."""
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4,
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT payment_state, delivery_state,
+                           access_email_sent_at IS NOT NULL
+                    FROM vainah_live_orders WHERE is_discount_pilot = TRUE
+                    LIMIT 1
+                """)
+                row = cur.fetchone()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        if row is None:
+            return {"discount_order_exists": False}
+        return {
+            "discount_order_exists": True,
+            "discount_payment_state": row[0],
+            "discount_delivery_state": row[1],
+            "discount_access_email_sent": bool(row[2]),
+        }
+
+    def original_pilot_payment_for_verification(self, owner_ref: str) -> dict | None:
+        """Server-only immutable provider lookup reference for the original invoice."""
+        if not isinstance(owner_ref, str) or not owner_ref.startswith("v1_"):
+            raise LiveLedgerError("LIVE_OWNER_INVALID")
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4,
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT order_id, payment_id, plan_id, amount_rub, payment_state
+                    FROM vainah_live_orders
+                    WHERE is_pilot = TRUE AND owner_ref = %s
+                    LIMIT 1
+                """, (owner_ref,))
+                row = cur.fetchone()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        if row is None:
+            return None
+        return {
+            "order_id": row[0], "payment_id": row[1],
+            "plan_id": row[2], "amount_rub": str(row[3]),
+            "payment_state": row[4],
         }
 
     def owner_orders(self, owner_ref: str) -> list[dict]:
