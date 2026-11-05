@@ -6,11 +6,14 @@
   const pilotField = el("pilot-token");
   const checkButton = el("check-button");
   const createButton = el("create-button");
+  const discountButton = el("discount-button");
+  const discountStatus = el("discount-status");
   const statusEl = el("pilot-status");
   const checkoutEl = el("checkout-result");
   const accountEl = el("account-status");
   let accountReady = false;
   let checkPassed = false;
+  let discountReady = false;
   let attempted = false;
   let busy = false;
 
@@ -20,6 +23,7 @@
   function refreshButtons() {
     checkButton.disabled = busy;
     createButton.disabled = busy || attempted || !accountReady || !checkPassed;
+    discountButton.disabled = busy || attempted || !accountReady || !discountReady;
   }
   function credentialHeaders() {
     const operator = operatorField.value.trim();
@@ -72,6 +76,36 @@
     if (!response.ok) throw new Error(safeError(response, body));
     return body;
   }
+  async function fetchDiscountStatus(headers) {
+    const response = await fetch("/api/shop/operator/live-pilot/discount-status", {
+      method: "GET", headers, credentials: "same-origin", cache: "no-store"
+    });
+    const body = await readJson(response);
+    if (!response.ok) throw new Error(safeError(response, body));
+    return body;
+  }
+  function describeDiscount(state) {
+    if (state.discount_order_exists === true) {
+      return "Разовый заказ на 10 ₽ уже создан. Новые счета запрещены.\n" +
+        "Оплата: " + (state.discount_payment_state || "unknown") +
+        "\nВыдача VPN: " + (state.discount_delivery_state || "unknown") +
+        (state.discount_access_email_sent ? "\nПисьмо с ключом отправлено." : "");
+    }
+    if (state.discount_checkout_ready === true) {
+      return "RollyPay подтвердил закрытие старого счёта.\n" +
+        "Разовый счёт на 10 ₽ за 1 день можно создать после подтверждения.";
+    }
+    const reasons = {
+      DISCOUNT_PILOT_DISABLED: "Разовый пилот на сервере отключён.",
+      ORIGINAL_PILOT_UNVERIFIED: "Исходный платёж ещё не подтверждён как отменённый.",
+      ORIGINAL_PILOT_STILL_ACTIVE: "Старый счёт на 99 ₽ ещё активен. Не создавай новый.",
+      ORIGINAL_PROVIDER_UNAVAILABLE: "Не удалось получить проверенный статус от RollyPay.",
+      ORIGINAL_PROVIDER_MISMATCH: "RollyPay вернул несовпадающие реквизиты платежа.",
+      DISCOUNT_PILOT_ALREADY_RESERVED: "Пилотный счёт на 10 ₽ уже создан.",
+      LIVE_PILOT_STATUS_UNAVAILABLE: "Временная ошибка проверки заказа."
+    };
+    return reasons[state.reason] || "Новый тестовый счёт пока недоступен.";
+  }
   function describeStatus(state) {
     const orderExists = state.pilot_order_exists === true;
     const messages = [
@@ -91,11 +125,13 @@
   }
   async function checkStatus() {
     checkPassed = false;
+    discountReady = false;
     busy = true;
     refreshButtons();
     try {
       await loadAccount();
-      const state = await fetchStatus(credentialHeaders());
+      const headers = credentialHeaders();
+      const state = await fetchStatus(headers);
       setMessage(statusEl, describeStatus(state));
       checkPassed = state.pilot_checkout_ready === true &&
         state.pilot_order_exists === false;
@@ -104,7 +140,16 @@
       } else if (checkPassed) {
         setMessage(checkoutEl, "Пилот готов. Первый счёт ещё не создан.");
       } else {
-        setMessage(checkoutEl, "Новый счёт создавать нельзя. Проверь статус уже существующего заказа.");
+        setMessage(checkoutEl, "Новый счёт на 99 ₽ создавать нельзя. Проверь статус существующего заказа.");
+      }
+      try {
+        const discount = await fetchDiscountStatus(headers);
+        discountReady = discount.discount_checkout_ready === true &&
+          discount.discount_order_exists !== true;
+        setMessage(discountStatus, describeDiscount(discount));
+      } catch (error) {
+        discountReady = false;
+        setMessage(discountStatus, "Проверка 10 ₽ недоступна: " + error.message);
       }
     } catch (error) {
       setMessage(statusEl, "Проверка не прошла: " + error.message);
@@ -178,7 +223,68 @@
     }
   }
 
+  async function createDiscountInvoice() {
+    if (!discountReady || !accountReady || attempted || busy) return;
+    if (!window.confirm(
+      "Создать ОДИН НАСТОЯЩИЙ счёт на 10 ₽ за VPN на 1 день? " +
+      "Если RollyPay отклонит сумму или запрос прервётся, не повторяй его."
+    )) return;
+    attempted = true;
+    discountReady = false;
+    checkPassed = false;
+    busy = true;
+    refreshButtons();
+    setMessage(discountStatus, "Проверяем окончательное закрытие старого счёта.");
+    try {
+      const headers = credentialHeaders();
+      const state = await fetchDiscountStatus(headers);
+      if (state.discount_checkout_ready !== true ||
+          state.discount_order_exists === true) {
+        setMessage(discountStatus, describeDiscount(state));
+        return;
+      }
+      const response = await fetch(
+        "/api/shop/operator/live-pilot/discount-checkout", {
+          method: "POST",
+          headers: {
+            ...headers, "Content-Type": "application/json",
+            "Idempotency-Key": crypto.randomUUID()
+          },
+          credentials: "same-origin", cache: "no-store",
+          body: JSON.stringify({plan: "pilot-1d"})
+        }
+      );
+      const body = await readJson(response);
+      if (!response.ok) {
+        setMessage(discountStatus, "Создание не подтверждено: " +
+          safeError(response, body) +
+          ". Не повторяй запрос: проверь статус через оператора.");
+        return;
+      }
+      let target;
+      try { target = new URL(body.pay_url); } catch { target = null; }
+      if (!target || target.protocol !== "https:" ||
+          target.hostname !== "pay.rollypay.io" ||
+          target.username || target.password || target.port) {
+        setMessage(discountStatus,
+          "Ссылка оплаты не прошла проверку. Не повторяй запрос.");
+        return;
+      }
+      setMessage(discountStatus, "Счёт на 10 ₽ создан. Открывается RollyPay.");
+      clearTokens();
+      window.location.assign(target.href);
+    } catch {
+      setMessage(discountStatus,
+        "Результат неизвестен. Не повторяй запрос — проверь статус заказа.");
+    } finally {
+      busy = false;
+      clearTokens();
+      refreshButtons();
+    }
+  }
+
   checkButton.addEventListener("click", checkStatus);
+  discountButton.addEventListener("click", createDiscountInvoice);
   createButton.addEventListener("click", createInvoice);
   window.addEventListener("pagehide", clearTokens);
   void loadAccount();

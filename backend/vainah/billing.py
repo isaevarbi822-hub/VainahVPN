@@ -43,6 +43,11 @@ EVENT_TO_STATUS = {
     "payment.refunded": "refunded", "payment.chargeback": "chargeback",
     "refund_request.completed": "refunded",
 }
+# Restricted operator-only real-payment diagnostic: never listed in public prices.
+DISCOUNT_PILOT_PLAN = {
+    "id": "pilot-1d", "title": "Проверка оплаты на 1 день",
+    "days": 1, "kopeks": 1000, "devices": 3,
+}
 CATALOG = (
     {"id": "30", "title": "1 месяц", "days": 30, "kopeks": 9900, "devices": 3},
     {"id": "60", "title": "2 месяца", "days": 60, "kopeks": 16000, "devices": 3},
@@ -55,6 +60,8 @@ CATALOG = (
 
 
 def get_plan(plan_id: str) -> dict | None:
+    if plan_id == DISCOUNT_PILOT_PLAN["id"]:
+        return DISCOUNT_PILOT_PLAN
     return next((p for p in CATALOG if p["id"] == plan_id), None)
 
 
@@ -1204,6 +1211,36 @@ async def operator_live_pilot_checkout(
         request=request, plan_id=body.plan,
         idempotency_key=idempotency_key, pilot=True,
     )
+
+
+@router.post("/operator/live-pilot/discount-checkout")
+async def operator_discount_pilot_checkout(
+    body: StartSandbox, request: Request,
+    idempotency_key: str | None = Header(default=None),
+    x_sandbox_token: str | None = Header(default=None),
+    x_live_pilot_token: str | None = Header(default=None),
+) -> dict:
+    """At most one 10-RUB/1-day pilot after provider-finalized original invoice."""
+    _require_operator(x_sandbox_token)
+    from .live_checkout import require_pilot_operator, start_live_checkout
+    require_pilot_operator(x_live_pilot_token)
+    return await start_live_checkout(
+        request=request, plan_id=body.plan,
+        idempotency_key=idempotency_key, discounted_pilot=True,
+    )
+
+
+@router.get("/operator/live-pilot/discount-status")
+async def operator_discount_pilot_status(
+    request: Request,
+    x_sandbox_token: str | None = Header(default=None),
+    x_live_pilot_token: str | None = Header(default=None),
+) -> dict:
+    """Read-only provider verification; never exposes IDs or pay links."""
+    _require_operator(x_sandbox_token)
+    from .live_checkout import discount_pilot_readiness, require_pilot_operator
+    require_pilot_operator(x_live_pilot_token)
+    return await discount_pilot_readiness(request=request)
 
 
 @router.get("/operator/live-pilot/status")

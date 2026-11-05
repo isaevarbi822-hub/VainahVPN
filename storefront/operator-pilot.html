@@ -14,12 +14,12 @@
   <main class="shell">
     <header class="topbar">
       <a href="/" class="logo">Vainah <span>VPN</span></a>
-      <span class="mode">Операторский доступ · один заказ</span>
+      <span class="mode">Операторский доступ · разовый тест</span>
     </header>
     <section class="hero">
       <p class="eyebrow">РОЛЛYPAY · ЗАКРЫТАЯ ПРОВЕРКА</p>
-      <h1>Первая оплата Vainah VPN</h1>
-      <p>Здесь можно проверить пилот и создать только один реальный счёт на тариф 30 дней. Это не Sandbox. Публичные продажи остаются выключенными.</p>
+      <h1>Контрольная оплата Vainah VPN</h1>
+      <p>Здесь можно проверить первый счёт и, когда RollyPay подтвердит его отмену или истечение, выпустить отдельный разовый тест на 10 ₽ за 1 день. Это не Sandbox. Публичные продажи остаются выключенными.</p>
     </section>
 
     <section class="card">
@@ -38,7 +38,7 @@
         <input id="pilot-token" type="password" autocomplete="off" spellcheck="false" maxlength="256" placeholder="Введите токен пилота">
       </div>
       <button type="button" id="check-button" class="button">Проверить статус пилота</button>
-      <div class="result" id="pilot-status" role="status" aria-live="polite">Счёт ещё не создан этой страницей.</div>
+      <div class="result" id="pilot-status" role="status" aria-live="polite">Здесь показывается состояние исходного счёта на 99 ₽.</div>
     </section>
 
     <section class="card purchase">
@@ -47,6 +47,14 @@
       <p>Создание счёта не списывает деньги автоматически, но ведёт к настоящей платёжной странице RollyPay. Не создавай счёт повторно при ошибке: система разрешает только один пилотный заказ.</p>
       <button type="button" id="create-button" class="button primary" disabled>Создать один реальный счёт — 99 ₽</button>
       <p id="checkout-result" role="status" aria-live="polite">Сначала проверь вход и состояние пилота.</p>
+    </section>
+
+    <section class="card purchase">
+      <h2>4. Разовый тест за 10 ₽</h2>
+      <div class="price"><strong>10 ₽</strong><span>1 день · до 3 устройств</span></div>
+      <p>Создание возможно только после того, как RollyPay независимо подтвердит, что старый счёт на 99 ₽ отменён или окончательно истёк. Минимальная сумма зависит от способа оплаты, поэтому шлюз может отклонить 10 ₽. Никакого списания при создании счёта нет.</p>
+      <button type="button" id="discount-button" class="button primary" disabled>Создать один счёт — 10 ₽</button>
+      <div class="result" id="discount-status" role="status" aria-live="polite">Сначала проверь статус пилота. Если старый счёт ещё активен, тест за 10 ₽ останется недоступным.</div>
     </section>
 
     <p class="footer">Токены передаются только на защищённые API Vainah VPN. Платёж проводится на официальной странице RollyPay. Возникла ошибка? Не повторяй создание счёта и проверь статус заказа.</p>
