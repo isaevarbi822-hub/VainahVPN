@@ -1232,6 +1232,7 @@ async def operator_discount_pilot_checkout(
 
 @router.get("/operator/live-pilot/discount-status")
 async def operator_discount_pilot_status(
+    request: Request,
     x_sandbox_token: str | None = Header(default=None),
     x_live_pilot_token: str | None = Header(default=None),
 ) -> dict:
@@ -1239,7 +1240,7 @@ async def operator_discount_pilot_status(
     _require_operator(x_sandbox_token)
     from .live_checkout import discount_pilot_readiness, require_pilot_operator
     require_pilot_operator(x_live_pilot_token)
-    return await discount_pilot_readiness()
+    return await discount_pilot_readiness(request=request)
 
 
 @router.get("/operator/live-pilot/status")
