@@ -167,10 +167,10 @@ async def start_live_checkout(
     owner_ref = owner_ref_for_email(email)
     ledger = _ledger()
     try:
-        reservation = dict(
-            owner_ref=owner_ref, verified_email=email,
-            plan_id=plan_id, idempotency_key=idempotency_key,
-        )
+        reservation = {
+            "owner_ref": owner_ref, "verified_email": email,
+            "plan_id": plan_id, "idempotency_key": idempotency_key,
+        }
         if pilot:
             reservation["pilot"] = True
         order_id, earlier_url = ledger.reserve_checkout(**reservation)
