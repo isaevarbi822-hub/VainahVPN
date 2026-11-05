@@ -331,7 +331,17 @@ def test_signed_callback_retries_safe_prewrite_failure_then_issues_receipt_once(
         sent.append((recipient, kwargs))
 
     monkeypatch.setattr(auto, "auto_issue_paid_sandbox", issue)
-    monkeypatch.setattr(auto, "read_delivery", lambda oid: state.copy())
+
+    def fake_delivery(oid, *, owner_ref=None, with_access=False):
+        assert oid == order["order_id"]
+        result = state.copy()
+        if with_access:
+            assert owner_ref == stored.owner_ref
+            if state["vpn_delivered"]:
+                result["subscription_url"] = "https://sub.example.com/retry-test-link"
+        return result
+
+    monkeypatch.setattr(auto, "read_delivery", fake_delivery)
     monkeypatch.setattr(billing, "send_sandbox_receipt", send)
     paid = event(order, payment_id, "payment.paid", "paid")
     first = signed_callback(client, paid)
@@ -347,6 +357,7 @@ def test_signed_callback_retries_safe_prewrite_failure_then_issues_receipt_once(
     assert writes == [order["order_id"]]
     assert len(sent) == 1
     assert sent[0][1]["vpn_issued"] is True
+    assert sent[0][1]["subscription_url"] == "https://sub.example.com/retry-test-link"
 
 
 def test_webhook_rejects_bad_signature_non_test_and_wrong_amount(sandbox):
