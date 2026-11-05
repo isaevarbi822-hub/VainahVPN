@@ -48,7 +48,21 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     # Historical storefront uses inline page scripts and style attributes.
     # Checkout API, billing credentials and web dashboard remain separate.
-    if request.url.path == "/" or request.url.path.endswith(".html"):
+    if request.url.path in {
+        "/operator-pilot.html",
+        "/operator-pilot.js",
+        "/operator-pilot.css",
+    }:
+        # No inline JS/CSS or external assets on the token-entry page.
+        # Static HTML is public, but both billing endpoints require operator
+        # secrets, a verified email cookie, and the server-side pilot gates.
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; script-src 'self'; style-src 'self'; "
+            "connect-src 'self'; img-src 'self'; object-src 'none'; "
+            "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+        )
+        response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+    elif request.url.path == "/" or request.url.path.endswith(".html"):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self' 'unsafe-inline' "
             "https://telegram.org https://oauth.telegram.org; "
@@ -71,6 +85,9 @@ async def security_headers(request: Request, call_next):
         "/account-login.js",
         "/account-dashboard.js",
         "/telegram-login-widget.js",
+        "/operator-pilot.html",
+        "/operator-pilot.js",
+        "/operator-pilot.css",
     }:
         response.headers["Cache-Control"] = "no-store, max-age=0"
         response.headers["Pragma"] = "no-cache"
