@@ -214,8 +214,9 @@ def _payment_status_comparison(result: dict, order: TestOrder) -> dict:
         "amount": amount,
         "currency": currency,
         "payment_status": (
-            "recognized" if result.get("status") in STATUS
-            else "unknown_or_missing"
+            "recognized"
+            if isinstance(result.get("status"), str)
+            and result["status"] in STATUS else "unknown_or_missing"
         ),
     }
     checks = (
