@@ -1266,6 +1266,34 @@ async def operator_discount_pilot_checkout(
     )
 
 
+@router.get("/operator/operations/summary")
+def operator_operations_summary(
+    request: Request,
+    x_sandbox_token: str | None = Header(default=None),
+    x_live_pilot_token: str | None = Header(default=None),
+) -> dict:
+    """Private read-only operations snapshot; no PII, VPN keys or URLs."""
+    _require_operator(x_sandbox_token)
+    from .live_checkout import (
+        _ledger,
+        current_email,
+        require_pilot_operator,
+    )
+    from .live_ledger import LiveLedgerError
+
+    require_pilot_operator(x_live_pilot_token)
+    identity = current_email(request)
+    allowed = os.environ.get("VAINAH_LIVE_PILOT_EMAIL", "").strip().lower()
+    if not identity:
+        raise HTTPException(401, "VERIFIED_EMAIL_REQUIRED")
+    if not allowed or not secrets.compare_digest(identity.strip().lower(), allowed):
+        raise HTTPException(403, "OPERATOR_EMAIL_NOT_ALLOWED")
+    try:
+        return _ledger().operator_health_summary()
+    except LiveLedgerError:
+        raise HTTPException(503, "OPERATIONS_DATABASE_UNAVAILABLE") from None
+
+
 @router.get("/operator/live-pilot/discount-status")
 async def operator_discount_pilot_status(
     request: Request,

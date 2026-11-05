@@ -61,8 +61,10 @@ class FakePaidLedger:
         assert order_id == ORDER_ID and owner_ref == OWNER
         return EMAIL
 
-    def mark_delivered(self, *, order_id, subscription_url, panel_confirmed):
+    def mark_delivered(self, *, order_id, subscription_url, panel_confirmed,
+                       expires_at=None):
         assert panel_confirmed is True
+        assert type(expires_at) is int and expires_at > int(time.time())
         self.delivered.append((order_id, subscription_url))
         return True
 

@@ -13,6 +13,7 @@ import hmac
 import json
 import os
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import psycopg
@@ -144,6 +145,10 @@ class PostgresLiveOrderLedger:
         cur.execute("""
             ALTER TABLE vainah_live_orders
             ADD COLUMN IF NOT EXISTS access_email_sent_at TIMESTAMPTZ
+        """)
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS h1_expires_at TIMESTAMPTZ
         """)
         cur.execute("""
             ALTER TABLE vainah_live_orders
@@ -507,6 +512,105 @@ class PostgresLiveOrderLedger:
             "payment_state": row[4],
         }
 
+    def operator_health_summary(self) -> dict:
+        """Read-only, PII-free snapshot for authenticated operators.
+
+        Expiry counts represent the latest expiry VERIFIED DURING DELIVERY
+        by H1Cloud for each owner. These are not live H1 queries and may
+        become stale after external changes or manual profile extension.
+        Never reveal owner refs, emails, secrets or payment URLs.
+        """
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT COUNT(*),
+                           COUNT(*) FILTER (
+                               WHERE payment_state = 'paid'
+                                 AND delivery_state = 'delivered'
+                           ),
+                           COUNT(*) FILTER (
+                               WHERE payment_state = 'paid'
+                                 AND delivery_state = 'pending'
+                           ),
+                           COUNT(*) FILTER (
+                               WHERE payment_state = 'paid'
+                                 AND delivery_state = 'claimed'
+                           ),
+                           COUNT(*) FILTER (
+                               WHERE delivery_state = 'manual_review'
+                           ),
+                           COUNT(*) FILTER (
+                               WHERE payment_state = 'paid'
+                                 AND delivery_state = 'delivered'
+                                 AND access_email_sent_at IS NULL
+                           ),
+                           COUNT(*) FILTER (
+                               WHERE payment_state = 'created'
+                                 AND created_at < NOW() - INTERVAL '24 hours'
+                           )
+                    FROM vainah_live_orders
+                """)
+                counts = cur.fetchone()
+                cur.execute("""
+                    WITH last_expiry AS (
+                        SELECT DISTINCT ON (owner_ref)
+                               h1_expires_at
+                        FROM vainah_live_orders
+                        WHERE payment_state = 'paid'
+                          AND delivery_state = 'delivered'
+                          AND h1_expires_at IS NOT NULL
+                        ORDER BY owner_ref, delivered_at DESC
+                    )
+                    SELECT COUNT(*) FILTER (
+                               WHERE h1_expires_at >= NOW()
+                                 AND h1_expires_at < NOW() + INTERVAL '48 hours'
+                           ),
+                           COUNT(*) FILTER (
+                               WHERE h1_expires_at >= NOW()
+                                 AND h1_expires_at < NOW() + INTERVAL '7 days'
+                           ),
+                           COUNT(*) FILTER (WHERE h1_expires_at < NOW())
+                    FROM last_expiry
+                """)
+                expiry = cur.fetchone()
+                cur.execute("""
+                    SELECT order_id, plan_id, payment_state, delivery_state,
+                           access_email_sent_at IS NOT NULL, created_at,
+                           is_pilot OR is_discount_pilot
+                    FROM vainah_live_orders
+                    ORDER BY created_at DESC, order_id DESC LIMIT 20
+                """)
+                recent = cur.fetchall()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        return {
+            "total_orders": counts[0],
+            "paid_delivered": counts[1],
+            "paid_awaiting_delivery": counts[2],
+            "paid_claimed": counts[3],
+            "manual_review": counts[4],
+            "paid_delivered_email_not_sent": counts[5],
+            "unpaid_older_than_24h": counts[6],
+            "expiry_snapshot_48h": expiry[0],
+            "expiry_snapshot_7d": expiry[1],
+            "expiry_snapshot_past": expiry[2],
+            "expiry_is_live_h1": False,
+            "recent": [
+                {
+                    "order_id": row[0],
+                    "plan_id": row[1],
+                    "payment_state": row[2],
+                    "delivery_state": row[3],
+                    "access_email_sent": bool(row[4]),
+                    "created_at": row[5].isoformat(),
+                    "operator_pilot": bool(row[6]),
+                } for row in recent
+            ],
+        }
+
     def owner_orders(self, owner_ref: str) -> list[dict]:
         """Never disclose another account's orders or any payment credentials."""
         if not isinstance(owner_ref, str) or not owner_ref.startswith("v1_"):
@@ -837,7 +941,8 @@ class PostgresLiveOrderLedger:
         return unseal_live_secret(row[0])
 
     def mark_delivered(self, *, order_id: str, subscription_url: str,
-                       panel_confirmed: bool = False) -> bool:
+                       panel_confirmed: bool = False,
+                       expires_at: int | None = None) -> bool:
         """Never mark delivered from payment alone or without H1 verification."""
         from urllib.parse import urlsplit
 
@@ -849,12 +954,21 @@ class PostgresLiveOrderLedger:
                 or not 10 <= len(subscription_url) <= 2048):
             raise LiveLedgerError("LIVE_SUBSCRIPTION_URL_INVALID")
         encrypted_url = seal_live_secret(subscription_url)
+        if expires_at is not None and (
+            type(expires_at) is not int or not 1600000000 <= expires_at <= 4102444800
+        ):
+            raise LiveLedgerError("LIVE_H1_EXPIRY_INVALID")
+        expires_snapshot = (
+            datetime.fromtimestamp(expires_at, UTC) if expires_at is not None
+            else None
+        )
         try:
             with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
                 self._schema(cur)
                 cur.execute("""
                     UPDATE vainah_live_orders AS target
                     SET delivery_state = 'delivered', subscription_cipher = %s,
+                        h1_expires_at = %s,
                         delivered_at = now(), updated_at = now()
                     WHERE order_id = %s AND payment_state = 'paid'
                         AND webhook_at IS NOT NULL
@@ -866,7 +980,7 @@ class PostgresLiveOrderLedger:
                               AND blocked.delivery_state = 'manual_review'
                         )
                     RETURNING order_id
-                """, (encrypted_url, order_id))
+                """, (encrypted_url, expires_snapshot, order_id))
                 return cur.fetchone() is not None
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None

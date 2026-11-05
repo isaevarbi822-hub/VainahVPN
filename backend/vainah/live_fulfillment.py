@@ -79,7 +79,7 @@ async def fulfill_paid_order_once(
         ).provision_once(claim=claim, intent=intent, operation=operation)
         if not ledger.mark_delivered(
             order_id=claim.order_id, subscription_url=proof.subscription_url,
-            panel_confirmed=True,
+            panel_confirmed=True, expires_at=proof.expires_at,
         ):
             raise FulfillmentError("LIVE_DELIVERY_PERSIST_FAILED")
         return {
