@@ -994,6 +994,7 @@ class BillingSandbox:
                 "signed_webhook_received": signed,
                 "operator_review_required": True,
                 "customer_identity_bound": bool(order.owner_ref),
+                "verified_email_on_order": bool(order.receipt_recipient),
                 "account_binding_required": not bool(order.owner_ref),
                 "h1cloud_write_performed": False,
                 "auto_provisioning_enabled": False,
@@ -1309,13 +1310,86 @@ async def email_test_receipt(order_id: str, request: Request) -> dict:
     return await sandbox.send_owned_test_receipt(order_id, owner, email)
 
 
+def _sandbox_delivery_preview(
+    order_id: str, *, owner_ref: str | None = None,
+) -> dict:
+    """Show persisted issuance and email state without exposing a VPN key.
+
+    No H1Cloud writes, provider status GETs or outgoing email occur here.
+    The customer route must verify order ownership before invoking this.
+    """
+    from .sandbox_auto_h1 import SandboxAutoH1Error, auto_enabled, read_delivery
+
+    preview = sandbox.activation_preview(order_id)
+    preview["receipt_emailed"] = sandbox.read(order_id)["receipt_emailed"]
+    fulfillment = preview["fulfillment"]
+    enabled = auto_enabled()
+    fulfillment["auto_provisioning_enabled"] = enabled
+    if preview["payment_status"] != "paid" or not fulfillment["signed_webhook_received"]:
+        return preview
+    if not enabled:
+        fulfillment["status"] = "blocked"
+        fulfillment["reason"] = "SANDBOX_AUTO_ISSUE_DISABLED"
+        preview["message"] = "Тестовая оплата подтверждена, но автовыдача на сервере выключена."
+        return preview
+    if not fulfillment["verified_email_on_order"]:
+        fulfillment["status"] = "blocked"
+        fulfillment["reason"] = "VERIFIED_EMAIL_REQUIRED_AT_PURCHASE"
+        preview["message"] = (
+            "Заказ не был создан из подтверждённого email-аккаунта. "
+            "Выдавать VPN или отправлять ссылку на другой адрес нельзя."
+        )
+        return preview
+    try:
+        delivery = read_delivery(order_id, owner_ref=owner_ref)
+    except SandboxAutoH1Error:
+        raise HTTPException(503, "SANDBOX_AUTO_H1_DATABASE_UNAVAILABLE") from None
+
+    state = delivery["status"]
+    preview["delivery_state"] = state
+    if delivery["vpn_delivered"]:
+        preview["status"] = "issued"
+        preview["vpn_delivered"] = True
+        preview["h1cloud_connected"] = True
+        fulfillment["status"] = "delivered"
+        fulfillment["reason"] = None
+        fulfillment["h1cloud_write_performed"] = True
+        fulfillment["operator_review_required"] = False
+        preview["message"] = (
+            "VPN создан в H1Cloud. Личная ссылка доступна владельцу заказа; "
+            "состояние отправки письма указано отдельно."
+        )
+    elif state in {"claimed", "needs_review"}:
+        fulfillment["status"] = "needs_review"
+        fulfillment["reason"] = "H1_WRITE_MAY_HAVE_OCCURRED"
+        preview["message"] = (
+            "Выдача требует сверки в H1Cloud. Повторно создавать VPN "
+            "автоматически нельзя: предыдущая запись могла выполниться."
+        )
+    elif state == "failed_before_write":
+        fulfillment["status"] = "retry_pending"
+        fulfillment["reason"] = "SAFE_RETRY_BEFORE_WRITE"
+        preview["message"] = (
+            "Попытка остановилась до создания VPN. "
+            "Безопасное повторное событие оплаты может продолжить выдачу."
+        )
+    else:
+        fulfillment["status"] = "not_issued"
+        fulfillment["reason"] = "NO_DELIVERY_RECORD"
+        preview["message"] = (
+            "Подтверждённый платёж найден, но запись об автовыдаче отсутствует. "
+            "Проверь, получил ли сервер подписанный paid webhook после включения выдачи."
+        )
+    return preview
+
+
 @router.get("/my-test-orders/{order_id}/activation-preview")
 def my_test_order_preview(order_id: str, request: Request) -> dict:
     owner = _require_verified_sandbox_owner(request)
     if os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") != "enabled":
         raise HTTPException(503, "SANDBOX_DISABLED")
     sandbox.require_order_owner(order_id, owner)
-    return sandbox.activation_preview(order_id)
+    return _sandbox_delivery_preview(order_id, owner_ref=owner)
 
 
 @router.get("/sandbox/orders")
@@ -1338,39 +1412,7 @@ async def sandbox_activation_preview(
         "VAINAH_SHOP_PROVIDER_TEST_ENABLED"
     ) != "enabled":
         raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
-    # The operator-only preview uses the signed webhook state already stored
-    # in the ledger. Do not require a second provider GET: that call may fail
-    # transiently (HTTP 502) even after a valid webhook was recorded.
-    preview = sandbox.activation_preview(order_id)
-    from .sandbox_auto_h1 import SandboxAutoH1Error, auto_enabled, read_delivery
-
-    if not auto_enabled() or preview["payment_status"] != "paid" or not (
-        preview["fulfillment"]["signed_webhook_received"]
-    ):
-        return preview
-    try:
-        delivery = read_delivery(order_id)
-    except SandboxAutoH1Error:
-        raise HTTPException(503, "SANDBOX_AUTO_H1_DATABASE_UNAVAILABLE") from None
-    preview["fulfillment"]["auto_provisioning_enabled"] = True
-    if delivery["vpn_delivered"]:
-        preview["status"] = "issued"
-        preview["vpn_delivered"] = True
-        preview["h1cloud_connected"] = True
-        preview["fulfillment"]["status"] = "delivered"
-        preview["fulfillment"]["h1cloud_write_performed"] = True
-        preview["fulfillment"]["operator_review_required"] = False
-        preview["message"] = (
-            "Тестовый VPN создан в H1Cloud автоматически после подписанного "
-            "webhook; ссылка доступна только владельцу email-аккаунта."
-        )
-    elif delivery["status"] in {"claimed", "needs_review"}:
-        preview["fulfillment"]["status"] = "needs_review"
-        preview["message"] = (
-            "Автовыдача уже пыталась обработать заказ. "
-            "Повторный H1Cloud POST заблокирован; проверь панель."
-        )
-    return preview
+    return _sandbox_delivery_preview(order_id)
 
 
 @router.get("/sandbox/{order_id}/payment-diagnostics")
