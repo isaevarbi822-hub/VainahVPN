@@ -486,6 +486,22 @@ def test_signed_payment_real_postgres_otp_to_one_h1_delivery(
         assert receipt["duration_days"] == 30
         assert receipt["devices"] == 3
         assert receipt["subscription_url"] == "https://sub.example.com/secret-sandbox-only"
+        preview = client.get(f"/api/shop/my-test-orders/{order_id}/activation-preview")
+        assert preview.status_code == 200, preview.text
+        state = preview.json()
+        assert state["vpn_delivered"] is True
+        assert state["delivery_state"] == "issued"
+        assert state["fulfillment"]["status"] == "delivered"
+        assert state["fulfillment"]["verified_email_on_order"] is True
+        assert state["receipt_emailed"] is True
+        assert state["subscription_url"] is None
+        assert "secret-sandbox-only" not in preview.text
+        operator = client.get(
+            f"/api/shop/sandbox/{order_id}/activation-preview",
+            headers={"X-Sandbox-Token": OPERATOR},
+        )
+        assert operator.status_code == 200
+        assert operator.json()["delivery_state"] == "issued"
         access_path = f"/api/shop/my-test-orders/{order_id}/vpn-access"
         response = client.get(access_path)
         assert response.status_code == 200, response.text
@@ -496,8 +512,14 @@ def test_signed_payment_real_postgres_otp_to_one_h1_delivery(
         assert "secret-sandbox-only" not in summary.text
         client.cookies.clear()
         assert client.get(access_path).status_code == 401
+        assert client.get(
+            f"/api/shop/my-test-orders/{order_id}/activation-preview"
+        ).status_code == 401
         client.cookies.set(email_auth.EMAIL_SESSION_COOKIE, email_auth._sign_session("outsider@example.com"))
         assert client.get(access_path).status_code == 404
+        assert client.get(
+            f"/api/shop/my-test-orders/{order_id}/activation-preview"
+        ).status_code == 404
         assert client.get("/api/account/test-subscriptions").json()["items"] == []
     with psycopg.connect(postgres_url) as conn:
         delivery = conn.execute(
