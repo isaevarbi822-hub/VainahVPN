@@ -250,10 +250,11 @@ async def send_sandbox_receipt(
     email: str, *, order_id: str, plan_title: str, amount_rub: str,
     duration_days: int, devices: int,
     vpn_issued: bool = False,
+    subscription_url: str | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> None:
-    """TEST receipt only. MUST be called after the owner's signed paid webhook
-    has been verified. Never includes an H1Cloud URL or pretends real payment.
+    """Send a TEST receipt. An H1 subscription URL is allowed only for
+    confirmed issued access, provided by the server's owner-bound ledger.
     """
     if not re.fullmatch(r"vainah_test_[0-9a-f]{32}", order_id):
         raise ValueError("TEST_ORDER_ID_INVALID")
@@ -263,6 +264,28 @@ async def send_sandbox_receipt(
         order_id, plan_title, amount_rub, duration_days, devices,
     )]
     safe_order, safe_title, safe_amount, safe_days, safe_devices = escaped
+
+    if vpn_issued:
+        # Do not insert unsanitized H1 output into an HTML email. The caller
+        # must verify a paid owner-bound, durable 'issued' record first.
+        from .h1_live_provision import LiveH1Error, _validate_subscription_url
+
+        try:
+            checked_url = _validate_subscription_url(subscription_url)
+        except LiveH1Error:
+            raise ValueError("TEST_SUBSCRIPTION_URL_INVALID") from None
+        escaped_url = html.escape(checked_url, quote=True)
+        access_html = (
+            "<p>ТЕСТОВЫЙ VPN АКТИВИРОВАН.</p>"
+            "<p><b>Твоя ссылка подписки:</b></p>"
+            '<p><a href="' + escaped_url + '">' + escaped_url + "</a></p>"
+            "<p>Ссылка личная: не пересылай её другим.</p>"
+        )
+    else:
+        if subscription_url is not None:
+            raise ValueError("TEST_SUBSCRIPTION_NOT_ISSUED")
+        access_html = "<p>VPN НЕ АКТИВИРОВАН. КЛЮЧ ПОДПИСКИ НЕ ВЫДАН.</p>"
+
     body = (
         "<h2>Vainah VPN — тестовое подтверждение</h2>"
         "<p><b>ТЕСТОВЫЙ ЗАКАЗ. ДЕНЬГИ НЕ СПИСАНЫ.</b></p>"
@@ -271,12 +294,7 @@ async def send_sandbox_receipt(
         "<p>Условная сумма: " + safe_amount + " RUB</p>"
         "<p>Срок: " + safe_days + " дней. Устройств: " + safe_devices + ".</p>"
         "<p>RollyPay подтвердил тестовую оплату подписанным уведомлением.</p>"
-        + (
-            "<p>ТЕСТОВЫЙ VPN АКТИВИРОВАН. Личная ссылка доступна "
-            "в аккаунте, оформившем тестовый заказ.</p>"
-            if vpn_issued else
-            "<p>VPN НЕ АКТИВИРОВАН. КЛЮЧ ПОДПИСКИ НЕ ВЫДАН.</p>"
-        )
+        + access_html
         + "<p>Это тестовое уведомление, не платёжная или фискальная квитанция.</p>"
     )
     await send_email(
