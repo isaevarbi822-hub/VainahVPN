@@ -1,6 +1,6 @@
 """Restricted 10 RUB / 1-day pilot regression checks (never charge the provider)."""
-from uuid import uuid4
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
