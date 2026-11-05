@@ -673,3 +673,25 @@ def test_stale_signed_callbacks_are_acknowledged_without_payment_regression(sand
         f'/api/shop/sandbox/{order["order_id"]}/activation-preview',
         headers=HEADERS,
     ).json()["fulfillment"]["status"] == "blocked"
+
+
+def test_stale_provider_poll_displays_saved_signed_payment_with_warning(sandbox):
+    client, fake = sandbox
+    order, payment_id = create_test_order(client, fake)
+    assert signed_callback(
+        client, event(order, payment_id, "payment.paid", "paid"),
+    ).status_code == 200
+    # GET eventually lags behind the independently signed paid callback.
+    fake.orders[payment_id]["status"] = "created"
+    checked = client.get(
+        f'/api/shop/sandbox/{order["order_id"]}', headers=HEADERS,
+    )
+    assert checked.status_code == 200
+    result = checked.json()
+    assert result["status"] == "paid"
+    assert result["webhook_received"] is True
+    assert result["provider_status_fresh"] is False
+    assert result["provider_read_error"] == "PROVIDER_STATUS_REGRESSION"
+    assert result["source"] == "last_signed_webhook"
+    assert result["vpn_delivered"] is False
+    # A signed proof can be displayed, but never invented by GET polling.
