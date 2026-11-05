@@ -63,6 +63,38 @@
       return json;
     } finally {clearTimeout(timer);}
   }
+  const intentKeyName = planId => "vainah-live-checkout-intent-v1-" + planId;
+
+  async function checkExistingCheckout(planId) {
+    // The token is tied to a verified email on the server; never use it as
+    // evidence of payment by itself or erase an uncertain gateway request.
+    const name = intentKeyName(planId);
+    const key = sessionStorage.getItem(name);
+    if (!key) return {found: false};
+    const result = await api("/api/shop/checkout-intent?plan=" +
+      encodeURIComponent(planId), {
+        headers: {"Idempotency-Key": key},
+        credentials: "same-origin"
+      });
+    if (result.renewal_ready === true &&
+        result.payment_state === "paid" &&
+        result.delivery_state === "delivered") {
+      sessionStorage.removeItem(name);
+      if (state.selected?.id === planId)
+        message("Предыдущая оплата подтверждена и VPN выдан. " +
+          "Теперь можно оформить новое продление этого тарифа.");
+    } else if (result.found === true && state.selected?.id === planId) {
+      if (result.payment_state === "created") {
+        message("Уже есть неоплаченный счёт этого тарифа. " +
+          "Кнопка оплаты откроет тот же счёт без нового списания.");
+      } else {
+        message("Предыдущий заказ ещё обрабатывается или требует проверки. " +
+          "Новый счёт не создаём. Проверь историю в личном кабинете.");
+      }
+    }
+    return result;
+  }
+
   function displayTestOrder(order) {
     clearIssuedLink();
     state.testOrder = order;
@@ -146,6 +178,14 @@
     $("shop-buy").disabled = !state.config?.checkout_ready;
     $("shop-buy").textContent = state.config?.checkout_ready ? "Перейти к оплате ↗" : "Оплата пока недоступна";
     $("shop-test-create").disabled = !state.config?.sandbox_available;
+    if (state.config?.checkout_ready) {
+      void checkExistingCheckout(id).catch(() => {
+        if (state.selected?.id === id) {
+          message("Для проверки прежнего счёта войди в личный кабинет. " +
+            "Пока его статус неизвестен, новый счёт не создавай.");
+        }
+      });
+    }
   }
   async function load() {
     try {
@@ -178,9 +218,19 @@
       if(!globalThis.crypto || !crypto.randomUUID){
         throw Error("Для защищённой оплаты нужен современный браузер с HTTPS.");
       }
-      const intentName = "vainah-live-checkout-intent-v1-" + state.selected.id;
+      const planId = state.selected.id;
+      const intentName = intentKeyName(planId);
+      const previous = await checkExistingCheckout(planId);
+      if (previous.found === true && previous.payment_state !== "created" &&
+          previous.renewal_ready !== true) {
+        message("Предыдущий заказ не завершён. Новый счёт не создан. " +
+          "Проверь состояние подписки в личном кабинете.");
+        return;
+      }
+      // A freshly created UUID is permitted only after paid+delivered or
+      // when no checkout exists. A pending/ambiguous request is never reset.
       let checkoutKey = sessionStorage.getItem(intentName);
-      if(!checkoutKey){
+      if (!checkoutKey) {
         checkoutKey = crypto.randomUUID();
         sessionStorage.setItem(intentName, checkoutKey);
       }
@@ -190,10 +240,11 @@
           "Content-Type": "application/json",
           "Idempotency-Key": checkoutKey
         },
-        body: JSON.stringify({plan: state.selected.id})
+        body: JSON.stringify({plan: planId})
       });
       const url = new URL(reply.pay_url);
       if (url.protocol !== "https:" || url.host !== "pay.rollypay.io" ||
+          url.username || url.password ||
           !/^\/pay\/[A-Za-z0-9_-]{6,255}\/?$/.test(url.pathname) ||
           url.search || url.hash) throw Error("Недопустимый адрес платёжной формы");
       location.assign(url.href);
