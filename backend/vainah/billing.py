@@ -622,14 +622,22 @@ class BillingSandbox:
                     )):
                 raise HTTPException(400, "PAYMENT_MISMATCH")
             # Same state is idempotent. Later refund/chargeback overrides paid.
-            if order.status in {"refunded", "chargeback"} and status not in {
-                "refunded", "chargeback"
-            }:
-                raise HTTPException(409, "PAYMENT_STATE_REGRESSION")
-            if order.status == "paid" and status in {
-                "created", "processing", "expired", "canceled"
-            }:
-                raise HTTPException(409, "PAYMENT_STATE_REGRESSION")
+            # Correctly signed older events may be redelivered after a more
+            # recent paid/refunded/chargeback event. Acknowledge them to stop
+            # endless gateway retries, but NEVER update the paid proof, issue
+            # access, or revert the stored terminal status.
+            stale = (
+                order.status in {"refunded", "chargeback"}
+                and status not in {"refunded", "chargeback"}
+            ) or (
+                order.status == "paid"
+                and status in {"created", "processing", "expired", "canceled"}
+            )
+            if stale:
+                return {
+                    "ok": True, "test_only": True, "status": order.status,
+                    "stale_event_ignored": True, "vpn_delivered": False,
+                }
             previous_webhook = order.webhook_received
             order.webhook_received = True
             try:
