@@ -562,8 +562,6 @@ def test_real_signed_test_webhook_calls_auto_h1_only_after_paid(sandbox, monkeyp
     client, fake = sandbox
     issued = []
     refunds = []
-    monkeypatch.setattr(auto, "auto_enabled", lambda: True)
-
     async def fake_issue(order_id):
         issued.append(order_id)
         return {
@@ -573,7 +571,10 @@ def test_real_signed_test_webhook_calls_auto_h1_only_after_paid(sandbox, monkeyp
 
     monkeypatch.setattr(auto, "auto_issue_paid_sandbox", fake_issue)
     monkeypatch.setattr(auto, "mark_refunded", lambda oid: refunds.append(oid))
+    # This unit test mocks the downstream H1 write; allow legacy setup
+    # to create an anonymous invoice before enabling the mocked callback.
     order, payment_id = create_test_order(client, fake)
+    monkeypatch.setattr(auto, "auto_enabled", lambda: True)
     paid = event(order, payment_id, "payment.paid", "paid")
     invalid = signed_callback(client, paid, valid_signature=False)
     assert invalid.status_code == 403
