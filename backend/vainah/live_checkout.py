@@ -15,9 +15,11 @@ from fastapi import HTTPException, Request
 
 from .email_auth import current_email
 from .email_auth import ready as email_login_ready
+from .email_delivery import email_service_ready
 from .h1_panel import H1PanelError, panel_settings, panel_tls_verify
 from .live_fulfillment import FulfillmentError, fulfill_paid_order_once
 from .live_ledger import LiveLedgerError, PostgresLiveOrderLedger
+from .live_receipt import LiveReceiptError, send_paid_access_receipt_once
 from .production_contracts import (
     LiveContractError,
     create_hosted_live_invoice,
@@ -53,7 +55,7 @@ def live_ready() -> bool:
         return False
     if not email_login_ready():
         return False
-    if not live_account_ready():
+    if not live_account_ready() or not email_service_ready():
         return False
     if not os.environ.get("DATABASE_URL", "").startswith(
         ("postgresql://", "postgres://")
@@ -234,6 +236,16 @@ async def handle_live_paid_webhook(
             "ok": True, "status": "paid",
             "vpn_delivered": False, "delivery_state": "manual_review",
         }
+    if result["vpn_delivered"]:
+        try:
+            await send_paid_access_receipt_once(ledger=ledger, order_id=order_id)
+        except LiveReceiptError:
+            # Entitlement is already persisted. Retrying this callback only
+            # retries the idempotent email claim, never another H1 write.
+            raise HTTPException(
+                503, "LIVE_ACCESS_EMAIL_RETRY",
+                headers={"Retry-After": "125"},
+            ) from None
     return {
         "ok": True, "status": "paid",
         "vpn_delivered": result["vpn_delivered"],
