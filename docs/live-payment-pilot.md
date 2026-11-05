@@ -27,6 +27,11 @@ enabled. No test/sandbox payment counts as live evidence.
   closed **only** if its HMAC signature is valid and the order belongs to the
   persistently recorded pilot. No data from the callback may designate a
   different order as a pilot.
+- After a pilot invoice exists, disabling `VAINAH_LIVE_PILOT_ENABLED`
+  stops **new checkout** but **does not stop signed callbacks** for that
+  immutable order. The existing callback still needs merchant, H1 contract,
+  and fulfillment attestations plus working infrastructure. Revoking those
+  approvals stops processing and may require manual payment reconciliation.
 - H1 writes still use single-claim safe fulfillment. No ambiguous H1 write is
   retried automatically. The receipt is sent only after the paid H1 link was
   durably recorded and is safe to retry without creating another VPN.
@@ -65,8 +70,10 @@ pilot transaction has been independently reviewed.
 ## Operating procedure
 
 1. Read the operator-only `/api/shop/operator/production-readiness` report
-   with the existing operator token. Check `pilot_checkout_configured`
-   without exposing secrets.
+   with the existing operator token. Check `pilot_checkout_configured`,
+   `pilot_callback_processing_configured`, and the boolean-only
+   `pilot_missing_requirements`. These are configuration checks, not
+   independent merchant or H1Cloud write evidence. No secrets are returned.
 2. Authorized operator signs into the allowlisted email account and initiates
    *only one* pilot using the operator-only route and BOTH tokens. No checkout
    URL is ever presented to ordinary shoppers while public sales are disabled.

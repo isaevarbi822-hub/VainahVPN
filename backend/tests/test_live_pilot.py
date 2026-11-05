@@ -45,6 +45,7 @@ def pilot_config(monkeypatch):
     monkeypatch.setattr(live_checkout, "_live_infrastructure_ready", lambda: True)
     monkeypatch.setattr(live_checkout, "current_email", lambda _req: EMAIL)
     assert live_checkout.pilot_ready() is True
+    assert live_checkout.pilot_processing_ready() is True
     assert live_checkout.live_ready() is False
 
 
@@ -92,6 +93,39 @@ def test_public_checkout_never_opens_from_enabled_private_pilot(pilot_config):
         )
         assert r.status_code == 503
         assert r.json()["detail"] == "LIVE_CHECKOUT_NOT_READY"
+
+
+def test_operator_pilot_readiness_lists_only_missing_boolean_flags(
+    pilot_config, monkeypatch,
+):
+    with TestClient(app, base_url=ORIGIN) as client:
+        report = client.get(
+            "/api/shop/operator/production-readiness",
+            headers={"X-Sandbox-Token": SANDBOX_OPERATOR},
+        )
+        assert report.status_code == 200, report.text
+        status = report.json()
+        assert status["pilot_checkout_configured"] is True
+        assert status["pilot_callback_processing_configured"] is True
+        # Unit fixture stubs the infrastructure check; no live DATABASE_URL
+        # exists, so the separate account-readiness check is correctly false.
+        assert status["pilot_missing_requirements"] == [
+            "live_customer_account_enabled"
+        ]
+        assert all(type(value) is bool for value in
+                   status["pilot_readiness_checks"].values())
+        assert EMAIL not in report.text
+        assert PILOT_OPERATOR not in report.text
+        assert SANDBOX_OPERATOR not in report.text
+
+        monkeypatch.delenv("VAINAH_LIVE_PILOT_ENABLED")
+        disabled = client.get(
+            "/api/shop/operator/production-readiness",
+            headers={"X-Sandbox-Token": SANDBOX_OPERATOR},
+        ).json()
+        assert disabled["pilot_checkout_configured"] is False
+        assert disabled["pilot_callback_processing_configured"] is True
+        assert "pilot_creation_enabled" in disabled["pilot_missing_requirements"]
 
 
 def test_private_pilot_checkout_is_explicit_and_owner_bound(pilot_config, monkeypatch):
@@ -211,11 +245,25 @@ def test_pilot_payment_webhook_is_signed_and_restricted(pilot_config, monkeypatc
             content=body, headers=headers)
         assert bad.status_code == 403
         assert events == []
+        # The invoice has already been issued. Closing the pilot checkout,
+        # revoking its operator token, and clearing allowlisted email must
+        # not strand an actual RollyPay payment or its signed callback.
+        monkeypatch.delenv("VAINAH_LIVE_PILOT_ENABLED")
+        monkeypatch.delenv("VAINAH_LIVE_PILOT_OPERATOR_TOKEN")
+        monkeypatch.delenv("VAINAH_LIVE_PILOT_EMAIL")
+        assert live_checkout.pilot_ready() is False
+        assert live_checkout.pilot_processing_ready() is True
         body, headers = signed(order_id)
         paid = client.post("/api/shop/webhooks/rollypay",
             content=body, headers=headers)
         assert paid.status_code == 200, paid.text
         assert paid.json()["vpn_delivered"] is True
+        # Approval revocation is an independent emergency processing stop.
+        monkeypatch.delenv("VAINAH_H1_WRITE_CONTRACT_APPROVED")
+        blocked = client.post("/api/shop/webhooks/rollypay",
+            content=body, headers=headers)
+        assert blocked.status_code == 503
+        assert blocked.json()["detail"] == "PRODUCTION_PAYMENTS_DISABLED"
     assert events == ["paid", "delivered", "receipt"]
 
 
@@ -304,5 +352,10 @@ def test_read_only_operator_status_needs_both_tokens(pilot_config, monkeypatch):
         assert r.json()["pilot_checkout_ready"] is False
         assert r.json()["pilot_processing_enabled"] is True
         assert r.json()["access_email_sent"] is True
+        monkeypatch.delenv("VAINAH_LIVE_PILOT_ENABLED")
+        after_closed = client.get(path, headers=pilot_headers())
+        assert after_closed.status_code == 200
+        assert after_closed.json()["pilot_processing_enabled"] is True
+        assert after_closed.json()["pilot_checkout_ready"] is False
         assert PILOT_OPERATOR not in r.text
         assert EMAIL not in r.text

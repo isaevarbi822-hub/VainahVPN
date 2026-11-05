@@ -92,25 +92,60 @@ def _pilot_token_configured() -> bool:
     )
 
 
-def pilot_ready() -> bool:
-    """One authorized, non-public real transaction before live E2E approval.
+def pilot_processing_ready() -> bool:
+    """Allow signed callbacks for a *persisted* pilot after checkout is closed.
 
-    The pilot is restricted by a separate operator secret, one email account,
-    strict server approvals, and a lifetime one-order database uniqueness gate.
+    Unlike pilot_ready(), this must not depend on the checkout opt-in, the
+    operator tokens, or the allowlisted email: revoking invoice creation
+    cannot abandon a payment that was already made. It still requires
+    the merchant, H1 write, and fulfillment attestations and infrastructure.
+    Only the database's immutable is_pilot order marker grants this path.
     """
     required = {
-        "VAINAH_LIVE_PILOT_ENABLED": "enabled",
         "VAINAH_MERCHANT_APPROVED": "approved",
         "VAINAH_H1_WRITE_CONTRACT_APPROVED": "approved",
         "VAINAH_LIVE_FULFILLMENT_APPROVED": "approved",
     }
-    email = os.environ.get("VAINAH_LIVE_PILOT_EMAIL", "").strip().lower()
     return (
         all(os.environ.get(k) == v for k, v in required.items())
-        and _pilot_token_configured()
-        and 5 <= len(email) <= 254 and email.count("@") == 1
         and _live_infrastructure_ready()
     )
+
+
+def pilot_ready() -> bool:
+    """A one-order live checkout, private and disabled unless opted in."""
+    email = os.environ.get("VAINAH_LIVE_PILOT_EMAIL", "").strip().lower()
+    return (
+        pilot_processing_ready()
+        and os.environ.get("VAINAH_LIVE_PILOT_ENABLED") == "enabled"
+        and _pilot_token_configured()
+        and 5 <= len(email) <= 254 and email.count("@") == 1
+    )
+
+
+def pilot_readiness_checks() -> dict[str, bool]:
+    """Operator-only readiness, boolean-only; never return credentials."""
+    email = os.environ.get("VAINAH_LIVE_PILOT_EMAIL", "").strip().lower()
+    return {
+        "merchant_approved": (
+            os.environ.get("VAINAH_MERCHANT_APPROVED") == "approved"
+        ),
+        "h1_write_contract_approved": (
+            os.environ.get("VAINAH_H1_WRITE_CONTRACT_APPROVED") == "approved"
+        ),
+        "live_fulfillment_approved": (
+            os.environ.get("VAINAH_LIVE_FULFILLMENT_APPROVED") == "approved"
+        ),
+        "live_customer_account_enabled": live_account_ready(),
+        "infrastructure_configured": _live_infrastructure_ready(),
+        "pilot_creation_enabled": (
+            os.environ.get("VAINAH_LIVE_PILOT_ENABLED") == "enabled"
+        ),
+        "pilot_operator_token_configured": _pilot_token_configured(),
+        "pilot_email_allowlisted": (
+            5 <= len(email) <= 254 and email.count("@") == 1
+        ),
+    }
 
 
 def require_pilot_operator(pilot_token: str | None) -> None:
@@ -222,8 +257,8 @@ async def handle_live_paid_webhook(
     tokens, URLs or raw provider responses into webhook output.
     """
     public_ready = live_ready()
-    pilot_mode_ready = pilot_ready() if not public_ready else False
-    if not public_ready and not pilot_mode_ready:
+    pilot_callback_ready = pilot_processing_ready() if not public_ready else False
+    if not public_ready and not pilot_callback_ready:
         raise HTTPException(503, "PRODUCTION_PAYMENTS_DISABLED")
     if len(raw) > 32768:
         raise HTTPException(413, "BODY_TOO_LARGE")
