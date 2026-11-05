@@ -1145,9 +1145,15 @@ async def operator_production_readiness(
     if report["checks"]["h1cloud_tls_reachable_and_authorized"]:
         report["message"] = (
             "H1Cloud accepted a read-only request over verified HTTPS. "
-            "Real checkout and automatic VPN delivery are still disabled until "
-            "the write contract, verified fulfillment and merchant readiness "
-            "have been independently approved."
+            + (
+                "The runtime checkout gate is configured as enabled. "
+                "Operator approval flags are attestations, not independent "
+                "evidence that a real payment was processed."
+                if report["real_checkout_enabled"] else
+                "Real checkout remains disabled. Inspect the missing operator "
+                "approval flags, and do not count a sandbox order as a real "
+                "end-to-end payment."
+            )
         )
     return report
 
