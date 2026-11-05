@@ -29,7 +29,7 @@
     if(message === "PROVIDER_PAYMENT_ID_MISSING") return "Ответ RollyPay не содержит payment_id. Операция не подтверждена.";
     if(message === "PROVIDER_PAYMENT_ID_FORMAT") return "RollyPay вернул payment_id неожиданного формата. Проверка остановлена.";
     if(message === "PROVIDER_PAYMENT_STATUS_INVALID") return "RollyPay вернул неожиданный статус нового платежа. Проверка остановлена.";
-    if(message === "PROVIDER_SANDBOX_NOT_CONFIRMED") return "RollyPay не подтвердил тестовый режим. Создание счёта остановлено без перехода к оплате.";
+    if(message === "PROVIDER_SANDBOX_NOT_CONFIRMED") return "RollyPay вернул противоречащие тестовому заказу признаки платежа. Обработка остановлена, чтобы не принять боевой платёж за тестовый.";
     if(message === "PROVIDER_TIMEOUT") return "Истекло время ожидания ответа RollyPay.";
     if(message === "PROVIDER_NETWORK") return "Ошибка соединения с API RollyPay.";
     if(message === "PROVIDER_TERMINAL_ID_INVALID") return "ROLLYPAY_TERMINAL_ID в Render имеет неверный формат UUID. Проверь ID кассы.";
