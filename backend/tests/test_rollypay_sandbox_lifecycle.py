@@ -633,3 +633,43 @@ def test_postgres_order_save_preserves_other_workers_signed_proof(monkeypatch):
     assert "OR EXCLUDED.webhook_received" in statement
     assert "WHEN vainah_sandbox_orders.status = 'paid'" in statement
     assert "'refunded', 'chargeback'" in statement
+
+
+def test_stale_signed_callbacks_are_acknowledged_without_payment_regression(sandbox):
+    client, fake = sandbox
+    order, payment_id = create_test_order(client, fake)
+    paid = event(order, payment_id, "payment.paid", "paid")
+    assert signed_callback(client, paid).status_code == 200
+    before = client.get(
+        f'/api/shop/sandbox/{order["order_id"]}/activation-preview',
+        headers=HEADERS,
+    ).json()
+    assert before["payment_status"] == "paid"
+
+    # Correctly signed but late 'created' may arrive after 'paid'.
+    stale = signed_callback(
+        client, event(order, payment_id, "payment.created", "created"),
+    )
+    assert stale.status_code == 200
+    assert stale.json()["stale_event_ignored"] is True
+    assert stale.json()["status"] == "paid"
+    assert stale.json()["vpn_delivered"] is False
+    now = client.get(
+        f'/api/shop/sandbox/{order["order_id"]}/activation-preview',
+        headers=HEADERS,
+    ).json()
+    assert now["payment_status"] == "paid"
+    assert now["fulfillment"]["signed_webhook_received"] is True
+
+    refund = signed_callback(
+        client, event(order, payment_id, "payment.refunded", "refunded"),
+    )
+    assert refund.status_code == 200
+    late_paid = signed_callback(client, paid)
+    assert late_paid.status_code == 200
+    assert late_paid.json()["status"] == "refunded"
+    assert late_paid.json()["stale_event_ignored"] is True
+    assert client.get(
+        f'/api/shop/sandbox/{order["order_id"]}/activation-preview',
+        headers=HEADERS,
+    ).json()["fulfillment"]["status"] == "blocked"
