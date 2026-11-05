@@ -85,26 +85,41 @@
     return body;
   }
   function describeDiscount(state) {
-    if (state.discount_order_exists === true) {
-      return "Разовый заказ на 10 ₽ уже создан. Новые счета запрещены.\n" +
-        "Оплата: " + (state.discount_payment_state || "unknown") +
-        "\nВыдача VPN: " + (state.discount_delivery_state || "unknown") +
-        (state.discount_access_email_sent ? "\nПисьмо с ключом отправлено." : "");
-    }
+    const count = Number.isInteger(state.discount_order_count)
+      ? state.discount_order_count : (state.discount_order_exists ? 1 : 0);
+    const remaining = Number.isInteger(state.discount_remaining)
+      ? state.discount_remaining : Math.max(0, 2 - count);
+    const progress = "Тестовые счета 10 ₽: " + count +
+      " из 2. Осталось: " + remaining + ".\n";
     if (state.discount_checkout_ready === true) {
-      return "RollyPay подтвердил закрытие старого счёта.\n" +
-        "Разовый счёт на 10 ₽ за 1 день можно создать после подтверждения.";
+      return progress + (count === 0
+        ? "RollyPay подтвердил закрытие счёта на 99 ₽.\n"
+        : "Предыдущий тестовый заказ оплачен и выдан либо истёк/отменён.\n") +
+        "Можно создать ещё один счёт на 10 ₽ за 1 день.";
     }
     const reasons = {
-      DISCOUNT_PILOT_DISABLED: "Разовый пилот на сервере отключён.",
-      ORIGINAL_PILOT_UNVERIFIED: "Исходный платёж ещё не подтверждён как отменённый.",
-      ORIGINAL_PILOT_STILL_ACTIVE: "Старый счёт на 99 ₽ ещё активен. Не создавай новый.",
-      ORIGINAL_PROVIDER_UNAVAILABLE: "Не удалось получить проверенный статус от RollyPay.",
-      ORIGINAL_PROVIDER_MISMATCH: "RollyPay вернул несовпадающие реквизиты платежа.",
-      DISCOUNT_PILOT_ALREADY_RESERVED: "Пилотный счёт на 10 ₽ уже создан.",
-      LIVE_PILOT_STATUS_UNAVAILABLE: "Временная ошибка проверки заказа."
+      DISCOUNT_PILOT_DISABLED: "Тестовый пилот пока отключён.",
+      ORIGINAL_PILOT_UNVERIFIED: "Первый счёт на 99 ₽ ещё не подтверждён как закрытый.",
+      ORIGINAL_PILOT_STILL_ACTIVE: "Счёт на 99 ₽ пока активен у RollyPay.",
+      ORIGINAL_PROVIDER_UNAVAILABLE: "Не удалось проверить первый счёт у RollyPay.",
+      ORIGINAL_PROVIDER_MISMATCH: "Данные первого счёта не совпали с RollyPay.",
+      DISCOUNT_PILOT_LIMIT_REACHED: "Лимит двух тестовых счетов исчерпан.",
+      DISCOUNT_PILOT_UNVERIFIED: "Предыдущий тестовый заказ ещё не закрыт.",
+      DISCOUNT_PILOT_STILL_ACTIVE: "Предыдущий счёт на 10 ₽ ещё ожидает оплаты или выдачи.",
+      DISCOUNT_PROVIDER_UNAVAILABLE: "Не удалось получить статус тестового счёта от RollyPay.",
+      DISCOUNT_PROVIDER_MISMATCH: "Данные предыдущего тестового счёта не совпали.",
+      LIVE_PILOT_STATUS_UNAVAILABLE: "Временная ошибка проверки заказов."
     };
-    return reasons[state.reason] || "Новый тестовый счёт пока недоступен.";
+    let message = progress + (reasons[state.reason] ||
+      "Следующий счёт пока создавать нельзя.");
+    if (count > 0) {
+      message += "\nПоследняя оплата: " + (state.discount_payment_state || "unknown") +
+        "\nВыдача VPN: " + (state.discount_delivery_state || "unknown");
+      if (state.discount_access_email_sent) {
+        message += "\nПисьмо с доступом отправлено.";
+      }
+    }
+    return message;
   }
   function describeStatus(state) {
     const orderExists = state.pilot_order_exists === true;
@@ -112,11 +127,11 @@
       "Проверка выполнена.",
       "Обработка подписанного платежа: " +
         (state.pilot_processing_enabled === true ? "доступна" : "заблокирована"),
-      "Создание первого счёта: " +
+      "Создание исходного счёта на 99 ₽: " +
         (state.pilot_checkout_ready === true ? "доступно" : "недоступно")
     ];
     if (orderExists) {
-      messages.push("Пилотный заказ уже существует. Не создавай второй.");
+      messages.push("Первый счёт на 99 ₽ уже существует. Тестовые счета на 10 ₽ проверяются ниже.");
       if (state.payment_state) messages.push("Состояние оплаты: " + state.payment_state);
       if (state.delivery_state) messages.push("Выдача VPN: " + state.delivery_state);
       if (state.access_email_sent === true) messages.push("Письмо с доступом отправлено.");
@@ -144,8 +159,7 @@
       }
       try {
         const discount = await fetchDiscountStatus(headers);
-        discountReady = discount.discount_checkout_ready === true &&
-          discount.discount_order_exists !== true;
+        discountReady = discount.discount_checkout_ready === true;
         setMessage(discountStatus, describeDiscount(discount));
       } catch (error) {
         discountReady = false;
@@ -226,7 +240,7 @@
   async function createDiscountInvoice() {
     if (!discountReady || !accountReady || attempted || busy) return;
     if (!window.confirm(
-      "Создать ОДИН НАСТОЯЩИЙ счёт на 10 ₽ за VPN на 1 день? " +
+      "Создать следующий НАСТОЯЩИЙ тестовый счёт на 10 ₽ за VPN на 1 день? " +
       "Если RollyPay отклонит сумму или запрос прервётся, не повторяй его."
     )) return;
     attempted = true;
@@ -234,12 +248,11 @@
     checkPassed = false;
     busy = true;
     refreshButtons();
-    setMessage(discountStatus, "Проверяем окончательное закрытие старого счёта.");
+    setMessage(discountStatus, "Проверяем окончательное закрытие предыдущего счёта.");
     try {
       const headers = credentialHeaders();
       const state = await fetchDiscountStatus(headers);
-      if (state.discount_checkout_ready !== true ||
-          state.discount_order_exists === true) {
+      if (state.discount_checkout_ready !== true) {
         setMessage(discountStatus, describeDiscount(state));
         return;
       }
