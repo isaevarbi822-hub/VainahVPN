@@ -995,7 +995,17 @@ def test_auto_receipt_waits_for_verified_issuance_and_then_sends_once(monkeypatc
     )
     monkeypatch.setattr(sandbox_auto_h1, "auto_enabled", lambda: True)
     delivery = {"status": "failed_before_write", "vpn_delivered": False}
-    monkeypatch.setattr(sandbox_auto_h1, "read_delivery", lambda oid: delivery)
+
+    def read_delivery(oid, *, owner_ref=None, with_access=False):
+        assert oid == order_id
+        if with_access:
+            assert owner_ref == "v1_" + "f" * 64
+        result = delivery.copy()
+        if with_access and result["vpn_delivered"]:
+            result["subscription_url"] = "https://sub.example.com/test-paid-owner-link"
+        return result
+
+    monkeypatch.setattr(sandbox_auto_h1, "read_delivery", read_delivery)
     sent = []
 
     async def send(recipient, **kwargs):
@@ -1011,6 +1021,7 @@ def test_auto_receipt_waits_for_verified_issuance_and_then_sends_once(monkeypatc
     assert asyncio.run(service.send_auto_test_receipt(order_id))["already_sent"] is True
     assert len(sent) == 1
     assert sent[0][1]["vpn_issued"] is True
+    assert sent[0][1]["subscription_url"] == "https://sub.example.com/test-paid-owner-link"
 
 
 def test_sqlite_independent_workers_refresh_new_orders_and_preserve_refund(tmp_path):

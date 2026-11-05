@@ -485,6 +485,7 @@ def test_signed_payment_real_postgres_otp_to_one_h1_delivery(
         assert receipt["amount_rub"] == "99.00"
         assert receipt["duration_days"] == 30
         assert receipt["devices"] == 3
+        assert receipt["subscription_url"] == "https://sub.example.com/secret-sandbox-only"
         access_path = f"/api/shop/my-test-orders/{order_id}/vpn-access"
         response = client.get(access_path)
         assert response.status_code == 200, response.text

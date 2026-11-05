@@ -274,14 +274,46 @@ def test_sandbox_issued_receipt_says_vpn_activated(monkeypatch):
         duration_days=30,
         devices=3,
         vpn_issued=True,
+        subscription_url="https://sub.example.com/private-test-link?x=1&y=2",
     ))
     assert len(captured) == 1
     body = captured[0][2]
     assert "ДЕНЬГИ НЕ СПИСАНЫ" in body
     assert "ТЕСТОВЫЙ VPN АКТИВИРОВАН" in body
     assert "VPN НЕ АКТИВИРОВАН" not in body
-    assert "https://sub" not in body
+    assert 'href="https://sub.example.com/private-test-link?x=1&amp;y=2"' in body
+    assert ">https://sub.example.com/private-test-link?x=1&amp;y=2</a>" in body
 
+
+@pytest.mark.parametrize("vpn_issued, url", [
+    (True, None),
+    (True, "javascript:alert(1)"),
+    (True, "https://sub.example.com/private#fragment"),
+    (True, "https://sub.example.com/private\nInjected"),
+    (False, "https://sub.example.com/not-yet-issued"),
+])
+def test_sandbox_receipt_never_sends_unverified_or_unissued_link(
+    monkeypatch, vpn_issued, url,
+):
+    import asyncio
+
+    calls = []
+
+    async def fake_send(*args, **kwargs):
+        calls.append((args, kwargs))
+
+    monkeypatch.setattr(email_delivery, "send_email", fake_send)
+    with pytest.raises(ValueError, match="TEST_SUBSCRIPTION"):
+        asyncio.run(email_delivery.send_sandbox_receipt(
+            "buyer@example.com",
+            order_id="vainah_test_" + "b" * 32,
+            plan_title="1 месяц",
+            amount_rub="99.00",
+            duration_days=30, devices=3,
+            vpn_issued=vpn_issued,
+            subscription_url=url,
+        ))
+    assert not calls
 
 
 def test_callback_retries_receipt_held_by_dead_worker_until_lease_expires(setup):
