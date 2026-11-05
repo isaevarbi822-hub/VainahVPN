@@ -129,9 +129,12 @@ class PostgresLiveOrderLedger:
             ALTER TABLE vainah_live_orders
             ADD COLUMN IF NOT EXISTS is_discount_pilot BOOLEAN NOT NULL DEFAULT FALSE
         """)
+        # The former one-discount constraint is upgraded to two lifetime slots.
+        # The schema advisory xact lock serializes checkout quota checks.
+        cur.execute("DROP INDEX IF EXISTS vainah_live_one_discount_pilot_uq")
         cur.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS vainah_live_one_discount_pilot_uq
-            ON vainah_live_orders (is_discount_pilot)
+            CREATE INDEX IF NOT EXISTS vainah_live_discount_pilot_idx
+            ON vainah_live_orders (created_at DESC)
             WHERE is_discount_pilot = TRUE
         """)
         cur.execute("""
@@ -243,6 +246,21 @@ class PostgresLiveOrderLedger:
                 self._database_url, connect_timeout=4
             ) as conn, conn.cursor() as cur:
                 self._schema(cur)
+                if discounted_pilot:
+                    # Advisory xact lock acquired in _schema is held to commit.
+                    # A retry of an existing nonce is handled below as before.
+                    cur.execute("""
+                        SELECT count(*) FROM vainah_live_orders
+                        WHERE is_discount_pilot = TRUE
+                    """)
+                    if cur.fetchone()[0] >= 2:
+                        cur.execute("""
+                            SELECT 1 FROM vainah_live_orders
+                            WHERE checkout_nonce_hash = %s
+                              AND owner_ref = %s AND is_discount_pilot = TRUE
+                        """, (nonce_hash, owner_ref))
+                        if cur.fetchone() is None:
+                            raise LiveLedgerError("LIVE_DISCOUNT_PILOT_LIMIT_REACHED")
                 cur.execute("""
                     INSERT INTO vainah_live_orders (
                         order_id, owner_ref, plan_id, amount_rub,
@@ -263,8 +281,10 @@ class PostgresLiveOrderLedger:
                     WHERE checkout_nonce_hash = %s
                 """, (nonce_hash,))
                 existing = cur.fetchone()
-                if not existing and (pilot or discounted_pilot):
+                if not existing and pilot:
                     raise LiveLedgerError("LIVE_PILOT_ALREADY_RESERVED")
+                if not existing and discounted_pilot:
+                    raise LiveLedgerError("LIVE_DISCOUNT_PILOT_LIMIT_REACHED")
                 if (not existing or existing[1] != plan_id
                         or existing[2] != owner_ref or existing[5] is not pilot
                         or existing[6] is not discounted_pilot):
@@ -352,7 +372,7 @@ class PostgresLiveOrderLedger:
         }
 
     def discount_pilot_state(self) -> dict:
-        """Sanitized private 10-RUB pilot state, no pay URL or identity."""
+        """Sanitized two-discount dashboard, no ID, payment link, or PII."""
         try:
             with psycopg.connect(
                 self._database_url, connect_timeout=4,
@@ -362,18 +382,52 @@ class PostgresLiveOrderLedger:
                     SELECT payment_state, delivery_state,
                            access_email_sent_at IS NOT NULL
                     FROM vainah_live_orders WHERE is_discount_pilot = TRUE
-                    LIMIT 1
+                    ORDER BY created_at DESC, order_id DESC
+                    LIMIT 2
                 """)
+                rows = cur.fetchall()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        count = len(rows)
+        state = {
+            "discount_order_exists": count > 0,
+            "discount_order_count": count,
+            "discount_remaining": max(0, 2 - count),
+            "total_pilot_invoice_limit": 3,
+        }
+        if rows:
+            state.update({
+                "discount_payment_state": rows[0][0],
+                "discount_delivery_state": rows[0][1],
+                "discount_access_email_sent": bool(rows[0][2]),
+            })
+        return state
+
+    def latest_discount_payment_for_verification(self, owner_ref: str) -> dict | None:
+        """Restricted provider lookup for the latest discount order only."""
+        if not isinstance(owner_ref, str) or not owner_ref.startswith("v1_"):
+            raise LiveLedgerError("LIVE_OWNER_INVALID")
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4,
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT order_id, payment_id, plan_id, amount_rub,
+                           payment_state, delivery_state
+                    FROM vainah_live_orders
+                    WHERE is_discount_pilot = TRUE AND owner_ref = %s
+                    ORDER BY created_at DESC, order_id DESC LIMIT 1
+                """, (owner_ref,))
                 row = cur.fetchone()
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
-        if row is None:
-            return {"discount_order_exists": False}
+        if not row:
+            return None
         return {
-            "discount_order_exists": True,
-            "discount_payment_state": row[0],
-            "discount_delivery_state": row[1],
-            "discount_access_email_sent": bool(row[2]),
+            "order_id": row[0], "payment_id": row[1],
+            "plan_id": row[2], "amount_rub": str(row[3]),
+            "payment_state": row[4], "delivery_state": row[5],
         }
 
     def original_pilot_payment_for_verification(self, owner_ref: str) -> dict | None:
