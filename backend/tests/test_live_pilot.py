@@ -301,6 +301,8 @@ def test_read_only_operator_status_needs_both_tokens(pilot_config, monkeypatch):
         r = client.get(path, headers=pilot_headers())
         assert r.status_code == 200, r.text
         assert r.json()["pilot_order_exists"] is True
+        assert r.json()["pilot_checkout_ready"] is False
+        assert r.json()["pilot_processing_enabled"] is True
         assert r.json()["access_email_sent"] is True
         assert PILOT_OPERATOR not in r.text
         assert EMAIL not in r.text
