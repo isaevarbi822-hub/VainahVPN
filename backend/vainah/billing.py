@@ -301,6 +301,44 @@ class BillingSandbox:
                     self.orders[order.order_id] = order
             self._ledger_loaded = True
 
+    def _sync_one(self, order_id: str) -> None:
+        """Refresh cross-worker order state from PostgreSQL, never from browser.
+
+        In-memory orders may be stale if another Render worker recorded a
+        signed callback or created this payment. Retain local hosted URL only
+        on the same process; never persist/return it via the shared ledger.
+        """
+        if not isinstance(self.ledger, PostgresSandboxLedger):
+            return
+        with self.lock:
+            try:
+                record = self.ledger.load_one(order_id)
+            except LedgerUnavailable:
+                raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
+            if record is None:
+                return
+            if (record.get("order_id") != order_id
+                    or record.get("mode") != self.mode
+                    or record.get("status") not in STATUS
+                    or get_plan(record.get("plan_id")) is None
+                    or not isinstance(record.get("payment_id"), str)
+                    or not PAYMENT_ID_RE.fullmatch(record["payment_id"])):
+                raise HTTPException(503, "SANDBOX_LEDGER_INVALID")
+            prior = self.orders.get(order_id)
+            self.orders[order_id] = TestOrder(
+                order_id=record["order_id"],
+                plan_id=record["plan_id"],
+                amount=record["amount"],
+                payment_id=record["payment_id"],
+                status=record["status"],
+                mode=record["mode"],
+                pay_url=prior.pay_url if prior is not None else None,
+                webhook_received=bool(record["webhook_received"]),
+                owner_ref=record["owner_ref"],
+                receipt_emailed=bool(record["receipt_emailed"]),
+                receipt_recipient=record["receipt_recipient"],
+            )
+
     def _save(self, order: TestOrder) -> None:
         if self.ledger is None:
             return
@@ -499,6 +537,7 @@ class BillingSandbox:
         if existing["mode"] != "provider":
             return existing
         result = await self.provider_read(self.orders[order_id].payment_id)
+        self._sync_one(order_id)
         # GET /api/v1/payments/{id} may omit the sandbox markers even
         # though POST created this exact test payment with test=true and
         # environment=sandbox. We trust only that validated, locally
@@ -538,6 +577,7 @@ class BillingSandbox:
         if not ORDER_RE.fullmatch(order_id):
             raise HTTPException(404, "TEST_ORDER_NOT_FOUND")
         self._ensure_loaded()
+        self._sync_one(order_id)
         with self.lock:
             order = self.orders.get(order_id)
             if not order:
@@ -569,6 +609,7 @@ class BillingSandbox:
         if not isinstance(order_id, str) or not ORDER_RE.fullmatch(order_id):
             raise HTTPException(400, "UNKNOWN_ORDER")
         self._ensure_loaded()
+        self._sync_one(order_id)
         with self.lock:
             order = self.orders.get(order_id)
             if not order or order.mode != "provider":
@@ -633,6 +674,7 @@ class BillingSandbox:
         Resend receives the same idempotency key on safe retries.
         """
         self._ensure_loaded()
+        self._sync_one(order_id)
         async with self.receipt_lock:
             with self.lock:
                 order = self.orders.get(order_id)
