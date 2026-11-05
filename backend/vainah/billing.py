@@ -15,6 +15,7 @@ import re
 import secrets
 import time
 from dataclasses import dataclass
+from decimal import Decimal
 from threading import RLock
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
@@ -136,6 +137,33 @@ class ProviderError(Exception):
     def __init__(self, code: str):
         super().__init__(code)
         self.code = code
+
+
+def _matches_exact_rub_amount(value: object, expected: str) -> bool:
+    """Compare RUB by value, not JSON formatting, without float arithmetic.
+
+    RollyPay may serialize 99 RUB as 99, 99.0 or "99.00".
+    Reject booleans, negatives, exponential values, fractional kopeks
+    and unbounded inputs; NEVER accept a different monetary amount.
+    """
+    if type(value) not in (str, int, float):
+        return False
+    text = str(value)
+    if not re.fullmatch(r"[0-9]{1,10}(?:\\.[0-9]{1,2})?", text):
+        return False
+    return Decimal(text) == Decimal(expected)
+
+
+def _matches_rub_currency(data: dict) -> bool:
+    """Accept documented payment_currency or webhook-style currency.
+
+    If both aliases occur, both must agree. Never silently default RUB.
+    """
+    specified = [
+        data[name] for name in ("payment_currency", "currency")
+        if name in data
+    ]
+    return bool(specified) and all(value == "RUB" for value in specified)
 
 
 class BillingSandbox:
@@ -397,11 +425,14 @@ class BillingSandbox:
                 or ("environment" in result
                     and result["environment"] != "sandbox")):
             raise ProviderError("PROVIDER_SANDBOX_NOT_CONFIRMED")
-        if (result.get("order_id") != order_id
-                or result.get("payment_id") != self.orders[order_id].payment_id
-                or str(result.get("amount")) != expected["amount_rub"]
-                or result.get("payment_currency") != "RUB"):
-            raise ProviderError("PROVIDER_ORDER_OR_AMOUNT_MISMATCH")
+        if result.get("order_id") != order_id:
+            raise ProviderError("PROVIDER_ORDER_MISMATCH")
+        if result.get("payment_id") != self.orders[order_id].payment_id:
+            raise ProviderError("PROVIDER_PAYMENT_MISMATCH")
+        if not _matches_exact_rub_amount(result.get("amount"), expected["amount_rub"]):
+            raise ProviderError("PROVIDER_AMOUNT_MISMATCH")
+        if not _matches_rub_currency(result):
+            raise ProviderError("PROVIDER_CURRENCY_MISMATCH")
         status = result.get("status")
         if status not in STATUS:
             raise ProviderError("PROVIDER_STATUS_INVALID")
