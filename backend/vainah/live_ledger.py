@@ -18,7 +18,7 @@ from uuid import uuid4
 import psycopg
 from cryptography.fernet import Fernet, InvalidToken
 
-from .billing import PAYMENT_ID_RE, get_plan, price_rub, verify_signature
+from .billing import CATALOG, PAYMENT_ID_RE, get_plan, price_rub, verify_signature
 from .production_contracts import (
     LIVE_ORDER_RE,
     LiveContractError,
@@ -294,6 +294,57 @@ class PostgresLiveOrderLedger:
                 raise LiveLedgerError("LIVE_CHECKOUT_RECONCILIATION_REQUIRED")
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
+    def checkout_intent_status(
+        self, *, owner_ref: str, plan_id: str, idempotency_key: str,
+    ) -> dict:
+        """Inspect the owner-bound idempotency key without touching RollyPay.
+
+        Only a fully paid and delivered order is ready to rotate its key.
+        No provider URL, IDs or credentials are returned by this method.
+        """
+        from uuid import UUID
+
+        try:
+            normalized = str(UUID(idempotency_key))
+        except (ValueError, TypeError, AttributeError):
+            raise LiveLedgerError("LIVE_IDEMPOTENCY_INVALID") from None
+        if (normalized != idempotency_key or len(idempotency_key) != 36
+                or not isinstance(owner_ref, str)
+                or not isinstance(plan_id, str)
+                or plan_id not in {p["id"] for p in CATALOG}):
+            raise LiveLedgerError("LIVE_CHECKOUT_INTENT_INVALID")
+        secret = os.environ.get("SESSION_SIGNING_KEY", "")
+        if len(secret) < 32:
+            raise LiveLedgerError("LIVE_ENCRYPTION_UNAVAILABLE")
+        nonce_hash = hmac.new(
+            secret.encode(),
+            ("vainah-live-idempotency-v1:" + owner_ref + ":" +
+             normalized).encode(), hashlib.sha256,
+        ).hexdigest()
+        try:
+            with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT payment_state, delivery_state
+                    FROM vainah_live_orders
+                    WHERE checkout_nonce_hash = %s AND owner_ref = %s
+                      AND plan_id = %s
+                      AND is_pilot = FALSE AND is_discount_pilot = FALSE
+                    LIMIT 1
+                """, (nonce_hash, owner_ref, plan_id))
+                row = cur.fetchone()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        if row is None:
+            return {"found": False, "renewal_ready": False}
+        payment, delivery = row
+        return {
+            "found": True, "payment_state": payment,
+            "delivery_state": delivery,
+            "renewal_ready": payment == "paid" and delivery == "delivered",
+        }
+
 
     def attach_hosted_invoice(self, *,
                               order_id: str, payment_id: str, pay_url: str) -> bool:

@@ -36,7 +36,7 @@
     write('metric-expiry','—');
     write('metric-devices','—');
     write('account-plan-name','Подписка не оформлена');
-    write('account-plan-sub','Реальные платежи пока отключены.');
+    write('account-plan-sub','Выберите тариф для оформления подписки.');
     write('account-plan-price','—');
     write('account-plan-chip','Нет оплаченного заказа');
     write('account-access-status','Ключ будет доступен после подтверждения оплаты и выдачи персональной подписки.');
