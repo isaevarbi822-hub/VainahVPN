@@ -349,6 +349,14 @@ def test_signed_callback_retries_safe_prewrite_failure_then_issues_receipt_once(
     assert first.json()["detail"] == "SANDBOX_AUTO_H1_RETRY_BEFORE_WRITE"
     assert billing.sandbox.read(order["order_id"])["paid_webhook_received"] is True
     assert not writes and not sent
+    before = client.get(
+        f'/api/shop/sandbox/{order["order_id"]}/activation-preview',
+        headers=HEADERS,
+    )
+    assert before.status_code == 200
+    assert before.json()["delivery_state"] == "failed_before_write"
+    assert before.json()["fulfillment"]["status"] == "retry_pending"
+    assert before.json()["receipt_emailed"] is False
     for _ in range(2):
         retried = signed_callback(client, paid)
         assert retried.status_code == 200
@@ -358,6 +366,15 @@ def test_signed_callback_retries_safe_prewrite_failure_then_issues_receipt_once(
     assert len(sent) == 1
     assert sent[0][1]["vpn_issued"] is True
     assert sent[0][1]["subscription_url"] == "https://sub.example.com/retry-test-link"
+    after = client.get(
+        f'/api/shop/sandbox/{order["order_id"]}/activation-preview',
+        headers=HEADERS,
+    )
+    assert after.status_code == 200
+    assert after.json()["fulfillment"]["status"] == "delivered"
+    assert after.json()["delivery_state"] == "issued"
+    assert after.json()["receipt_emailed"] is True
+    assert "retry-test-link" not in after.text
 
 
 def test_webhook_rejects_bad_signature_non_test_and_wrong_amount(sandbox):
