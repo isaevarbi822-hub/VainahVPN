@@ -303,6 +303,34 @@ def production_readiness() -> dict:
         panel_tls_verify()
     except H1PanelError:
         panel = False
+    # These are operator-controlled configuration attestations, not independent
+    # proof from RollyPay or H1Cloud. Never infer one from a successful
+    # sandbox payment or a read-only provider health check.
+    approval_flags = {
+        "merchant_approved_flag": (
+            os.environ.get("VAINAH_MERCHANT_APPROVED") == "approved"
+        ),
+        "h1_write_contract_approved_flag": (
+            os.environ.get("VAINAH_H1_WRITE_CONTRACT_APPROVED") == "approved"
+        ),
+        "live_fulfillment_approved_flag": (
+            os.environ.get("VAINAH_LIVE_FULFILLMENT_APPROVED") == "approved"
+        ),
+        "real_paid_e2e_verified_flag": (
+            os.environ.get("VAINAH_LIVE_PAID_E2E_VERIFIED") == "verified"
+        ),
+        "customer_access_enabled_flag": (
+            os.environ.get("VAINAH_LIVE_CUSTOMER_ACCESS_ENABLED") == "enabled"
+        ),
+        "live_checkout_enabled_flag": (
+            os.environ.get("VAINAH_LIVE_CHECKOUT_ENABLED") == "enabled"
+        ),
+    }
+    # The actual live checkout may be enabled only after the entire
+    # live_ready() gate passes, never from a single operator flag.
+    from .live_checkout import live_ready
+
+    runtime_ready = live_ready()
     checks = {
         "verified_email_sessions": email_auth_ready(),
         "postgres_configured": os.environ.get("DATABASE_URL", "").startswith(
@@ -323,14 +351,21 @@ def production_readiness() -> dict:
     }
     return {
         "checks": checks,
-        "real_checkout_enabled": False,
-        "real_money_can_be_charged": False,
-        "auto_vpn_delivery_enabled": False,
+        "operator_approval_flags": approval_flags,
+        "missing_operator_approval_flags": [
+            name for name, enabled in approval_flags.items() if not enabled
+        ],
+        "operator_approval_flags_are_attestations_only": True,
+        "real_checkout_enabled": runtime_ready,
+        "real_money_can_be_charged": runtime_ready,
+        "auto_vpn_delivery_enabled": runtime_ready,
         "message": (
-            "Live gateway, signed callback checks and once-only PostgreSQL "
-            "claims are prepared. H1Cloud's one-write adapter is gated. "
-            "Production remains disabled pending an approved merchant, verified "
-            "HTTPS management transport and "
-            "verified real end-to-end delivery."
+            "The live checkout runtime gate is configured as enabled. "
+            "Operator approval flags are self-attestations, not independent "
+            "proof of merchant approval or a successful real payment."
+            if runtime_ready else
+            "Production checkout remains disabled. Inspect the operator_approval_flags "
+            "and missing_operator_approval_flags fields. A successful sandbox "
+            "payment and read-only H1Cloud check do not verify live fulfillment."
         ),
     }

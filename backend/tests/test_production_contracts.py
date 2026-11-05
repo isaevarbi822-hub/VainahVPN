@@ -259,6 +259,49 @@ def test_production_readiness_never_claims_live_checkout(monkeypatch):
         assert response.status_code == 503
 
 
+def test_operator_readiness_reports_unset_approvals_without_secrets(monkeypatch):
+    from vainah import live_checkout
+
+    for name in (
+        "VAINAH_MERCHANT_APPROVED",
+        "VAINAH_H1_WRITE_CONTRACT_APPROVED",
+        "VAINAH_LIVE_FULFILLMENT_APPROVED",
+        "VAINAH_LIVE_PAID_E2E_VERIFIED",
+        "VAINAH_LIVE_CUSTOMER_ACCESS_ENABLED",
+        "VAINAH_LIVE_CHECKOUT_ENABLED",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    report = production_readiness()
+    assert report["real_checkout_enabled"] is False
+    assert report["real_money_can_be_charged"] is False
+    assert report["auto_vpn_delivery_enabled"] is False
+    assert live_checkout.live_ready() is False
+    assert len(report["operator_approval_flags"]) == 6
+    assert len(report["missing_operator_approval_flags"]) == 6
+    assert all(not flag for flag in report["operator_approval_flags"].values())
+    assert report["operator_approval_flags_are_attestations_only"] is True
+    assert "SESSION_SIGNING_KEY" not in str(report)
+
+    monkeypatch.setenv("VAINAH_MERCHANT_APPROVED", "approved")
+    report = production_readiness()
+    assert report["operator_approval_flags"]["merchant_approved_flag"] is True
+    assert "merchant_approved_flag" not in report["missing_operator_approval_flags"]
+    assert report["real_checkout_enabled"] is False
+    assert report["checks"]["merchant_authorized_to_take_payments"] is False
+
+
+def test_readiness_mirrors_actual_runtime_checkout_gate(monkeypatch):
+    from vainah import live_checkout
+
+    monkeypatch.setattr(live_checkout, "live_ready", lambda: True)
+    report = production_readiness()
+    assert report["real_checkout_enabled"] is True
+    assert report["real_money_can_be_charged"] is True
+    assert report["auto_vpn_delivery_enabled"] is True
+    # A configured gate is not independently verified by this report.
+    assert report["operator_approval_flags_are_attestations_only"] is True
+
+
 def test_operator_readiness_is_private_and_never_enables_charge(monkeypatch):
     token = "test-operator-readiness-" + "u" * 40
     monkeypatch.setenv("VAINAH_SANDBOX_TEST_TOKEN", token)
