@@ -533,15 +533,22 @@
         ? "Тестовый VPN уже выдан автоматически через H1Cloud."
         : fulfillment.status === "needs_review"
           ? "Выдача остановлена: необходима проверка H1Cloud оператором."
-          : fulfillment.status === "ready_for_review"
-            ? "Подтверждён webhook. План подготовлен к проверке оператором."
-            : "Выдача заблокирована: " + (fulfillment.reason || "нет подтверждения");
+          : fulfillment.status === "retry_pending"
+            ? "Сбой до записи в H1Cloud: ожидается безопасная повторная обработка webhook."
+            : fulfillment.status === "not_issued"
+              ? "Оплата подтверждена, но запись о выдаче пока отсутствует."
+              : fulfillment.status === "ready_for_review"
+                ? "Подтверждён webhook. План подготовлен к проверке оператором."
+                : "Выдача заблокирована: " + (fulfillment.reason || "нет подтверждения");
       testMessage((issued ? "Тестовая автовыдача VPN подтверждена" :
           "План выдачи VPN — только демо") +
         "\nЗаказ: " + info.order_id +
         "\nСтатус оплаты: " + info.payment_status +
         "\nПодписанный webhook: " + (fulfillment.signed_webhook_received ? "да" : "нет") +
         "\nАккаунт привязан: " + (fulfillment.customer_identity_bound ? "да" : "нет") +
+        "\nEmail привязан к заказу: " + (fulfillment.verified_email_on_order ? "да" : "нет") +
+        "\nКвитанция отправлена: " + (info.receipt_emailed ? "да" : "нет") +
+        "\nАвтовыдача включена: " + (fulfillment.auto_provisioning_enabled ? "да" : "нет") +
         "\nПериод: " + info.duration_days + " дней" +
         "\nУстройств: " + info.device_limit +
         "\nПроверка выдачи: " + readiness +
