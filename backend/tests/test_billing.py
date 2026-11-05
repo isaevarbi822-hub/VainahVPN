@@ -717,10 +717,86 @@ def test_sandbox_poll_never_accepts_conflicting_markers_or_identity(overrides):
     created = asyncio.run(provider.create("30"))
     with pytest.raises(ProviderError) as err:
         asyncio.run(provider.refresh(created["order_id"]))
-    expected = (
-        "PROVIDER_SANDBOX_NOT_CONFIRMED"
-        if "test" in overrides or "environment" in overrides
-        else "PROVIDER_ORDER_OR_AMOUNT_MISMATCH"
-    )
+    if "test" in overrides or "environment" in overrides:
+        expected = "PROVIDER_SANDBOX_NOT_CONFIRMED"
+    elif "order_id" in overrides:
+        expected = "PROVIDER_ORDER_MISMATCH"
+    elif "payment_id" in overrides:
+        expected = "PROVIDER_PAYMENT_MISMATCH"
+    elif "amount" in overrides:
+        expected = "PROVIDER_AMOUNT_MISMATCH"
+    else:
+        expected = "PROVIDER_CURRENCY_MISMATCH"
     assert err.value.code == expected
     assert provider.read(created["order_id"])["status"] == "created"
+
+
+@pytest.mark.parametrize(("amount","accepted"), [
+    ("99.00", True), ("99", True), ("99.0", True),
+    (99, True), (99.0, True), ("099.00", True),
+    ("99.01", False), ("98.99", False), ("99.001", False),
+    (True, False), (None, False), ("9.9e1", False),
+    ("-99.00", False), ("99,00", False), ("", False),
+])
+def test_rollypay_rub_amount_exact_numeric_match(amount, accepted):
+    from vainah.billing import _matches_exact_rub_amount
+
+    assert _matches_exact_rub_amount(amount, "99.00") is accepted
+
+
+@pytest.mark.parametrize(("fields","accepted"), [
+    ({"payment_currency": "RUB"}, True),
+    ({"currency": "RUB"}, True),
+    ({"currency": "RUB", "payment_currency": "RUB"}, True),
+    ({}, False), ({"payment_currency": "EUR"}, False),
+    ({"currency": "EUR"}, False),
+    ({"currency": "RUB", "payment_currency": "EUR"}, False),
+])
+def test_rollypay_currency_alias_requires_explicit_rub(fields, accepted):
+    from vainah.billing import _matches_rub_currency
+
+    assert _matches_rub_currency(fields) is accepted
+
+
+@pytest.mark.parametrize(("amount","currency_field"), [
+    ("99", "payment_currency"),
+    (99, "currency"),
+    ("99.0", "currency"),
+])
+def test_provider_paid_status_accepts_equivalent_amount_and_currency_alias(
+    amount, currency_field,
+):
+    """Only an original sandbox-created order can be read this way."""
+    order = {}
+    payment_id = "pay_test_aabbccddee112233"
+
+    def response(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            body = json.loads(request.content)
+            order["id"] = body["order_id"]
+            return httpx.Response(200, json={
+                "order_id": body["order_id"],
+                "payment_id": payment_id,
+                "amount": "99.00", "payment_currency": "RUB",
+                "test": True, "environment": "sandbox",
+                "status": "created",
+                "pay_url": "https://pay.rollypay.io/pay/tok_123456",
+            })
+        return httpx.Response(200, json={
+            "order_id": order["id"],
+            "payment_id": payment_id,
+            "amount": amount,
+            currency_field: "RUB",
+            "status": "paid",
+        })
+
+    provider = BillingSandbox(
+        "provider", "unit-test-key", httpx.MockTransport(response),
+    )
+    created = asyncio.run(provider.create("30"))
+    checked = asyncio.run(provider.refresh(created["order_id"]))
+    assert checked["status"] == "paid"
+    assert checked["webhook_received"] is False
+    preview = provider.activation_preview(created["order_id"])
+    assert preview["fulfillment"]["reason"] == "SIGNED_WEBHOOK_REQUIRED"
+    assert preview["vpn_delivered"] is False
