@@ -1134,8 +1134,16 @@ async def operator_production_readiness(
     from .production_contracts import production_readiness
 
     report = production_readiness()
-    from .live_checkout import pilot_ready
+    from .live_checkout import (
+        pilot_processing_ready, pilot_readiness_checks, pilot_ready,
+    )
+    pilot_checks = pilot_readiness_checks()
     report["pilot_checkout_configured"] = pilot_ready()
+    report["pilot_callback_processing_configured"] = pilot_processing_ready()
+    report["pilot_readiness_checks"] = pilot_checks
+    report["pilot_missing_requirements"] = [
+        name for name, is_ready in pilot_checks.items() if not is_ready
+    ]
     report["pilot_is_publicly_available"] = False
     if report["checks"]["h1cloud_read_configured"]:
         try:
@@ -1203,7 +1211,9 @@ def operator_live_pilot_status(
 ) -> dict:
     """Read-only status of at most one pilot; never returns payment links/PII."""
     _require_operator(x_sandbox_token)
-    from .live_checkout import _ledger, pilot_ready, require_pilot_operator
+    from .live_checkout import (
+        _ledger, pilot_processing_ready, pilot_ready, require_pilot_operator,
+    )
     from .live_ledger import LiveLedgerError
 
     require_pilot_operator(x_live_pilot_token)
@@ -1217,7 +1227,7 @@ def operator_live_pilot_status(
         raise HTTPException(503, "LIVE_PILOT_STATUS_UNAVAILABLE") from None
     configured = pilot_ready()
     return {
-        "pilot_processing_enabled": configured,
+        "pilot_processing_enabled": pilot_processing_ready(),
         "pilot_checkout_ready": configured and not state.get("pilot_order_exists", False),
         **state,
     }
