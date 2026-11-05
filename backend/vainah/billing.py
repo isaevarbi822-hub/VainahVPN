@@ -1178,6 +1178,42 @@ async def operator_production_readiness(
     return report
 
 
+@router.get("/checkout-intent")
+def own_checkout_intent(
+    request: Request,
+    plan: str,
+    idempotency_key: str | None = Header(default=None),
+) -> dict:
+    """Owner-only read of a previously submitted invoice; never charges."""
+    from .email_auth import current_email
+    from .live_checkout import (
+        IDEMPOTENCY_RE,
+        _ledger,
+        live_account_ready,
+        owner_ref_for_email,
+    )
+    from .live_ledger import LiveLedgerError
+
+    if not live_account_ready():
+        raise HTTPException(503, "LIVE_CUSTOMER_ACCOUNT_DISABLED")
+    if plan not in {item["id"] for item in CATALOG}:
+        raise HTTPException(422, "LIVE_PLAN_INVALID")
+    if not isinstance(idempotency_key, str) or not IDEMPOTENCY_RE.fullmatch(
+        idempotency_key
+    ):
+        raise HTTPException(422, "LIVE_IDEMPOTENCY_REQUIRED")
+    email = current_email(request)
+    if email is None:
+        raise HTTPException(401, "VERIFIED_EMAIL_REQUIRED")
+    try:
+        return _ledger().checkout_intent_status(
+            owner_ref=owner_ref_for_email(email),
+            plan_id=plan, idempotency_key=idempotency_key,
+        )
+    except LiveLedgerError:
+        raise HTTPException(503, "LIVE_CHECKOUT_STATUS_UNAVAILABLE") from None
+
+
 @router.post("/checkout")
 async def public_checkout(
     body: StartSandbox, request: Request,
