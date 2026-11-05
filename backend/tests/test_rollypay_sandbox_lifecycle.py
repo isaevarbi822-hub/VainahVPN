@@ -119,6 +119,22 @@ def event(order, payment_id, event_type, status, *, test=True, amount="99.00"):
     }
 
 
+def test_auto_delivery_rejects_anonymous_checkout_before_provider_post(
+    sandbox, monkeypatch,
+):
+    from vainah import sandbox_auto_h1
+
+    client, fake = sandbox
+    monkeypatch.setattr(sandbox_auto_h1, "auto_enabled", lambda: True)
+    blocked = client.post(
+        "/api/shop/sandbox/start", headers=HEADERS, json={"plan": "30"},
+    )
+    assert blocked.status_code == 401
+    assert blocked.json()["detail"] == "VERIFIED_EMAIL_REQUIRED_FOR_AUTO_H1"
+    assert fake.requests == []
+    assert fake.orders == {}
+
+
 def test_signed_paid_callback_duplicate_and_activation_preview(sandbox):
     client, fake = sandbox
     assert client.post("/api/shop/sandbox/start", json={"plan": "30"}).status_code == 401
@@ -349,6 +365,14 @@ def test_signed_callback_retries_safe_prewrite_failure_then_issues_receipt_once(
     assert first.json()["detail"] == "SANDBOX_AUTO_H1_RETRY_BEFORE_WRITE"
     assert billing.sandbox.read(order["order_id"])["paid_webhook_received"] is True
     assert not writes and not sent
+    before = client.get(
+        f'/api/shop/sandbox/{order["order_id"]}/activation-preview',
+        headers=HEADERS,
+    )
+    assert before.status_code == 200
+    assert before.json()["delivery_state"] == "failed_before_write"
+    assert before.json()["fulfillment"]["status"] == "retry_pending"
+    assert before.json()["receipt_emailed"] is False
     for _ in range(2):
         retried = signed_callback(client, paid)
         assert retried.status_code == 200
@@ -358,6 +382,15 @@ def test_signed_callback_retries_safe_prewrite_failure_then_issues_receipt_once(
     assert len(sent) == 1
     assert sent[0][1]["vpn_issued"] is True
     assert sent[0][1]["subscription_url"] == "https://sub.example.com/retry-test-link"
+    after = client.get(
+        f'/api/shop/sandbox/{order["order_id"]}/activation-preview',
+        headers=HEADERS,
+    )
+    assert after.status_code == 200
+    assert after.json()["fulfillment"]["status"] == "delivered"
+    assert after.json()["delivery_state"] == "issued"
+    assert after.json()["receipt_emailed"] is True
+    assert "retry-test-link" not in after.text
 
 
 def test_webhook_rejects_bad_signature_non_test_and_wrong_amount(sandbox):
@@ -529,8 +562,6 @@ def test_real_signed_test_webhook_calls_auto_h1_only_after_paid(sandbox, monkeyp
     client, fake = sandbox
     issued = []
     refunds = []
-    monkeypatch.setattr(auto, "auto_enabled", lambda: True)
-
     async def fake_issue(order_id):
         issued.append(order_id)
         return {
@@ -540,7 +571,10 @@ def test_real_signed_test_webhook_calls_auto_h1_only_after_paid(sandbox, monkeyp
 
     monkeypatch.setattr(auto, "auto_issue_paid_sandbox", fake_issue)
     monkeypatch.setattr(auto, "mark_refunded", lambda oid: refunds.append(oid))
+    # This unit test mocks the downstream H1 write; allow legacy setup
+    # to create an anonymous invoice before enabling the mocked callback.
     order, payment_id = create_test_order(client, fake)
+    monkeypatch.setattr(auto, "auto_enabled", lambda: True)
     paid = event(order, payment_id, "payment.paid", "paid")
     invalid = signed_callback(client, paid, valid_signature=False)
     assert invalid.status_code == 403
