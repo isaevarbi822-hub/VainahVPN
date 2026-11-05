@@ -1248,9 +1248,14 @@ async def start_sandbox(body: StartSandbox,
         raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
     try:
         from .email_auth import current_email
+        from .sandbox_auto_h1 import auto_enabled
 
         owner = _verified_sandbox_owner(request)
         email = current_email(request)
+        # A provider PAID callback without a verified email has no safe
+        # H1 delivery recipient. Reject such new orders before RollyPay POST.
+        if auto_enabled() and (not owner or not email):
+            raise HTTPException(401, "VERIFIED_EMAIL_REQUIRED_FOR_AUTO_H1")
         return await sandbox.create(
             body.plan, owner_ref=owner,
             receipt_email=email if owner and email else None,
