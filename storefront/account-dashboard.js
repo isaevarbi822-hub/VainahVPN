@@ -22,6 +22,9 @@
   }
   function resetPrivate(){
     currentData=null;subscriptionUrl=null;
+    hide('account-test-vpn',true);
+    const testList=$('account-test-vpn-list');
+    if(testList)testList.replaceChildren();
     hide('account-open-vpn',true);
     hide('account-copy-vpn',true);
     const copy=$('account-copy-vpn');
@@ -84,11 +87,13 @@
 
   async function refresh(){
     if(!user)return;
+    const session=user;
+    void refreshTestSubscriptions(session);
     const refreshButton=$('account-refresh');
     if(refreshButton)refreshButton.disabled=true;
     try{
       const result=await api('/api/account/overview');
-      if(!user)return;
+      if(user!==session)return;
       currentData=result;
       write('account-h1-state',result.h1cloud?.message||'H1Cloud не отвечает.');
       const emailStatus=$('account-email-status');
@@ -121,15 +126,66 @@
         const get=$('account-get-vpn');if(get)get.disabled=false;
       }
     }catch(error){
+      if(user!==session)return;
       write('account-h1-state','Не удалось загрузить кабинет: '+error.message);
     }finally{if(refreshButton)refreshButton.disabled=false;}
+  }
+  async function refreshTestSubscriptions(session){
+    const list=$('account-test-vpn-list');
+    if(!list)return;
+    try{
+      const result=await api('/api/account/test-subscriptions');
+      if(user!==session)return;
+      list.replaceChildren();
+      const orders=Array.isArray(result.items)?result.items:[];
+      hide('account-test-vpn',!orders.length);
+      for(const order of orders){
+        if(order.sandbox_only!==true||order.test_payment!==true)continue;
+        const row=document.createElement('p');
+        const title=document.createElement('span');
+        title.textContent='Тестовый VPN · '+order.title+' · '+order.device_limit+' устройств · '+
+          (order.vpn_delivered===true?'Выдан':order.delivery_state==='needs_review'?'Нужна проверка выдачи':'Ожидает выдачи');
+        row.append(title);
+        if(order.vpn_delivered===true){
+          const button=document.createElement('button');
+          button.type='button';button.className='account-secondary-link';
+          button.textContent='Получить личную ссылку';
+          button.addEventListener('click',async()=>{
+            if(user!==session)return;
+            button.disabled=true;
+            try{
+              const access=await api('/api/shop/my-test-orders/'+encodeURIComponent(order.order_id)+'/vpn-access');
+              if(user!==session)return;
+              const url=new URL(access.subscription_url);
+              if(url.protocol!=='https:'||url.username||url.password||url.hash)throw Error('INVALID_LINK');
+              const link=document.createElement('a');
+              link.href=url.href;link.referrerPolicy='no-referrer';
+              link.textContent='Открыть личную тестовую подписку';
+              button.replaceWith(link);
+            }catch{
+              if(user!==session)return;
+              button.textContent='Не удалось получить ссылку. Повторить';
+              button.disabled=false;
+            }
+          });
+          row.append(document.createTextNode(' · '),button);
+        }
+        list.append(row);
+      }
+    }catch{
+      if(user!==session)return;
+      hide('account-test-vpn',false);
+      list.textContent='Не удалось загрузить тестовые подписки. Обнови кабинет.';
+    }
   }
   const get=$('account-get-vpn');
   if(get)get.addEventListener('click',async()=>{
     if(!user||!currentData?.subscription?.order_id)return;
+    const session=user;
     get.disabled=true;
     try{
       const response=await api('/api/account/access');
+      if(user!==session)return;
       const url=new URL(response.subscription_url);
       if(url.protocol!=='https:'||url.username||url.password)throw Error('INVALID_LINK');
       subscriptionUrl=url.href;
@@ -138,8 +194,11 @@
       hide('account-copy-vpn',false);
       const copy=$('account-copy-vpn');if(copy)copy.disabled=false;
       write('account-access-status','Ссылка готова. Никому не передавай свой ключ.');
-    }catch(error){write('account-access-status','Не удалось получить ссылку: '+error.message);}
-    finally{get.disabled=false;}
+    }catch(error){
+      if(user!==session)return;
+      write('account-access-status','Не удалось получить ссылку: '+error.message);
+    }
+    finally{if(user===session)get.disabled=false;}
   });
   const copy=$('account-copy-vpn');
   if(copy)copy.addEventListener('click',async()=>{

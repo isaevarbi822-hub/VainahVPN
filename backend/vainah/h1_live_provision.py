@@ -56,6 +56,27 @@ def _client(record: object, expected_name: str) -> dict:
     return obj
 
 
+def _expiry(record: dict) -> int:
+    value = record.get("expires_at")
+    if type(value) is int:
+        expiry = value
+    elif isinstance(value, str) and re.fullmatch(r"[0-9]{1,12}", value):
+        expiry = int(value)
+    else:
+        raise LiveH1Error("H1_RESPONSE_INVALID")
+    if not 0 <= expiry <= 253402300799:
+        raise LiveH1Error("H1_RESPONSE_INVALID")
+    return expiry
+
+
+def _disabled(record: dict) -> bool:
+    banned, status = record.get("banned"), record.get("status")
+    if ((banned is not None and type(banned) is not bool)
+            or (status is not None and not isinstance(status, str))):
+        raise LiveH1Error("H1_RESPONSE_INVALID")
+    return banned is True or status in ("banned", "disabled")
+
+
 class LiveH1CloudNode:
     """Performs exactly one intended write after an explicit durable claim."""
 
@@ -123,14 +144,17 @@ class LiveH1CloudNode:
                     raise LiveH1Error("H1_EXTEND_REQUIRES_EXISTING_USER")
                 try:
                     record = _client(before.json(), intent.client_name)
-                    old_expiry = int(record["expires_at"])
-                except (ValueError, KeyError, TypeError):
+                    old_expiry = _expiry(record)
+                    if _disabled(record):
+                        raise LiveH1Error("H1_PRECHECK_INVALID")
+                except (ValueError, KeyError, TypeError, LiveH1Error):
                     raise LiveH1Error("H1_PRECHECK_INVALID") from None
                 verb, endpoint = "PATCH", "/api/edit"
                 payload = intent.extend_payload()
 
             # A network exception here is AMBIGUOUS: node might have committed.
             # We never issue a second POST/PATCH automatically.
+            write_started_at = int(time.time())
             try:
                 result = await session.request(
                     verb, base + endpoint, headers=headers, json=payload,
@@ -157,10 +181,12 @@ class LiveH1CloudNode:
                 raise LiveH1Error("H1_POSTCHECK_UNCERTAIN_MANUAL_REVIEW")
             try:
                 account = _client(after.json(), intent.client_name)
-                expiry = int(account["expires_at"])
-            except (ValueError, TypeError, KeyError):
+                expiry = _expiry(account)
+                disabled = _disabled(account)
+            except (ValueError, TypeError, KeyError, LiveH1Error):
                 raise LiveH1Error("H1_POSTCHECK_UNCERTAIN_MANUAL_REVIEW") from None
-            if expiry <= max(int(time.time()), old_expiry):
+            expected_expiry = max(write_started_at, old_expiry) + intent.days * 86400
+            if expiry < expected_expiry - 300 or disabled:
                 raise LiveH1Error("H1_POSTCHECK_UNCERTAIN_MANUAL_REVIEW")
             device_limit = account.get("device_limit")
             if type(device_limit) is not int or device_limit != intent.devices:

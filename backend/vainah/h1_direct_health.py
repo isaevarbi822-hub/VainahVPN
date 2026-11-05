@@ -19,6 +19,16 @@ class DirectHealthError(Exception):
     """Local configuration errors only; no secret URL/hostname in response."""
 
 
+def _failure(reason: str, message: str, *, status: str = "error") -> dict:
+    # This optional tokenless HTTP probe is independent of the authenticated
+    # HTTPS management API. Never diagnose a token failure from its response.
+    return {
+        "status": status, "reason": reason, "message": message,
+        "read_only": True, "api_token_sent": False,
+        "protected_connection": False,
+    }
+
+
 def _direct_health_url() -> str | None:
     raw = os.environ.get("PANEL_DIRECT_HEALTH_URL", "").strip()
     if not raw:
@@ -57,7 +67,7 @@ async def probe_direct_health(
     try:
         target = _direct_health_url()
     except DirectHealthError:
-        return {"status": "error", "message": "Некорректный адрес прямой проверки H1Cloud."}
+        return _failure("invalid_url", "Некорректный адрес прямой проверки H1Cloud.")
     if target is None:
         return {"status": "not_configured",
                 "message": "Адрес прямой проверки H1Cloud не задан."}
@@ -70,26 +80,47 @@ async def probe_direct_health(
                 target, headers={"Accept": "application/json"}
             )
     except httpx.TimeoutException:
-        return {"status": "unavailable",
-                "message": "Render не дождался ответа от прямого H1Cloud API."}
+        return _failure(
+            "timeout", "Render не дождался ответа от прямого H1Cloud API.",
+            status="unavailable",
+        )
     except httpx.RequestError:
-        return {"status": "unavailable",
-                "message": "Render не смог установить соединение с прямым H1Cloud API."}
+        return _failure(
+            "connection_failed",
+            "Render не смог установить соединение с прямым H1Cloud API.",
+            status="unavailable",
+        )
 
-    if response.status_code != 200 or len(response.content) > 32768:
-        return {"status": "error",
-                "message": "Прямой адрес H1Cloud ответил, но health endpoint недоступен."}
+    if response.status_code in {401, 403}:
+        return _failure(
+            "public_health_rejected",
+            "Прямой HTTP health endpoint отклонил запрос без токена. "
+            "Это не проверка токена защищённого H1Cloud API.",
+        )
+    if response.status_code != 200:
+        return _failure(
+            "unexpected_http_status",
+            "Прямой адрес H1Cloud ответил, но health endpoint недоступен.",
+        )
+    if len(response.content) > 32768:
+        return _failure("response_too_large", "Ответ health endpoint слишком велик.")
     try:
         data = response.json()
     except ValueError:
-        return {"status": "error", "message": "H1Cloud вернул некорректный JSON."}
+        return _failure("invalid_json", "H1Cloud вернул некорректный JSON.")
     if (not isinstance(data, dict) or data.get("ok") is not True
             or data.get("service") != "vpn-api"):
-        return {"status": "error", "message": "Ответ прямого API не похож на H1Cloud VPN API."}
+        return _failure(
+            "health_contract_mismatch",
+            "Ответ прямого API не похож на H1Cloud VPN API.",
+        )
 
     routes = data.get("endpoints")
     if not isinstance(routes, list) or not all(isinstance(x, str) for x in routes):
-        return {"status": "error", "message": "Список возможностей H1Cloud API не распознан."}
+        return _failure(
+            "endpoints_contract_mismatch",
+            "Список возможностей H1Cloud API не распознан.",
+        )
 
     return {
         "status": "ok",

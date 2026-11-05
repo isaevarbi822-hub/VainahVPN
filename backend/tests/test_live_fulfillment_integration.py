@@ -221,7 +221,7 @@ def test_existing_h1_client_is_extended_once(configured):
     ).client_name
     now = int(time.time())
     old_expiry = now + 86400
-    new_expiry = now + 30 * 86400
+    new_expiry = old_expiry + 30 * 86400
     writes = []
 
     def provider(request):

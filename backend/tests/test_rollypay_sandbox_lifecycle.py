@@ -165,6 +165,55 @@ def test_signed_paid_callback_duplicate_and_activation_preview(sandbox):
     assert all(request.url.host == "rollypay.io" for request in fake.requests)
 
 
+def test_signed_callback_retries_safe_prewrite_failure_then_issues_receipt_once(
+    sandbox, monkeypatch,
+):
+    from vainah import sandbox_auto_h1 as auto
+
+    client, fake = sandbox
+    order, payment_id = create_test_order(client, fake)
+    monkeypatch.setenv("SESSION_SIGNING_KEY", "test-receipt-key-" + "r" * 40)
+    stored = billing.sandbox.orders[order["order_id"]]
+    stored.owner_ref = "v1_" + "f" * 64
+    stored.receipt_recipient = billing._seal_receipt_recipient("owner@example.com")
+    monkeypatch.setattr(auto, "auto_enabled", lambda: True)
+    state = {"status": "pending", "vpn_delivered": False}
+    attempts = []
+    writes = []
+
+    async def issue(order_id):
+        attempts.append(order_id)
+        if len(attempts) == 1:
+            state.update(status="failed_before_write", vpn_delivered=False)
+        elif not writes:
+            writes.append(order_id)
+            state.update(status="issued", vpn_delivered=True)
+        return state.copy()
+
+    sent = []
+
+    async def send(recipient, **kwargs):
+        sent.append((recipient, kwargs))
+
+    monkeypatch.setattr(auto, "auto_issue_paid_sandbox", issue)
+    monkeypatch.setattr(auto, "read_delivery", lambda oid: state.copy())
+    monkeypatch.setattr(billing, "send_sandbox_receipt", send)
+    paid = event(order, payment_id, "payment.paid", "paid")
+    first = signed_callback(client, paid)
+    assert first.status_code == 503
+    assert first.json()["detail"] == "SANDBOX_AUTO_H1_RETRY_BEFORE_WRITE"
+    assert billing.sandbox.read(order["order_id"])["paid_webhook_received"] is True
+    assert not writes and not sent
+    for _ in range(2):
+        retried = signed_callback(client, paid)
+        assert retried.status_code == 200
+        assert retried.json()["delivery_state"] == "issued"
+        assert retried.json()["vpn_delivered"] is True
+    assert writes == [order["order_id"]]
+    assert len(sent) == 1
+    assert sent[0][1]["vpn_issued"] is True
+
+
 def test_webhook_rejects_bad_signature_non_test_and_wrong_amount(sandbox):
     client, fake = sandbox
     order, payment_id = create_test_order(client, fake)

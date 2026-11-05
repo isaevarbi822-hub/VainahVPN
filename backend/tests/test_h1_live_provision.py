@@ -119,7 +119,7 @@ def test_h1_extend_updates_family_device_limit():
         return httpx.Response(200, json={
             "ok": True, "client": {
                 "name": intent.client_name,
-                "expires_at": now + 365 * 86400,
+                "expires_at": now + 1000 + 365 * 86400,
                 "device_limit": 6,
                 "subscription_url": "https://sub.example.com/family-abc",
             },
@@ -164,7 +164,7 @@ def test_h1_wrong_customer_and_no_device_limit_are_not_delivered():
         return httpx.Response(200, json={
             "ok": True,
             "client": {
-                "name": intent.client_name, "expires_at": int(time.time()) + 500000,
+                "name": intent.client_name, "expires_at": int(time.time()) + 30 * 86400,
                 "subscription_url": "https://sub.example.com/key",
             },
         })
@@ -189,3 +189,34 @@ def test_h1_requires_paid_claim_for_matching_plan():
         asyncio.run(LiveH1CloudNode(
             write_contract_approved=True,
         ).provision_once(claim=wrong_claim, intent=intent, operation="create"))
+
+@pytest.mark.parametrize("change", ["short_term", "banned", "malformed_status", "malformed_ban", "malformed_expiry"])
+def test_h1_does_not_deliver_short_or_banned_account(change):
+    claim, intent = context()
+    calls = []
+
+    def provider(request):
+        calls.append(request.method)
+        if len(calls) == 1:
+            return httpx.Response(404, json={"error": "user_not_found"})
+        if request.method == "POST":
+            return httpx.Response(201, json={"ok": True})
+        profile = {
+            "name": intent.client_name,
+            "expires_at": int(time.time()) + (3600 if change == "short_term" else 30 * 86400),
+            "device_limit": 3, "banned": change == "banned",
+            "subscription_url": "https://sub.example.com/private",
+        }
+        if change == "malformed_status":
+            profile["status"] = []
+        elif change == "malformed_ban":
+            profile["banned"] = "true"
+        elif change == "malformed_expiry":
+            profile["expires_at"] = True
+        return httpx.Response(200, json={"ok": True, "client": profile})
+
+    with pytest.raises(LiveH1Error, match="POSTCHECK_UNCERTAIN_MANUAL_REVIEW"):
+        asyncio.run(LiveH1CloudNode(
+            transport=httpx.MockTransport(provider), write_contract_approved=True,
+        ).provision_once(claim=claim, intent=intent, operation="create"))
+    assert calls == ["GET", "POST", "GET"]

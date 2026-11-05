@@ -20,7 +20,13 @@ import httpx
 import psycopg
 
 from .billing import ORDER_RE, get_plan
-from .h1_live_provision import LiveH1Error, _client, _validate_subscription_url
+from .h1_live_provision import (
+    LiveH1Error,
+    _client,
+    _disabled,
+    _expiry,
+    _validate_subscription_url,
+)
 from .h1_panel import H1PanelError, panel_settings, panel_tls_verify
 from .live_ledger import LiveLedgerError, seal_live_secret, unseal_live_secret
 from .postgres_ledger import PostgresSandboxLedger
@@ -70,6 +76,9 @@ def _name(order_id: str) -> str:
 
 
 def _schema(cur) -> None:
+    # Serialize first-use creation and the additive state-check migration across
+    # workers. This transaction-scoped lock is released before any HTTP request.
+    cur.execute("SELECT pg_advisory_xact_lock(hashtext('vainah_sandbox_auto_h1_schema'))")
     cur.execute("""
         CREATE TABLE IF NOT EXISTS vainah_sandbox_auto_h1 (
             order_id VARCHAR(44) PRIMARY KEY,
@@ -77,12 +86,31 @@ def _schema(cur) -> None:
             owner_ref VARCHAR(67) NOT NULL,
             plan_id VARCHAR(24) NOT NULL,
             state TEXT NOT NULL CHECK (
-                state IN ('claimed', 'issued', 'needs_review')
+                state IN ('pending', 'claimed', 'issued', 'needs_review',
+                          'failed_before_write')
             ),
             subscription_cipher TEXT,
             created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
             issued_at TIMESTAMPTZ
         )
+    """)
+    cur.execute("""
+        DO $$ BEGIN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conrelid = 'vainah_sandbox_auto_h1'::regclass
+                  AND conname = 'vainah_sandbox_auto_h1_state_check'
+                  AND pg_get_constraintdef(oid) NOT LIKE '%failed_before_write%'
+            ) THEN
+                ALTER TABLE vainah_sandbox_auto_h1
+                    DROP CONSTRAINT vainah_sandbox_auto_h1_state_check;
+                ALTER TABLE vainah_sandbox_auto_h1
+                    ADD CONSTRAINT vainah_sandbox_auto_h1_state_check CHECK (
+                        state IN ('pending', 'claimed', 'issued', 'needs_review',
+                                  'failed_before_write')
+                    );
+            END IF;
+        END $$
     """)
 
 
@@ -106,23 +134,36 @@ def _claim_once(order_id: str) -> Claim | None:
             cur.execute("""
                 INSERT INTO vainah_sandbox_auto_h1
                     (order_id, client_name, owner_ref, plan_id, state)
-                SELECT s.order_id, %s, s.owner_ref, s.plan_id, 'claimed'
+                SELECT s.order_id, %s, s.owner_ref, s.plan_id, 'pending'
                 FROM vainah_sandbox_orders s
                 WHERE s.order_id = %s
                     AND s.mode = 'provider'
                     AND s.status = 'paid'
-                    AND s.webhook_received = TRUE
+                    AND s.paid_webhook_received = TRUE
                     AND s.owner_ref ~ '^v1_[0-9a-f]{64}$'
                     AND s.receipt_recipient IS NOT NULL
                 ON CONFLICT (order_id) DO NOTHING
-                RETURNING plan_id, owner_ref
             """, (name, order_id))
+            # Only a proven pre-write failure can be reclaimed. A crashed or
+            # uncertain claimed request stays locked even after a long delay.
+            cur.execute("""
+                UPDATE vainah_sandbox_auto_h1 d SET state = 'claimed'
+                FROM vainah_sandbox_orders s
+                WHERE d.order_id = %s AND s.order_id = d.order_id
+                  AND d.state IN ('pending', 'failed_before_write')
+                  AND s.mode = 'provider' AND s.status = 'paid'
+                  AND s.paid_webhook_received = TRUE
+                  AND s.owner_ref ~ '^v1_[0-9a-f]{64}$'
+                  AND s.receipt_recipient IS NOT NULL
+                  AND d.owner_ref = s.owner_ref AND d.plan_id = s.plan_id
+                RETURNING d.client_name, d.plan_id, d.owner_ref
+            """, (order_id,))
             row = cur.fetchone()
     except (psycopg.Error, OSError):
         raise SandboxAutoH1Error("SANDBOX_AUTO_H1_DATABASE_UNAVAILABLE") from None
     if row is None:
         return None
-    plan_id, owner_ref = row
+    name, plan_id, owner_ref = row
     if get_plan(plan_id) is None or not OWNER_RE.fullmatch(owner_ref):
         _mark_review(order_id)
         raise SandboxAutoH1Error("SANDBOX_AUTO_H1_PLAN_INVALID")
@@ -144,6 +185,22 @@ def _mark_review(order_id: str) -> None:
         pass
 
 
+def _mark_failed_before_write(order_id: str) -> None:
+    """Release only when this invocation has not attempted a provider write."""
+    try:
+        with psycopg.connect(
+            _db_url(), connect_timeout=4
+        ) as conn, conn.cursor() as cur:
+            cur.execute("""
+                UPDATE vainah_sandbox_auto_h1
+                SET state = 'failed_before_write'
+                WHERE order_id = %s AND state = 'claimed'
+            """, (order_id,))
+    except (psycopg.Error, OSError, SandboxAutoH1Error):
+        # Failure to persist never releases the durable claim.
+        pass
+
+
 def _mark_issued(order_id: str, url: str) -> None:
     try:
         encrypted = seal_live_secret(url)
@@ -151,11 +208,15 @@ def _mark_issued(order_id: str, url: str) -> None:
             _db_url(), connect_timeout=4
         ) as conn, conn.cursor() as cur:
             cur.execute("""
-                UPDATE vainah_sandbox_auto_h1
+                UPDATE vainah_sandbox_auto_h1 d
                 SET state = 'issued', subscription_cipher = %s,
                     issued_at = now()
-                WHERE order_id = %s AND state = 'claimed'
-                RETURNING order_id
+                FROM vainah_sandbox_orders s
+                WHERE d.order_id = %s AND d.state = 'claimed'
+                  AND s.order_id = d.order_id AND s.status = 'paid'
+                  AND s.mode = 'provider' AND s.paid_webhook_received = TRUE
+                  AND s.owner_ref = d.owner_ref AND s.plan_id = d.plan_id
+                RETURNING d.order_id
             """, (encrypted, order_id))
             if cur.fetchone() is None:
                 raise SandboxAutoH1Error("SANDBOX_AUTO_H1_CLAIM_LOST")
@@ -186,7 +247,7 @@ def read_delivery(
                     ON s.order_id = d.order_id
                 WHERE d.order_id = %s
                     AND s.status = 'paid'
-                    AND s.webhook_received = TRUE
+                    AND s.paid_webhook_received = TRUE
                     AND s.mode = 'provider'
                     AND s.owner_ref = d.owner_ref
                     AND (%s::text IS NULL OR s.owner_ref = %s)
@@ -219,6 +280,8 @@ async def auto_issue_paid_sandbox(
     claim = _claim_once(order_id)
     if claim is None:
         return read_delivery(order_id)
+    write_attempted = False
+    requires_review = False
     try:
         plan = get_plan(claim.plan_id)
         if plan is None:
@@ -237,6 +300,9 @@ async def auto_issue_paid_sandbox(
             verify=verify, transport=transport,
         ) as client:
             preflight = await client.get(settings.origin + path, headers=headers)
+            # An existing deterministic user may be a historical write whose
+            # response was lost. Never create or overwrite it automatically.
+            requires_review = preflight.status_code == 200
             if preflight.status_code != 404 or len(preflight.content) > 32768:
                 raise SandboxAutoH1Error("SANDBOX_AUTO_H1_PREFLIGHT_FAILED")
             try:
@@ -246,6 +312,8 @@ async def auto_issue_paid_sandbox(
             if not isinstance(body, dict) or body.get("error") != "user_not_found":
                 raise SandboxAutoH1Error("SANDBOX_AUTO_H1_PREFLIGHT_FAILED")
 
+            write_started_at = int(time.time())
+            write_attempted = True
             created = await client.post(
                 settings.origin + "/api/create",
                 headers=headers,
@@ -267,7 +335,8 @@ async def auto_issue_paid_sandbox(
                 raise SandboxAutoH1Error("SANDBOX_AUTO_H1_POSTCHECK_FAILED")
             try:
                 profile = _client(after.json(), claim.client_name)
-                expiry = int(profile["expires_at"])
+                expiry = _expiry(profile)
+                disabled = _disabled(profile)
                 devices = profile.get("device_limit")
                 link = _validate_subscription_url(
                     profile.get("subscription_url") or profile.get("sub_url")
@@ -275,7 +344,10 @@ async def auto_issue_paid_sandbox(
             except (ValueError, KeyError, TypeError, LiveH1Error):
                 raise SandboxAutoH1Error("SANDBOX_AUTO_H1_POSTCHECK_FAILED") from None
             if (
-                expiry <= int(time.time())
+                # Permit clock/processing skew while verifying the paid term,
+                # rather than accepting any account expiring in the future.
+                expiry < write_started_at + plan["days"] * 86400 - 300
+                or disabled
                 or type(devices) is not int
                 or devices != plan["devices"]
             ):
@@ -286,9 +358,15 @@ async def auto_issue_paid_sandbox(
         SandboxAutoH1Error, H1PanelError,
         httpx.RequestError, httpx.TimeoutException,
     ):
-        # Never retry an ambiguous POST: a second call could issue extra access.
-        _mark_review(claim.order_id)
-        return {"status": "needs_review", "vpn_delivered": False}
+        # A POST may have committed even when the response/persistence failed.
+        # Only failures known to precede all writes can be retried safely.
+        if write_attempted or requires_review:
+            _mark_review(claim.order_id)
+            state = "needs_review"
+        else:
+            _mark_failed_before_write(claim.order_id)
+            state = "failed_before_write"
+        return {"status": state, "vpn_delivered": False}
 
 
 def mark_refunded(order_id: str) -> None:

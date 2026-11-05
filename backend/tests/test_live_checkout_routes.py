@@ -228,6 +228,36 @@ def test_customer_unpaid_link_is_not_created_from_fake_webhook(
     assert response.json()["detail"] == "LIVE_ORDER_UNKNOWN"
 
 
+@pytest.mark.parametrize("overrides", [
+    {"event_type": []}, {"event_type": {}}, {"test": 0}, {"test": None},
+])
+def test_malformed_signed_live_event_is_rejected_before_ledger(
+    simulated_production, monkeypatch, overrides,
+):
+    data = {
+        "event_type": "payment.paid", "status": "paid",
+        "order_id": ORDER, "payment_id": PAYMENT_ID,
+        "amount": "99.00", "currency": "RUB", **overrides,
+    }
+    monkeypatch.setattr(live_checkout, "_ledger", lambda: pytest.fail(
+        "Malformed event must not reach payment recording or H1 fulfillment"
+    ))
+    raw = json.dumps(data).encode()
+    timestamp = str(int(time.time()))
+    signature = hmac.new(
+        SIGNATURE_KEY.encode(), timestamp.encode() + b"." + raw,
+        hashlib.sha256,
+    ).hexdigest()
+    with TestClient(app, base_url=ORIGIN) as client:
+        response = client.post(
+            "/api/shop/webhooks/rollypay", content=raw,
+            headers={"X-Test-Mode": "false", "X-Timestamp": timestamp,
+                     "X-Signature": signature},
+        )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "LIVE_PAYMENT_EVENT_UNSUPPORTED"
+
+
 def test_refunded_live_webhook_rejects_h1_delivery(
     simulated_production, monkeypatch
 ):

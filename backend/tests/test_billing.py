@@ -802,3 +802,151 @@ def test_provider_paid_status_accepts_equivalent_amount_and_currency_alias(
     preview = provider.activation_preview(created["order_id"])
     assert preview["fulfillment"]["reason"] == "SIGNED_WEBHOOK_REQUIRED"
     assert preview["vpn_delivered"] is False
+
+
+def test_signed_created_then_polled_paid_never_becomes_paid_webhook_proof(tmp_path):
+    known = {}
+    payment_id = "pay_test_signed_created"
+
+    def response(request):
+        if request.method == "POST":
+            known["id"] = json.loads(request.content)["order_id"]
+        return httpx.Response(200, json={
+            "order_id": known["id"], "payment_id": payment_id,
+            "amount": "99.00", "payment_currency": "RUB",
+            "status": "created" if request.method == "POST" else "paid",
+            "test": True, "environment": "sandbox",
+            "pay_url": "https://pay.rollypay.io/pay/test_123456",
+        })
+
+    filename = str(tmp_path / "paid-proof.sqlite3")
+    service = BillingSandbox("provider", "fake-key", httpx.MockTransport(response),
+                             ledger_path=filename)
+    order = asyncio.run(service.create("30"))
+    created_event = {
+        "event_type": "payment.created", "status": "created", "test": True,
+        "order_id": order["order_id"], "payment_id": payment_id,
+        "amount": "99.00", "currency": "RUB",
+    }
+    service.process_webhook(created_event)
+    paid = asyncio.run(service.refresh(order["order_id"]))
+    assert paid["webhook_received"] is True
+    assert paid["paid_webhook_received"] is False
+    restarted = BillingSandbox("provider", ledger_path=filename)
+    preview = restarted.activation_preview(order["order_id"])
+    assert preview["fulfillment"]["reason"] == "SIGNED_WEBHOOK_REQUIRED"
+    service.process_webhook({
+        **created_event, "event_type": "payment.paid", "status": "paid",
+    })
+    assert service.read(order["order_id"])["paid_webhook_received"] is True
+
+
+@pytest.mark.parametrize("overrides", [
+    {"event_type": []}, {"currency": "EUR"},
+    {"currency": "RUB", "payment_currency": "EUR"},
+    {"environment": "production"}, {"test": 1},
+])
+def test_callback_rejects_malformed_and_contradictory_fields(overrides):
+    from vainah.billing import TestOrder
+
+    order_id = "vainah_test_" + "a" * 32
+    service = BillingSandbox("provider")
+    service.orders[order_id] = TestOrder(
+        order_id, "30", "99.00", "pay_test_123456", "created", "provider",
+    )
+    event = {
+        "event_type": "payment.paid", "status": "paid", "test": True,
+        "order_id": order_id, "payment_id": "pay_test_123456",
+        "amount": "99.00", "currency": "RUB", **overrides,
+    }
+    with pytest.raises(HTTPException) as caught:
+        service.process_webhook(event)
+    assert caught.value.status_code == 400
+    assert service.read(order_id)["paid_webhook_received"] is False
+
+
+def test_durable_reservation_precedes_provider_post_and_early_callback_retries(tmp_path):
+    path = str(tmp_path / "early-callback.sqlite3")
+    observed = []
+
+    def response(request):
+        order_id = json.loads(request.content)["order_id"]
+        worker = BillingSandbox("provider", ledger_path=path)
+        event = {
+            "event_type": "payment.paid", "status": "paid", "test": True,
+            "order_id": order_id, "payment_id": "pay_test_early123",
+            "amount": "99.00", "currency": "RUB",
+        }
+        assert worker.read(order_id)["status"] == "created"
+        with pytest.raises(HTTPException) as caught:
+            worker.process_webhook(event)
+        assert caught.value.status_code == 503
+        assert caught.value.detail == "PROVIDER_PAYMENT_PENDING"
+        observed.append(event)
+        return httpx.Response(201, json={
+            "order_id": order_id, "payment_id": event["payment_id"],
+            "amount": "99.00", "payment_currency": "RUB",
+            "test": True, "environment": "sandbox", "status": "created",
+            "pay_url": "https://pay.rollypay.io/pay/test_123456",
+        })
+
+    service = BillingSandbox("provider", "fake-key", httpx.MockTransport(response),
+                             ledger_path=path)
+    order = asyncio.run(service.create("30"))
+    worker = BillingSandbox("provider", ledger_path=path)
+    assert worker.process_webhook(observed[0])["status"] == "paid"
+    assert worker.read(order["order_id"])["paid_webhook_received"] is True
+
+
+def test_database_failure_before_reservation_never_calls_gateway(monkeypatch):
+    from vainah.postgres_ledger import LedgerUnavailable
+
+    calls = []
+    service = BillingSandbox("provider", "fake-key", httpx.MockTransport(
+        lambda request: calls.append(request) or httpx.Response(500),
+    ))
+
+    class Unavailable:
+        def load(self):
+            return []
+
+        def save(self, order):
+            raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE")
+
+    monkeypatch.setattr(service, "ledger", Unavailable())
+    with pytest.raises(HTTPException) as caught:
+        asyncio.run(service.create("30"))
+    assert caught.value.status_code == 503
+    assert calls == []
+
+
+def test_auto_receipt_waits_for_verified_issuance_and_then_sends_once(monkeypatch):
+    from vainah import billing, sandbox_auto_h1
+
+    order_id = "vainah_test_" + "d" * 32
+    monkeypatch.setenv("SESSION_SIGNING_KEY", "test-secret-" + "a" * 40)
+    service = BillingSandbox("provider")
+    service.orders[order_id] = billing.TestOrder(
+        order_id, "30", "99.00", "pay_test_receipt123", "paid", "provider",
+        owner_ref="v1_" + "f" * 64, webhook_received=True,
+        paid_webhook_received=True,
+        receipt_recipient=billing._seal_receipt_recipient("owner@example.com"),
+    )
+    monkeypatch.setattr(sandbox_auto_h1, "auto_enabled", lambda: True)
+    delivery = {"status": "failed_before_write", "vpn_delivered": False}
+    monkeypatch.setattr(sandbox_auto_h1, "read_delivery", lambda oid: delivery)
+    sent = []
+
+    async def send(recipient, **kwargs):
+        sent.append((recipient, kwargs))
+
+    monkeypatch.setattr(billing, "send_sandbox_receipt", send)
+    pending = asyncio.run(service.send_auto_test_receipt(order_id))
+    assert pending["sent"] is False
+    assert pending["delivery_state"] == "failed_before_write"
+    assert not sent
+    delivery.update(status="issued", vpn_delivered=True)
+    assert asyncio.run(service.send_auto_test_receipt(order_id))["sent"] is True
+    assert asyncio.run(service.send_auto_test_receipt(order_id))["already_sent"] is True
+    assert len(sent) == 1
+    assert sent[0][1]["vpn_issued"] is True

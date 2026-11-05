@@ -8,6 +8,8 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from .postgres_ledger import LedgerUnavailable
+
 
 class SandboxLedger:
     def __init__(self, filename: str):
@@ -36,6 +38,8 @@ class SandboxLedger:
                 db.execute("ALTER TABLE sandbox_orders ADD COLUMN receipt_recipient TEXT")
             if "receipt_claimed_at" not in fields:
                 db.execute("ALTER TABLE sandbox_orders ADD COLUMN receipt_claimed_at INTEGER")
+            if "paid_webhook_received" not in fields:
+                db.execute("ALTER TABLE sandbox_orders ADD COLUMN paid_webhook_received INTEGER NOT NULL DEFAULT 0")
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(str(self.path), timeout=5)
@@ -44,11 +48,12 @@ class SandboxLedger:
         with self._connect() as db:
             db.execute("""
                 INSERT INTO sandbox_orders (
-                    order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed, receipt_recipient
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed, receipt_recipient, paid_webhook_received
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(order_id) DO UPDATE SET
                     status=excluded.status,
                     webhook_received=excluded.webhook_received,
+                    paid_webhook_received=MAX(sandbox_orders.paid_webhook_received, excluded.paid_webhook_received),
                     receipt_emailed=MAX(sandbox_orders.receipt_emailed, excluded.receipt_emailed),
                     updated_at=unixepoch()
             """, (
@@ -57,17 +62,35 @@ class SandboxLedger:
                 getattr(order, "owner_ref", None),
                 int(getattr(order, "receipt_emailed", False)),
                 getattr(order, "receipt_recipient", None),
+                int(getattr(order, "paid_webhook_received", False)),
             ))
+
+    def attach_provider_payment(self, order: object, *, pending_payment_id: str) -> None:
+        with self._connect() as db:
+            row = db.execute("""
+                UPDATE sandbox_orders SET payment_id = ?, status = ?, updated_at = unixepoch()
+                WHERE order_id = ? AND payment_id = ? AND plan_id = ?
+                  AND amount = ? AND mode = 'provider' AND owner_ref IS ?
+                  AND status = 'created' AND webhook_received = 0
+                  AND paid_webhook_received = 0
+                RETURNING order_id
+            """, (
+                order.payment_id, order.status, order.order_id,
+                pending_payment_id, order.plan_id, order.amount,
+                getattr(order, "owner_ref", None),
+            )).fetchone()
+            if row is None:
+                raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE")
 
     def load(self) -> list[dict]:
         with self._connect() as db:
             rows = db.execute("""
-                SELECT order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed, receipt_recipient
+                SELECT order_id, plan_id, amount, payment_id, status, mode, webhook_received, owner_ref, receipt_emailed, receipt_recipient, paid_webhook_received
                   FROM sandbox_orders ORDER BY updated_at DESC, rowid DESC
             """).fetchall()
         return [
             dict(zip(("order_id", "plan_id", "amount", "payment_id",
-                      "status", "mode", "webhook_received", "owner_ref", "receipt_emailed", "receipt_recipient"), row))
+                      "status", "mode", "webhook_received", "owner_ref", "receipt_emailed", "receipt_recipient", "paid_webhook_received"), row))
             for row in rows
         ]
 
@@ -77,6 +100,7 @@ class SandboxLedger:
                 UPDATE sandbox_orders SET receipt_claimed_at = unixepoch()
                 WHERE order_id = ? AND mode = 'provider' AND status = 'paid'
                   AND webhook_received = 1 AND receipt_emailed = 0
+                  AND paid_webhook_received = 1
                   AND owner_ref IS NOT NULL AND receipt_recipient IS NOT NULL
                   AND (receipt_claimed_at IS NULL OR
                        receipt_claimed_at < unixepoch() - 120)
@@ -91,6 +115,7 @@ class SandboxLedger:
                 SET receipt_emailed = 1, receipt_claimed_at = NULL,
                     updated_at = unixepoch()
                 WHERE order_id = ? AND status = 'paid' AND webhook_received = 1
+                  AND paid_webhook_received = 1
                   AND receipt_claimed_at IS NOT NULL
             """, (order_id,))
 

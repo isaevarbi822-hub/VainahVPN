@@ -353,6 +353,45 @@ async def overview(request: Request) -> dict:
     }
 
 
+@router.get("/test-subscriptions")
+def test_subscriptions(request: Request) -> dict:
+    """Show separately labeled sandbox deliveries to their original owner.
+
+    A test delivery never becomes a live purchase or grants /account/access.
+    The private URL remains behind the existing owner-checked VPN route.
+    """
+    from .billing import _require_verified_sandbox_owner, get_plan, sandbox
+    from .sandbox_auto_h1 import SandboxAutoH1Error, auto_enabled, read_delivery
+
+    owner = _require_verified_sandbox_owner(request)
+    if not auto_enabled():
+        return {"items": [], "sandbox_only": True}
+    items = []
+    for order in sandbox.owned_test_orders(owner)[:30]:
+        if order["mode"] != "provider" or order["status"] != "paid" or not (
+            order.get("paid_webhook_received") and order["webhook_received"]
+        ):
+            continue
+        plan = get_plan(order["plan"])
+        if plan is None:
+            continue
+        try:
+            delivery = read_delivery(order["order_id"], owner_ref=owner)
+        except SandboxAutoH1Error:
+            raise HTTPException(503, "SANDBOX_VPN_ACCESS_UNAVAILABLE") from None
+        items.append({
+            "order_id": order["order_id"],
+            "title": plan["title"],
+            "duration_days": plan["days"],
+            "device_limit": plan["devices"],
+            "delivery_state": delivery["status"],
+            "vpn_delivered": delivery["vpn_delivered"],
+            "sandbox_only": True,
+            "test_payment": True,
+        })
+    return {"items": items, "sandbox_only": True}
+
+
 @router.get("/access")
 async def access(request: Request) -> dict:
     telegram_id, _, _ = portal_identity(request, include_email=False)

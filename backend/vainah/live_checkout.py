@@ -173,11 +173,12 @@ async def handle_live_paid_webhook(
         event = json.loads(raw)
         if (
             not isinstance(event, dict)
-            or event.get("event_type") not in {
+            or not isinstance(event.get("event_type"), str)
+            or event["event_type"] not in {
                 "payment.paid", "payment.refunded", "payment.chargeback",
                 "refund_request.completed",
             }
-            or event.get("test") not in (None, False)
+            or ("test" in event and event["test"] is not False)
         ):
             raise HTTPException(400, "LIVE_PAYMENT_EVENT_UNSUPPORTED")
         order_id = event.get("order_id")

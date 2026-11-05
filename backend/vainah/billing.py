@@ -33,6 +33,7 @@ API = "https://rollypay.io/api/v1/payments"
 PAY_URL_RE = re.compile(r"/pay/[A-Za-z0-9_-]{6,255}/?")
 # Payment IDs are opaque. Restrict to safe URL-path bytes rather than pay_-only.
 PAYMENT_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{5,127}")
+PENDING_PAYMENT_RE = re.compile(r"pending:[0-9a-f]{32}")
 ORDER_RE = re.compile(r"vainah_test_[0-9a-f]{32}")
 STATUS = frozenset(("created", "processing", "paid", "canceled", "expired",
                     "refunded", "chargeback"))
@@ -106,6 +107,9 @@ class TestOrder:
     owner_ref: str | None = None
     receipt_emailed: bool = False
     receipt_recipient: str | None = None
+    # Separate proof from any earlier signed created/canceled notification.
+    # Existing ledger rows intentionally default to False until paid is signed.
+    paid_webhook_received: bool = False
 
 
 def _receipt_fernet() -> Fernet:
@@ -242,7 +246,7 @@ def _payment_status_comparison(result: dict, order: TestOrder) -> dict:
             else "unknown"
         ),
         "signed_paid_webhook_received": (
-            order.status == "paid" and order.webhook_received is True
+            order.status == "paid" and order.paid_webhook_received is True
         ),
         "new_payment_created": False,
         "sandbox_only": True,
@@ -297,6 +301,7 @@ class BillingSandbox:
                     record["owner_ref"] = record.get("owner_ref")
                     record["receipt_emailed"] = bool(record.get("receipt_emailed", False))
                     record["receipt_recipient"] = record.get("receipt_recipient")
+                    record["paid_webhook_received"] = bool(record.get("paid_webhook_received", False))
                     order = TestOrder(**record, pay_url=None)
                     self.orders[order.order_id] = order
             self._ledger_loaded = True
@@ -322,7 +327,8 @@ class BillingSandbox:
                     or record.get("status") not in STATUS
                     or get_plan(record.get("plan_id")) is None
                     or not isinstance(record.get("payment_id"), str)
-                    or not PAYMENT_ID_RE.fullmatch(record["payment_id"])):
+                    or not (PAYMENT_ID_RE.fullmatch(record["payment_id"])
+                            or PENDING_PAYMENT_RE.fullmatch(record["payment_id"]))):
                 raise HTTPException(503, "SANDBOX_LEDGER_INVALID")
             prior = self.orders.get(order_id)
             self.orders[order_id] = TestOrder(
@@ -337,6 +343,7 @@ class BillingSandbox:
                 owner_ref=record["owner_ref"],
                 receipt_emailed=bool(record["receipt_emailed"]),
                 receipt_recipient=record["receipt_recipient"],
+                paid_webhook_received=bool(record.get("paid_webhook_received", False)),
             )
 
     def _save(self, order: TestOrder) -> None:
@@ -472,12 +479,25 @@ class BillingSandbox:
                               owner_ref=owner_ref,
                               receipt_recipient=encrypted_recipient)
         else:
+            pending_payment_id = None
+            if self.ledger is not None:
+                # Persist identity and price before the external operation.
+                # A callback can race the create response on another worker.
+                pending_payment_id = "pending:" + uuid4().hex
+                reserved = TestOrder(
+                    order_id, plan_id, amount, pending_payment_id,
+                    "created", "provider", owner_ref=owner_ref,
+                    receipt_recipient=encrypted_recipient,
+                )
+                with self.lock:
+                    self._save(reserved)
+                    self.orders[order_id] = reserved
             result = await self.provider_create(order_id, plan)
             if result.get("order_id") != order_id:
                 raise ProviderError("PROVIDER_ORDER_MISMATCH")
             if not _matches_exact_rub_amount(result.get("amount"), amount):
                 raise ProviderError("PROVIDER_AMOUNT_MISMATCH")
-            if (result.get("payment_currency") != "RUB"
+            if (not _matches_rub_currency(result)
                     or result.get("test") is not True
                     or result.get("environment") != "sandbox"):
                 raise ProviderError("PROVIDER_SANDBOX_NOT_CONFIRMED")
@@ -487,7 +507,7 @@ class BillingSandbox:
                 raise ProviderError("PROVIDER_PAYMENT_ID_MISSING")
             if not PAYMENT_ID_RE.fullmatch(payment_id):
                 raise ProviderError("PROVIDER_PAYMENT_ID_FORMAT")
-            if status not in {"created", "processing"}:
+            if not isinstance(status, str) or status not in {"created", "processing"}:
                 raise ProviderError("PROVIDER_PAYMENT_STATUS_INVALID")
             try:
                 pay_url = safe_pay_url(result.get("pay_url"))
@@ -497,7 +517,15 @@ class BillingSandbox:
                               status, "provider", pay_url, owner_ref=owner_ref,
                               receipt_recipient=encrypted_recipient)
         with self.lock:
-            self._save(order)
+            if self.mode == "provider" and pending_payment_id is not None:
+                try:
+                    self.ledger.attach_provider_payment(
+                        order, pending_payment_id=pending_payment_id,
+                    )
+                except LedgerUnavailable:
+                    raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
+            else:
+                self._save(order)
             self.orders[order_id] = order
         return self.serialize(order)
 
@@ -602,7 +630,7 @@ class BillingSandbox:
         if not isinstance(data, dict):
             raise HTTPException(400, "INVALID_WEBHOOK")
         kind = data.get("event_type")
-        status = EVENT_TO_STATUS.get(kind)
+        status = EVENT_TO_STATUS.get(kind) if isinstance(kind, str) else None
         if not status or status != data.get("status"):
             raise HTTPException(400, "UNSUPPORTED_PAYMENT_EVENT")
         order_id = data.get("order_id")
@@ -614,9 +642,14 @@ class BillingSandbox:
             order = self.orders.get(order_id)
             if not order or order.mode != "provider":
                 raise HTTPException(404, "UNKNOWN_ORDER")
+            if PENDING_PAYMENT_RE.fullmatch(order.payment_id):
+                # Never trust a callback to attach the provider identity. The
+                # validated create response must bind it before a retry passes.
+                raise HTTPException(503, "PROVIDER_PAYMENT_PENDING")
             if (data.get("test") is not True
+                    or ("environment" in data and data["environment"] != "sandbox")
                     or data.get("payment_id") != order.payment_id
-                    or data.get("currency") != "RUB"
+                    or not _matches_rub_currency(data)
                     or not _matches_exact_rub_amount(
                         data.get("amount"), order.amount,
                     )):
@@ -639,11 +672,15 @@ class BillingSandbox:
                     "stale_event_ignored": True, "vpn_delivered": False,
                 }
             previous_webhook = order.webhook_received
+            previous_paid_webhook = order.paid_webhook_received
             order.webhook_received = True
+            if status == "paid":
+                order.paid_webhook_received = True
             try:
                 self._set_status(order, status)
             except HTTPException:
                 order.webhook_received = previous_webhook
+                order.paid_webhook_received = previous_paid_webhook
                 raise
             # Keep the provider callback contract stable. Operator-only
             # fulfillment readiness is exposed via activation-preview instead.
@@ -653,6 +690,15 @@ class BillingSandbox:
     def owned_test_orders(self, owner_ref: str) -> list[dict]:
         """Only account-bound operator sandbox orders; never return provider URLs."""
         self._ensure_loaded()
+        if isinstance(self.ledger, PostgresSandboxLedger):
+            try:
+                records = self.ledger.load_for_owner(owner_ref)
+            except LedgerUnavailable:
+                raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
+            return [
+                self.serialize(TestOrder(**record, pay_url=None))
+                for record in records if record["mode"] == self.mode
+            ]
         with self.lock:
             return [
                 {**self.serialize(order), "pay_url": None}
@@ -666,6 +712,7 @@ class BillingSandbox:
         if not ORDER_RE.fullmatch(order_id):
             raise HTTPException(404, "TEST_ORDER_NOT_FOUND")
         self._ensure_loaded()
+        self._sync_one(order_id)
         with self.lock:
             order = self.orders.get(order_id)
             if not order or order.owner_ref is None or not secrets.compare_digest(
@@ -687,7 +734,7 @@ class BillingSandbox:
             with self.lock:
                 order = self.orders.get(order_id)
                 if not order or order.mode != "provider" or (
-                    order.status != "paid" or not order.webhook_received
+                    order.status != "paid" or not order.paid_webhook_received
                     or not order.owner_ref or not order.receipt_recipient
                     or order.receipt_emailed
                 ):
@@ -701,6 +748,23 @@ class BillingSandbox:
                 title, days, devices, amount = (
                     plan["title"], plan["days"], plan["devices"], order.amount
                 )
+            from .sandbox_auto_h1 import SandboxAutoH1Error, auto_enabled, read_delivery
+
+            if auto_enabled():
+                try:
+                    delivery = read_delivery(order_id)
+                except SandboxAutoH1Error:
+                    raise HTTPException(503, "SANDBOX_VPN_ACCESS_UNAVAILABLE") from None
+                if delivery.get("vpn_delivered") is not True:
+                    # Keep one stable email body/idempotency key. A pre-write
+                    # failure can later recover; do not permanently email an
+                    # unissued receipt before that attempt has completed.
+                    return {
+                        "sent": False, "already_sent": False,
+                        "test_only": True, "vpn_delivered": False,
+                        "delivery_state": delivery["status"],
+                    }
+                vpn_issued = True
             if self.ledger is not None:
                 try:
                     encrypted = self.ledger.claim_receipt(order_id)
@@ -742,7 +806,7 @@ class BillingSandbox:
         self.require_order_owner(order_id, owner_ref)
         with self.lock:
             order = self.orders[order_id]
-            if order.mode != "provider" or order.status != "paid" or not order.webhook_received:
+            if order.mode != "provider" or order.status != "paid" or not order.paid_webhook_received:
                 raise HTTPException(409, "SIGNED_TEST_PAYMENT_REQUIRED")
             encrypted_recipient_exists = order.receipt_recipient is not None
         if encrypted_recipient_exists:
@@ -752,7 +816,7 @@ class BillingSandbox:
             self.require_order_owner(order_id, owner_ref)
             with self.lock:
                 order = self.orders[order_id]
-                if order.mode != "provider" or not order.webhook_received or order.status != "paid":
+                if order.mode != "provider" or not order.paid_webhook_received or order.status != "paid":
                     raise HTTPException(409, "SIGNED_TEST_PAYMENT_REQUIRED")
                 if order.receipt_emailed:
                     return {"sent": False, "already_sent": True, "test_only": True,
@@ -800,7 +864,7 @@ class BillingSandbox:
             if plan is None:
                 raise HTTPException(409, "PLAN_UNKNOWN")
             paid = order.status == "paid"
-            signed = order.mode == "provider" and order.webhook_received
+            signed = order.mode == "provider" and order.paid_webhook_received
             gate_open = paid and signed
             if order.mode == "mock":
                 # Mock payments are useful for previewing tariff details but
@@ -868,6 +932,7 @@ class BillingSandbox:
             "mode": order.mode, "test_only": True, "real_charge": False,
             "vpn_delivered": False, "pay_url": order.pay_url,
             "webhook_received": order.webhook_received,
+            "paid_webhook_received": order.paid_webhook_received,
             "owner_bound": bool(order.owner_ref),
             "receipt_emailed": order.receipt_emailed,
         }
@@ -1257,7 +1322,7 @@ async def sandbox_status(order_id: str,
         if exc.code not in retryable:
             raise HTTPException(502, exc.code) from None
         snapshot = sandbox.read(order_id)
-        if snapshot["status"] != "paid" or snapshot["webhook_received"] is not True:
+        if snapshot["status"] != "paid" or snapshot["paid_webhook_received"] is not True:
             raise HTTPException(502, exc.code) from None
         result = {
             **snapshot,
@@ -1267,7 +1332,7 @@ async def sandbox_status(order_id: str,
         }
     from .sandbox_auto_h1 import SandboxAutoH1Error, auto_enabled, read_delivery
 
-    if auto_enabled() and result["status"] == "paid" and result["webhook_received"]:
+    if auto_enabled() and result["status"] == "paid" and result["paid_webhook_received"]:
         try:
             status = read_delivery(order_id)
         except SandboxAutoH1Error:
@@ -1366,6 +1431,11 @@ async def webhook(request: Request, x_signature: str | None = Header(default=Non
             **result, "vpn_delivered": delivery["vpn_delivered"],
             "delivery_state": delivery["status"],
         }
+        if delivery["status"] == "failed_before_write":
+            # Payment proof and the safe failure are durable. Ask the gateway
+            # to retry this callback so a transient preflight outage recovers;
+            # ambiguous writes stay acknowledged and locked for review.
+            raise HTTPException(503, "SANDBOX_AUTO_H1_RETRY_BEFORE_WRITE")
     elif auto_enabled() and result["status"] in {"refunded", "chargeback"}:
         try:
             mark_refunded(data["order_id"])

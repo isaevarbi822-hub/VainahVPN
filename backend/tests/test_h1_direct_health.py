@@ -118,3 +118,25 @@ def test_connection_timeout_is_clear_and_redacted(direct):
     ))
     assert report["status"] == "unavailable"
     assert "secret" not in str(report)
+
+
+@pytest.mark.parametrize(("status", "payload", "reason"), [
+    (401, {"error": "SECRET"}, "public_health_rejected"),
+    (403, {"error": "SECRET"}, "public_health_rejected"),
+    (404, {"error": "SECRET"}, "unexpected_http_status"),
+    (200, {"ok": True, "service": "other"}, "health_contract_mismatch"),
+    (200, {"ok": True, "service": "vpn-api"}, "endpoints_contract_mismatch"),
+])
+def test_direct_probe_distinguishes_failure_without_diagnosing_token(
+    direct, status, payload, reason,
+):
+    report = asyncio.run(probe_direct_health(
+        transport=httpx.MockTransport(
+            lambda _request: httpx.Response(status, json=payload)
+        ),
+    ))
+    assert report["status"] == "error"
+    assert report["reason"] == reason
+    assert report["api_token_sent"] is False
+    assert report["read_only"] is True
+    assert "SECRET" not in str(report)
