@@ -31,15 +31,24 @@ class FakeCursor:
             assert params is not None and len(params) == 10
             self.storage[params[0]] = tuple(params)
         elif query.startswith("SELECT"):
-            self.rows = [
-                self.storage[key]
-                for key in sorted(self.storage)
-            ]
+            if "WHERE ORDER_ID = %S" in query:
+                oid = params[0]
+                self.rows = (
+                    [self.storage[oid]] if oid in self.storage else []
+                )
+            else:
+                self.rows = [
+                    self.storage[key]
+                    for key in sorted(self.storage)
+                ]
         else:
             raise AssertionError("Unexpected SQL statement")
 
     def fetchall(self):
         return self.rows
+
+    def fetchone(self):
+        return self.rows[0] if self.rows else None
 
 
 class FakeConnection:
