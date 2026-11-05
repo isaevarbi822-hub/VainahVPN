@@ -1159,6 +1159,29 @@ async def sandbox_activation_preview(
     return preview
 
 
+@router.get("/sandbox/{order_id}/payment-diagnostics")
+async def sandbox_payment_diagnostics(
+    order_id: str,
+    x_sandbox_token: str | None = Header(default=None),
+) -> dict:
+    """Read-only mismatch report. Requires operator token, never exposes keys.
+
+    Inspecting a status does not issue a VPN, charge money or update the ledger.
+    Only the original test order's stored payment ID can be queried.
+    """
+    _require_operator(x_sandbox_token)
+    if os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") != "enabled":
+        raise HTTPException(503, "SANDBOX_DISABLED")
+    if sandbox.mode != "provider" or os.environ.get(
+        "VAINAH_SHOP_PROVIDER_TEST_ENABLED"
+    ) != "enabled":
+        raise HTTPException(503, "PROVIDER_SANDBOX_DISABLED")
+    try:
+        return await sandbox.inspect_provider_status(order_id)
+    except ProviderError as exc:
+        raise HTTPException(502, exc.code) from None
+
+
 @router.get("/sandbox/{order_id}")
 async def sandbox_status(order_id: str,
                          x_sandbox_token: str | None = Header(default=None)) -> dict:
