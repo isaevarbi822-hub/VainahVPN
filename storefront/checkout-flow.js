@@ -178,9 +178,10 @@
     $("shop-buy").disabled = !state.config?.checkout_ready;
     $("shop-buy").textContent = state.config?.checkout_ready ? "Перейти к оплате ↗" : "Оплата пока недоступна";
     $("shop-test-create").disabled = !state.config?.sandbox_available;
-    if (state.config?.checkout_ready) {
-      void checkExistingCheckout(id).catch(() => {
-        if (state.selected?.id === id) {
+    if (state.config?.checkout_ready && state.selected) {
+      const selectedPlanId = state.selected.id;
+      void checkExistingCheckout(selectedPlanId).catch(() => {
+        if (state.selected?.id === selectedPlanId) {
           message("Для проверки прежнего счёта войди в личный кабинет. " +
             "Пока его статус неизвестен, новый счёт не создавай.");
         }
