@@ -823,9 +823,14 @@ class BillingSandbox:
                 )
             from .sandbox_auto_h1 import SandboxAutoH1Error, auto_enabled, read_delivery
 
+            # The caller's vpn_issued hint is never proof of access: only the
+            # paid, owner-bound database record may supply a private email link.
+            access_url = None
             if auto_enabled():
                 try:
-                    delivery = read_delivery(order_id)
+                    delivery = read_delivery(
+                        order_id, owner_ref=order.owner_ref, with_access=True,
+                    )
                 except SandboxAutoH1Error:
                     raise HTTPException(503, "SANDBOX_VPN_ACCESS_UNAVAILABLE") from None
                 if delivery.get("vpn_delivered") is not True:
@@ -837,7 +842,9 @@ class BillingSandbox:
                         "test_only": True, "vpn_delivered": False,
                         "delivery_state": delivery["status"],
                     }
-                vpn_issued = True
+                access_url = delivery.get("subscription_url")
+                if not isinstance(access_url, str) or not access_url:
+                    raise HTTPException(503, "SANDBOX_VPN_ACCESS_UNAVAILABLE")
             claim_token = uuid4().hex
             if self.ledger is not None:
                 try:
@@ -863,7 +870,9 @@ class BillingSandbox:
                 await send_sandbox_receipt(
                     recipient, order_id=order_id, plan_title=title,
                     amount_rub=amount, duration_days=days, devices=devices,
-                    **({"vpn_issued": True} if vpn_issued is True else {}),
+                    **({
+                        "vpn_issued": True, "subscription_url": access_url,
+                    } if access_url is not None else {}),
                 )
                 if self.ledger is not None:
                     try:
