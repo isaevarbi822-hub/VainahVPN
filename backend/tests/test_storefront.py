@@ -129,7 +129,8 @@ def test_account_login_uses_secure_render_telegram_api():
 
 def test_support_form_does_not_accept_messages_without_working_backend():
     page = (STORE / "contact.html").read_text(encoding="utf-8")
-    assert "Форма обращений временно недоступна" in page
+    assert 'https://t.me/VainahSupport' in page
+    assert 'rel="noopener noreferrer"' in page
     assert "<form name=\"vainah-support\"" not in page
 
 
