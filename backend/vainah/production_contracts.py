@@ -12,12 +12,20 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from uuid import uuid4
 
 import httpx
 
-from .billing import PAYMENT_ID_RE, get_plan, price_rub, safe_pay_url, verify_signature
+from .billing import (
+    PAYMENT_ID_RE,
+    _matches_exact_rub_amount,
+    _matches_rub_currency,
+    get_plan,
+    price_rub,
+    safe_pay_url,
+    verify_signature,
+)
 
 LIVE_ORDER_RE = re.compile(r"vainah_live_[0-9a-f]{32}")
 API = "https://rollypay.io/api/v1/payments"
@@ -69,13 +77,19 @@ class LiveInvoice:
 
 
 def _same_money(value: object, expected: str) -> bool:
-    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+    return _matches_exact_rub_amount(value, expected)
+
+
+def _live_mode(data: dict) -> bool:
+    # Markers may be omitted for production, but explicit values must be typed.
+    # Numeric 0 is not a JSON false; arrays/objects must not escape as TypeError.
+    if "test" in data and data["test"] is not False:
         return False
-    try:
-        amount = Decimal(str(value))
-        return amount.is_finite() and amount == Decimal(expected)
-    except InvalidOperation:
-        return False
+    environment = data.get("environment")
+    return "environment" not in data or (
+        isinstance(environment, str) and bool(environment.strip())
+        and environment.strip().lower() not in {"sandbox", "test"}
+    )
 
 
 def validate_invoice(
@@ -95,10 +109,9 @@ def validate_invoice(
         raise LiveContractError("LIVE_PAYMENT_RESPONSE_INVALID")
     if (result.get("order_id") != order_id
             or not _same_money(result.get("amount"), price_rub(plan))
-            or result.get("payment_currency") != "RUB"
-            or result.get("status") not in {"created", "processing"}
-            or result.get("test") not in (None, False)
-            or result.get("environment") in {"sandbox", "test"}):
+            or not _matches_rub_currency(result)
+            or result.get("status") not in ("created", "processing")
+            or not _live_mode(result)):
         raise LiveContractError("LIVE_PAYMENT_RESPONSE_MISMATCH")
     payment_id = result.get("payment_id")
     if not isinstance(payment_id, str) or not PAYMENT_ID_RE.fullmatch(payment_id):
@@ -161,7 +174,7 @@ async def create_hosted_live_invoice(
         raise LiveContractError("LIVE_PAYMENT_RESPONSE_INVALID")
     try:
         result = response.json()
-    except ValueError:
+    except (ValueError, RecursionError):
         raise LiveContractError("LIVE_PAYMENT_RESPONSE_INVALID") from None
     return validate_invoice(result, order_id=order_id, plan_id=plan_id)
 
@@ -183,20 +196,17 @@ def verify_live_paid_event(
         raise LiveContractError("LIVE_WEBHOOK_SIGNATURE_INVALID")
     try:
         data = json.loads(raw_body)
-    except (ValueError, UnicodeDecodeError):
+    except (ValueError, UnicodeDecodeError, RecursionError):
         raise LiveContractError("LIVE_WEBHOOK_JSON_INVALID") from None
     if not isinstance(data, dict):
         raise LiveContractError("LIVE_WEBHOOK_JSON_INVALID")
-    currency = data.get("currency", data.get("payment_currency"))
     if (data.get("event_type") != "payment.paid"
             or data.get("status") != "paid"
             or data.get("order_id") != order.order_id
             or data.get("payment_id") != order.payment_id
-            or currency != "RUB"
-            or data.get("payment_currency", "RUB") != "RUB"
+            or not _matches_rub_currency(data)
             or not _same_money(data.get("amount"), order.amount_rub)
-            or data.get("test") not in (None, False)
-            or data.get("environment") in {"sandbox", "test"}):
+            or not _live_mode(data)):
         raise LiveContractError("LIVE_WEBHOOK_PAYMENT_MISMATCH")
     return True
 
@@ -217,7 +227,7 @@ def verify_live_reversal_event(
         raise LiveContractError("LIVE_WEBHOOK_SIGNATURE_INVALID")
     try:
         event = json.loads(raw_body)
-    except (ValueError, UnicodeDecodeError):
+    except (ValueError, UnicodeDecodeError, RecursionError):
         raise LiveContractError("LIVE_WEBHOOK_JSON_INVALID") from None
     if not isinstance(event, dict):
         raise LiveContractError("LIVE_WEBHOOK_JSON_INVALID")
@@ -226,17 +236,15 @@ def verify_live_reversal_event(
         "payment.chargeback": "chargeback",
         "refund_request.completed": "refunded",
     }
-    status = event_map.get(event.get("event_type"))
-    currency = event.get("currency", event.get("payment_currency"))
+    event_type = event.get("event_type")
+    status = event_map.get(event_type) if isinstance(event_type, str) else None
     if (
         status is None or event.get("status") != status
         or event.get("order_id") != order.order_id
         or event.get("payment_id") != order.payment_id
-        or currency != "RUB"
-        or event.get("payment_currency", "RUB") != "RUB"
+        or not _matches_rub_currency(event)
         or not _same_money(event.get("amount"), order.amount_rub)
-        or event.get("test") not in (None, False)
-        or event.get("environment") in {"sandbox", "test"}
+        or not _live_mode(event)
     ):
         raise LiveContractError("LIVE_REVERSAL_PAYMENT_MISMATCH")
     return status

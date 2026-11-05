@@ -21,6 +21,7 @@ from vainah.production_contracts import (
     production_readiness,
     validate_invoice,
     verify_live_paid_event,
+    verify_live_reversal_event,
 )
 
 KEY = "test-api-key-" + "k" * 35
@@ -167,6 +168,60 @@ def test_live_paid_event_fails_closed_on_modified_or_expired_signature():
             signing_secret=SIGNING, order=order,
             now=int(timestamp) + 310,
         )
+
+
+@pytest.mark.parametrize("changes", [
+    {"test": 0}, {"test": None}, {"environment": []},
+    {"environment": {"mode": "production"}}, {"environment": " Sandbox "},
+    {"currency": "USD", "payment_currency": "RUB"},
+    {"amount": "9.9e1"}, {"status": []},
+])
+def test_live_contracts_reject_contradictory_or_malformed_fields(changes):
+    order = new_order()
+    with pytest.raises(LiveContractError):
+        validate_invoice(invoice(order) | changes, order_id=order.order_id, plan_id=order.plan_id)
+    raw, timestamp, signature = signed_event(order, changes)
+    with pytest.raises(LiveContractError):
+        verify_live_paid_event(
+            raw, timestamp=timestamp, signature=signature,
+            signing_secret=SIGNING, order=order,
+        )
+    raw, timestamp, signature = signed_event(order, {
+        "event_type": "payment.refunded", "status": "refunded", **changes,
+    })
+    with pytest.raises(LiveContractError):
+        verify_live_reversal_event(
+            raw, timestamp=timestamp, signature=signature,
+            signing_secret=SIGNING, order=order,
+        )
+
+
+def test_live_reversal_rejects_unhashable_event_without_typeerror():
+    order = new_order()
+    raw, timestamp, signature = signed_event(order, {"event_type": []})
+    with pytest.raises(LiveContractError, match="MISMATCH"):
+        verify_live_reversal_event(
+            raw, timestamp=timestamp, signature=signature,
+            signing_secret=SIGNING, order=order,
+        )
+
+
+def test_deep_live_json_fails_with_sanitized_contract_error():
+    order = new_order()
+    raw = b"[" * 10000 + b"0" + b"]" * 10000
+    timestamp = str(int(time.time()))
+    signature = hmac.new(SIGNING.encode(), timestamp.encode() + b"." + raw, hashlib.sha256).hexdigest()
+    for verifier in (verify_live_paid_event, verify_live_reversal_event):
+        with pytest.raises(LiveContractError, match="LIVE_WEBHOOK_JSON_INVALID"):
+            verifier(raw, timestamp=timestamp, signature=signature, signing_secret=SIGNING, order=order)
+
+    with pytest.raises(LiveContractError, match="LIVE_PAYMENT_RESPONSE_INVALID"):
+        asyncio.run(create_hosted_live_invoice(
+            order_id=order.order_id, plan_id=order.plan_id, api_key=KEY,
+            order_durably_reserved=True, verified_merchant_approved=True,
+            verified_h1_fulfillment=True,
+            transport=httpx.MockTransport(lambda _: httpx.Response(200, content=raw)),
+        ))
 
 
 def test_h1_provisioning_intent_is_stable_private_and_plan_bound():

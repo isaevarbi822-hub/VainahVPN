@@ -79,13 +79,17 @@ def _hmac(secret: str, purpose: str, value: str) -> str:
     ).hexdigest()
 
 
-def _schema(cur) -> None:
+def _transaction_limits(cur) -> None:
     # Bound both migration/OTP lock waits and statement execution; a connected
     # database with a stuck transaction must return a sanitized HTTP 503.
     cur.execute("""
         SELECT set_config('lock_timeout', %s, TRUE),
                set_config('statement_timeout', %s, TRUE)
     """, (f"{LOCK_TIMEOUT_MS}ms", f"{STATEMENT_TIMEOUT_MS}ms"))
+
+
+def _schema(cur) -> None:
+    _transaction_limits(cur)
     # Multiple Render workers can receive their first login simultaneously.
     # Serialize catalog creation before taking the per-email/source locks;
     # CREATE TABLE IF NOT EXISTS alone can still fail on pg_type uniqueness.
@@ -188,17 +192,19 @@ def _cancel_failed_delivery(email: str, code: str) -> None:
     digest = _hmac(_secret(), "login-otp-v1:" + email, code)
     try:
         with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
+            _transaction_limits(cur)
             cur.execute("""
-                DELETE FROM vainah_email_login_codes
+                UPDATE vainah_email_login_codes
+                SET expires_at = clock_timestamp(), attempts = %s,
+                    next_send_at = clock_timestamp()
                 WHERE email = %s AND code_hash = %s
-            """, (email, digest))
+            """, (CODE_ATTEMPTS, email, digest))
     except psycopg.Error:
         return
 
 
 def _verify_code(email: str, code: str) -> bool:
     digest = _hmac(_secret(), "login-otp-v1:" + email, code)
-    now = datetime.now(UTC)
     try:
         with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
             _schema(cur)
@@ -208,6 +214,7 @@ def _verify_code(email: str, code: str) -> bool:
                 WHERE email = %s FOR UPDATE
             """, (email,))
             row = cur.fetchone()
+            now = datetime.now(UTC)
             if not row or row[1] <= now or row[2] >= CODE_ATTEMPTS:
                 return False
             if not hmac.compare_digest(str(row[0]), digest):
@@ -221,8 +228,13 @@ def _verify_code(email: str, code: str) -> bool:
                 VALUES (%s, now())
                 ON CONFLICT (email) DO UPDATE SET verified_at = now()
             """, (email,))
-            cur.execute("DELETE FROM vainah_email_login_codes WHERE email = %s",
-                        (email,))
+            # Consume the code without removing this mailbox's resend/hourly
+            # budget. Successful logins must not bypass the abuse controls.
+            cur.execute("""
+                UPDATE vainah_email_login_codes
+                SET expires_at = clock_timestamp(), attempts = %s
+                WHERE email = %s
+            """, (CODE_ATTEMPTS, email))
             return True
     except psycopg.Error:
         raise HTTPException(503, "EMAIL_LOGIN_DATABASE_UNAVAILABLE") from None

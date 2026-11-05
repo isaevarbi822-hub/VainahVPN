@@ -182,3 +182,98 @@ def test_trial_disabled_is_fail_closed(monkeypatch):
         asyncio.run(h1_trial.issue_operator_trial(transport=httpx.MockTransport(
             lambda _req: pytest.fail("No network when disabled")
         )))
+
+
+@pytest.mark.parametrize("change", [
+    {"expires_at": "short"}, {"expires_at": True},
+    {"expires_at": 10**100}, {"expires_at": 2000000000000},
+    {"expires_at": 2000000000.5}, {"banned": True},
+    {"banned": "true"}, {"status": []}, {"status": "disabled"},
+])
+def test_trial_invalid_or_unusable_profile_is_never_saved(configured, monkeypatch, change):
+    monkeypatch.setattr(h1_trial, "_claim_once", lambda *_: True)
+    monkeypatch.setattr(h1_trial, "_save_success", lambda *_: pytest.fail("Unusable trial was saved"))
+    reviewed, calls = [], []
+    monkeypatch.setattr(h1_trial, "_mark_uncertain", lambda _: reviewed.append(True))
+
+    def provider(request):
+        calls.append(request.method)
+        if len(calls) == 1:
+            return httpx.Response(404, json={"error": "user_not_found"})
+        if request.method == "POST":
+            return httpx.Response(201, json={"ok": True})
+        name, _ = h1_trial._ready()
+        profile = {
+            "name": name, "expires_at": int(time.time()) + 86400,
+            "device_limit": 1, "subscription_url": "https://sub.example/private-trial",
+        } | change
+        if profile["expires_at"] == "short":
+            profile["expires_at"] = int(time.time()) + 1
+        return httpx.Response(200, json={"ok": True, "client": profile})
+
+    with pytest.raises(h1_trial.TrialError, match="POSTCHECK_INVALID"):
+        asyncio.run(h1_trial.issue_operator_trial(transport=httpx.MockTransport(provider)))
+    assert calls == ["GET", "POST", "GET"]
+    assert reviewed == [True]
+
+
+@pytest.mark.parametrize("phase", ["write", "postcheck"])
+def test_cancelled_trial_stays_locked_and_marks_review(configured, monkeypatch, phase):
+    monkeypatch.setattr(h1_trial, "_claim_once", lambda *_: True)
+    reviewed, calls = [], []
+    monkeypatch.setattr(h1_trial, "_mark_uncertain", lambda _: reviewed.append(True))
+
+    def provider(request):
+        calls.append(request.method)
+        if len(calls) == 1:
+            return httpx.Response(404, json={"error": "user_not_found"})
+        if phase == "write" or len(calls) == 3:
+            raise asyncio.CancelledError()
+        return httpx.Response(201, json={"ok": True})
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(h1_trial.issue_operator_trial(transport=httpx.MockTransport(provider)))
+    assert reviewed == [True]
+    assert calls.count("POST") == 1
+
+
+def test_trial_real_postgres_concurrent_claims_and_key_rotation(configured, postgres_url, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+
+    monkeypatch.setenv("DATABASE_URL", postgres_url)
+    name, _ = h1_trial._ready()
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        claims = list(pool.map(lambda _: h1_trial._claim_once(postgres_url, name), range(8)))
+    assert sum(claims) == 1
+    monkeypatch.setenv("SESSION_SIGNING_KEY", "rotated-test-only-" + "r" * 40)
+    new_name, _ = h1_trial._ready()
+    assert new_name != name
+    assert h1_trial._claim_once(postgres_url, new_name) is False
+
+
+@pytest.mark.parametrize("operation", ["claim", "uncertain", "success"])
+def test_trial_postgres_lock_waits_are_bounded(configured, postgres_url, monkeypatch, operation):
+    import psycopg
+
+    monkeypatch.setenv("DATABASE_URL", postgres_url)
+    name, _ = h1_trial._ready()
+    assert h1_trial._claim_once(postgres_url, name)
+    monkeypatch.setattr(h1_trial, "LOCK_TIMEOUT_MS", 30)
+    monkeypatch.setattr(h1_trial, "STATEMENT_TIMEOUT_MS", 200)
+    operations = {
+        "claim": lambda: h1_trial._claim_once(postgres_url, name),
+        "uncertain": lambda: h1_trial._mark_uncertain(postgres_url),
+        "success": lambda: h1_trial._save_success(postgres_url, "https://sub.example/private-trial"),
+    }
+    with psycopg.connect(postgres_url) as holder:
+        holder.execute("LOCK TABLE vainah_h1_trial_issuance IN ACCESS EXCLUSIVE MODE")
+        started = time.monotonic()
+        if operation == "uncertain":
+            operations[operation]()  # Best effort: the durable claim stays locked.
+        else:
+            with pytest.raises(h1_trial.TrialError, match="DATABASE_UNAVAILABLE"):
+                operations[operation]()
+        assert time.monotonic() - started < 2
+    with psycopg.connect(postgres_url) as conn:
+        row = conn.execute("SELECT state, subscription_cipher FROM vainah_h1_trial_issuance").fetchone()
+        assert row == ("claimed", None)

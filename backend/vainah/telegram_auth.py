@@ -96,9 +96,13 @@ def verify_login(data: object, bot_token: str, *, now: int | None = None) -> dic
         for key in sorted(data)
         if key != "hash"
     )
+    try:
+        checked_bytes = checked.encode("utf-8")
+    except UnicodeEncodeError:
+        return None
     expected = hmac.new(
         hashlib.sha256(bot_token.encode("utf-8")).digest(),
-        checked.encode("utf-8"),
+        checked_bytes,
         hashlib.sha256,
     ).hexdigest()
     if not hmac.compare_digest(expected, provided_hash.lower()):
@@ -177,7 +181,10 @@ def require_same_origin(request: Request) -> None:
     allowed = os.environ.get(
         "PUBLIC_SITE_ORIGIN", "https://vainahvpn-python-preview.onrender.com"
     ).rstrip("/")
-    parsed = urlsplit(origin)
+    try:
+        parsed = urlsplit(origin)
+    except ValueError:
+        raise HTTPException(403, "INVALID_ORIGIN") from None
     if (not origin or parsed.scheme != "https" or
             origin.rstrip("/") != allowed):
         raise HTTPException(403, "INVALID_ORIGIN")

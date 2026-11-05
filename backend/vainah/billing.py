@@ -14,7 +14,7 @@ import os
 import re
 import secrets
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from threading import RLock
 from urllib.parse import urlsplit
@@ -67,7 +67,8 @@ def public_plans() -> list[dict]:
 
 
 def safe_pay_url(value: object) -> str:
-    if not isinstance(value, str) or len(value) > 2048:
+    if (not isinstance(value, str) or len(value) > 2048
+            or any(ord(character) < 33 or ord(character) == 127 for character in value)):
         raise ValueError("PROVIDER_PAYMENT_LINK_INVALID")
     try:
         url = urlsplit(value)
@@ -406,7 +407,7 @@ class BillingSandbox:
             if response.status_code == 400 and len(response.content) <= 2048:
                 try:
                     body = response.json()
-                except ValueError:
+                except (ValueError, RecursionError):
                     body = None
                 # Only exact, public provider error categories are exposed.
                 # Never print or store arbitrary upstream text or identifiers.
@@ -422,7 +423,7 @@ class BillingSandbox:
             raise ProviderError("PROVIDER_RESPONSE_INVALID")
         try:
             payload = response.json()
-        except ValueError as exc:
+        except (ValueError, RecursionError) as exc:
             raise ProviderError("PROVIDER_RESPONSE_INVALID") from exc
         if not isinstance(payload, dict) or not all(
             field in payload for field in ("available_usdt", "hold_usdt")
@@ -464,7 +465,7 @@ class BillingSandbox:
             raise ProviderError("PROVIDER_RESPONSE_INVALID")
         try:
             result = response.json()
-        except ValueError as exc:
+        except (ValueError, RecursionError) as exc:
             raise ProviderError("PROVIDER_RESPONSE_INVALID") from exc
         if not isinstance(result, dict):
             raise ProviderError("PROVIDER_RESPONSE_INVALID")
@@ -527,16 +528,74 @@ class BillingSandbox:
                               receipt_recipient=encrypted_recipient)
         with self.lock:
             if self.mode == "provider" and pending_payment_id is not None:
-                try:
-                    self.ledger.attach_provider_payment(
-                        order, pending_payment_id=pending_payment_id,
-                    )
-                except LedgerUnavailable:
-                    raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
+                self._attach_provider_order(order, pending_payment_id)
             else:
                 self._save(order)
             self.orders[order_id] = order
         return self.serialize(order)
+
+    def _attach_provider_order(self, order: TestOrder, pending_payment_id: str) -> None:
+        """Bind once, accepting a matching binding completed by another worker."""
+        try:
+            self.ledger.attach_provider_payment(
+                order, pending_payment_id=pending_payment_id,
+            )
+        except LedgerUnavailable:
+            # The original response and signed callback recovery may race, or
+            # a successful DB commit may lose its acknowledgement. Read the
+            # shared immutable binding; never repeat the external create POST.
+            self._sync_one(order.order_id)
+            known = self.orders.get(order.order_id)
+            immutable = ("order_id", "payment_id", "plan_id", "amount", "mode",
+                         "owner_ref", "receipt_recipient")
+            if known is None or any(
+                getattr(known, field) != getattr(order, field) for field in immutable
+            ):
+                raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
+            order.status = known.status
+            order.webhook_received = known.webhook_received
+            order.paid_webhook_received = known.paid_webhook_received
+            order.receipt_emailed = known.receipt_emailed
+
+    async def reconcile_pending_paid(self, data: dict) -> None:
+        """Recover only from the signature-verified HTTP paid callback.
+
+        An authenticated GET must explicitly confirm the reserved sandbox
+        invoice before its payment ID is bound. This method stores no paid
+        proof and performs no H1 write; the same signed event must then pass
+        normal webhook validation. Missing provenance remains retryable.
+        """
+        order_id = data.get("order_id")
+        self._sync_one(order_id)
+        with self.lock:
+            reserved = self.orders.get(order_id)
+            if reserved is None:
+                raise HTTPException(404, "UNKNOWN_ORDER")
+            if not PENDING_PAYMENT_RE.fullmatch(reserved.payment_id):
+                return
+            payment_id = data.get("payment_id")
+            if (data.get("event_type") != "payment.paid" or data.get("status") != "paid"
+                    or data.get("test") is not True
+                    or ("environment" in data and data["environment"] != "sandbox")
+                    or not isinstance(payment_id, str)
+                    or not PAYMENT_ID_RE.fullmatch(payment_id)
+                    or not _matches_rub_currency(data)
+                    or not _matches_exact_rub_amount(data.get("amount"), reserved.amount)):
+                raise HTTPException(400, "PAYMENT_MISMATCH")
+            candidate = replace(reserved, payment_id=payment_id)
+            pending_payment_id = reserved.payment_id
+        try:
+            observed = await self.provider_read(payment_id)
+        except ProviderError:
+            raise HTTPException(503, "SANDBOX_PAYMENT_RECONCILIATION_UNAVAILABLE") from None
+        proof = _payment_status_comparison(observed, candidate)
+        if (proof["reason"] != "OK" or observed.get("status") != "paid"
+                or observed.get("test") is not True
+                or observed.get("environment") != "sandbox"):
+            raise HTTPException(503, "SANDBOX_PAYMENT_RECONCILIATION_UNAVAILABLE")
+        with self.lock:
+            self._attach_provider_order(candidate, pending_payment_id)
+            self.orders[order_id] = candidate
 
     async def provider_read(self, payment_id: str) -> dict:
         """Fetch status from RollyPay; reject any response without sandbox markers."""
@@ -563,7 +622,7 @@ class BillingSandbox:
             raise ProviderError("PROVIDER_RESPONSE_INVALID")
         try:
             result = response.json()
-        except ValueError as exc:
+        except (ValueError, RecursionError) as exc:
             raise ProviderError("PROVIDER_RESPONSE_INVALID") from exc
         if not isinstance(result, dict):
             raise ProviderError("PROVIDER_RESPONSE_INVALID")
@@ -1410,13 +1469,19 @@ async def webhook(request: Request, x_signature: str | None = Header(default=Non
     secret = os.environ.get("ROLLYPAY_SIGNING_SECRET", "")
     if len(secret) < 16:
         raise HTTPException(503, "WEBHOOK_NOT_CONFIGURED")
-    if request.headers.get("content-length", "0").isdigit() and int(
-        request.headers.get("content-length", "0")
-    ) > 32768:
-        raise HTTPException(413, "BODY_TOO_LARGE")
-    raw = await request.body()
-    if len(raw) > 32768:
-        raise HTTPException(413, "BODY_TOO_LARGE")
+    declared_length = request.headers.get("content-length", "0")
+    if declared_length.isascii() and declared_length.isdecimal():
+        significant_length = declared_length.lstrip("0") or "0"
+        if len(significant_length) > 5 or int(significant_length) > 32768:
+            raise HTTPException(413, "BODY_TOO_LARGE")
+    # Chunked requests may have no Content-Length. Stop before buffering an
+    # unbounded body, preserving the exact received bytes for the signature.
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > 32768:
+            raise HTTPException(413, "BODY_TOO_LARGE")
+        body.extend(chunk)
+    raw = bytes(body)
     if not verify_signature(raw, x_timestamp, x_signature, secret):
         raise HTTPException(403, "INVALID_SIGNATURE")
     if x_test_mode != "true":
@@ -1432,10 +1497,21 @@ async def webhook(request: Request, x_signature: str | None = Header(default=Non
     try:
         import json
         data = json.loads(raw)
-    except (ValueError, UnicodeDecodeError) as exc:
+    except (ValueError, UnicodeDecodeError, RecursionError) as exc:
         raise HTTPException(400, "INVALID_JSON") from exc
     try:
-        result = sandbox.process_webhook(data)
+        try:
+            result = sandbox.process_webhook(data)
+        except HTTPException as exc:
+            if exc.status_code != 503 or exc.detail != "PROVIDER_PAYMENT_PENDING":
+                raise
+            if not isinstance(data, dict) or data.get("event_type") != "payment.paid":
+                raise
+            # This recovery path is reachable only after signature validation.
+            # It binds from read-only provider proof, then verifies this same
+            # signed paid notification before any delivery can be claimed.
+            await sandbox.reconcile_pending_paid(data)
+            result = sandbox.process_webhook(data)
     except HTTPException as exc:
         _log_webhook_rejection(exc, mode="sandbox")
         raise

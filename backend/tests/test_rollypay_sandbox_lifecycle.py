@@ -165,6 +165,141 @@ def test_signed_paid_callback_duplicate_and_activation_preview(sandbox):
     assert all(request.url.host == "rollypay.io" for request in fake.requests)
 
 
+def pending_provider_order(sandbox, monkeypatch, tmp_path):
+    from vainah.postgres_ledger import LedgerUnavailable
+
+    client, fake = sandbox
+    store = billing.BillingSandbox(
+        "provider", "fake-sandbox-key", httpx.MockTransport(fake.respond),
+        ledger_path=str(tmp_path / "pending.sqlite3"),
+    )
+    monkeypatch.setattr(billing, "sandbox", store)
+
+    def unavailable(*args, **kwargs):
+        raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE")
+
+    with monkeypatch.context() as outage:
+        outage.setattr(store.ledger, "attach_provider_payment", unavailable)
+        result = client.post("/api/shop/sandbox/start", headers=HEADERS, json={"plan": "30"})
+    assert result.status_code == 503
+    assert len(fake.requests) == 1 and fake.requests[0].method == "POST"
+    payment_id = next(iter(fake.orders))
+    payment = fake.orders[payment_id]
+    payment["status"] = "paid"
+    paid = event({"order_id": payment["order_id"]}, payment_id, "payment.paid", "paid")
+    return client, fake, store, paid
+
+
+def test_signed_paid_callback_recovers_lost_provider_binding_without_second_post(
+    sandbox, monkeypatch, tmp_path,
+):
+    client, fake, store, paid = pending_provider_order(sandbox, monkeypatch, tmp_path)
+    assert store.read(paid["order_id"])["paid_webhook_received"] is False
+    recovered = signed_callback(client, paid)
+    assert recovered.status_code == 200, recovered.text
+    assert recovered.json()["status"] == "paid"
+    assert store.read(paid["order_id"])["paid_webhook_received"] is True
+    assert signed_callback(client, paid).status_code == 200
+    assert [request.method for request in fake.requests] == ["POST", "GET"]
+
+
+@pytest.mark.parametrize("overrides", [
+    {"test": False}, {"environment": "production"},
+    {"test": None}, {"environment": None},
+    {"payment_id": "pay_other_123456"}, {"order_id": "vainah_test_" + "f" * 32},
+    {"amount": "1.00"}, {"payment_currency": "EUR"}, {"status": "created"},
+])
+def test_pending_recovery_requires_complete_matching_provider_provenance(
+    sandbox, monkeypatch, tmp_path, overrides,
+):
+    client, fake, store, paid = pending_provider_order(sandbox, monkeypatch, tmp_path)
+    fake.orders[paid["payment_id"]].update(overrides)
+    response = signed_callback(client, paid)
+    assert response.status_code == 503
+    saved = store.ledger.load_one(paid["order_id"])
+    assert saved["payment_id"].startswith("pending:")
+    assert not saved["paid_webhook_received"]
+    assert [request.method for request in fake.requests] == ["POST", "GET"]
+
+
+@pytest.mark.parametrize("overrides", [
+    {"amount": "1.00"}, {"currency": "EUR"}, {"test": False},
+    {"environment": "production"}, {"payment_id": "../private"},
+])
+def test_pending_recovery_rejects_invalid_signed_fields_before_provider_get(
+    sandbox, monkeypatch, tmp_path, overrides,
+):
+    client, fake, store, paid = pending_provider_order(sandbox, monkeypatch, tmp_path)
+    assert signed_callback(client, {**paid, **overrides}).status_code == 400
+    assert not store.read(paid["order_id"])["paid_webhook_received"]
+    assert [request.method for request in fake.requests] == ["POST"]
+
+
+def test_pending_recovery_cannot_start_from_forged_callback_or_get_only(
+    sandbox, monkeypatch, tmp_path,
+):
+    client, fake, store, paid = pending_provider_order(sandbox, monkeypatch, tmp_path)
+    assert signed_callback(client, paid, valid_signature=False).status_code == 403
+    response = client.get(f'/api/shop/sandbox/{paid["order_id"]}', headers=HEADERS)
+    assert response.status_code == 502
+    assert [request.method for request in fake.requests] == ["POST"]
+    assert not store.read(paid["order_id"])["paid_webhook_received"]
+
+
+def test_original_create_response_accepts_same_binding_recovered_by_callback(
+    sandbox, monkeypatch, tmp_path,
+):
+    client, fake = sandbox
+    store = billing.BillingSandbox(
+        "provider", "fake-sandbox-key", httpx.MockTransport(fake.respond),
+        ledger_path=str(tmp_path / "racing-create.sqlite3"),
+    )
+    monkeypatch.setattr(billing, "sandbox", store)
+    provider_create = store.provider_create
+
+    async def respond_after_callback(order_id, plan):
+        result = await provider_create(order_id, plan)
+        payment_id = result["payment_id"]
+        fake.orders[payment_id]["status"] = "paid"
+        paid = event({"order_id": order_id}, payment_id, "payment.paid", "paid")
+        raw = json.dumps(paid, separators=(",", ":")).encode()
+        timestamp = str(int(time.time()))
+        signature = hmac.new(SECRET.encode(), timestamp.encode() + b"." + raw,
+                             hashlib.sha256).hexdigest()
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver",
+        ) as callback_client:
+            callback = await callback_client.post(
+                "/api/shop/webhooks/rollypay", content=raw,
+                headers={"X-Timestamp": timestamp, "X-Signature": signature,
+                         "X-Test-Mode": "true"},
+            )
+        assert callback.status_code == 200, callback.text
+        return result
+
+    monkeypatch.setattr(store, "provider_create", respond_after_callback)
+    response = client.post("/api/shop/sandbox/start", headers=HEADERS, json={"plan": "30"})
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "paid"
+    assert response.json()["paid_webhook_received"] is True
+    assert [request.method for request in fake.requests] == ["POST", "GET"]
+
+
+def test_signed_deeply_nested_callback_is_rejected_as_invalid_json(sandbox):
+    client, fake = sandbox
+    raw = b'{"unused":' + b'[' * 12000 + b'0' + b']' * 12000 + b'}'
+    timestamp = str(int(time.time()))
+    signature = hmac.new(SECRET.encode(), timestamp.encode() + b"." + raw,
+                         hashlib.sha256).hexdigest()
+    response = client.post(
+        "/api/shop/webhooks/rollypay", content=raw,
+        headers={"X-Timestamp": timestamp, "X-Signature": signature, "X-Test-Mode": "true"},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "INVALID_JSON"
+    assert not fake.requests
+
+
 def test_signed_callback_retries_safe_prewrite_failure_then_issues_receipt_once(
     sandbox, monkeypatch,
 ):

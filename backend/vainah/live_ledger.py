@@ -345,7 +345,7 @@ class PostgresLiveOrderLedger:
             raise LiveLedgerError("LIVE_SIGNATURE_INVALID")
         try:
             data = json.loads(raw_body)
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, UnicodeDecodeError, RecursionError):
             raise LiveLedgerError("LIVE_WEBHOOK_INVALID") from None
         if not isinstance(data, dict):
             raise LiveLedgerError("LIVE_WEBHOOK_INVALID")
@@ -375,7 +375,9 @@ class PostgresLiveOrderLedger:
                 except LiveContractError:
                     raise LiveLedgerError("LIVE_PAYMENT_MISMATCH") from None
                 if record[4] in {"refunded", "chargeback"}:
-                    raise LiveLedgerError("LIVE_PAYMENT_ALREADY_REVERSED")
+                    # A valid late PAID replay cannot undo a reversal. Acknowledge
+                    # it as stale without authorizing fulfillment or endless retries.
+                    return False
                 if record[4] == "paid":
                     return True
                 if record[4] != "created":
@@ -404,7 +406,7 @@ class PostgresLiveOrderLedger:
             raise LiveLedgerError("LIVE_SIGNATURE_INVALID")
         try:
             data = json.loads(raw_body)
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, UnicodeDecodeError, RecursionError):
             raise LiveLedgerError("LIVE_WEBHOOK_INVALID") from None
         if not isinstance(data, dict):
             raise LiveLedgerError("LIVE_WEBHOOK_INVALID")
@@ -469,13 +471,31 @@ class PostgresLiveOrderLedger:
         try:
             with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
                 self._schema(cur)
+                # Orders for the same owner map to one stable H1 profile.
+                # Serializing only order_id would let two different payments
+                # create/edit that profile simultaneously. Hold a per-owner
+                # transaction lock for the claim decision; the persisted state
+                # then excludes sibling claims throughout the external write.
                 cur.execute("""
-                    UPDATE vainah_live_orders
+                    SELECT pg_advisory_xact_lock(
+                        hashtext('vainah_live_order_owner'), hashtext(owner_ref)
+                    )
+                    FROM vainah_live_orders WHERE order_id = %s
+                """, (order_id,))
+                cur.execute("""
+                    UPDATE vainah_live_orders AS target
                     SET delivery_state = 'claimed', claimed_at = now(),
                         updated_at = now()
                     WHERE order_id = %s
                         AND payment_state = 'paid'
+                        AND webhook_at IS NOT NULL
                         AND delivery_state = 'pending'
+                        AND NOT EXISTS (
+                            SELECT 1 FROM vainah_live_orders blocked
+                            WHERE blocked.owner_ref = target.owner_ref
+                              AND blocked.order_id <> target.order_id
+                              AND blocked.delivery_state IN ('claimed', 'manual_review')
+                        )
                     RETURNING order_id, owner_ref, plan_id, amount_rub,
                               payment_id, payment_state, delivery_state
                 """, (order_id,))
@@ -488,6 +508,45 @@ class PostgresLiveOrderLedger:
                 )
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
+    def delivery_snapshot(self, order_id: str) -> dict | None:
+        """Internal status for duplicate callbacks; never decrypts account data.
+
+        A paid pending order blocked by another active claim needs a callback
+        retry after that claim finishes. It must not be acknowledged as issued,
+        nor confused with this order's own durable non-retryable write claim.
+        """
+        if not isinstance(order_id, str) or not LIVE_ORDER_RE.fullmatch(order_id):
+            raise LiveLedgerError("LIVE_ORDER_INVALID")
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT target.payment_state, target.delivery_state,
+                           target.webhook_at IS NOT NULL,
+                           (
+                               SELECT blocked.delivery_state
+                               FROM vainah_live_orders blocked
+                               WHERE blocked.owner_ref = target.owner_ref
+                                 AND blocked.order_id <> target.order_id
+                                 AND blocked.delivery_state IN ('claimed', 'manual_review')
+                               ORDER BY (blocked.delivery_state = 'manual_review') DESC
+                               LIMIT 1
+                           )
+                    FROM vainah_live_orders target
+                    WHERE target.order_id = %s
+                """, (order_id,))
+                row = cur.fetchone()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        if row is None:
+            return None
+        return {
+            "payment_state": row[0], "delivery_state": row[1],
+            "signed_paid": bool(row[2]), "owner_block": row[3],
+        }
 
     def claimed_verified_email(self, *, order_id: str, owner_ref: str) -> str:
         """Internal-only: reveal the reserved mailbox for a paid claimed order.
@@ -507,11 +566,18 @@ class PostgresLiveOrderLedger:
                 self._schema(cur)
                 cur.execute("""
                     SELECT receipt_email_cipher
-                    FROM vainah_live_orders
+                    FROM vainah_live_orders AS target
                     WHERE order_id = %s
                         AND owner_ref = %s
                         AND payment_state = 'paid'
+                        AND webhook_at IS NOT NULL
                         AND delivery_state = 'claimed'
+                        AND NOT EXISTS (
+                            SELECT 1 FROM vainah_live_orders blocked
+                            WHERE blocked.owner_ref = target.owner_ref
+                              AND blocked.order_id <> target.order_id
+                              AND blocked.delivery_state = 'manual_review'
+                        )
                 """, (order_id, owner_ref))
                 row = cur.fetchone()
         except psycopg.Error:
@@ -537,11 +603,18 @@ class PostgresLiveOrderLedger:
             with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
                 self._schema(cur)
                 cur.execute("""
-                    UPDATE vainah_live_orders
+                    UPDATE vainah_live_orders AS target
                     SET delivery_state = 'delivered', subscription_cipher = %s,
                         delivered_at = now(), updated_at = now()
                     WHERE order_id = %s AND payment_state = 'paid'
+                        AND webhook_at IS NOT NULL
                         AND delivery_state = 'claimed'
+                        AND NOT EXISTS (
+                            SELECT 1 FROM vainah_live_orders blocked
+                            WHERE blocked.owner_ref = target.owner_ref
+                              AND blocked.order_id <> target.order_id
+                              AND blocked.delivery_state = 'manual_review'
+                        )
                     RETURNING order_id
                 """, (encrypted_url, order_id))
                 return cur.fetchone() is not None

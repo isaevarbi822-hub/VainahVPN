@@ -43,9 +43,22 @@ async def fulfill_paid_order_once(
     # No paid order => no claim => no H1 request.
     try:
         claim = ledger.claim_delivery_once(order_id)
+        snapshot = ledger.delivery_snapshot(order_id) if claim is None else None
     except LiveLedgerError:
         raise FulfillmentError("LIVE_LEDGER_UNAVAILABLE") from None
     if claim is None:
+        if snapshot and snapshot["payment_state"] == "paid" and snapshot["signed_paid"]:
+            state = snapshot["delivery_state"]
+            if state == "delivered" and snapshot["owner_block"] != "manual_review":
+                return {"status": "delivered", "vpn_delivered": True}
+            if state == "pending" and snapshot["owner_block"] != "manual_review":
+                # Another order of this owner may be extending the same H1
+                # account. Keep this callback retryable until it can claim.
+                raise FulfillmentError("LIVE_DELIVERY_PENDING")
+            return {
+                "status": "manual_review" if snapshot["owner_block"] == "manual_review" else state,
+                "vpn_delivered": False,
+            }
         return {"status": "not_claimable", "vpn_delivered": False}
 
     try:

@@ -11,6 +11,7 @@ import html
 import os
 import re
 import secrets
+from datetime import UTC, datetime
 from email.utils import parseaddr
 
 import httpx
@@ -21,6 +22,8 @@ from psycopg.errors import UniqueViolation
 CODE_TTL_MINUTES = 10
 COOLDOWN_SECONDS = 90
 MAX_ATTEMPTS = 5
+LOCK_TIMEOUT_MS = 4000
+STATEMENT_TIMEOUT_MS = 8000
 
 
 def email_service_ready() -> bool:
@@ -45,7 +48,18 @@ def code_digest(telegram_id: str, email: str, code: str, secret: str) -> str:
     return hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
 
+def _transaction_limits(cursor) -> None:
+    cursor.execute("""
+        SELECT set_config('lock_timeout', %s, TRUE),
+               set_config('statement_timeout', %s, TRUE)
+    """, (f"{LOCK_TIMEOUT_MS}ms", f"{STATEMENT_TIMEOUT_MS}ms"))
+
+
 def schema(cursor) -> None:
+    _transaction_limits(cursor)
+    # Shared by binding and reverse email->Telegram lookup. Fresh concurrent
+    # CREATE IF NOT EXISTS calls can still collide on PostgreSQL catalog rows.
+    cursor.execute("SELECT pg_advisory_xact_lock(hashtext('vainah_customer_email_schema'))")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vainah_verified_customer_emails (
             telegram_id VARCHAR(18) PRIMARY KEY,
@@ -121,10 +135,13 @@ def cancel_challenge(telegram_id: str, code: str, email: str) -> None:
     digest = code_digest(telegram_id, email, code, secret)
     try:
         with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
+                _transaction_limits(cur)
                 cur.execute("""
-                    DELETE FROM vainah_email_challenges
+                    UPDATE vainah_email_challenges
+                    SET expires_at = clock_timestamp(), attempts = %s,
+                        next_send_at = clock_timestamp()
                     WHERE telegram_id = %s AND code_hash = %s
-                """, (telegram_id, digest))
+                """, (MAX_ATTEMPTS, telegram_id, digest))
     except psycopg.Error:
         return
 
@@ -139,12 +156,15 @@ def confirm_challenge(telegram_id: str, code: str) -> str:
                 cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s), 72043)",
                             (telegram_id,))
                 cur.execute("""
-                    SELECT email, code_hash, expires_at > now(), attempts
+                    SELECT email, code_hash, expires_at, attempts
                     FROM vainah_email_challenges WHERE telegram_id = %s
                     FOR UPDATE
                 """, (telegram_id,))
                 row = cur.fetchone()
-                if not row or not row[2] or row[3] >= MAX_ATTEMPTS:
+                # A timestamp expression in SELECT can be evaluated before a
+                # FOR UPDATE lock wait. Check expiry after fetching the locked
+                # row so a code that expired during contention cannot verify.
+                if not row or row[2] <= datetime.now(UTC) or row[3] >= MAX_ATTEMPTS:
                     raise HTTPException(400, "EMAIL_CODE_EXPIRED")
                 email, expected = str(row[0]), str(row[1])
                 if not hmac.compare_digest(
@@ -167,9 +187,10 @@ def confirm_challenge(telegram_id: str, code: str) -> str:
                             email = EXCLUDED.email, verified_at = now()
                     """, (telegram_id, email))
                     cur.execute("""
-                        DELETE FROM vainah_email_challenges
+                        UPDATE vainah_email_challenges
+                        SET expires_at = clock_timestamp(), attempts = %s
                         WHERE telegram_id = %s
-                    """, (telegram_id,))
+                    """, (MAX_ATTEMPTS, telegram_id))
                 except UniqueViolation:
                     raise HTTPException(409, "EMAIL_ALREADY_LINKED") from None
                 return email

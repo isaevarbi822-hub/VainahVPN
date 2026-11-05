@@ -24,6 +24,7 @@ from .billing import _require_operator
 
 PROBE_TELEGRAM_ID = "999999999999999999"
 MAX_BODY_BYTES = 100_000
+MAX_H1_EXPIRY_SECONDS = 4102444800
 
 
 class H1PanelError(Exception):
@@ -67,6 +68,8 @@ def panel_settings() -> H1PanelSettings | None:
     token = os.environ.get("PANEL_API_TOKEN", "").strip()
     if not raw_url or not token:
         return None
+    if not re.fullmatch(r"[\x21-\x7e]+", token):
+        raise H1PanelError("PANEL_TOKEN_INVALID")
     try:
         parsed = urlsplit(raw_url)
         host = parsed.hostname
@@ -136,6 +139,47 @@ def public_h1_status() -> dict:
             "message": "Настройки панели найдены. Проверка связи ещё не выполнена."}
 
 
+def client_expiry(record: dict) -> int:
+    """Parse the documented Unix-second expiry without coercing malformed JSON."""
+    value = record.get("expires_at")
+    if type(value) is int:
+        expiry = value
+    elif isinstance(value, str) and re.fullmatch(r"[0-9]{1,12}", value):
+        expiry = int(value)
+    else:
+        raise H1PanelError("PANEL_INVALID_RESPONSE")
+    # Millisecond timestamps and unbounded dates must not appear active merely
+    # because their integer value is far in the future.
+    if not 0 <= expiry <= MAX_H1_EXPIRY_SECONDS:
+        raise H1PanelError("PANEL_INVALID_RESPONSE")
+    return expiry
+
+
+def client_disabled(record: dict) -> bool:
+    banned, status = record.get("banned"), record.get("status")
+    if ((banned is not None and type(banned) is not bool)
+            or (status is not None and not isinstance(status, str))):
+        raise H1PanelError("PANEL_INVALID_RESPONSE")
+    return banned is True or status in ("banned", "disabled")
+
+
+def parse_client_status(record: dict, *, now: float | None = None) -> dict:
+    """Validate state fields from an already identity-checked panel profile.
+
+    Return only safe status fields. Callers must separately match the exact
+    client name and validate any private subscription link they intend to use.
+    """
+    if not isinstance(record, dict):
+        raise H1PanelError("PANEL_INVALID_RESPONSE")
+    expiry = client_expiry(record)
+    banned = client_disabled(record)
+    return {
+        "active": not banned and expiry > (time.time() if now is None else now),
+        "banned": banned,
+        "expires_at": datetime.fromtimestamp(expiry, UTC).isoformat() if expiry else None,
+    }
+
+
 async def _read_h1_client_name(
     name: str, *, transport: httpx.AsyncBaseTransport | None = None,
     now: float | None = None,
@@ -180,23 +224,10 @@ async def _read_h1_client_name(
     record = payload.get("client")
     if not isinstance(record, dict) or record.get("name") != name:
         raise H1PanelError("PANEL_INVALID_RESPONSE")
-    try:
-        expiry = int(record["expires_at"])
-    except (TypeError, ValueError, KeyError, OverflowError):
-        raise H1PanelError("PANEL_INVALID_RESPONSE") from None
-    if expiry < 0 or expiry > 4102444800:
-        raise H1PanelError("PANEL_INVALID_RESPONSE")
-    banned = record.get("banned") is True or record.get("status") in {
-        "banned", "disabled",
-    }
     return {
         "panel_ready": True,
         "found": True,
-        "active": not banned and expiry > (time.time() if now is None else now),
-        "banned": banned,
-        "expires_at": datetime.fromtimestamp(
-            expiry, UTC
-        ).isoformat() if expiry else None,
+        **parse_client_status(record, now=now),
     }
 
 
@@ -236,7 +267,7 @@ async def inspect_h1_panel(*,
         if error.code == "PANEL_UNAUTHORIZED":
             return {"ok": False, "panel": "reachable",
                     "authentication": "rejected"}
-        if error.code in {"PANEL_URL_INVALID", "PANEL_PREFIX_INVALID", "PANEL_CA_INVALID"}:
+        if error.code in {"PANEL_URL_INVALID", "PANEL_PREFIX_INVALID", "PANEL_CA_INVALID", "PANEL_TOKEN_INVALID"}:
             return {"ok": False, "panel": "invalid_configuration"}
         return {"ok": False, "panel": "unavailable",
                 "reason": {

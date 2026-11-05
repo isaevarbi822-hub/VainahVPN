@@ -401,3 +401,71 @@ def test_h1_operator_client_check_for_issued_name(monkeypatch):
         )
         assert rejected.status_code == 422
     assert seen == [issued_name]
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("expires_at", True),
+    ("expires_at", 2000000000.75),
+    ("expires_at", "2000000000.75"),
+    ("expires_at", 2000000000000),
+    ("expires_at", 10**100),
+    ("expires_at", -1),
+    ("status", []),
+    ("status", {}),
+    ("banned", "true"),
+    ("banned", 1),
+])
+def test_malformed_panel_state_is_sanitized_and_not_active(config, field, value):
+    import asyncio
+
+    calls = []
+
+    def provider(request):
+        calls.append(request.method)
+        profile = {
+            "name": request.url.params["name"], "expires_at": 2000000000,
+            "subscription_url": "https://sub.example/PRIVATE_LINK",
+            "uuid": "PRIVATE_UUID", field: value,
+        }
+        return httpx.Response(200, json={"ok": True, "client": profile})
+
+    transport = httpx.MockTransport(provider)
+    with pytest.raises(H1PanelError, match="PANEL_INVALID_RESPONSE"):
+        asyncio.run(read_h1_status("123456789", transport=transport))
+    result = asyncio.run(inspect_h1_panel(transport=transport))
+    assert result == {"ok": False, "panel": "unavailable", "reason": "invalid_response"}
+    assert calls == ["GET", "GET"]
+    assert "PRIVATE" not in str(result)
+    assert TOKEN not in str(result)
+
+
+def test_integer_string_expiry_has_same_active_state_as_integer(config):
+    import asyncio
+
+    def provider(request):
+        return httpx.Response(200, json={"ok": True, "client": {
+            "name": request.url.params["name"], "expires_at": "2000000000",
+            "banned": False, "status": "active",
+        }})
+
+    status = asyncio.run(read_h1_status(
+        "123456789", transport=httpx.MockTransport(provider), now=1800000000,
+    ))
+    assert status == {
+        "panel_ready": True, "found": True, "active": True, "banned": False,
+        "expires_at": "2033-05-18T03:33:20+00:00",
+    }
+
+
+@pytest.mark.parametrize("token", ["private\nvalue", "private value", "private\x7fvalue", "private-токен"])
+def test_invalid_bearer_header_is_a_safe_configuration_error(config, monkeypatch, token):
+    import asyncio
+
+    monkeypatch.setenv("PANEL_API_TOKEN", token)
+    with pytest.raises(H1PanelError, match="PANEL_TOKEN_INVALID"):
+        panel_settings()
+    result = asyncio.run(inspect_h1_panel(transport=httpx.MockTransport(
+        lambda _request: pytest.fail("Invalid credentials must not reach transport"),
+    )))
+    assert result == {"ok": False, "panel": "invalid_configuration"}
+    assert token not in str(result)

@@ -162,3 +162,18 @@ def test_live_paid_event_uses_signed_original_payment_record(monkeypatch):
     )
     updates = [sql for sql, _ in cursor.commands if "SET payment_state = 'paid'" in sql]
     assert len(updates) == 1
+
+
+@pytest.mark.parametrize("method", ["record_signed_paid", "record_signed_reversal"])
+def test_deeply_nested_signed_json_is_rejected_before_database(monkeypatch, method):
+    store = setup_connection(monkeypatch, FakeCursor([]))
+    raw = b"[" * 1200 + b"0" + b"]" * 1200
+    timestamp = str(int(time.time()))
+    secret = "test-deep-json-" + "s" * 30
+    signature = hmac.new(
+        secret.encode(), timestamp.encode() + b"." + raw, hashlib.sha256,
+    ).hexdigest()
+    with pytest.raises(LiveLedgerError, match="LIVE_WEBHOOK_INVALID"):
+        getattr(store, method)(
+            raw_body=raw, timestamp=timestamp, signature=signature, secret=secret,
+        )

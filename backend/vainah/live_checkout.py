@@ -197,10 +197,17 @@ async def handle_live_paid_webhook(
                 "vpn_delivered": False,
                 "manual_h1_revocation_required": True,
             }
-        ledger.record_signed_paid(
+        paid_recorded = ledger.record_signed_paid(
             raw_body=raw, timestamp=timestamp,
             signature=signature, secret=secret,
         )
+        if paid_recorded is False:
+            # A correctly signed older PAID event cannot reverse a refund or
+            # restart fulfillment. Do not invent a current payment status.
+            return {
+                "ok": True, "stale_event_ignored": True,
+                "vpn_delivered": False,
+            }
     except HTTPException:
         raise
     except LiveLedgerError as exc:
@@ -210,7 +217,7 @@ async def handle_live_paid_webhook(
                         "LIVE_PAYMENT_INVALID_STATE"}:
             raise HTTPException(400, str(exc)) from None
         raise HTTPException(503, "LIVE_LEDGER_UNAVAILABLE") from None
-    except (ValueError, UnicodeDecodeError):
+    except (ValueError, UnicodeDecodeError, RecursionError):
         raise HTTPException(400, "LIVE_WEBHOOK_JSON_INVALID") from None
 
     try:
@@ -219,7 +226,9 @@ async def handle_live_paid_webhook(
             verified_merchant_approved=True,
             write_contract_approved=True,
         )
-    except FulfillmentError:
+    except FulfillmentError as exc:
+        if str(exc) in {"LIVE_LEDGER_UNAVAILABLE", "LIVE_DELIVERY_PENDING"}:
+            raise HTTPException(503, str(exc), headers={"Retry-After": "5"}) from None
         # Paid status remains durable; no automatic retry on ambiguous H1 write.
         return {
             "ok": True, "status": "paid",

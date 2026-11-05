@@ -17,7 +17,13 @@ from urllib.parse import quote, urlsplit
 import httpx
 
 from .billing import get_plan
-from .h1_panel import H1PanelError, panel_settings, panel_tls_verify
+from .h1_panel import (
+    H1PanelError,
+    client_disabled,
+    client_expiry,
+    panel_settings,
+    panel_tls_verify,
+)
 from .live_ledger import PendingLiveOrder
 from .production_contracts import LIVE_ORDER_RE, H1ProvisionIntent
 
@@ -59,24 +65,17 @@ def _client(record: object, expected_name: str) -> dict:
 
 
 def _expiry(record: dict) -> int:
-    value = record.get("expires_at")
-    if type(value) is int:
-        expiry = value
-    elif isinstance(value, str) and re.fullmatch(r"[0-9]{1,12}", value):
-        expiry = int(value)
-    else:
-        raise LiveH1Error("H1_RESPONSE_INVALID")
-    if not 0 <= expiry <= 253402300799:
-        raise LiveH1Error("H1_RESPONSE_INVALID")
-    return expiry
+    try:
+        return client_expiry(record)
+    except H1PanelError:
+        raise LiveH1Error("H1_RESPONSE_INVALID") from None
 
 
 def _disabled(record: dict) -> bool:
-    banned, status = record.get("banned"), record.get("status")
-    if ((banned is not None and type(banned) is not bool)
-            or (status is not None and not isinstance(status, str))):
-        raise LiveH1Error("H1_RESPONSE_INVALID")
-    return banned is True or status in ("banned", "disabled")
+    try:
+        return client_disabled(record)
+    except H1PanelError:
+        raise LiveH1Error("H1_RESPONSE_INVALID") from None
 
 
 class LiveH1CloudNode:

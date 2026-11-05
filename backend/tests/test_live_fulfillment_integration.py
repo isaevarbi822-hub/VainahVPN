@@ -49,6 +49,14 @@ class FakePaidLedger:
             payment_state="paid", delivery_state="claimed",
         )
 
+    def delivery_snapshot(self, order_id):
+        if not self.paid or order_id != ORDER_ID:
+            return None
+        return {
+            "payment_state": "paid", "signed_paid": True, "owner_block": None,
+            "delivery_state": "delivered" if self.delivered else "manual_review" if self.manual else "claimed",
+        }
+
     def claimed_verified_email(self, *, order_id, owner_ref):
         assert order_id == ORDER_ID and owner_ref == OWNER
         return EMAIL
@@ -146,7 +154,7 @@ def test_valid_signed_paid_event_issues_exactly_once(configured):
         verified_merchant_approved=True, write_contract_approved=True,
         transport=transport,
     ))
-    assert second == {"status": "not_claimable", "vpn_delivered": False}
+    assert second == {"status": "delivered", "vpn_delivered": True}
     assert writes == ["create"]
     assert requests == ["GET", "GET", "POST", "GET"]
 
@@ -210,7 +218,7 @@ def test_h1_write_timeout_fails_closed_without_retry(configured):
         ledger=ledger, order_id=ORDER_ID,
         verified_merchant_approved=True, write_contract_approved=True,
         transport=httpx.MockTransport(provider),
-    ))["status"] == "not_claimable"
+    ))["status"] == "manual_review"
     assert requests == ["GET", "GET", "POST"]
 
 

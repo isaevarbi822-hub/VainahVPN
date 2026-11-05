@@ -113,6 +113,34 @@ def test_payment_url_allowlist_accepts_provider_path():
     )
 
 
+@pytest.mark.parametrize("url", [
+    "https://pay.rollypay.io/pa\ny/test_123456",
+    "https://pay.rollypay.\tio/pay/test_123456",
+    "\x01https://pay.rollypay.io/pay/test_123456",
+    " https://pay.rollypay.io/pay/test_123456",
+    "https://pay.rollypay.io/pay/test_123456\r",
+    "https://pay.rollypay.io/pay/test_123456\x7f",
+])
+def test_payment_url_rejects_raw_control_bytes_before_urlsplit_normalization(url):
+    with pytest.raises(ValueError, match="PROVIDER_PAYMENT_LINK_INVALID"):
+        safe_pay_url(url)
+
+
+@pytest.mark.parametrize("operation", ["create", "read", "diagnostics"])
+def test_deeply_nested_provider_json_has_sanitized_error(operation):
+    nested = b'{"unused":' + b'[' * 20000 + b'0' + b']' * 20000 + b'}'
+    provider = BillingSandbox("provider", "fake-api-key", httpx.MockTransport(
+        lambda _: httpx.Response(200, content=nested),
+    ))
+    action = {
+        "create": lambda: provider.create("30"),
+        "read": lambda: provider.provider_read("pay_nested_123456"),
+        "diagnostics": provider.provider_diagnostics,
+    }[operation]
+    with pytest.raises(ProviderError, match="PROVIDER_RESPONSE_INVALID"):
+        asyncio.run(action())
+
+
 def test_webhook_signature_tamper_and_timestamp_replay_protection():
     raw = b'{"event_type":"payment.paid","test":true}'
     now = int(time.time())
@@ -123,6 +151,39 @@ def test_webhook_signature_tamper_and_timestamp_replay_protection():
     assert not verify_signature(raw + b" ", ts, signature, "unit-test-secret-key", now=now)
     assert not verify_signature(raw, ts, signature, "unit-test-secret-key", now=now + 301)
     assert not verify_signature(raw, ts, "0" * 64, "unit-test-secret-key", now=now)
+
+
+def test_huge_declared_webhook_length_is_rejected_without_integer_overflow(monkeypatch):
+    from starlette.requests import Request
+
+    from vainah import billing
+
+    monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "test-signed-webhook-secret")
+    request = Request({"type": "http", "headers": [(b"content-length", b"9" * 5000)]})
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(billing.webhook(request))
+    assert error.value.status_code == 413
+    assert error.value.detail == "BODY_TOO_LARGE"
+
+
+def test_chunked_webhook_stops_receiving_at_body_limit(monkeypatch):
+    from starlette.requests import Request
+
+    from vainah import billing
+
+    monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "test-signed-webhook-secret")
+    received = []
+
+    async def receive():
+        received.append(True)
+        assert len(received) <= 3, "Oversize request must stop before another chunk"
+        return {"type": "http.request", "body": b"x" * 16384, "more_body": True}
+
+    request = Request({"type": "http", "headers": []}, receive=receive)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(billing.webhook(request))
+    assert error.value.status_code == 413
+    assert len(received) == 3
 
 
 def test_webhook_fails_without_secret_or_authorized_test_order(monkeypatch):

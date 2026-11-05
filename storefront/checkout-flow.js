@@ -8,6 +8,12 @@
   const money = amount => Number(amount).toLocaleString("ru-RU", {maximumFractionDigits: 0}) + " ₽";
   function message(text) { $("shop-config-status").textContent = text; }
   function testMessage(text) { $("shop-test-result").textContent = text; }
+  function clearIssuedLink() {
+    $("shop-h1-issued-link").value = "";
+    $("shop-h1-issued-link").hidden = true;
+    $("shop-h1-issued-label").hidden = true;
+    $("shop-h1-copy-link").hidden = true;
+  }
   function explainProviderError(message) {
     const match = String(message || "").match(/^PROVIDER_HTTP_(\d{3})$/);
     if(match){
@@ -57,6 +63,7 @@
     } finally {clearTimeout(timer);}
   }
   function displayTestOrder(order) {
+    clearIssuedLink();
     state.testOrder = order;
     $("shop-test-resume").value = order.order_id;
     $("shop-test-simulate").hidden = order.mode !== "mock" || order.status !== "created";
@@ -65,7 +72,7 @@
     $("shop-test-activation").hidden = false;
     $("shop-test-email").hidden = !(
       order.mode === "provider" && order.status === "paid" &&
-      order.webhook_received === true && order.owner_bound === true &&
+      order.paid_webhook_received === true && order.owner_bound === true &&
       order.receipt_emailed !== true
     );
     testMessage("Тестовый заказ: " + order.order_id +
@@ -89,8 +96,10 @@
     }
   }
   function select(id) {
+    if(state.busy)return;
     const plan = state.plans.find(p => p.id === id);
     if (!plan) return;
+    clearIssuedLink();
     state.selected = plan;
     document.querySelectorAll(".shop-plan").forEach(el => {
       el.setAttribute("aria-pressed", String(el.dataset.plan === id));
@@ -425,7 +434,7 @@
   $("shop-test-email").addEventListener("click", async () => {
     const order = state.testOrder;
     if (state.busy || !order || !order.owner_bound ||
-        order.status !== "paid" || !order.webhook_received || order.receipt_emailed) return;
+        order.status !== "paid" || !order.paid_webhook_received || order.receipt_emailed) return;
     state.busy = true;
     $("shop-test-email").disabled = true;
     try {
@@ -433,12 +442,16 @@
         "/api/shop/my-test-orders/" + encodeURIComponent(order.order_id) +
         "/email-receipt", {method: "POST"}
       );
+      if(result.sent !== true && result.already_sent !== true){
+        testMessage("Квитанция ещё не отправлена. Дождись подтверждения выдачи VPN и повтори проверку.");
+        return;
+      }
       order.receipt_emailed = true;
       $("shop-test-email").hidden = true;
       testMessage(result.already_sent
         ? "Тестовое подтверждение уже отправлялось на подтверждённую почту."
         : "ТЕСТОВАЯ квитанция отправлена на подтверждённый email. " +
-          "Реальных списаний не было, настоящий VPN-ключ пока не выдан.");
+          "Реальных списаний не было.");
     } catch (err) {
       testMessage("Не удалось отправить тестовое письмо: " +
         (err.message === "VERIFIED_EMAIL_REQUIRED"

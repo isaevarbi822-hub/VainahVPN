@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import re
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode
 
 import httpx
 import psycopg
@@ -27,10 +27,12 @@ from .email_delivery import (
     start_challenge,
     verified_email,
 )
+from .h1_live_provision import LiveH1Error, _validate_subscription_url
 from .h1_panel import (
     H1PanelError,
     panel_settings,
     panel_tls_verify,
+    parse_client_status,
     read_h1_issued_client_status,
     read_h1_status,
 )
@@ -53,15 +55,11 @@ PLAN_LABELS = {
 
 def telegram_id_for_verified_email(email: str) -> str | None:
     """Only a separately verified Telegram/email mapping can share purchases."""
+    from .email_delivery import schema as email_schema
+
     try:
         with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS vainah_verified_customer_emails (
-                    telegram_id VARCHAR(18) PRIMARY KEY,
-                    email VARCHAR(254) NOT NULL UNIQUE,
-                    verified_at TIMESTAMPTZ NOT NULL DEFAULT now()
-                )
-            """)
+            email_schema(cur)
             cur.execute("""
                 SELECT telegram_id FROM vainah_verified_customer_emails
                 WHERE email = %s
@@ -275,18 +273,20 @@ async def own_subscription_url(telegram_id: str) -> str:
         profile = record.get("client")
         if not isinstance(profile, dict) or profile.get("name") != name:
             raise ValueError("mismatched user")
-        value = profile.get("subscription_url") or profile.get("sub_url")
-        if not isinstance(value, str) or len(value) > 2048 or re.search(r"\s", value):
-            raise ValueError("invalid url")
-        url = urlsplit(value)
-        if (url.scheme != "https" or not url.hostname or
-                url.username or url.password or url.fragment):
-            raise ValueError("invalid URL")
+        if not parse_client_status(profile)["active"]:
+            raise HTTPException(409, "H1_SUBSCRIPTION_NOT_ACTIVE")
+        value = _validate_subscription_url(
+            profile.get("subscription_url") or profile.get("sub_url")
+        )
+        # The first receipt read predates two network awaits; a signed reversal
+        # may have revoked it while the panel was responding.
+        if active_receipt(telegram_id) is None:
+            raise HTTPException(404, "PAID_DELIVERY_NOT_FOUND")
         return value
     except HTTPException:
         raise
     except (H1PanelError, httpx.RequestError, httpx.TimeoutException,
-            ValueError, KeyError, TypeError):
+            ValueError, KeyError, TypeError, RecursionError, LiveH1Error):
         raise HTTPException(503, "H1_ACCESS_UNAVAILABLE") from None
 
 

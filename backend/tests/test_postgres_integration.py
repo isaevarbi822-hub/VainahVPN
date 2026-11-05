@@ -276,3 +276,88 @@ def test_blocked_ledger_locks_fail_promptly_and_recover(postgres_url, monkeypatc
             store.load_one(order.order_id)
         assert monotonic() - started < 2
     assert store.load_one(order.order_id)["status"] == "created"
+
+
+def test_signed_callback_recovers_pending_invoice_after_attach_outage(postgres_url, monkeypatch):
+    import asyncio
+    import hashlib
+    import hmac
+    import json
+    import time
+
+    import httpx
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from vainah import billing, sandbox_auto_h1
+
+    requests = []
+    payment = {}
+
+    def provider(request):
+        requests.append(request.method)
+        if request.method == "POST":
+            submitted = json.loads(request.content)
+            payment.update({
+                "order_id": submitted["order_id"], "payment_id": "pay_recovered_123456",
+                "amount": submitted["amount"], "payment_currency": "RUB",
+                "test": True, "environment": "sandbox", "status": "created",
+                "pay_url": "https://pay.rollypay.io/pay/recovered_123456",
+            })
+            return httpx.Response(201, json=payment)
+        assert request.method == "GET"
+        assert request.url.path.endswith("/" + payment["payment_id"])
+        return httpx.Response(200, json={**payment, "status": "paid"})
+
+    transport = httpx.MockTransport(provider)
+    creator = BillingSandbox("provider", api_key="test-provider-key", transport=transport, ledger_path=postgres_url)
+
+    def fail_attachment(*_args, **_kwargs):
+        raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE")
+
+    monkeypatch.setattr(creator.ledger, "attach_provider_payment", fail_attachment)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(creator.create("30"))
+    assert error.value.status_code == 503
+    order_id = payment["order_id"]
+    saved = creator.ledger.load_one(order_id)
+    assert saved["payment_id"].startswith("pending:")
+    assert saved["paid_webhook_received"] is False
+
+    receiver = BillingSandbox("provider", api_key="test-provider-key", transport=transport, ledger_path=postgres_url)
+    monkeypatch.setattr(billing, "sandbox", receiver)
+    monkeypatch.setattr(sandbox_auto_h1, "auto_enabled", lambda: False)
+    secret = "test-recovery-signed-only-" + "s" * 30
+    monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", secret)
+    raw = json.dumps({
+        "event_type": "payment.paid", "status": "paid", "test": True,
+        "order_id": order_id, "payment_id": payment["payment_id"],
+        "currency": "RUB", "amount": "99.00",
+    }).encode()
+    timestamp = str(int(time.time()))
+    headers = {"X-Test-Mode": "true", "X-Timestamp": timestamp}
+    app = FastAPI()
+    app.include_router(billing.router)
+    with TestClient(app) as client:
+        rejected = client.post(
+            "/api/shop/webhooks/rollypay", content=raw,
+            headers={**headers, "X-Signature": "0" * 64},
+        )
+        assert rejected.status_code == 403
+        assert requests == ["POST"]
+        signature = hmac.new(secret.encode(), timestamp.encode() + b"." + raw, hashlib.sha256).hexdigest()
+        response = client.post(
+            "/api/shop/webhooks/rollypay", content=raw,
+            headers={**headers, "X-Signature": signature},
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "paid"
+        assert client.post(
+            "/api/shop/webhooks/rollypay", content=raw,
+            headers={**headers, "X-Signature": signature},
+        ).status_code == 200
+    saved = receiver.ledger.load_one(order_id)
+    assert saved["payment_id"] == payment["payment_id"]
+    assert saved["status"] == "paid"
+    assert saved["paid_webhook_received"] is True
+    assert requests == ["POST", "GET"]

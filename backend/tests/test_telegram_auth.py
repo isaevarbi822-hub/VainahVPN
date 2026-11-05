@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import time
 
 import pytest
@@ -111,3 +112,33 @@ def test_login_unavailable_when_token_unconfigured(monkeypatch, env):
         response = client.post("/api/telegram/account", headers={"Origin": ORIGIN},
                                json={"action": "login", "data": login_data()})
         assert response.status_code == 503
+
+
+@pytest.mark.parametrize("origin", ["https://[", "https://[broken", "https://example.com/[bad"])
+def test_malformed_origin_is_rejected_without_server_error(env, origin):
+    with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/api/telegram/account", headers={"Origin": origin},
+            json={"action": "logout"},
+        )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "INVALID_ORIGIN"
+
+
+@pytest.mark.parametrize("field", ["first_name", "last_name", "username", "photo_url"])
+def test_unpaired_unicode_in_unsigned_widget_data_is_rejected(env, field):
+    data = {
+        "id": 123456789, "auth_date": int(time.time()),
+        "first_name": "Test", "hash": "0" * 64,
+        field: "\ud800",
+    }
+    # Keep the invalid scalar escaped in valid JSON, as an untrusted HTTP client
+    # can do. Its UTF8 encoding must never escape validation as a server error.
+    raw = json.dumps({"action": "login", "data": data}).encode("ascii")
+    with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/api/telegram/account", content=raw,
+            headers={"Origin": ORIGIN, "Content-Type": "application/json"},
+        )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "TELEGRAM_AUTH_INVALID"

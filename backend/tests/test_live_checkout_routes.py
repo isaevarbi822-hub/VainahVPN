@@ -150,6 +150,57 @@ def _event() -> tuple[bytes, str, str]:
     return raw, timestamp, signature
 
 
+def test_late_signed_paid_after_reversal_never_calls_fulfillment(simulated_production, monkeypatch):
+    ledger = SimpleNamespace(record_signed_paid=lambda **_: False)
+    monkeypatch.setattr(live_checkout, "_ledger", lambda: ledger)
+
+    async def forbidden(**_kwargs):
+        raise AssertionError("A terminal reversal must never fulfill again")
+
+    monkeypatch.setattr(live_checkout, "fulfill_paid_order_once", forbidden)
+    raw, timestamp, signature = _event()
+    with TestClient(app, base_url=ORIGIN) as client:
+        response = client.post('/api/shop/webhooks/rollypay', content=raw, headers={
+            'X-Timestamp': timestamp, 'X-Signature': signature,
+        })
+    assert response.status_code == 200
+    assert response.json() == {
+        'ok': True, 'stale_event_ignored': True, 'vpn_delivered': False,
+    }
+
+
+def test_live_route_rejects_deep_signed_json_without_500(simulated_production):
+    raw = b"[" * 10000 + b"0" + b"]" * 10000
+    timestamp = str(int(time.time()))
+    signature = hmac.new(SIGNATURE_KEY.encode(), timestamp.encode() + b"." + raw, hashlib.sha256).hexdigest()
+    with TestClient(app, base_url=ORIGIN) as client:
+        response = client.post('/api/shop/webhooks/rollypay', content=raw, headers={
+            'X-Timestamp': timestamp, 'X-Signature': signature,
+        })
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'LIVE_WEBHOOK_JSON_INVALID'
+
+
+@pytest.mark.parametrize("reason", ["LIVE_LEDGER_UNAVAILABLE", "LIVE_DELIVERY_PENDING"])
+def test_live_route_keeps_unclaimed_paid_work_retryable(simulated_production, monkeypatch, reason):
+    from vainah.live_fulfillment import FulfillmentError
+
+    monkeypatch.setattr(live_checkout, "_ledger", lambda: SimpleNamespace(record_signed_paid=lambda **_: True))
+
+    async def blocked(**_):
+        raise FulfillmentError(reason)
+
+    monkeypatch.setattr(live_checkout, "fulfill_paid_order_once", blocked)
+    raw, timestamp, signature = _event()
+    with TestClient(app, base_url=ORIGIN) as client:
+        response = client.post('/api/shop/webhooks/rollypay', content=raw, headers={
+            'X-Timestamp': timestamp, 'X-Signature': signature,
+        })
+    assert response.status_code == 503
+    assert response.headers['retry-after'] == '5'
+    assert response.json()['detail'] == reason
+
+
 def test_signed_paid_webhook_once_and_invalid_signature(
     simulated_production, monkeypatch
 ):

@@ -7,6 +7,7 @@ After an ambiguous write, a human must reconcile the node; never auto-retry.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import os
@@ -21,9 +22,16 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from .billing import _require_operator
-from .h1_live_provision import LiveH1Error, _client, _validate_subscription_url
+from .h1_live_provision import (
+    LiveH1Error,
+    _client,
+    _disabled,
+    _expiry,
+    _validate_subscription_url,
+)
 from .h1_panel import H1PanelError, panel_settings, panel_tls_verify
 from .live_ledger import LiveLedgerError, seal_live_secret
+from .postgres_ledger import LOCK_TIMEOUT_MS, STATEMENT_TIMEOUT_MS
 
 router = APIRouter(prefix="/api/site/integrations", tags=["H1Cloud trial"])
 TRIAL_ID = "h1cloud-operator-trial-v1"
@@ -57,7 +65,17 @@ def _ready() -> tuple[str, str]:
     return name, database_url
 
 
+def _transaction_limits(cursor) -> None:
+    cursor.execute("""
+        SELECT set_config('lock_timeout', %s, TRUE),
+               set_config('statement_timeout', %s, TRUE)
+    """, (f"{LOCK_TIMEOUT_MS}ms", f"{STATEMENT_TIMEOUT_MS}ms"))
+
+
 def _schema(cursor) -> None:
+    _transaction_limits(cursor)
+    # IF NOT EXISTS alone can race on pg_type during concurrent first use.
+    cursor.execute("SELECT pg_advisory_xact_lock(1447960899, hashtext(current_schema()))")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vainah_h1_trial_issuance (
             trial_id VARCHAR(40) PRIMARY KEY,
@@ -86,7 +104,7 @@ def _claim_once(database_url: str, name: str) -> bool:
                 RETURNING trial_id
             """, (TRIAL_ID, name))
             return cursor.fetchone() is not None
-    except psycopg.Error:
+    except (psycopg.Error, OSError):
         raise TrialError("H1_TRIAL_DATABASE_UNAVAILABLE") from None
 
 
@@ -95,12 +113,13 @@ def _mark_uncertain(database_url: str) -> None:
         with psycopg.connect(
             database_url, connect_timeout=4
         ) as conn, conn.cursor() as cursor:
+            _transaction_limits(cursor)
             cursor.execute("""
                 UPDATE vainah_h1_trial_issuance
                 SET state = 'needs_review'
                 WHERE trial_id = %s AND state = 'claimed'
             """, (TRIAL_ID,))
-    except psycopg.Error:
+    except (psycopg.Error, OSError):
         # Keep the claim locked if the database is temporarily unavailable.
         pass
 
@@ -111,6 +130,7 @@ def _save_success(database_url: str, subscription_url: str) -> None:
         with psycopg.connect(
             database_url, connect_timeout=4
         ) as conn, conn.cursor() as cursor:
+            _transaction_limits(cursor)
             cursor.execute("""
                 UPDATE vainah_h1_trial_issuance
                 SET state = 'issued', subscription_cipher = %s,
@@ -120,7 +140,7 @@ def _save_success(database_url: str, subscription_url: str) -> None:
             """, (encrypted, TRIAL_ID))
             if cursor.fetchone() is None:
                 raise TrialError("H1_TRIAL_CLAIM_LOST")
-    except (psycopg.Error, LiveLedgerError):
+    except (psycopg.Error, OSError, LiveLedgerError):
         raise TrialError("H1_TRIAL_DATABASE_UNAVAILABLE") from None
 
 
@@ -164,6 +184,7 @@ async def issue_operator_trial(
         if not _claim_once(database_url, name):
             raise TrialError("H1_TRIAL_ALREADY_ATTEMPTED")
         try:
+            write_started_at = int(time.time())
             try:
                 created = await client.post(
                     settings.origin + "/api/create",
@@ -190,15 +211,20 @@ async def issue_operator_trial(
                 raise TrialError("H1_TRIAL_POSTCHECK_UNCERTAIN")
             try:
                 record = _client(checked.json(), name)
-                expiry = int(record["expires_at"])
+                expiry = _expiry(record)
+                disabled = _disabled(record)
                 devices = record.get("device_limit")
                 sub = _validate_subscription_url(
                     record.get("subscription_url") or record.get("sub_url")
                 )
             except (ValueError, TypeError, KeyError, LiveH1Error):
                 raise TrialError("H1_TRIAL_POSTCHECK_INVALID") from None
-            if expiry <= int(time.time()) or type(devices) is not int or devices != 1:
+            if (expiry < write_started_at + 86400 - 300 or disabled
+                    or type(devices) is not int or devices != 1):
                 raise TrialError("H1_TRIAL_POSTCHECK_INVALID")
+            # Complete all response validation/formatting before persisting
+            # success; a malformed date must never leave an issued record.
+            expiry_iso = datetime.fromtimestamp(expiry, UTC).isoformat()
             _save_success(database_url, sub)
             return {
                 "status": "issued",
@@ -206,10 +232,10 @@ async def issue_operator_trial(
                 "payment_created": False,
                 "days": 1,
                 "device_limit": 1,
-                "expires_at": datetime.fromtimestamp(expiry, UTC).isoformat(),
+                "expires_at": expiry_iso,
                 "subscription_url": sub,
             }
-        except TrialError:
+        except (TrialError, asyncio.CancelledError):
             _mark_uncertain(database_url)
             raise
 

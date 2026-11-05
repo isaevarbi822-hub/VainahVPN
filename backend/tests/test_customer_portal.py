@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -164,6 +165,7 @@ def test_paid_customer_access_uses_h1_info_with_verified_tls(monkeypatch):
         return httpx.Response(200, json={
             "ok": True, "client": {
                 "name": "tg123456789",
+                "expires_at": int(time.time()) + 86400,
                 "subscription_url": "https://sub.example.com/private-subscription",
             },
         })
@@ -182,6 +184,41 @@ def test_paid_customer_access_uses_h1_info_with_verified_tls(monkeypatch):
         ("GET", "https://vpn-panel.example.com:25105/api/info?name=tg123456789",
          "Bearer test-only-provider-token"),
     ]
+
+
+@pytest.mark.parametrize("change, expected, revoked", [
+    ({"banned": True}, 409, False),
+    ({"expires_at": 0}, 409, False),
+    ({"banned": "true"}, 503, False),
+    ({"status": []}, 503, False),
+    ({}, 404, True),
+])
+def test_access_rechecks_last_panel_response_and_paid_receipt(monkeypatch, change, expected, revoked):
+    import httpx
+    from fastapi import HTTPException
+
+    monkeypatch.setenv("PANEL_BASE_URL", "https://vpn-panel.example.com/api")
+    monkeypatch.setenv("PANEL_API_TOKEN", "test-panel-token")
+    monkeypatch.setenv("PANEL_CLIENT_PREFIX", "tg")
+    receipts = iter([{"paid": True}, None if revoked else {"paid": True}])
+    monkeypatch.setattr(portal, "active_receipt", lambda _: next(receipts))
+
+    async def initially_active(_):
+        return {"active": True}
+
+    monkeypatch.setattr(portal, "read_h1_status", initially_active)
+    profile = {
+        "name": "tg123456789", "expires_at": int(time.time()) + 86400,
+        "subscription_url": "https://sub.example.com/PRIVATE_MUST_NOT_LEAK", **change,
+    }
+    original = httpx.AsyncClient
+    monkeypatch.setattr(portal.httpx, "AsyncClient", lambda **kw: original(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json={"ok": True, "client": profile})), **kw,
+    ))
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(portal.own_subscription_url("123456789"))
+    assert error.value.status_code == expected
+    assert "PRIVATE_MUST_NOT_LEAK" not in str(error.value.detail)
 
 
 @pytest.mark.parametrize("client_data", [
