@@ -47,6 +47,7 @@
     if(message === "PROVIDER_TERMINAL_ID_REQUIRED") return "RollyPay требует Terminal ID. Укажи UUID кассы в Render.";
     if(message === "PROVIDER_RESPONSE_INVALID") return "RollyPay ответил, но формат данных баланса неожиданный.";
     if(message === "SANDBOX_OPERATOR_TOKEN_REQUIRED") return "Тестовый токен неверен или не заполнен. Проверь VAINAH_SANDBOX_TEST_TOKEN.";
+    if(message === "VERIFIED_EMAIL_REQUIRED_FOR_AUTO_H1") return "Перед тестовой оплатой войди в аккаунт с подтверждённой почтой. Иначе система не сможет автоматически отправить VPN-ссылку.";
     if(message === "PROVIDER_NOT_CONFIGURED") return "На Python-сервере нет ROLLYPAY_API_KEY.";
     if(message === "PROVIDER_MODE_NOT_ENABLED") return "Включён локальный mock, а не RollyPay sandbox.";
     return String(message || "Неизвестная ошибка");
