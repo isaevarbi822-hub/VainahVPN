@@ -1252,7 +1252,7 @@ async def sandbox_status(order_id: str,
             "PROVIDER_TIMEOUT", "PROVIDER_NETWORK",
             "PROVIDER_HTTP_429", "PROVIDER_HTTP_500",
             "PROVIDER_HTTP_502", "PROVIDER_HTTP_503",
-            "PROVIDER_HTTP_504",
+            "PROVIDER_HTTP_504", "PROVIDER_STATUS_REGRESSION",
         }
         if exc.code not in retryable:
             raise HTTPException(502, exc.code) from None
