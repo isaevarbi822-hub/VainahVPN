@@ -184,11 +184,13 @@ def owner_ref_for_email(email: str) -> str:
 
 
 async def discount_pilot_readiness(*, request: Request) -> dict:
-    """Do not open a second real invoice while the original is still payable.
+    """Allow no more than two discounted live invoices, serially.
 
-    RollyPay status must independently confirm an irrevocably terminal unpaid
-    status for the *same immutable payment*. A local CREATED row is insufficient.
-    Fail closed on network errors, mismatches, invalid statuses or unknown data.
+    Existing 99-RUB invoice is never changed or deleted. A subsequent
+    discounted invoice is allowed only if the previous invoice was paid
+    AND delivered, or RollyPay confirms it expired/canceled unpaid.
+    Provider identity/amount checks fail closed. The DB transaction enforces
+    the lifetime two-discount quota despite concurrent requests.
     """
     if not discount_pilot_enabled():
         return {"discount_checkout_ready": False, "reason": "DISCOUNT_PILOT_DISABLED"}
@@ -203,26 +205,46 @@ async def discount_pilot_readiness(*, request: Request) -> dict:
     try:
         ledger = _ledger()
         state = ledger.discount_pilot_state()
-        if state.get("discount_order_exists"):
+        count = state.get("discount_order_count", 0)
+        if type(count) is not int or not 0 <= count <= 2:
+            raise LiveLedgerError("LIVE_DISCOUNT_PILOT_INVALID")
+        if count >= 2:
             return {"discount_checkout_ready": False,
-                    "reason": "DISCOUNT_PILOT_ALREADY_RESERVED", **state}
-        original = ledger.original_pilot_payment_for_verification(
-            owner_ref_for_email(email),
-        )
+                    "reason": "DISCOUNT_PILOT_LIMIT_REACHED", **state}
+        owner_ref = owner_ref_for_email(email)
+        if count == 1:
+            previous = ledger.latest_discount_payment_for_verification(owner_ref)
+            expected_plan = "pilot-1d"
+            expected_amount = "10.00"
+            label = "DISCOUNT"
+            if (previous and previous.get("plan_id") == expected_plan
+                    and previous.get("amount_rub") == expected_amount
+                    and previous.get("payment_state") == "paid"
+                    and previous.get("delivery_state") == "delivered"):
+                return {"discount_checkout_ready": True,
+                        "reason": "PREVIOUS_DISCOUNT_DELIVERED",
+                        "discount_order_count": 1, "discount_remaining": 1,
+                        "plan_id": "pilot-1d", "amount_rub": "10.00", "days": 1}
+        else:
+            previous = ledger.original_pilot_payment_for_verification(owner_ref)
+            expected_plan = "30"
+            expected_amount = "99.00"
+            label = "ORIGINAL"
     except LiveLedgerError:
         return {"discount_checkout_ready": False,
                 "reason": "LIVE_PILOT_STATUS_UNAVAILABLE"}
-    if (original is None or original.get("plan_id") != "30"
-            or original.get("amount_rub") != "99.00"
-            or original.get("payment_state") != "created"
-            or not original.get("payment_id")):
+    if (previous is None or previous.get("plan_id") != expected_plan
+            or previous.get("amount_rub") != expected_amount
+            or previous.get("payment_state") != "created"
+            or not previous.get("payment_id")):
         return {"discount_checkout_ready": False,
-                "reason": "ORIGINAL_PILOT_UNVERIFIED"}
+                "reason": label + "_PILOT_UNVERIFIED"}
     from .billing import PAYMENT_ID_RE, _matches_exact_rub_amount, _matches_rub_currency
-    payment_id = original["payment_id"]
+
+    payment_id = previous["payment_id"]
     if not isinstance(payment_id, str) or not PAYMENT_ID_RE.fullmatch(payment_id):
         return {"discount_checkout_ready": False,
-                "reason": "ORIGINAL_PILOT_UNVERIFIED"}
+                "reason": label + "_PILOT_UNVERIFIED"}
     try:
         async with httpx.AsyncClient(
             timeout=8, follow_redirects=False, trust_env=False,
@@ -240,20 +262,21 @@ async def discount_pilot_readiness(*, request: Request) -> dict:
             result = response.json()
     except (httpx.HTTPError, ValueError, KeyError, RecursionError):
         return {"discount_checkout_ready": False,
-                "reason": "ORIGINAL_PROVIDER_UNAVAILABLE"}
+                "reason": label + "_PROVIDER_UNAVAILABLE"}
     if (not isinstance(result, dict)
             or result.get("payment_id") != payment_id
-            or result.get("order_id") != original["order_id"]
-            or not _matches_exact_rub_amount(result.get("amount"), "99.00")
+            or result.get("order_id") != previous["order_id"]
+            or not _matches_exact_rub_amount(result.get("amount"), expected_amount)
             or not _matches_rub_currency(result)
             or ("test" in result and result["test"] is not False)):
         return {"discount_checkout_ready": False,
-                "reason": "ORIGINAL_PROVIDER_MISMATCH"}
+                "reason": label + "_PROVIDER_MISMATCH"}
     if result.get("status") not in {"expired", "canceled"}:
         return {"discount_checkout_ready": False,
-                "reason": "ORIGINAL_PILOT_STILL_ACTIVE"}
+                "reason": label + "_PILOT_STILL_ACTIVE"}
     return {"discount_checkout_ready": True,
-            "reason": "ORIGINAL_PILOT_CLOSED_VERIFIED",
+            "reason": label + "_PILOT_CLOSED_VERIFIED",
+            "discount_order_count": count, "discount_remaining": 2 - count,
             "plan_id": "pilot-1d", "amount_rub": "10.00", "days": 1}
 
 
@@ -329,6 +352,7 @@ async def start_live_checkout(
             "LIVE_CHECKOUT_RECONCILIATION_REQUIRED",
             "LIVE_IDEMPOTENCY_CONFLICT",
             "LIVE_PILOT_ALREADY_RESERVED",
+            "LIVE_DISCOUNT_PILOT_LIMIT_REACHED",
         }:
             raise HTTPException(409, code) from None
         if code in {"LIVE_IDEMPOTENCY_INVALID", "LIVE_PLAN_INVALID",
