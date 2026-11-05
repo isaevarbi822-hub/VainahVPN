@@ -122,6 +122,18 @@ class PostgresLiveOrderLedger:
             ADD COLUMN IF NOT EXISTS pay_url_cipher TEXT
         """)
         cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS access_email_sent_at TIMESTAMPTZ
+        """)
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS access_email_claimed_at TIMESTAMPTZ
+        """)
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS access_email_claim_token CHAR(32)
+        """)
+        cur.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS vainah_live_checkout_nonce_uq
             ON vainah_live_orders (checkout_nonce_hash)
         """)
@@ -637,3 +649,120 @@ class PostgresLiveOrderLedger:
                 return cur.fetchone() is not None
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
+    def claim_paid_access_email(self, order_id: str, *, claim_token: str) -> dict:
+        """Claim email ONLY from a signed, paid, H1-confirmed delivered row.
+
+        The email and link are decrypted server-side after an atomic claim.
+        A short email lease can expire because re-sending a message uses the
+        same Resend idempotency key; it never repeats an H1 write.
+        """
+        import re
+
+        if (not isinstance(order_id, str) or not LIVE_ORDER_RE.fullmatch(order_id)
+                or not isinstance(claim_token, str)
+                or re.fullmatch(r"[0-9a-f]{32}", claim_token) is None):
+            raise LiveLedgerError("LIVE_ACCESS_EMAIL_CLAIM_INVALID")
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4,
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    UPDATE vainah_live_orders AS target
+                    SET access_email_claim_token = %s,
+                        access_email_claimed_at = now(), updated_at = now()
+                    WHERE target.order_id = %s
+                        AND target.payment_state = 'paid'
+                        AND target.webhook_at IS NOT NULL
+                        AND target.delivery_state = 'delivered'
+                        AND target.subscription_cipher IS NOT NULL
+                        AND target.access_email_sent_at IS NULL
+                        AND (
+                            target.access_email_claim_token IS NULL
+                            OR target.access_email_claimed_at
+                                < now() - INTERVAL '120 seconds'
+                        )
+                        AND NOT EXISTS (
+                            SELECT 1 FROM vainah_live_orders blocked
+                            WHERE blocked.owner_ref = target.owner_ref
+                              AND blocked.delivery_state = 'manual_review'
+                              AND blocked.payment_state IN ('refunded', 'chargeback')
+                        )
+                    RETURNING target.receipt_email_cipher,
+                              target.subscription_cipher, target.plan_id
+                """, (claim_token, order_id))
+                row = cur.fetchone()
+                if row is None:
+                    cur.execute("""
+                        SELECT access_email_sent_at, access_email_claim_token,
+                               payment_state, delivery_state
+                        FROM vainah_live_orders WHERE order_id = %s
+                    """, (order_id,))
+                    state = cur.fetchone()
+                else:
+                    state = None
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        if row is not None:
+            return {
+                "status": "claimed",
+                "recipient": unseal_live_secret(row[0]),
+                "subscription_url": unseal_live_secret(row[1]),
+                "plan_id": row[2],
+            }
+        if state is None:
+            return {"status": "blocked"}
+        if state[0] is not None:
+            return {"status": "sent"}
+        if state[1] is not None and state[2:] == ("paid", "delivered"):
+            return {"status": "in_progress"}
+        return {"status": "blocked"}
+
+    def finish_paid_access_email(self, order_id: str, *, claim_token: str) -> bool:
+        """Persist completion only if the exact leased paid order still qualifies."""
+        if not LIVE_ORDER_RE.fullmatch(order_id):
+            raise LiveLedgerError("LIVE_ACCESS_EMAIL_CLAIM_INVALID")
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4,
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    UPDATE vainah_live_orders
+                    SET access_email_sent_at = now(),
+                        access_email_claim_token = NULL,
+                        access_email_claimed_at = NULL,
+                        updated_at = now()
+                    WHERE order_id = %s AND access_email_claim_token = %s
+                        AND access_email_sent_at IS NULL
+                        AND payment_state = 'paid'
+                        AND webhook_at IS NOT NULL
+                        AND delivery_state = 'delivered'
+                        AND subscription_cipher IS NOT NULL
+                    RETURNING order_id
+                """, (order_id, claim_token))
+                return cur.fetchone() is not None
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
+    def release_paid_access_email(self, order_id: str, *, claim_token: str) -> None:
+        """A known email failure releases only its own claim, not a VPN claim."""
+        if not LIVE_ORDER_RE.fullmatch(order_id):
+            raise LiveLedgerError("LIVE_ACCESS_EMAIL_CLAIM_INVALID")
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4,
+            ) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    UPDATE vainah_live_orders
+                    SET access_email_claim_token = NULL,
+                        access_email_claimed_at = NULL,
+                        updated_at = now()
+                    WHERE order_id = %s AND access_email_claim_token = %s
+                        AND access_email_sent_at IS NULL
+                """, (order_id, claim_token))
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
