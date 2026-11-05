@@ -29,6 +29,10 @@
     if(message === "PROVIDER_PAYMENT_ID_MISSING") return "Ответ RollyPay не содержит payment_id. Операция не подтверждена.";
     if(message === "PROVIDER_PAYMENT_ID_FORMAT") return "RollyPay вернул payment_id неожиданного формата. Проверка остановлена.";
     if(message === "PROVIDER_PAYMENT_STATUS_INVALID") return "RollyPay вернул неожиданный статус нового платежа. Проверка остановлена.";
+    if(message === "PROVIDER_ORDER_MISMATCH") return "RollyPay вернул другой номер заказа. Статус не принят.";
+    if(message === "PROVIDER_PAYMENT_MISMATCH") return "RollyPay вернул другой ID платежа. Статус не принят.";
+    if(message === "PROVIDER_AMOUNT_MISMATCH") return "Сумма в RollyPay не совпадает с выбранным тарифом. Статус не принят.";
+    if(message === "PROVIDER_CURRENCY_MISMATCH") return "Валюта платежа не подтверждена как RUB. Статус не принят.";
     if(message === "PROVIDER_SANDBOX_NOT_CONFIRMED") return "RollyPay вернул противоречащие тестовому заказу признаки платежа. Обработка остановлена, чтобы не принять боевой платёж за тестовый.";
     if(message === "PROVIDER_TIMEOUT") return "Истекло время ожидания ответа RollyPay.";
     if(message === "PROVIDER_NETWORK") return "Ошибка соединения с API RollyPay.";
