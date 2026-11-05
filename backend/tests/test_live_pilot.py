@@ -38,6 +38,7 @@ def pilot_config(monkeypatch):
     monkeypatch.setenv("VAINAH_MERCHANT_APPROVED", "approved")
     monkeypatch.setenv("VAINAH_H1_WRITE_CONTRACT_APPROVED", "approved")
     monkeypatch.setenv("VAINAH_LIVE_FULFILLMENT_APPROVED", "approved")
+    monkeypatch.setenv("ROLLYPAY_API_KEY", "test-live-api-" + "a" * 40)
     monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "test-live-signing-" + "x" * 32)
     monkeypatch.delenv("VAINAH_LIVE_CHECKOUT_ENABLED", raising=False)
     monkeypatch.delenv("VAINAH_LIVE_PAID_E2E_VERIFIED", raising=False)
