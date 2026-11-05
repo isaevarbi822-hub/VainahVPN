@@ -119,6 +119,22 @@ def event(order, payment_id, event_type, status, *, test=True, amount="99.00"):
     }
 
 
+def test_auto_delivery_rejects_anonymous_checkout_before_provider_post(
+    sandbox, monkeypatch,
+):
+    from vainah import sandbox_auto_h1
+
+    client, fake = sandbox
+    monkeypatch.setattr(sandbox_auto_h1, "auto_enabled", lambda: True)
+    blocked = client.post(
+        "/api/shop/sandbox/start", headers=HEADERS, json={"plan": "30"},
+    )
+    assert blocked.status_code == 401
+    assert blocked.json()["detail"] == "VERIFIED_EMAIL_REQUIRED_FOR_AUTO_H1"
+    assert fake.requests == []
+    assert fake.orders == {}
+
+
 def test_signed_paid_callback_duplicate_and_activation_preview(sandbox):
     client, fake = sandbox
     assert client.post("/api/shop/sandbox/start", json={"plan": "30"}).status_code == 401
