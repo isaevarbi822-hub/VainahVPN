@@ -313,7 +313,7 @@ class BillingSandbox:
         signed callback or created this payment. Retain local hosted URL only
         on the same process; never persist/return it via the shared ledger.
         """
-        if not isinstance(self.ledger, PostgresSandboxLedger):
+        if not isinstance(self.ledger, (PostgresSandboxLedger, SandboxLedger)):
             return
         with self.lock:
             try:
@@ -321,6 +321,7 @@ class BillingSandbox:
             except LedgerUnavailable:
                 raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
             if record is None:
+                self.orders.pop(order_id, None)
                 return
             if (record.get("order_id") != order_id
                     or record.get("mode") != self.mode
@@ -350,10 +351,18 @@ class BillingSandbox:
         if self.ledger is None:
             return
         try:
-            self.ledger.save(order)
+            saved = self.ledger.save(order)
         except LedgerUnavailable:
             # Do not include the connection string or provider error text.
             raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
+        if isinstance(saved, dict):
+            # The ledger can preserve a concurrently committed refund or paid
+            # proof over our stale snapshot. Return that committed outcome,
+            # rather than advertising the status that this worker attempted.
+            order.status = saved["status"]
+            order.webhook_received = bool(saved["webhook_received"])
+            order.paid_webhook_received = bool(saved["paid_webhook_received"])
+            order.receipt_emailed = bool(saved["receipt_emailed"])
 
     def _set_status(self, order: TestOrder, next_status: str) -> None:
         old_status = order.status
@@ -687,12 +696,14 @@ class BillingSandbox:
             return {"ok": True, "test_only": True, "status": order.status,
                     "vpn_delivered": False}
 
-    def owned_test_orders(self, owner_ref: str) -> list[dict]:
+    def owned_test_orders(self, owner_ref: str, *, signed_paid_only: bool = False) -> list[dict]:
         """Only account-bound operator sandbox orders; never return provider URLs."""
         self._ensure_loaded()
-        if isinstance(self.ledger, PostgresSandboxLedger):
+        if isinstance(self.ledger, (PostgresSandboxLedger, SandboxLedger)):
             try:
-                records = self.ledger.load_for_owner(owner_ref)
+                records = self.ledger.load_for_owner(
+                    owner_ref, signed_paid_only=signed_paid_only,
+                )
             except LedgerUnavailable:
                 raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
             return [
@@ -705,6 +716,9 @@ class BillingSandbox:
                 for order in reversed(list(self.orders.values()))
                 if order.owner_ref is not None
                 and secrets.compare_digest(order.owner_ref, owner_ref)
+                and (not signed_paid_only or (
+                    order.status == "paid" and order.paid_webhook_received
+                ))
             ][:20]
 
     def require_order_owner(self, order_id: str, owner_ref: str) -> None:
@@ -765,14 +779,26 @@ class BillingSandbox:
                         "delivery_state": delivery["status"],
                     }
                 vpn_issued = True
+            claim_token = uuid4().hex
             if self.ledger is not None:
                 try:
-                    encrypted = self.ledger.claim_receipt(order_id)
+                    encrypted = self.ledger.claim_receipt(
+                        order_id, claim_token=claim_token,
+                    )
                 except (LedgerUnavailable, OSError):
                     raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
                 if encrypted is None:
-                    return {"sent": False, "already_sent": False,
-                            "test_only": True, "vpn_delivered": False}
+                    self._sync_one(order_id)
+                    with self.lock:
+                        current = self.orders.get(order_id)
+                        if current is None or current.receipt_emailed or current.status != "paid":
+                            return {"sent": False, "already_sent": bool(
+                                current and current.receipt_emailed
+                            ), "test_only": True, "vpn_delivered": False}
+                    # A prior worker may have died holding the short lease.
+                    # Acknowledge only after durable completion, so provider
+                    # retries survive long enough for that lease to expire.
+                    raise HTTPException(503, "TEST_RECEIPT_IN_PROGRESS")
             try:
                 recipient = _unseal_receipt_recipient(encrypted)
                 await send_sandbox_receipt(
@@ -782,9 +808,13 @@ class BillingSandbox:
                 )
                 if self.ledger is not None:
                     try:
-                        self.ledger.finish_receipt(order_id)
+                        finished = self.ledger.finish_receipt(
+                            order_id, claim_token=claim_token,
+                        )
                     except (LedgerUnavailable, OSError):
                         raise HTTPException(503, "SANDBOX_LEDGER_UNAVAILABLE") from None
+                    if not finished:
+                        raise HTTPException(503, "TEST_RECEIPT_CLAIM_LOST")
                 with self.lock:
                     order.receipt_emailed = True
                     if self.ledger is None:
@@ -794,7 +824,7 @@ class BillingSandbox:
             except (HTTPException, ValueError):
                 if self.ledger is not None:
                     try:
-                        self.ledger.release_receipt(order_id)
+                        self.ledger.release_receipt(order_id, claim_token=claim_token)
                     except (LedgerUnavailable, OSError):
                         pass
                 raise
@@ -931,10 +961,10 @@ class BillingSandbox:
             "amount_rub": order.amount, "status": order.status,
             "mode": order.mode, "test_only": True, "real_charge": False,
             "vpn_delivered": False, "pay_url": order.pay_url,
-            "webhook_received": order.webhook_received,
-            "paid_webhook_received": order.paid_webhook_received,
+            "webhook_received": bool(order.webhook_received),
+            "paid_webhook_received": bool(order.paid_webhook_received),
             "owner_bound": bool(order.owner_ref),
-            "receipt_emailed": order.receipt_emailed,
+            "receipt_emailed": bool(order.receipt_emailed),
         }
 
 

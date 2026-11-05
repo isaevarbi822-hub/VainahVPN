@@ -367,7 +367,7 @@ def test_subscriptions(request: Request) -> dict:
     if not auto_enabled():
         return {"items": [], "sandbox_only": True}
     items = []
-    for order in sandbox.owned_test_orders(owner)[:30]:
+    for order in sandbox.owned_test_orders(owner, signed_paid_only=True):
         if order["mode"] != "provider" or order["status"] != "paid" or not (
             order.get("paid_webhook_received") and order["webhook_received"]
         ):

@@ -7,6 +7,14 @@ from __future__ import annotations
 
 import psycopg
 
+LOCK_TIMEOUT_MS = 4000
+STATEMENT_TIMEOUT_MS = 8000
+ORDER_COLUMNS = (
+    "order_id", "plan_id", "amount", "payment_id", "status", "mode",
+    "webhook_received", "owner_ref", "receipt_emailed", "receipt_recipient",
+    "paid_webhook_received",
+)
+
 
 class LedgerUnavailable(Exception):
     """Database failure without a connection string or private details."""
@@ -22,6 +30,13 @@ class PostgresSandboxLedger:
 
     @staticmethod
     def _schema(cursor) -> None:
+        # connect_timeout bounds only opening the connection. Bound waiting for
+        # advisory/table/row locks and executing statements as well, so a stuck
+        # migration or worker returns a retryable failure instead of hanging API.
+        cursor.execute("""
+            SELECT set_config('lock_timeout', %s, TRUE),
+                   set_config('statement_timeout', %s, TRUE)
+        """, (f"{LOCK_TIMEOUT_MS}ms", f"{STATEMENT_TIMEOUT_MS}ms"))
         # IF NOT EXISTS alone can race on pg_type when fresh Render workers
         # initialize simultaneously. Hold one transaction-scoped schema lock
         # through migration and the operation; PostgreSQL releases it on either
@@ -64,8 +79,18 @@ class PostgresSandboxLedger:
             ALTER TABLE vainah_sandbox_orders
             ADD COLUMN IF NOT EXISTS receipt_claimed_at TIMESTAMPTZ
         """)
+        cursor.execute("""
+            ALTER TABLE vainah_sandbox_orders
+            ADD COLUMN IF NOT EXISTS receipt_claim_token TEXT
+        """)
 
-    def save(self, order: object) -> None:
+    def save(self, order: object) -> dict:
+        """Commit a monotonic update and return the actual persisted outcome.
+
+        A stale process must observe a concurrently committed refund, rather
+        than reporting its proposed PAID state or mutating another payment's
+        signed proof after an immutable binding mismatch.
+        """
         try:
             with psycopg.connect(
                 self._database_url, connect_timeout=4
@@ -102,6 +127,17 @@ class PostgresSandboxLedger:
                             OR EXCLUDED.receipt_emailed
                         ),
                         updated_at = NOW()
+                    WHERE vainah_sandbox_orders.plan_id = EXCLUDED.plan_id
+                      AND vainah_sandbox_orders.amount = EXCLUDED.amount
+                      AND vainah_sandbox_orders.payment_id = EXCLUDED.payment_id
+                      AND vainah_sandbox_orders.mode = EXCLUDED.mode
+                      AND vainah_sandbox_orders.owner_ref
+                          IS NOT DISTINCT FROM EXCLUDED.owner_ref
+                      AND vainah_sandbox_orders.receipt_recipient
+                          IS NOT DISTINCT FROM EXCLUDED.receipt_recipient
+                    RETURNING order_id, plan_id, amount, payment_id, status, mode,
+                              webhook_received, owner_ref, receipt_emailed,
+                              receipt_recipient, paid_webhook_received
                 """, (
                     order.order_id,
                     order.plan_id,
@@ -115,6 +151,10 @@ class PostgresSandboxLedger:
                     getattr(order, "receipt_recipient", None),
                     bool(getattr(order, "paid_webhook_received", False)),
                 ))
+                row = cursor.fetchone()
+                if row is None:
+                    raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE")
+                return dict(zip(ORDER_COLUMNS, row, strict=True))
         except (psycopg.Error, OSError, ValueError):
             raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE") from None
 
@@ -211,7 +251,9 @@ class PostgresSandboxLedger:
             "receipt_recipient", "paid_webhook_received",
         ), row, strict=True))
 
-    def load_for_owner(self, owner_ref: str) -> list[dict]:
+    def load_for_owner(
+        self, owner_ref: str, *, signed_paid_only: bool = False,
+    ) -> list[dict]:
         """Read the owner's recent orders from shared storage on every request."""
         try:
             with psycopg.connect(
@@ -224,9 +266,10 @@ class PostgresSandboxLedger:
                            receipt_recipient, paid_webhook_received
                     FROM vainah_sandbox_orders
                     WHERE owner_ref = %s
+                      AND (NOT %s OR (status = 'paid' AND paid_webhook_received = TRUE))
                     ORDER BY updated_at DESC, order_id DESC
                     LIMIT 20
-                """, (owner_ref,))
+                """, (owner_ref, signed_paid_only))
                 rows = cursor.fetchall()
         except (psycopg.Error, OSError, ValueError):
             raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE") from None
@@ -236,7 +279,7 @@ class PostgresSandboxLedger:
             "receipt_recipient", "paid_webhook_received",
         ), row, strict=True)) for row in rows]
 
-    def claim_receipt(self, order_id: str) -> str | None:
+    def claim_receipt(self, order_id: str, *, claim_token: str) -> str | None:
         """Cross-worker lease; only signed PAID test orders can claim an email."""
         try:
             with psycopg.connect(
@@ -245,7 +288,7 @@ class PostgresSandboxLedger:
                 self._schema(cursor)
                 cursor.execute("""
                     UPDATE vainah_sandbox_orders
-                    SET receipt_claimed_at = NOW()
+                    SET receipt_claimed_at = NOW(), receipt_claim_token = %s
                     WHERE order_id = %s AND mode = 'provider'
                       AND status = 'paid' AND paid_webhook_received = TRUE
                       AND owner_ref IS NOT NULL AND receipt_recipient IS NOT NULL
@@ -253,13 +296,13 @@ class PostgresSandboxLedger:
                       AND (receipt_claimed_at IS NULL OR
                            receipt_claimed_at < NOW() - interval '2 minutes')
                     RETURNING receipt_recipient
-                """, (order_id,))
+                """, (claim_token, order_id))
                 row = cursor.fetchone()
                 return str(row[0]) if row else None
         except (psycopg.Error, OSError, ValueError):
             raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE") from None
 
-    def finish_receipt(self, order_id: str) -> None:
+    def finish_receipt(self, order_id: str, *, claim_token: str) -> bool:
         try:
             with psycopg.connect(
                 self._database_url, connect_timeout=4
@@ -268,15 +311,18 @@ class PostgresSandboxLedger:
                 cursor.execute("""
                     UPDATE vainah_sandbox_orders
                     SET receipt_emailed = TRUE,
-                        receipt_claimed_at = NULL,
+                        receipt_claimed_at = NULL, receipt_claim_token = NULL,
                         updated_at = NOW()
                     WHERE order_id = %s AND status = 'paid'
                       AND paid_webhook_received = TRUE AND receipt_claimed_at IS NOT NULL
-                """, (order_id,))
+                      AND receipt_claim_token = %s
+                    RETURNING order_id
+                """, (order_id, claim_token))
+                return cursor.fetchone() is not None
         except (psycopg.Error, OSError, ValueError):
             raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE") from None
 
-    def release_receipt(self, order_id: str) -> None:
+    def release_receipt(self, order_id: str, *, claim_token: str) -> None:
         try:
             with psycopg.connect(
                 self._database_url, connect_timeout=4
@@ -284,8 +330,9 @@ class PostgresSandboxLedger:
                 self._schema(cursor)
                 cursor.execute("""
                     UPDATE vainah_sandbox_orders
-                    SET receipt_claimed_at = NULL
+                    SET receipt_claimed_at = NULL, receipt_claim_token = NULL
                     WHERE order_id = %s AND receipt_emailed = FALSE
-                """, (order_id,))
+                      AND receipt_claim_token = %s
+                """, (order_id, claim_token))
         except (psycopg.Error, OSError, ValueError):
             raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE") from None

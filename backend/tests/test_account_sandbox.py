@@ -31,7 +31,7 @@ def account(monkeypatch):
         "paid_webhook_received": True,
     }]
     monkeypatch.setattr(billing, "sandbox", SimpleNamespace(
-        owned_test_orders=lambda principal: orders if principal == owner else [],
+        owned_test_orders=lambda principal, **_kwargs: orders if principal == owner else [],
     ))
     monkeypatch.setattr(auto, "auto_enabled", lambda: True)
     reads = []
@@ -75,7 +75,9 @@ def test_issued_sandbox_subscription_is_visible_only_to_its_owner(account):
     )
     assert client.get("/api/account/test-subscriptions").json()["items"] == []
     client.cookies.clear()
-    assert client.get("/api/account/test-subscriptions").status_code == 401
+    anonymous = client.get("/api/account/test-subscriptions")
+    assert anonymous.status_code == 401
+    assert anonymous.headers["cache-control"] == "no-store"
     assert reads == [ORDER]
 
 
@@ -100,6 +102,7 @@ def test_sandbox_delivery_database_error_is_redacted(account, monkeypatch):
     monkeypatch.setattr(auto, "read_delivery", unavailable)
     result = client.get("/api/account/test-subscriptions")
     assert result.status_code == 503
+    assert result.headers["cache-control"] == "no-store"
     assert result.json()["detail"] == "SANDBOX_VPN_ACCESS_UNAVAILABLE"
     assert "SECRET" not in result.text
 

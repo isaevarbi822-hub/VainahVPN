@@ -27,6 +27,9 @@ from .production_contracts import (
     verify_live_reversal_event,
 )
 
+LOCK_TIMEOUT_MS = 4000
+STATEMENT_TIMEOUT_MS = 8000
+
 
 class LiveLedgerError(Exception):
     """A public-safe code; PostgreSQL query text and secrets are never exposed."""
@@ -76,6 +79,16 @@ class PostgresLiveOrderLedger:
 
     @staticmethod
     def _schema(cur) -> None:
+        # Connection timeouts do not bound waiting for a query or another
+        # worker's locks. These limits apply only to the current transaction.
+        cur.execute("""
+            SELECT set_config('lock_timeout', %s, TRUE),
+                   set_config('statement_timeout', %s, TRUE)
+        """, (f"{LOCK_TIMEOUT_MS}ms", f"{STATEMENT_TIMEOUT_MS}ms"))
+        # IF NOT EXISTS alone does not serialize PostgreSQL's catalog writes.
+        # The lock lasts until the caller commits its first reservation/read,
+        # and is always released before any external payment or VPN request.
+        cur.execute("SELECT pg_advisory_xact_lock(hashtext('vainah_live_orders_schema'))")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS vainah_live_orders (
                 order_id VARCHAR(50) PRIMARY KEY,

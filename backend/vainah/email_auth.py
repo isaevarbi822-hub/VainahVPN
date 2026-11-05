@@ -32,6 +32,8 @@ RESEND_COOLDOWN = 90
 HOUR_LIMIT = 5
 IP_HOUR_LIMIT = 20
 CODE_ATTEMPTS = 5
+LOCK_TIMEOUT_MS = 4000
+STATEMENT_TIMEOUT_MS = 8000
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{3,189}$")
 SESSION_TOKEN_RE = re.compile(r"([A-Za-z0-9_-]+)\.([0-9a-f]{64})")
 
@@ -78,6 +80,17 @@ def _hmac(secret: str, purpose: str, value: str) -> str:
 
 
 def _schema(cur) -> None:
+    # Bound both migration/OTP lock waits and statement execution; a connected
+    # database with a stuck transaction must return a sanitized HTTP 503.
+    cur.execute("""
+        SELECT set_config('lock_timeout', %s, TRUE),
+               set_config('statement_timeout', %s, TRUE)
+    """, (f"{LOCK_TIMEOUT_MS}ms", f"{STATEMENT_TIMEOUT_MS}ms"))
+    # Multiple Render workers can receive their first login simultaneously.
+    # Serialize catalog creation before taking the per-email/source locks;
+    # CREATE TABLE IF NOT EXISTS alone can still fail on pg_type uniqueness.
+    # Delivery happens after this transaction releases all database locks.
+    cur.execute("SELECT pg_advisory_xact_lock(hashtext('vainah_email_login_schema'))")
     cur.execute("""
         CREATE TABLE IF NOT EXISTS vainah_email_login_codes (
             email VARCHAR(254) PRIMARY KEY,

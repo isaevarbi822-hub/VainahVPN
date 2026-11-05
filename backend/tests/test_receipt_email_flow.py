@@ -147,6 +147,7 @@ def test_only_verified_paid_owner_gets_test_email_once(setup, monkeypatch):
     # No plaintext email is written to the sandbox ledger.
     assert b"owner@example.com" not in Path(db).read_bytes()
     assert client.get("/api/shop/my-test-orders").json()["items"][0]["receipt_emailed"] is True
+
     assert callback(client, order, payment_id).status_code == 200
     assert len(sent) == 1
     assert client.post(path, headers={"Origin": ORIGIN}).json()["already_sent"] is True
@@ -280,3 +281,32 @@ def test_sandbox_issued_receipt_says_vpn_activated(monkeypatch):
     assert "ТЕСТОВЫЙ VPN АКТИВИРОВАН" in body
     assert "VPN НЕ АКТИВИРОВАН" not in body
     assert "https://sub" not in body
+
+
+
+def test_callback_retries_receipt_held_by_dead_worker_until_lease_expires(setup):
+    import sqlite3
+
+    client, provider, db, sent = setup
+    order = create_order(client)
+    payment_id = next(iter(provider.orders))
+    billing.sandbox.process_webhook({
+        "event_type": "payment.paid", "status": "paid", "test": True,
+        "order_id": order["order_id"], "payment_id": payment_id,
+        "amount": order["amount_rub"], "currency": "RUB",
+    })
+    assert billing.sandbox.ledger.claim_receipt(
+        order["order_id"], claim_token="worker-died-before-email",
+    )
+    blocked = callback(client, order, payment_id)
+    assert blocked.status_code == 503
+    assert blocked.json()["detail"] == "TEST_RECEIPT_DELIVERY_RETRY"
+    assert not sent
+    with sqlite3.connect(db) as connection:
+        connection.execute("""
+            UPDATE sandbox_orders SET receipt_claimed_at = unixepoch() - 121
+            WHERE order_id = ?
+        """, (order["order_id"],))
+    assert callback(client, order, payment_id).status_code == 200
+    assert callback(client, order, payment_id).status_code == 200
+    assert len(sent) == 1

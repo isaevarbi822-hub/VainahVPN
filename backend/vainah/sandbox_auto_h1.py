@@ -8,6 +8,7 @@ retried; human reconciliation is required.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import os
@@ -29,7 +30,11 @@ from .h1_live_provision import (
 )
 from .h1_panel import H1PanelError, panel_settings, panel_tls_verify
 from .live_ledger import LiveLedgerError, seal_live_secret, unseal_live_secret
-from .postgres_ledger import PostgresSandboxLedger
+from .postgres_ledger import (
+    LOCK_TIMEOUT_MS,
+    STATEMENT_TIMEOUT_MS,
+    PostgresSandboxLedger,
+)
 
 OWNER_RE = re.compile(r"v1_[0-9a-f]{64}")
 
@@ -75,10 +80,18 @@ def _name(order_id: str) -> str:
     return "vn" + digest[:28]
 
 
+def _transaction_limits(cur) -> None:
+    cur.execute("""
+        SELECT set_config('lock_timeout', %s, TRUE),
+               set_config('statement_timeout', %s, TRUE)
+    """, (f"{LOCK_TIMEOUT_MS}ms", f"{STATEMENT_TIMEOUT_MS}ms"))
+
+
 def _schema(cur) -> None:
+    _transaction_limits(cur)
     # Serialize first-use creation and the additive state-check migration across
     # workers. This transaction-scoped lock is released before any HTTP request.
-    cur.execute("SELECT pg_advisory_xact_lock(hashtext('vainah_sandbox_auto_h1_schema'))")
+    cur.execute("SELECT pg_advisory_xact_lock(1447960898, hashtext(current_schema()))")
     cur.execute("""
         CREATE TABLE IF NOT EXISTS vainah_sandbox_auto_h1 (
             order_id VARCHAR(44) PRIMARY KEY,
@@ -175,14 +188,18 @@ def _mark_review(order_id: str) -> None:
         with psycopg.connect(
             _db_url(), connect_timeout=4
         ) as conn, conn.cursor() as cur:
+            _transaction_limits(cur)
             cur.execute("""
                 UPDATE vainah_sandbox_auto_h1
                 SET state = 'needs_review'
-                WHERE order_id = %s AND state = 'claimed'
+                WHERE order_id = %s AND state IN ('claimed', 'needs_review')
+                RETURNING order_id
             """, (order_id,))
-    except (psycopg.Error, OSError, SandboxAutoH1Error):
-        # The durable claimed state remains locked even if DB is unavailable.
-        pass
+            if cur.fetchone() is None:
+                raise SandboxAutoH1Error("SANDBOX_AUTO_H1_CLAIM_LOST")
+    except (psycopg.Error, OSError):
+        # Keep the durable claim locked, and never report an unpersisted state.
+        raise SandboxAutoH1Error("SANDBOX_AUTO_H1_DATABASE_UNAVAILABLE") from None
 
 
 def _mark_failed_before_write(order_id: str) -> None:
@@ -191,14 +208,48 @@ def _mark_failed_before_write(order_id: str) -> None:
         with psycopg.connect(
             _db_url(), connect_timeout=4
         ) as conn, conn.cursor() as cur:
+            _transaction_limits(cur)
             cur.execute("""
                 UPDATE vainah_sandbox_auto_h1
                 SET state = 'failed_before_write'
-                WHERE order_id = %s AND state = 'claimed'
+                WHERE order_id = %s AND state IN ('claimed', 'failed_before_write')
+                RETURNING order_id
             """, (order_id,))
-    except (psycopg.Error, OSError, SandboxAutoH1Error):
-        # Failure to persist never releases the durable claim.
-        pass
+            if cur.fetchone() is None:
+                raise SandboxAutoH1Error("SANDBOX_AUTO_H1_CLAIM_LOST")
+    except (psycopg.Error, OSError):
+        # Failure to persist never releases the durable claim or claims recovery.
+        raise SandboxAutoH1Error("SANDBOX_AUTO_H1_DATABASE_UNAVAILABLE") from None
+
+
+def _assert_claim_paid(claim: Claim) -> None:
+    """Recheck durable eligibility after the awaited provider preflight.
+
+    A refund can commit on another worker while GET /info is in flight. There
+    must be no intervening awaited work between this check and the POST attempt.
+    This is not a distributed transaction with the panel: a later reversal can
+    still race the HTTP write. The final paid-state CAS then withholds access and
+    leaves the external user for operator review instead of repeating the POST.
+    """
+    try:
+        with psycopg.connect(
+            _db_url(), connect_timeout=4
+        ) as conn, conn.cursor() as cur:
+            _transaction_limits(cur)
+            cur.execute("""
+                SELECT 1 FROM vainah_sandbox_auto_h1 d
+                JOIN vainah_sandbox_orders s ON s.order_id = d.order_id
+                WHERE d.order_id = %s AND d.state = 'claimed'
+                  AND d.client_name = %s AND d.plan_id = %s AND d.owner_ref = %s
+                  AND s.status = 'paid' AND s.mode = 'provider'
+                  AND s.paid_webhook_received = TRUE
+                  AND s.owner_ref = d.owner_ref AND s.plan_id = d.plan_id
+                  AND s.receipt_recipient IS NOT NULL
+            """, (claim.order_id, claim.client_name, claim.plan_id, claim.owner_ref))
+            if cur.fetchone() is None:
+                raise SandboxAutoH1Error("SANDBOX_AUTO_H1_PAYMENT_NO_LONGER_ELIGIBLE")
+    except (psycopg.Error, OSError):
+        raise SandboxAutoH1Error("SANDBOX_AUTO_H1_DATABASE_UNAVAILABLE") from None
 
 
 def _mark_issued(order_id: str, url: str) -> None:
@@ -207,6 +258,7 @@ def _mark_issued(order_id: str, url: str) -> None:
         with psycopg.connect(
             _db_url(), connect_timeout=4
         ) as conn, conn.cursor() as cur:
+            _transaction_limits(cur)
             cur.execute("""
                 UPDATE vainah_sandbox_auto_h1 d
                 SET state = 'issued', subscription_cipher = %s,
@@ -258,8 +310,10 @@ def read_delivery(
     if not row:
         return {"status": "not_issued", "vpn_delivered": False}
     state, encrypted = row
+    if state == "issued" and (not isinstance(encrypted, str) or not encrypted):
+        raise SandboxAutoH1Error("SANDBOX_AUTO_H1_LINK_UNAVAILABLE")
     result = {"status": state, "vpn_delivered": state == "issued"}
-    if with_access and state == "issued" and encrypted:
+    if with_access and state == "issued":
         try:
             result["subscription_url"] = unseal_live_secret(encrypted)
         except LiveLedgerError:
@@ -312,6 +366,7 @@ async def auto_issue_paid_sandbox(
             if not isinstance(body, dict) or body.get("error") != "user_not_found":
                 raise SandboxAutoH1Error("SANDBOX_AUTO_H1_PREFLIGHT_FAILED")
 
+            _assert_claim_paid(claim)
             write_started_at = int(time.time())
             write_attempted = True
             created = await client.post(
@@ -354,6 +409,17 @@ async def auto_issue_paid_sandbox(
                 raise SandboxAutoH1Error("SANDBOX_AUTO_H1_POSTCHECK_FAILED")
             _mark_issued(claim.order_id, link)
             return {"status": "issued", "vpn_delivered": True}
+    except asyncio.CancelledError:
+        # An HTTP request/task can be cancelled before or after the write. Keep
+        # that distinction durable, but preserve cancellation if DB is offline.
+        try:
+            if write_attempted or requires_review:
+                _mark_review(claim.order_id)
+            else:
+                _mark_failed_before_write(claim.order_id)
+        except SandboxAutoH1Error:
+            pass
+        raise
     except (
         SandboxAutoH1Error, H1PanelError,
         httpx.RequestError, httpx.TimeoutException,

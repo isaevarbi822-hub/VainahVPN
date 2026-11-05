@@ -122,20 +122,20 @@ def test_legacy_paid_row_is_not_promoted_to_signed_paid_proof(postgres_url):
     order = store.load_one("vainah_test_" + "b" * 32)
     assert order["webhook_received"] is True
     assert order["paid_webhook_received"] is False
-    assert store.claim_receipt(order["order_id"]) is None
+    assert store.claim_receipt(order["order_id"], claim_token=uuid4().hex) is None
 
 
 def test_receipt_lease_requires_signed_paid_and_is_cross_worker(postgres_url):
     store = PostgresSandboxLedger(postgres_url)
     order = provider_order(status="paid", webhook_received=True)
     store.save(order)
-    assert store.claim_receipt(order.order_id) is None
+    assert store.claim_receipt(order.order_id, claim_token="receipt-token") is None
     store.save(replace(order, paid_webhook_received=True))
     with ThreadPoolExecutor(max_workers=3) as pool:
-        results = list(pool.map(lambda _: store.claim_receipt(order.order_id), range(3)))
+        results = list(pool.map(lambda _: store.claim_receipt(order.order_id, claim_token="receipt-token"), range(3)))
     assert results.count("encrypted-test-recipient") == 1
-    store.finish_receipt(order.order_id)
-    assert store.claim_receipt(order.order_id) is None
+    store.finish_receipt(order.order_id, claim_token="receipt-token")
+    assert store.claim_receipt(order.order_id, claim_token="receipt-token") is None
     assert store.load_one(order.order_id)["receipt_emailed"] is True
 
 
@@ -182,3 +182,97 @@ def test_first_workers_initialize_schema_concurrently(postgres_url):
     with ThreadPoolExecutor(max_workers=4) as pool:
         list(pool.map(lambda pair: pair[0].save(pair[1]), zip(stores, orders, strict=True)))
     assert len(stores[0].load()) == 4
+
+
+def test_save_returns_actual_refunded_outcome_to_stale_worker(postgres_url):
+    store = PostgresSandboxLedger(postgres_url)
+    paid = provider_order(status="paid", webhook_received=True, paid_webhook_received=True)
+    store.save(paid)
+    store.save(replace(paid, status="refunded"))
+    saved = store.save(paid)
+    assert saved["status"] == "refunded"
+    assert saved["paid_webhook_received"] is True
+
+
+def test_webhook_overlapping_refund_returns_committed_terminal_state(postgres_url, monkeypatch):
+    service = BillingSandbox("provider", ledger_path=postgres_url)
+    order = provider_order()
+    service._save(order)
+    original_save = service.ledger.save
+
+    def refund_before_paid_commit(proposed):
+        original_save(replace(proposed, status="refunded"))
+        return original_save(proposed)
+
+    monkeypatch.setattr(service.ledger, "save", refund_before_paid_commit)
+    result = service.process_webhook(paid_event(order))
+    assert result["status"] == "refunded"
+    assert service.orders[order.order_id].status == "refunded"
+    assert service.ledger.load_one(order.order_id)["status"] == "refunded"
+
+
+@pytest.mark.parametrize("changed", [
+    {"payment_id": "pay_unrelated_123456"},
+    {"amount": "1.00"},
+    {"plan_id": "365-family"},
+    {"mode": "mock"},
+    {"owner_ref": "v1_" + "f" * 64},
+    {"receipt_recipient": "another-encrypted-recipient"},
+])
+def test_save_cannot_merge_proof_from_different_immutable_binding(postgres_url, changed):
+    store = PostgresSandboxLedger(postgres_url)
+    order = provider_order()
+    store.save(order)
+    unrelated = replace(
+        order, status="paid", webhook_received=True,
+        paid_webhook_received=True, **changed,
+    )
+    with pytest.raises(LedgerUnavailable):
+        store.save(unrelated)
+    saved = store.load_one(order.order_id)
+    assert saved["status"] == "created"
+    assert saved["paid_webhook_received"] is False
+    assert saved["payment_id"] == order.payment_id
+
+
+def test_expired_receipt_worker_cannot_release_or_finish_new_claim(postgres_url):
+    store = PostgresSandboxLedger(postgres_url)
+    order = provider_order(status="paid", webhook_received=True, paid_webhook_received=True)
+    store.save(order)
+    assert store.claim_receipt(order.order_id, claim_token="worker-A") is not None
+    with psycopg.connect(postgres_url) as connection:
+        connection.execute("""
+            UPDATE vainah_sandbox_orders
+            SET receipt_claimed_at = NOW() - interval '3 minutes'
+            WHERE order_id = %s
+        """, (order.order_id,))
+    assert store.claim_receipt(order.order_id, claim_token="worker-B") is not None
+    store.release_receipt(order.order_id, claim_token="worker-A")
+    assert store.claim_receipt(order.order_id, claim_token="worker-C") is None
+    assert store.finish_receipt(order.order_id, claim_token="worker-A") is False
+    assert store.load_one(order.order_id)["receipt_emailed"] is False
+    assert store.finish_receipt(order.order_id, claim_token="worker-B") is True
+    assert store.load_one(order.order_id)["receipt_emailed"] is True
+
+
+@pytest.mark.parametrize("lock_kind", ["advisory", "table"])
+def test_blocked_ledger_locks_fail_promptly_and_recover(postgres_url, monkeypatch, lock_kind):
+    from time import monotonic
+
+    from vainah import postgres_ledger
+
+    store = PostgresSandboxLedger(postgres_url)
+    order = provider_order()
+    store.save(order)
+    monkeypatch.setattr(postgres_ledger, "LOCK_TIMEOUT_MS", 100)
+    monkeypatch.setattr(postgres_ledger, "STATEMENT_TIMEOUT_MS", 250)
+    with psycopg.connect(postgres_url) as blocker:
+        if lock_kind == "advisory":
+            blocker.execute("SELECT pg_advisory_xact_lock(1447960897, hashtext(current_schema()))")
+        else:
+            blocker.execute("LOCK TABLE vainah_sandbox_orders IN ACCESS EXCLUSIVE MODE")
+        started = monotonic()
+        with pytest.raises(LedgerUnavailable):
+            store.load_one(order.order_id)
+        assert monotonic() - started < 2
+    assert store.load_one(order.order_id)["status"] == "created"

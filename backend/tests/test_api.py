@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from vainah.main import app
@@ -9,6 +10,24 @@ def test_frontend_and_health():
     assert client.get("/").status_code == 200
     r = client.get("/api/health")
     assert r.status_code == 200 and r.json()["ok"] is True
+
+
+@pytest.mark.parametrize("commit, expected", [
+    ("aB" * 20, "ab" * 20),
+    (None, None),
+    ("abc1234", None),
+    ("PRIVATE_CONFIGURATION_MUST_NOT_BE_ECHOED", None),
+])
+def test_health_reports_only_valid_deployment_revision(monkeypatch, commit, expected):
+    if commit is None:
+        monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
+    else:
+        monkeypatch.setenv("RENDER_GIT_COMMIT", commit)
+    response = client.get("/api/health")
+    assert response.status_code == 200
+    assert response.json()["commit_sha"] == expected
+    assert "PRIVATE_CONFIGURATION" not in response.text
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_headers_are_safe():

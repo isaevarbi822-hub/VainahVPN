@@ -1,6 +1,7 @@
 """Automatic SANDBOX RollyPay paid -> H1Cloud issuance integration tests.
 
-Real money, real provider API and real PostgreSQL are never contacted.
+Provider APIs are mocked: no real charges or VPN users are created. PostgreSQL
+checks run only against VAINAH_TEST_DATABASE_URL in disposable per-test schemas.
 The provider stub validates that only one POST is sent per signed test order.
 """
 from __future__ import annotations
@@ -36,6 +37,12 @@ def configured(monkeypatch):
     monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", WEBHOOK_SECRET)
 
 
+@pytest.fixture
+def offline_claim_gate(monkeypatch):
+    # Unit tests replace the durable claim itself; DB tests use the real gate.
+    monkeypatch.setattr(auto, "_assert_claim_paid", lambda _claim: None)
+
+
 def test_disabled_without_explicit_flag(configured, monkeypatch):
     monkeypatch.delenv("VAINAH_SANDBOX_AUTO_H1_ENABLED")
     assert auto.auto_enabled() is False
@@ -55,7 +62,7 @@ def test_disabled_without_explicit_flag(configured, monkeypatch):
     monkeypatch.setattr(billing.sandbox, "ledger", old)
 
 
-def test_h1_one_signed_paid_order_created_once(configured, monkeypatch):
+def test_h1_one_signed_paid_order_created_once(configured, offline_claim_gate, monkeypatch):
     monkeypatch.setattr(auto, "auto_enabled", lambda: True)
     order = "vainah_test_" + "a" * 32
     client_name = auto._name(order)
@@ -125,7 +132,7 @@ def test_h1_one_signed_paid_order_created_once(configured, monkeypatch):
     assert len(requests) == 3
 
 
-def test_h1_ambiguous_post_stays_locked(configured, monkeypatch):
+def test_h1_ambiguous_post_stays_locked(configured, offline_claim_gate, monkeypatch):
     monkeypatch.setattr(auto, "auto_enabled", lambda: True)
     order = "vainah_test_" + "b" * 32
     claimed = []
@@ -203,7 +210,7 @@ def test_claim_sql_requires_paid_signed_provider_and_owner(configured, monkeypat
 
 
 @pytest.mark.parametrize("failure", ["timeout", "unavailable", "config"])
-def test_h1_failure_before_write_is_retryable(configured, monkeypatch, failure):
+def test_h1_failure_before_write_is_retryable(configured, offline_claim_gate, monkeypatch, failure):
     monkeypatch.setattr(auto, "auto_enabled", lambda: True)
     order = "vainah_test_" + "c" * 32
     claim = auto.Claim(order, auto._name(order), "30", "v1_" + "f" * 64)
@@ -231,7 +238,7 @@ def test_h1_failure_before_write_is_retryable(configured, monkeypatch, failure):
     assert calls == ([] if failure == "config" else ["GET"])
 
 
-def test_existing_h1_user_requires_reconciliation_without_post(configured, monkeypatch):
+def test_existing_h1_user_requires_reconciliation_without_post(configured, offline_claim_gate, monkeypatch):
     monkeypatch.setattr(auto, "auto_enabled", lambda: True)
     order = "vainah_test_" + "d" * 32
     monkeypatch.setattr(auto, "_claim_once", lambda _order: auto.Claim(
@@ -254,7 +261,7 @@ def test_existing_h1_user_requires_reconciliation_without_post(configured, monke
 
 
 @pytest.mark.parametrize("change", ["short_term", "banned", "wrong_name", "wrong_devices", "malformed_status", "malformed_ban", "malformed_expiry"])
-def test_auto_h1_rejects_unverified_profile(configured, monkeypatch, change):
+def test_auto_h1_rejects_unverified_profile(configured, offline_claim_gate, monkeypatch, change):
     monkeypatch.setattr(auto, "auto_enabled", lambda: True)
     order = "vainah_test_" + "e" * 32
     name = auto._name(order)
@@ -299,7 +306,7 @@ def test_auto_h1_rejects_unverified_profile(configured, monkeypatch, change):
     assert calls == ["GET", "POST", "GET"]
 
 
-def test_database_failure_after_h1_write_never_releases_claim(configured, monkeypatch):
+def test_database_failure_after_h1_write_never_releases_claim(configured, offline_claim_gate, monkeypatch):
     monkeypatch.setattr(auto, "auto_enabled", lambda: True)
     order = "vainah_test_" + "f" * 32
     name = auto._name(order)
@@ -571,9 +578,10 @@ def test_postgres_legacy_delivery_schema_migrates_without_reclaim(
         with psycopg.connect(postgres_url) as conn:
             conn.execute("""
                 INSERT INTO vainah_sandbox_auto_h1
-                (order_id, client_name, owner_ref, plan_id, state)
-                VALUES (%s, %s, %s, '30', %s)
-            """, (order_id, auto._name(order_id), "v1_" + "a" * 64, state))
+                (order_id, client_name, owner_ref, plan_id, state, subscription_cipher)
+                VALUES (%s, %s, %s, '30', %s, %s)
+            """, (order_id, auto._name(order_id), "v1_" + "a" * 64, state,
+                  auto.seal_live_secret("https://sub.example.com/legacy") if state == "issued" else None))
         assert auto._claim_once(order_id) is None
         assert auto.read_delivery(order_id)["status"] == state
     # The migrated constraint allows proven pre-write failures and pending rows;
@@ -584,3 +592,186 @@ def test_postgres_legacy_delivery_schema_migrates_without_reclaim(
     with psycopg.connect(postgres_url) as conn:
         conn.execute("UPDATE vainah_sandbox_auto_h1 SET state = 'pending' WHERE state = 'claimed'")
     assert auto._claim_once("vainah_test_" + "0" * 32) is not None
+
+
+@pytest.mark.parametrize("phase", ["preflight", "write", "postcheck"])
+def test_cancelled_attempt_persists_safe_state(
+    configured, offline_claim_gate, monkeypatch, phase,
+):
+    order = "vainah_test_" + "d" * 32
+    monkeypatch.setattr(auto, "auto_enabled", lambda: True)
+    monkeypatch.setattr(auto, "_claim_once", lambda _order: auto.Claim(
+        order, auto._name(order), "30", "v1_" + "e" * 64,
+    ))
+    states, calls = [], []
+    monkeypatch.setattr(auto, "_mark_review", lambda _: states.append("needs_review"))
+    monkeypatch.setattr(auto, "_mark_failed_before_write", lambda _: states.append("failed_before_write"))
+
+    def provider(request):
+        calls.append(request.method)
+        if ((phase == "preflight" and len(calls) == 1)
+                or (phase == "write" and request.method == "POST")
+                or (phase == "postcheck" and len(calls) == 3)):
+            raise asyncio.CancelledError()
+        return httpx.Response(404, json={"error": "user_not_found"}) if len(calls) == 1 else httpx.Response(201, json={"ok": True})
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(auto.auto_issue_paid_sandbox(order, transport=httpx.MockTransport(provider)))
+    assert states == ["failed_before_write" if phase == "preflight" else "needs_review"]
+    assert calls.count("POST") == (0 if phase == "preflight" else 1)
+
+
+@pytest.mark.parametrize("transition", ["_mark_review", "_mark_failed_before_write"])
+def test_failed_state_persistence_reports_storage_error(configured, monkeypatch, transition):
+    import psycopg
+
+    def unavailable(*_args, **_kwargs):
+        raise psycopg.OperationalError("private connection details")
+
+    monkeypatch.setattr(auto.psycopg, "connect", unavailable)
+    with pytest.raises(auto.SandboxAutoH1Error, match="DATABASE_UNAVAILABLE") as failure:
+        getattr(auto, transition)("vainah_test_" + "a" * 32)
+    assert "private connection details" not in str(failure.value)
+
+
+def test_refund_during_preflight_prevents_h1_write(configured, postgres_url, monkeypatch):
+    from dataclasses import replace
+
+    monkeypatch.setenv("DATABASE_URL", postgres_url)
+    monkeypatch.setattr(auto, "auto_enabled", lambda: True)
+    ledger = PostgresSandboxLedger(postgres_url)
+    order = billing.TestOrder(
+        "vainah_test_" + "c" * 32, "30", "99.00", "pay_test_1234567890",
+        "paid", "provider", owner_ref="v1_" + "a" * 64,
+        receipt_recipient="encrypted-recipient", webhook_received=True,
+        paid_webhook_received=True,
+    )
+    ledger.save(order)
+    calls = []
+
+    def provider(request):
+        calls.append(request.method)
+        assert request.method == "GET"
+        # A different worker commits the signed reversal during preflight.
+        ledger.save(replace(order, status="refunded"))
+        return httpx.Response(404, json={"error": "user_not_found"})
+
+    result = asyncio.run(auto.auto_issue_paid_sandbox(
+        order.order_id, transport=httpx.MockTransport(provider),
+    ))
+    assert result == {"status": "failed_before_write", "vpn_delivered": False}
+    assert calls == ["GET"]
+    assert auto._claim_once(order.order_id) is None
+    assert auto.read_delivery(order.order_id, owner_ref=order.owner_ref, with_access=True) == {
+        "status": "not_issued", "vpn_delivered": False,
+    }
+
+
+def test_issued_row_without_link_is_not_reported_delivered(configured, postgres_url, monkeypatch):
+    import psycopg
+
+    monkeypatch.setenv("DATABASE_URL", postgres_url)
+    order = billing.TestOrder(
+        "vainah_test_" + "d" * 32, "30", "99.00", "pay_test_1234567890",
+        "paid", "provider", owner_ref="v1_" + "a" * 64,
+        receipt_recipient="encrypted-recipient", webhook_received=True,
+        paid_webhook_received=True,
+    )
+    PostgresSandboxLedger(postgres_url).save(order)
+    assert auto._claim_once(order.order_id) is not None
+    with psycopg.connect(postgres_url) as conn:
+        conn.execute("UPDATE vainah_sandbox_auto_h1 SET state = 'issued'")
+    for with_access in (False, True):
+        with pytest.raises(auto.SandboxAutoH1Error, match="LINK_UNAVAILABLE"):
+            auto.read_delivery(order.order_id, owner_ref=order.owner_ref, with_access=with_access)
+
+
+@pytest.mark.parametrize("transition", ["_mark_review", "_mark_failed_before_write"])
+def test_stale_state_transition_does_not_report_success(
+    configured, postgres_url, monkeypatch, transition,
+):
+    monkeypatch.setenv("DATABASE_URL", postgres_url)
+    order = billing.TestOrder(
+        "vainah_test_" + "e" * 32, "30", "99.00", "pay_test_1234567890",
+        "paid", "provider", owner_ref="v1_" + "a" * 64,
+        receipt_recipient="encrypted-recipient", webhook_received=True,
+        paid_webhook_received=True,
+    )
+    PostgresSandboxLedger(postgres_url).save(order)
+    assert auto._claim_once(order.order_id) is not None
+    auto._mark_issued(order.order_id, "https://sub.example.com/issued")
+    with pytest.raises(auto.SandboxAutoH1Error):
+        getattr(auto, transition)(order.order_id)
+    assert auto.read_delivery(order.order_id) == {"status": "issued", "vpn_delivered": True}
+
+
+def test_refund_after_h1_write_does_not_deliver_access(configured, postgres_url, monkeypatch):
+    from dataclasses import replace
+
+    monkeypatch.setenv("DATABASE_URL", postgres_url)
+    monkeypatch.setattr(auto, "auto_enabled", lambda: True)
+    order = billing.TestOrder(
+        "vainah_test_" + "f" * 32, "30", "99.00", "pay_test_1234567890",
+        "paid", "provider", owner_ref="v1_" + "a" * 64,
+        receipt_recipient="encrypted-recipient", webhook_received=True,
+        paid_webhook_received=True,
+    )
+    ledger = PostgresSandboxLedger(postgres_url)
+    ledger.save(order)
+    calls = []
+
+    def provider(request):
+        calls.append(request.method)
+        if len(calls) == 1:
+            return httpx.Response(404, json={"error": "user_not_found"})
+        if request.method == "POST":
+            return httpx.Response(201, json={"ok": True})
+        ledger.save(replace(order, status="refunded"))
+        return httpx.Response(200, json={"ok": True, "client": {
+            "name": auto._name(order.order_id), "expires_at": int(time.time()) + 30 * 86400,
+            "device_limit": 3, "subscription_url": "https://sub.example.com/not-delivered",
+        }})
+
+    assert asyncio.run(auto.auto_issue_paid_sandbox(
+        order.order_id, transport=httpx.MockTransport(provider),
+    )) == {"status": "needs_review", "vpn_delivered": False}
+    assert calls == ["GET", "POST", "GET"]
+    assert auto._claim_once(order.order_id) is None
+    assert auto.read_delivery(order.order_id, owner_ref=order.owner_ref, with_access=True) == {
+        "status": "not_issued", "vpn_delivered": False,
+    }
+
+
+@pytest.mark.parametrize("operation", ["review", "prewrite_failed", "claim_check", "issued", "claim", "read"])
+def test_delivery_database_lock_waits_are_bounded(
+    configured, postgres_url, monkeypatch, operation,
+):
+    import psycopg
+
+    monkeypatch.setenv("DATABASE_URL", postgres_url)
+    order = billing.TestOrder(
+        "vainah_test_" + "b" * 32, "30", "99.00", "pay_test_1234567890",
+        "paid", "provider", owner_ref="v1_" + "a" * 64,
+        receipt_recipient="encrypted-recipient", webhook_received=True,
+        paid_webhook_received=True,
+    )
+    PostgresSandboxLedger(postgres_url).save(order)
+    claim = auto._claim_once(order.order_id)
+    assert claim is not None
+    monkeypatch.setattr(auto, "LOCK_TIMEOUT_MS", 30)
+    monkeypatch.setattr(auto, "STATEMENT_TIMEOUT_MS", 200)
+    operations = {
+        "review": lambda: auto._mark_review(order.order_id),
+        "prewrite_failed": lambda: auto._mark_failed_before_write(order.order_id),
+        "claim_check": lambda: auto._assert_claim_paid(claim),
+        "issued": lambda: auto._mark_issued(order.order_id, "https://sub.example.com/held"),
+        "claim": lambda: auto._claim_once(order.order_id),
+        "read": lambda: auto.read_delivery(order.order_id),
+    }
+    with psycopg.connect(postgres_url) as holder:
+        holder.execute("LOCK TABLE vainah_sandbox_auto_h1 IN ACCESS EXCLUSIVE MODE")
+        started = time.monotonic()
+        with pytest.raises(auto.SandboxAutoH1Error, match="DATABASE_UNAVAILABLE"):
+            operations[operation]()
+        assert time.monotonic() - started < 2
+    assert auto.read_delivery(order.order_id) == {"status": "claimed", "vpn_delivered": False}

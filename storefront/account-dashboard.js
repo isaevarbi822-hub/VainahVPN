@@ -7,6 +7,8 @@
   let user=null;
   let subscriptionUrl=null;
   let currentData=null;
+  let sessionEpoch=0;
+  let refreshEpoch=0;
   async function api(path,options={}){
     const response=await fetch(path,{
       credentials:'same-origin',
@@ -20,11 +22,10 @@
     );
     return body;
   }
-  function resetPrivate(){
-    currentData=null;subscriptionUrl=null;
-    hide('account-test-vpn',true);
-    const testList=$('account-test-vpn-list');
-    if(testList)testList.replaceChildren();
+  function clearSubscription(){
+    subscriptionUrl=null;
+    const open=$('account-open-vpn');
+    if(open)open.removeAttribute('href');
     hide('account-open-vpn',true);
     hide('account-copy-vpn',true);
     const copy=$('account-copy-vpn');
@@ -41,13 +42,25 @@
     write('account-access-status','Ключ будет доступен после подтверждения оплаты и выдачи персональной подписки.');
     write('account-device-limit','—');
     write('account-device-note','Лимит появится после покупки.');
+  }
+  function resetPrivate(){
+    currentData=null;
+    clearSubscription();
+    hide('account-test-vpn',true);
+    const testList=$('account-test-vpn-list');
+    if(testList)testList.replaceChildren();
     write('account-h1-state','Проверяем H1Cloud…');
+    write('account-email-status','Проверяем подтверждённую почту…');
+    for(const id of ['account-email-input','account-email-code']){
+      const input=$(id);if(input)input.value='';
+    }
     write('account-history-count','0');
     write('account-history-hint','В истории отображаются только подтверждённые покупки.');
     const history=$('account-order-list');
     if(history)history.textContent='Пока нет подтверждённых покупок.';
   }
   function showSession(next){
+    sessionEpoch++;
     user=next||null;resetPrivate();
     hide('account-auth-panel',!!user);
     hide('account-private',!user);
@@ -87,13 +100,19 @@
 
   async function refresh(){
     if(!user)return;
-    const session=user;
-    void refreshTestSubscriptions(session);
+    const session=sessionEpoch;
+    const revision=++refreshEpoch;
+    currentData=null;
+    clearSubscription();
+    hide('account-test-vpn',true);
+    const testList=$('account-test-vpn-list');
+    if(testList)testList.replaceChildren();
+    void refreshTestSubscriptions(session,revision);
     const refreshButton=$('account-refresh');
     if(refreshButton)refreshButton.disabled=true;
     try{
       const result=await api('/api/account/overview');
-      if(user!==session)return;
+      if(sessionEpoch!==session||refreshEpoch!==revision)return;
       currentData=result;
       write('account-h1-state',result.h1cloud?.message||'H1Cloud не отвечает.');
       const emailStatus=$('account-email-status');
@@ -126,16 +145,18 @@
         const get=$('account-get-vpn');if(get)get.disabled=false;
       }
     }catch(error){
-      if(user!==session)return;
+      if(sessionEpoch!==session||refreshEpoch!==revision)return;
       write('account-h1-state','Не удалось загрузить кабинет: '+error.message);
-    }finally{if(refreshButton)refreshButton.disabled=false;}
+    }finally{
+      if(refreshButton&&sessionEpoch===session&&refreshEpoch===revision)refreshButton.disabled=false;
+    }
   }
-  async function refreshTestSubscriptions(session){
+  async function refreshTestSubscriptions(session,revision){
     const list=$('account-test-vpn-list');
     if(!list)return;
     try{
       const result=await api('/api/account/test-subscriptions');
-      if(user!==session)return;
+      if(sessionEpoch!==session||refreshEpoch!==revision)return;
       list.replaceChildren();
       const orders=Array.isArray(result.items)?result.items:[];
       hide('account-test-vpn',!orders.length);
@@ -143,19 +164,24 @@
         if(order.sandbox_only!==true||order.test_payment!==true)continue;
         const row=document.createElement('p');
         const title=document.createElement('span');
+        const deliveryLabels={
+          pending:'Ожидает выдачи',claimed:'Выдача обрабатывается',
+          issued:'Выдан',needs_review:'Нужна проверка выдачи',
+          failed_before_write:'Выдача временно недоступна',not_issued:'Ожидает выдачи'
+        };
         title.textContent='Тестовый VPN · '+order.title+' · '+order.device_limit+' устройств · '+
-          (order.vpn_delivered===true?'Выдан':order.delivery_state==='needs_review'?'Нужна проверка выдачи':'Ожидает выдачи');
+          (deliveryLabels[order.delivery_state]||'Состояние выдачи неизвестно');
         row.append(title);
         if(order.vpn_delivered===true){
           const button=document.createElement('button');
           button.type='button';button.className='account-secondary-link';
           button.textContent='Получить личную ссылку';
           button.addEventListener('click',async()=>{
-            if(user!==session)return;
+            if(sessionEpoch!==session||refreshEpoch!==revision)return;
             button.disabled=true;
             try{
               const access=await api('/api/shop/my-test-orders/'+encodeURIComponent(order.order_id)+'/vpn-access');
-              if(user!==session)return;
+              if(sessionEpoch!==session||refreshEpoch!==revision)return;
               const url=new URL(access.subscription_url);
               if(url.protocol!=='https:'||url.username||url.password||url.hash)throw Error('INVALID_LINK');
               const link=document.createElement('a');
@@ -163,7 +189,7 @@
               link.textContent='Открыть личную тестовую подписку';
               button.replaceWith(link);
             }catch{
-              if(user!==session)return;
+              if(sessionEpoch!==session||refreshEpoch!==revision)return;
               button.textContent='Не удалось получить ссылку. Повторить';
               button.disabled=false;
             }
@@ -173,7 +199,7 @@
         list.append(row);
       }
     }catch{
-      if(user!==session)return;
+      if(sessionEpoch!==session||refreshEpoch!==revision)return;
       hide('account-test-vpn',false);
       list.textContent='Не удалось загрузить тестовые подписки. Обнови кабинет.';
     }
@@ -181,11 +207,12 @@
   const get=$('account-get-vpn');
   if(get)get.addEventListener('click',async()=>{
     if(!user||!currentData?.subscription?.order_id)return;
-    const session=user;
+    const session=sessionEpoch;
+    const revision=refreshEpoch;
     get.disabled=true;
     try{
       const response=await api('/api/account/access');
-      if(user!==session)return;
+      if(sessionEpoch!==session||refreshEpoch!==revision)return;
       const url=new URL(response.subscription_url);
       if(url.protocol!=='https:'||url.username||url.password)throw Error('INVALID_LINK');
       subscriptionUrl=url.href;
@@ -195,28 +222,37 @@
       const copy=$('account-copy-vpn');if(copy)copy.disabled=false;
       write('account-access-status','Ссылка готова. Никому не передавай свой ключ.');
     }catch(error){
-      if(user!==session)return;
+      if(sessionEpoch!==session||refreshEpoch!==revision)return;
       write('account-access-status','Не удалось получить ссылку: '+error.message);
     }
-    finally{if(user===session)get.disabled=false;}
+    finally{if(sessionEpoch===session&&refreshEpoch===revision)get.disabled=false;}
   });
   const copy=$('account-copy-vpn');
   if(copy)copy.addEventListener('click',async()=>{
     if(!subscriptionUrl)return;
+    const session=sessionEpoch;
+    const revision=refreshEpoch;
     try{
       await navigator.clipboard.writeText(subscriptionUrl);
+      if(sessionEpoch!==session||refreshEpoch!==revision)return;
       write('account-access-status','Личная ссылка скопирована.');
-    }catch{write('account-access-status','Не удалось скопировать ссылку.');}
+    }catch{
+      if(sessionEpoch===session&&refreshEpoch===revision)write('account-access-status','Не удалось скопировать ссылку.');
+    }
   });
   const logout=$('account-exit');
   if(logout)logout.addEventListener('click',async()=>{
+    // Clear private links immediately, even while the logout request is pending.
+    showSession(null);
+    const session=sessionEpoch;
     try{
       await api('/api/email-auth/logout',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({})
       });
-    }catch{write('account-auth-status','Не удалось выйти из аккаунта.');return;}
-    showSession(null);
+    }catch{
+      if(sessionEpoch===session)write('account-auth-status','Не удалось завершить выход. Повтори попытку.');
+    }
   });
   const refreshButton=$('account-refresh');
   if(refreshButton)refreshButton.addEventListener('click',refresh);
@@ -224,6 +260,7 @@
   if(form)form.addEventListener('submit',async(event)=>{
     event.preventDefault();
     if(!user)return;
+    const session=sessionEpoch;
     const email=$('account-email-input')?.value?.trim();
     if(!email)return;
     const button=form.querySelector('button[type="submit"]');
@@ -234,14 +271,19 @@
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({email})
       });
+      if(sessionEpoch!==session)return;
       hide('account-email-verify',false);
       write('account-email-status','Код отправлен на почту. Введи его для подтверждения.');
-    }catch(error){write('account-email-status','Не удалось отправить код: '+error.message);}
+    }catch(error){
+      if(sessionEpoch===session)write('account-email-status','Не удалось отправить код: '+error.message);
+    }
     finally{button.disabled=false;}
   });
   const verifyForm=$('account-email-verify');
   if(verifyForm)verifyForm.addEventListener('submit',async(event)=>{
     event.preventDefault();
+    if(!user)return;
+    const session=sessionEpoch;
     const code=$('account-email-code')?.value?.trim();
     if(!code)return;
     const button=verifyForm.querySelector('button[type="submit"]');
@@ -252,28 +294,35 @@
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({code})
       });
+      if(sessionEpoch!==session)return;
       write('account-email-status','Адрес подтверждён: '+email.email);
       hide('account-email-verify',true);
       await refresh();
-    }catch(error){write('account-email-status','Не удалось подтвердить почту: '+error.message);}
+    }catch(error){
+      if(sessionEpoch===session)write('account-email-status','Не удалось подтвердить почту: '+error.message);
+    }
     finally{button.disabled=false;}
   });
   async function resumeSession(){
+    const session=sessionEpoch;
     try{
       const tg=await api('/api/telegram/account');
+      if(sessionEpoch!==session)return;
       if(tg.authenticated&&tg.user){
         showSession({...tg.user,auth_method:'telegram'});
         return;
       }
     }catch{ /* Email is independent of Telegram availability. */ }
+    if(sessionEpoch!==session)return;
     try{
       const email=await api('/api/email-auth/account');
+      if(sessionEpoch!==session)return;
       if(email.authenticated&&email.user){
         showSession(email.user);
         return;
       }
     }catch{ /* No active email session. */ }
-    showSession(null);
+    if(sessionEpoch===session)showSession(null);
   }
   void resumeSession();
 })();

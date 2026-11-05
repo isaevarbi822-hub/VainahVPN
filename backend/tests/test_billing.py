@@ -950,3 +950,132 @@ def test_auto_receipt_waits_for_verified_issuance_and_then_sends_once(monkeypatc
     assert asyncio.run(service.send_auto_test_receipt(order_id))["already_sent"] is True
     assert len(sent) == 1
     assert sent[0][1]["vpn_issued"] is True
+
+
+def test_sqlite_independent_workers_refresh_new_orders_and_preserve_refund(tmp_path):
+    from dataclasses import replace
+
+    from vainah.billing import TestOrder
+
+    filename = str(tmp_path / "workers.sqlite3")
+    reader = BillingSandbox("provider", ledger_path=filename)
+    reader._ensure_loaded()
+    writer = BillingSandbox("provider", ledger_path=filename)
+    order_id = "vainah_test_" + "8" * 32
+    order = TestOrder(
+        order_id, "30", "99.00", "pay_workers_123456", "created", "provider",
+        owner_ref="v1_" + "b" * 64,
+    )
+    writer.ledger.save(order)
+    assert reader.read(order_id)["status"] == "created"
+    reader.require_order_owner(order_id, order.owner_ref)
+    assert reader.owned_test_orders(order.owner_ref)[0]["order_id"] == order_id
+    paid = replace(order, status="paid", webhook_received=True, paid_webhook_received=True)
+    writer.ledger.save(paid)
+    writer.ledger.save(replace(paid, status="refunded"))
+    writer.ledger.save(order)
+    assert reader.read(order_id)["status"] == "refunded"
+    assert reader.read(order_id)["paid_webhook_received"] is True
+
+
+@pytest.mark.parametrize("source", ["webhook", "poll"])
+def test_concurrent_refund_returns_canonical_state_instead_of_stale_paid(
+    tmp_path, monkeypatch, source,
+):
+    from dataclasses import replace
+
+    from vainah.billing import TestOrder
+
+    filename = str(tmp_path / "refund-race.sqlite3")
+    service = BillingSandbox("provider", "test-api-key", ledger_path=filename)
+    order = TestOrder(
+        "vainah_test_" + "9" * 32, "30", "99.00", "pay_refund_123456",
+        "created", "provider",
+    )
+    service.ledger.save(order)
+    save = service.ledger.save
+
+    def concurrent_refund(candidate):
+        save(replace(candidate, status="refunded"))
+        return save(candidate)
+
+    monkeypatch.setattr(service.ledger, "save", concurrent_refund)
+    event = {
+        "event_type": "payment.paid", "status": "paid", "test": True,
+        "order_id": order.order_id, "payment_id": order.payment_id,
+        "amount": order.amount, "currency": "RUB",
+    }
+    if source == "webhook":
+        result = service.process_webhook(event)
+    else:
+        service.transport = httpx.MockTransport(lambda request: httpx.Response(200, json=event))
+        result = asyncio.run(service.refresh(order.order_id))
+    assert result["status"] == "refunded"
+    assert service.orders[order.order_id].status == "refunded"
+
+
+def test_expired_sqlite_receipt_worker_cannot_release_or_finish_reclaimed_lease(tmp_path):
+    from vainah.billing import TestOrder
+    from vainah.sandbox_ledger import SandboxLedger
+
+    store = SandboxLedger(str(tmp_path / "receipt-tokens.sqlite3"))
+    order = TestOrder(
+        "vainah_test_" + "7" * 32, "30", "99.00", "pay_receipt_123456",
+        "paid", "provider", owner_ref="v1_" + "c" * 64,
+        webhook_received=True, paid_webhook_received=True,
+        receipt_recipient="encrypted-test-recipient",
+    )
+    store.save(order)
+    assert store.claim_receipt(order.order_id, claim_token="old-worker")
+    with store._connect() as db:
+        db.execute("UPDATE sandbox_orders SET receipt_claimed_at = unixepoch() - 121")
+    assert store.claim_receipt(order.order_id, claim_token="new-worker")
+    store.release_receipt(order.order_id, claim_token="old-worker")
+    assert store.claim_receipt(order.order_id, claim_token="third-worker") is None
+    assert store.finish_receipt(order.order_id, claim_token="old-worker") is False
+    assert store.finish_receipt(order.order_id, claim_token="new-worker") is True
+
+
+def test_sqlite_outage_does_not_reuse_cached_order_or_leak_path(tmp_path):
+    from vainah.billing import TestOrder
+
+    service = BillingSandbox("provider", ledger_path=str(tmp_path / "private-ledger.sqlite3"))
+    order = TestOrder(
+        "vainah_test_" + "6" * 32, "30", "99.00", "pay_deleted_123456",
+        "created", "provider",
+    )
+    service.ledger.save(order)
+    service.read(order.order_id)
+    with service.ledger._connect() as db:
+        db.execute("DELETE FROM sandbox_orders")
+    with pytest.raises(HTTPException) as removed:
+        service.read(order.order_id)
+    assert removed.value.status_code == 404
+    with service.ledger._connect() as db:
+        db.execute("DROP TABLE sandbox_orders")
+    with pytest.raises(HTTPException) as unavailable:
+        service.read(order.order_id)
+    assert unavailable.value.status_code == 503
+    assert unavailable.value.detail == "SANDBOX_LEDGER_UNAVAILABLE"
+
+
+def test_fresh_sqlite_workers_migrate_ledger_concurrently(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from uuid import uuid4
+
+    from vainah.billing import TestOrder
+    from vainah.sandbox_ledger import SandboxLedger
+
+    filename = str(tmp_path / "fresh-workers.sqlite3")
+
+    def initialize(_):
+        store = SandboxLedger(filename)
+        order = TestOrder(
+            "vainah_test_" + uuid4().hex, "30", "99.00",
+            "pay_fresh_" + uuid4().hex, "created", "provider",
+        )
+        store.save(order)
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(initialize, range(4)))
+    assert len(SandboxLedger(filename).load()) == 4

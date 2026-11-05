@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from .auth import auth_public_config
 from .auth import router as auth_router
 from .billing import router as shop_router
-from .config import Settings
+from .config import Settings, deployment_commit
 from .customer_portal import router as customer_router
 from .db_health import database_status
 from .email_auth import router as email_auth_router
@@ -88,7 +88,10 @@ async def home():
 
 @app.get("/api/health")
 async def health():
-    return {"ok": True, "service": "vainahvpn-api", "version": settings.version, "mode": settings.mode}
+    return {
+        "ok": True, "service": "vainahvpn-api", "version": settings.version,
+        "mode": settings.mode, "commit_sha": deployment_commit(),
+    }
 
 
 @app.get("/api/v1/overview")

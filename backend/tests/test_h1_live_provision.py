@@ -220,3 +220,16 @@ def test_h1_does_not_deliver_short_or_banned_account(change):
             transport=httpx.MockTransport(provider), write_contract_approved=True,
         ).provision_once(claim=claim, intent=intent, operation="create"))
     assert calls == ["GET", "POST", "GET"]
+
+
+@pytest.mark.parametrize("value", [
+    "https://sub.example.com:bad/key",
+    "https://sub.example.com:0/key",
+    "https://sub.example.com:65536/key",
+    "https://sub.example.com/secret\x00key",
+])
+def test_subscription_url_rejects_invalid_port_or_controls(value):
+    from vainah.h1_live_provision import _validate_subscription_url
+
+    with pytest.raises(LiveH1Error, match="SUBSCRIPTION_UNAVAILABLE"):
+        _validate_subscription_url(value)

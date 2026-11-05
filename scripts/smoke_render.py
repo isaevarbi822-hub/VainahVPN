@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -36,7 +37,10 @@ def fetch(base: str, path: str, *, method: str = "GET",
 def main() -> int:
     parser = argparse.ArgumentParser(description="Vainah VPN public smoke check")
     parser.add_argument("--base-url", default=DEFAULT_BASE)
+    parser.add_argument("--expected-commit", help="Expected full deployed Git SHA")
     args = parser.parse_args()
+    if args.expected_commit and not re.fullmatch(r"[0-9a-fA-F]{40}", args.expected_commit):
+        parser.error("--expected-commit must be a full 40-character Git SHA")
     base = args.base_url.rstrip("/")
     url = urlsplit(base)
     if (url.scheme != "https" or not url.hostname or url.username
@@ -58,8 +62,8 @@ def main() -> int:
                   f"{label}: HTTP {status} (expected {expected})")
             if not valid:
                 failures.append(label)
-            return value
-        except (URLError, OSError, ValueError, json.JSONDecodeError):
+            return value if valid else None
+        except (URLError, OSError, ValueError, TypeError, AttributeError):
             print(f"[FAIL] {label}: request or JSON validation error")
             failures.append(label)
             return None
@@ -67,8 +71,13 @@ def main() -> int:
     check("Homepage", "/", 200)
     check("Checkout page", "/checkout.html", 200)
     check("Dashboard preview", "/app", 200)
-    check("API health", "/api/health", 200,
-          lambda x: x.get("ok") is True)
+    health = check("API health", "/api/health", 200,
+                   lambda x: x.get("ok") is True)
+    if args.expected_commit:
+        matched = bool(health and health.get("commit_sha") == args.expected_commit.lower())
+        print(("[OK] " if matched else "[FAIL] ") + "Deployed commit matches expected revision")
+        if not matched:
+            failures.append("Deployment revision")
     check("Six server-priced tariffs", "/api/shop/plans", 200,
           lambda x: x.get("currency") == "RUB"
           and isinstance(x.get("items"), list)
@@ -76,8 +85,7 @@ def main() -> int:
           and {str(p.get("id")) for p in x["items"]} ==
           {"30", "60", "90", "180", "365", "365-family"})
     config = check("Checkout safely disabled", "/api/shop/config", 200,
-                   lambda x: x.get("checkout_ready") is False
-                   and x.get("sandbox_available") is False)
+                   lambda x: x.get("checkout_ready") is False)
     check("Database reachable", "/api/site/services", 200,
           lambda x: x.get("services", {}).get("database", {})
           .get("status") == "ok")

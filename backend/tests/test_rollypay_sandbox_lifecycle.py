@@ -617,8 +617,10 @@ def test_postgres_other_worker_finds_paid_order_for_signed_callback(monkeypatch)
         saved.update({
             "status": order.status,
             "webhook_received": order.webhook_received,
+            "paid_webhook_received": order.paid_webhook_received,
             "receipt_emailed": order.receipt_emailed,
         })
+        return dict(saved)
 
     db.save = save
     store = billing.BillingSandbox("provider", "test-key")
@@ -654,6 +656,10 @@ def test_postgres_order_save_preserves_other_workers_signed_proof(monkeypatch):
             return False
         def execute(self, query, params=None):
             executed.append((query, params))
+            if "INSERT INTO vainah_sandbox_orders" in query:
+                self.saved = params
+        def fetchone(self):
+            return self.saved
 
     class FakeConnection:
         def __enter__(self):

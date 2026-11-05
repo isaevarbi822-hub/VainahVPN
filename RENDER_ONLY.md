@@ -7,6 +7,9 @@ This repository is the source for the public website and FastAPI backend.
 - Build: `cd backend && pip install -e .`
 - Start: `cd backend && uvicorn vainah.main:app --host 0.0.0.0 --port $PORT`
 - Health: `GET /api/health`
+- Deployed revision: health exposes a validated `commit_sha` from Render's
+  `RENDER_GIT_COMMIT` variable (null if unavailable). Verify it with
+  `python scripts/smoke_render.py --expected-commit <full-40-character-SHA>`.
 - Public tariffs: `GET /api/shop/plans`
 - Database connectivity: `GET /api/site/services`
 - Storefront: `storefront/`; Python API: `backend/vainah/`

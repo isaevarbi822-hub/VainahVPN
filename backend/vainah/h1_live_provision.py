@@ -38,11 +38,13 @@ def _validate_subscription_url(value: object) -> str:
         raise LiveH1Error("H1_SUBSCRIPTION_UNAVAILABLE")
     try:
         parsed = urlsplit(value)
+        port = parsed.port
     except ValueError:
         raise LiveH1Error("H1_SUBSCRIPTION_UNAVAILABLE") from None
     if (parsed.scheme != "https" or not parsed.hostname
             or parsed.username or parsed.password or parsed.fragment
-            or re.search(r"\s", value)):
+            or re.search(r"[\s\x00-\x1f\x7f]", value)
+            or (port is not None and not 1 <= port <= 65535)):
         raise LiveH1Error("H1_SUBSCRIPTION_UNAVAILABLE")
     return value
 
