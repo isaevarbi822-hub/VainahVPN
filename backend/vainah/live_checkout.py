@@ -14,7 +14,6 @@ import secrets
 from uuid import uuid4
 
 import httpx
-
 from fastapi import HTTPException, Request
 
 from .email_auth import current_email
@@ -219,8 +218,7 @@ async def discount_pilot_readiness(*, request: Request) -> dict:
             or not original.get("payment_id")):
         return {"discount_checkout_ready": False,
                 "reason": "ORIGINAL_PILOT_UNVERIFIED"}
-    from .billing import (_matches_exact_rub_amount,
-                          _matches_rub_currency, PAYMENT_ID_RE)
+    from .billing import PAYMENT_ID_RE, _matches_exact_rub_amount, _matches_rub_currency
     payment_id = original["payment_id"]
     if not isinstance(payment_id, str) or not PAYMENT_ID_RE.fullmatch(payment_id):
         return {"discount_checkout_ready": False,
