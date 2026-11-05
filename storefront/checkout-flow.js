@@ -81,9 +81,11 @@
         ? "\nТестовый VPN выдан автоматически. Ссылка доступна владельцу заказа."
         : "\nVPN ещё не выдан или статус выдачи не подтверждён."));
     if(order.provider_status_fresh === false){
-      testMessage($("shop-test-result").textContent +
-        "\nRollyPay сейчас не отвечает: показан последний подтверждённый подписанным webhook статус. " +
-        "Это не свежая проверка у провайдера.");
+      const warning = order.provider_read_error === "PROVIDER_STATUS_REGRESSION"
+        ? "RollyPay вернул более старый статус, чем подписанный webhook. "
+        : "RollyPay временно не ответил на проверку статуса. ";
+      testMessage($("shop-test-result").textContent + "\n" + warning +
+        "Показан последний подписанный статус, а не свежая проверка у провайдера.");
     }
   }
   function select(id) {
