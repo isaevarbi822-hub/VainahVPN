@@ -387,8 +387,15 @@ class BillingSandbox:
             return existing
         result = await self.provider_read(self.orders[order_id].payment_id)
         expected = self.read(order_id)
-        if (result.get("test") is not True
-                or result.get("environment") != "sandbox"):
+        # GET /api/v1/payments/{id} may omit the sandbox markers even
+        # though POST created this exact test payment with test=true and
+        # environment=sandbox. We trust only that validated, locally
+        # persisted provider test order, with matching immutable payment ID,
+        # order ID, currency and amount. Explicit contradictory markers always
+        # fail closed; GET alone never substitutes for a signed paid webhook.
+        if (("test" in result and result["test"] is not True)
+                or ("environment" in result
+                    and result["environment"] != "sandbox")):
             raise ProviderError("PROVIDER_SANDBOX_NOT_CONFIRMED")
         if (result.get("order_id") != order_id
                 or result.get("payment_id") != self.orders[order_id].payment_id
