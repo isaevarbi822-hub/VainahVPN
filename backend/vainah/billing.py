@@ -1333,9 +1333,13 @@ def _sandbox_delivery_preview(
     if preview["payment_status"] != "paid" or not fulfillment["signed_webhook_received"]:
         return preview
     if not enabled:
-        fulfillment["status"] = "blocked"
+        # Preserve the read-only operator plan even when automatic sandbox H1
+        # is switched off; do not misrepresent this as a failed payment.
         fulfillment["reason"] = "SANDBOX_AUTO_ISSUE_DISABLED"
-        preview["message"] = "Тестовая оплата подтверждена, но автовыдача на сервере выключена."
+        preview["message"] = (
+            "Тестовая оплата подтверждена. Автовыдача сейчас выключена; "
+            "план можно проверить, но создание VPN не выполнялось."
+        )
         return preview
     if not fulfillment["verified_email_on_order"]:
         fulfillment["status"] = "blocked"
