@@ -234,6 +234,16 @@ def test_signed_paid_webhook_once_and_invalid_signature(
     monkeypatch.setattr(
         live_checkout, "fulfill_paid_order_once", fake_delivery,
     )
+    emailed = []
+
+    async def fake_receipt(*, ledger, order_id):
+        assert ledger is not None
+        emailed.append(order_id)
+        return {"status": "sent", "already_sent": False}
+
+    monkeypatch.setattr(
+        live_checkout, "send_paid_access_receipt_once", fake_receipt,
+    )
     raw, timestamp, signature = _event()
     headers = {
         "X-Test-Mode": "false", "X-Timestamp": timestamp,
@@ -255,6 +265,7 @@ def test_signed_paid_webhook_once_and_invalid_signature(
             assert valid.json()["vpn_delivered"] is (index == 1)
     assert ledger.paid == 2
     assert len(delivery_calls) == 2
+    assert emailed == [ORDER]
 
 
 def test_customer_unpaid_link_is_not_created_from_fake_webhook(
