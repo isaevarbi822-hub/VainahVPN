@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import os
 import re
+import secrets
 
 from fastapi import HTTPException, Request
 
@@ -42,17 +43,8 @@ def live_account_ready() -> bool:
     )
 
 
-def live_ready() -> bool:
-    """The complete merchant and fulfillment gate, disabled unless approved."""
-    required = {
-        "VAINAH_LIVE_CHECKOUT_ENABLED": "enabled",
-        "VAINAH_MERCHANT_APPROVED": "approved",
-        "VAINAH_H1_WRITE_CONTRACT_APPROVED": "approved",
-        "VAINAH_LIVE_FULFILLMENT_APPROVED": "approved",
-        "VAINAH_LIVE_PAID_E2E_VERIFIED": "verified",
-    }
-    if any(os.environ.get(k) != v for k, v in required.items()):
-        return False
+def _live_infrastructure_ready() -> bool:
+    """Common infrastructure checks for both public sales and one live pilot."""
     if not email_login_ready():
         return False
     if not live_account_ready() or not email_service_ready():
@@ -77,6 +69,59 @@ def live_ready() -> bool:
     return True
 
 
+def live_ready() -> bool:
+    """The public merchant/fulfillment gate; pilot cannot weaken it."""
+    required = {
+        "VAINAH_LIVE_CHECKOUT_ENABLED": "enabled",
+        "VAINAH_MERCHANT_APPROVED": "approved",
+        "VAINAH_H1_WRITE_CONTRACT_APPROVED": "approved",
+        "VAINAH_LIVE_FULFILLMENT_APPROVED": "approved",
+        "VAINAH_LIVE_PAID_E2E_VERIFIED": "verified",
+    }
+    return (
+        all(os.environ.get(k) == v for k, v in required.items())
+        and _live_infrastructure_ready()
+    )
+
+
+def _pilot_token_configured() -> bool:
+    pilot_token = os.environ.get("VAINAH_LIVE_PILOT_OPERATOR_TOKEN", "")
+    return (
+        len(pilot_token) >= 32
+        and pilot_token != os.environ.get("VAINAH_SANDBOX_TEST_TOKEN", "")
+    )
+
+
+def pilot_ready() -> bool:
+    """One authorized, non-public real transaction before live E2E approval.
+
+    The pilot is restricted by a separate operator secret, one email account,
+    strict server approvals, and a lifetime one-order database uniqueness gate.
+    """
+    required = {
+        "VAINAH_LIVE_PILOT_ENABLED": "enabled",
+        "VAINAH_MERCHANT_APPROVED": "approved",
+        "VAINAH_H1_WRITE_CONTRACT_APPROVED": "approved",
+        "VAINAH_LIVE_FULFILLMENT_APPROVED": "approved",
+    }
+    email = os.environ.get("VAINAH_LIVE_PILOT_EMAIL", "").strip().lower()
+    return (
+        all(os.environ.get(k) == v for k, v in required.items())
+        and _pilot_token_configured()
+        and 5 <= len(email) <= 254 and email.count("@") == 1
+        and _live_infrastructure_ready()
+    )
+
+
+def require_pilot_operator(pilot_token: str | None) -> None:
+    """An extra secret separate from sandbox diagnostics or login cookie."""
+    expected = os.environ.get("VAINAH_LIVE_PILOT_OPERATOR_TOKEN", "")
+    if (not _pilot_token_configured() or not pilot_token
+            or not secrets.compare_digest(expected, pilot_token)):
+        raise HTTPException(401, "LIVE_PILOT_OPERATOR_REQUIRED")
+
+
+
 def _ledger() -> PostgresLiveOrderLedger:
     return PostgresLiveOrderLedger(os.environ["DATABASE_URL"])
 
@@ -98,13 +143,23 @@ def owner_ref_for_email(email: str) -> str:
 
 async def start_live_checkout(
     *, request: Request, plan_id: str, idempotency_key: str | None,
+    pilot: bool = False,
 ) -> dict:
-    if not live_ready():
+    if pilot:
+        if not pilot_ready():
+            raise HTTPException(503, "LIVE_PILOT_NOT_READY")
+        if plan_id != "30":
+            raise HTTPException(422, "LIVE_PILOT_PLAN_RESTRICTED")
+    elif not live_ready():
         raise HTTPException(503, "LIVE_CHECKOUT_NOT_READY")
     require_same_origin(request)
     email = current_email(request)
     if email is None:
         raise HTTPException(401, "VERIFIED_EMAIL_REQUIRED")
+    if pilot and not secrets.compare_digest(
+        email.strip().lower(), os.environ["VAINAH_LIVE_PILOT_EMAIL"].strip().lower(),
+    ):
+        raise HTTPException(403, "LIVE_PILOT_EMAIL_NOT_ALLOWED")
     if not isinstance(idempotency_key, str) or not IDEMPOTENCY_RE.fullmatch(
         idempotency_key
     ):
@@ -112,14 +167,18 @@ async def start_live_checkout(
     owner_ref = owner_ref_for_email(email)
     ledger = _ledger()
     try:
-        order_id, earlier_url = ledger.reserve_checkout(
-            owner_ref=owner_ref, verified_email=email,
-            plan_id=plan_id, idempotency_key=idempotency_key,
-        )
+        reservation = {
+            "owner_ref": owner_ref, "verified_email": email,
+            "plan_id": plan_id, "idempotency_key": idempotency_key,
+        }
+        if pilot:
+            reservation["pilot"] = True
+        order_id, earlier_url = ledger.reserve_checkout(**reservation)
         if earlier_url:
             return {
                 "order_id": order_id, "pay_url": earlier_url,
                 "status": "created", "gateway": "rollypay",
+                **({"operator_pilot": True} if pilot else {}),
             }
         invoice = await create_hosted_live_invoice(
             order_id=order_id, plan_id=plan_id,
@@ -140,6 +199,7 @@ async def start_live_checkout(
         if code in {
             "LIVE_CHECKOUT_RECONCILIATION_REQUIRED",
             "LIVE_IDEMPOTENCY_CONFLICT",
+            "LIVE_PILOT_ALREADY_RESERVED",
         }:
             raise HTTPException(409, code) from None
         if code in {"LIVE_IDEMPOTENCY_INVALID", "LIVE_PLAN_INVALID",
@@ -149,6 +209,7 @@ async def start_live_checkout(
     return {
         "order_id": order_id, "pay_url": invoice.pay_url,
         "status": "created", "gateway": "rollypay",
+        **({"operator_pilot": True} if pilot else {}),
     }
 
 
@@ -160,7 +221,9 @@ async def handle_live_paid_webhook(
     Ambiguous H1 writes remain locked for manual review. Never place keys,
     tokens, URLs or raw provider responses into webhook output.
     """
-    if not live_ready():
+    public_ready = live_ready()
+    pilot_mode_ready = pilot_ready() if not public_ready else False
+    if not public_ready and not pilot_mode_ready:
         raise HTTPException(503, "PRODUCTION_PAYMENTS_DISABLED")
     if len(raw) > 32768:
         raise HTTPException(413, "BODY_TOO_LARGE")
@@ -189,6 +252,11 @@ async def handle_live_paid_webhook(
         if not isinstance(order_id, str) or not LIVE_ORDER_RE.fullmatch(order_id):
             raise HTTPException(400, "LIVE_ORDER_INVALID")
         ledger = _ledger()
+        # The pilot-only gate must never process a normal production order.
+        # Pilot status is immutable, persisted during the single checkout
+        # reservation, and is checked only after verifying RollyPay's signature.
+        if not public_ready and not ledger.is_live_pilot_order(order_id):
+            raise HTTPException(503, "PRODUCTION_PAYMENTS_DISABLED")
         if event["event_type"] != "payment.paid":
             state = ledger.record_signed_reversal(
                 raw_body=raw, timestamp=timestamp,
