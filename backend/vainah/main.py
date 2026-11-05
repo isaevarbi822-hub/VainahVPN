@@ -52,6 +52,9 @@ async def security_headers(request: Request, call_next):
         "/operator-pilot.html",
         "/operator-pilot.js",
         "/operator-pilot.css",
+        "/operations.html",
+        "/operations.css",
+        "/operations.js",
     }:
         # No inline JS/CSS or external assets on the token-entry page.
         # Static HTML is public, but both billing endpoints require operator
@@ -88,6 +91,9 @@ async def security_headers(request: Request, call_next):
         "/operator-pilot.html",
         "/operator-pilot.js",
         "/operator-pilot.css",
+        "/operations.html",
+        "/operations.css",
+        "/operations.js",
     }:
         response.headers["Cache-Control"] = "no-store, max-age=0"
         response.headers["Pragma"] = "no-cache"
