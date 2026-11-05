@@ -149,7 +149,9 @@ def _matches_exact_rub_amount(value: object, expected: str) -> bool:
     if type(value) not in (str, int, float):
         return False
     text = str(value)
-    if not re.fullmatch(r"[0-9]{1,10}(?:\.[0-9]{1,2})?", text):
+    # Some JSON serializers retain trailing zeroes after two kopek digits.
+    # Exact numeric equivalence is required: under/overpayment never passes.
+    if not re.fullmatch(r"[0-9]{1,10}(?:\.[0-9]{1,12})?", text):
         return False
     return Decimal(text) == Decimal(expected)
 
@@ -164,6 +166,86 @@ def _matches_rub_currency(data: dict) -> bool:
         if name in data
     ]
     return bool(specified) and all(value == "RUB" for value in specified)
+
+
+def _safe_provider_amount(value: object) -> str | None:
+    """Only decimal digits may leave operator-only diagnostics; no raw JSON."""
+    if type(value) not in (str, int, float):
+        return None
+    result = str(value)
+    if not re.fullmatch(r"[0-9]{1,10}(?:\.[0-9]{1,12})?", result):
+        return None
+    return result
+
+
+def _payment_status_comparison(result: dict, order: TestOrder) -> dict:
+    """Classify ALL status fields without reflecting secrets or provider text."""
+    def compare_identifier(key: str, expected: str) -> str:
+        if key not in result:
+            return "missing"
+        return "match" if result[key] == expected else "different"
+
+    mode = (
+        "contradictory" if (
+            ("test" in result and result["test"] is not True)
+            or ("environment" in result and result["environment"] != "sandbox")
+        ) else "confirmed_at_creation"
+    )
+    amount_value = _safe_provider_amount(result.get("amount"))
+    amount = (
+        "missing" if "amount" not in result else
+        "invalid_format" if amount_value is None else
+        "match" if _matches_exact_rub_amount(amount_value, order.amount)
+        else "different"
+    )
+    currencies = [
+        result[k] for k in ("payment_currency", "currency")
+        if k in result
+    ]
+    currency = (
+        "missing" if not currencies else
+        "match" if all(v == "RUB" for v in currencies)
+        else "different"
+    )
+    fields = {
+        "sandbox_mode": mode,
+        "order_id": compare_identifier("order_id", order.order_id),
+        "payment_id": compare_identifier("payment_id", order.payment_id),
+        "amount": amount,
+        "currency": currency,
+        "payment_status": (
+            "recognized" if result.get("status") in STATUS
+            else "unknown_or_missing"
+        ),
+    }
+    checks = (
+        ("sandbox_mode", "PROVIDER_SANDBOX_NOT_CONFIRMED",
+         "confirmed_at_creation"),
+        ("order_id", "PROVIDER_ORDER_MISMATCH", "match"),
+        ("payment_id", "PROVIDER_PAYMENT_MISMATCH", "match"),
+        ("amount", "PROVIDER_AMOUNT_MISMATCH", "match"),
+        ("currency", "PROVIDER_CURRENCY_MISMATCH", "match"),
+        ("payment_status", "PROVIDER_STATUS_INVALID", "recognized"),
+    )
+    reason = next(
+        (code for field, code, required in checks if fields[field] != required),
+        "OK",
+    )
+    return {
+        "reason": reason,
+        "fields": fields,
+        "expected_amount_rub": order.amount,
+        "observed_amount_rub": amount_value,
+        "provider_status": (
+            result["status"] if fields["payment_status"] == "recognized"
+            else "unknown"
+        ),
+        "signed_paid_webhook_received": (
+            order.status == "paid" and order.webhook_received is True
+        ),
+        "new_payment_created": False,
+        "sandbox_only": True,
+    }
 
 
 class BillingSandbox:
@@ -352,8 +434,10 @@ class BillingSandbox:
                               receipt_recipient=encrypted_recipient)
         else:
             result = await self.provider_create(order_id, plan)
-            if result.get("order_id") != order_id or str(result.get("amount")) != amount:
-                raise ProviderError("PROVIDER_ORDER_OR_AMOUNT_MISMATCH")
+            if result.get("order_id") != order_id:
+                raise ProviderError("PROVIDER_ORDER_MISMATCH")
+            if not _matches_exact_rub_amount(result.get("amount"), amount):
+                raise ProviderError("PROVIDER_AMOUNT_MISMATCH")
             if (result.get("payment_currency") != "RUB"
                     or result.get("test") is not True
                     or result.get("environment") != "sandbox"):
@@ -414,28 +498,18 @@ class BillingSandbox:
         if existing["mode"] != "provider":
             return existing
         result = await self.provider_read(self.orders[order_id].payment_id)
-        expected = self.read(order_id)
         # GET /api/v1/payments/{id} may omit the sandbox markers even
         # though POST created this exact test payment with test=true and
         # environment=sandbox. We trust only that validated, locally
         # persisted provider test order, with matching immutable payment ID,
         # order ID, currency and amount. Explicit contradictory markers always
         # fail closed; GET alone never substitutes for a signed paid webhook.
-        if (("test" in result and result["test"] is not True)
-                or ("environment" in result
-                    and result["environment"] != "sandbox")):
-            raise ProviderError("PROVIDER_SANDBOX_NOT_CONFIRMED")
-        if result.get("order_id") != order_id:
-            raise ProviderError("PROVIDER_ORDER_MISMATCH")
-        if result.get("payment_id") != self.orders[order_id].payment_id:
-            raise ProviderError("PROVIDER_PAYMENT_MISMATCH")
-        if not _matches_exact_rub_amount(result.get("amount"), expected["amount_rub"]):
-            raise ProviderError("PROVIDER_AMOUNT_MISMATCH")
-        if not _matches_rub_currency(result):
-            raise ProviderError("PROVIDER_CURRENCY_MISMATCH")
-        status = result.get("status")
-        if status not in STATUS:
-            raise ProviderError("PROVIDER_STATUS_INVALID")
+        with self.lock:
+            known = self.orders[order_id]
+            proof = _payment_status_comparison(result, known)
+        if proof["reason"] != "OK":
+            raise ProviderError(proof["reason"])
+        status = result["status"]
         with self.lock:
             order = self.orders[order_id]
             if order.status in {"refunded", "chargeback"} and status not in {
@@ -448,6 +522,16 @@ class BillingSandbox:
                 raise ProviderError("PROVIDER_STATUS_REGRESSION")
             self._set_status(order, status)
             return self.serialize(order)
+
+    async def inspect_provider_status(self, order_id: str) -> dict:
+        """Read-only operator diagnostic; only sanitized comparisons leave API."""
+        snapshot = self.read(order_id)
+        if snapshot["mode"] != "provider":
+            raise HTTPException(409, "TEST_PROVIDER_ORDER_REQUIRED")
+        result = await self.provider_read(self.orders[order_id].payment_id)
+        with self.lock:
+            known = self.orders[order_id]
+            return _payment_status_comparison(result, known)
 
     def read(self, order_id: str) -> dict:
         if not ORDER_RE.fullmatch(order_id):
@@ -491,7 +575,9 @@ class BillingSandbox:
             if (data.get("test") is not True
                     or data.get("payment_id") != order.payment_id
                     or data.get("currency") != "RUB"
-                    or str(data.get("amount")) != order.amount):
+                    or not _matches_exact_rub_amount(
+                        data.get("amount"), order.amount,
+                    )):
                 raise HTTPException(400, "PAYMENT_MISMATCH")
             # Same state is idempotent. Later refund/chargeback overrides paid.
             if order.status in {"refunded", "chargeback"} and status not in {
