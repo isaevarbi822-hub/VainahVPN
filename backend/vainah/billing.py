@@ -149,7 +149,7 @@ def _matches_exact_rub_amount(value: object, expected: str) -> bool:
     if type(value) not in (str, int, float):
         return False
     text = str(value)
-    if not re.fullmatch(r"[0-9]{1,10}(?:\\.[0-9]{1,2})?", text):
+    if not re.fullmatch(r"[0-9]{1,10}(?:\.[0-9]{1,2})?", text):
         return False
     return Decimal(text) == Decimal(expected)
 
