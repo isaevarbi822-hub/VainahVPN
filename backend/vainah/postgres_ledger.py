@@ -127,6 +127,37 @@ class PostgresSandboxLedger:
             for row in rows
         ]
 
+    def load_one(self, order_id: str) -> dict | None:
+        """Find a just-created order across multiple independent Render workers.
+
+        The process-local snapshot is only a cache; a signed webhook must not
+        fail because a different worker created the test payment.
+        """
+        if not isinstance(order_id, str) or len(order_id) > 80:
+            return None
+        try:
+            with psycopg.connect(
+                self._database_url, connect_timeout=4
+            ) as connection, connection.cursor() as cursor:
+                self._schema(cursor)
+                cursor.execute("""
+                    SELECT order_id, plan_id, amount, payment_id, status,
+                           mode, webhook_received, owner_ref, receipt_emailed,
+                           receipt_recipient
+                    FROM vainah_sandbox_orders
+                    WHERE order_id = %s
+                """, (order_id,))
+                row = cursor.fetchone()
+        except (psycopg.Error, OSError, ValueError):
+            raise LedgerUnavailable("SANDBOX_LEDGER_UNAVAILABLE") from None
+        if row is None:
+            return None
+        return dict(zip((
+            "order_id", "plan_id", "amount", "payment_id", "status",
+            "mode", "webhook_received", "owner_ref", "receipt_emailed",
+            "receipt_recipient",
+        ), row, strict=True))
+
     def claim_receipt(self, order_id: str) -> str | None:
         """Cross-worker lease; only signed PAID test orders can claim an email."""
         try:
