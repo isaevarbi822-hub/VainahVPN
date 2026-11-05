@@ -1134,6 +1134,9 @@ async def operator_production_readiness(
     from .production_contracts import production_readiness
 
     report = production_readiness()
+    from .live_checkout import pilot_ready
+    report["pilot_checkout_configured"] = pilot_ready()
+    report["pilot_is_publicly_available"] = False
     if report["checks"]["h1cloud_read_configured"]:
         try:
             h1 = await asyncio.wait_for(inspect_h1_panel(), timeout=10)
@@ -1168,6 +1171,51 @@ async def public_checkout(
     return await start_live_checkout(
         request=request, plan_id=body.plan, idempotency_key=idempotency_key,
     )
+
+
+@router.post("/operator/live-pilot/checkout")
+async def operator_live_pilot_checkout(
+    body: StartSandbox, request: Request,
+    idempotency_key: str | None = Header(default=None),
+    x_sandbox_token: str | None = Header(default=None),
+    x_live_pilot_token: str | None = Header(default=None),
+) -> dict:
+    """One restricted real-money pilot; never accessible from public checkout.
+
+    Requires BOTH a separate long-lived pilot secret and operator token,
+    plus same-origin verified email session in an allowlisted account.
+    Does not require a prematurely marked live E2E verified flag.
+    """
+    _require_operator(x_sandbox_token)
+    from .live_checkout import require_pilot_operator, start_live_checkout
+
+    require_pilot_operator(x_live_pilot_token)
+    return await start_live_checkout(
+        request=request, plan_id=body.plan,
+        idempotency_key=idempotency_key, pilot=True,
+    )
+
+
+@router.get("/operator/live-pilot/status")
+def operator_live_pilot_status(
+    x_sandbox_token: str | None = Header(default=None),
+    x_live_pilot_token: str | None = Header(default=None),
+) -> dict:
+    """Read-only status of at most one pilot; never returns payment links/PII."""
+    _require_operator(x_sandbox_token)
+    from .live_checkout import _ledger, pilot_ready, require_pilot_operator
+    from .live_ledger import LiveLedgerError
+
+    require_pilot_operator(x_live_pilot_token)
+    if not os.environ.get("DATABASE_URL", "").startswith(
+        ("postgresql://", "postgres://")
+    ):
+        raise HTTPException(503, "LIVE_PILOT_LEDGER_NOT_CONFIGURED")
+    try:
+        state = _ledger().live_pilot_status()
+    except LiveLedgerError:
+        raise HTTPException(503, "LIVE_PILOT_STATUS_UNAVAILABLE") from None
+    return {"pilot_checkout_ready": pilot_ready(), **state}
 
 
 @router.get("/sandbox/webhook-readiness")
