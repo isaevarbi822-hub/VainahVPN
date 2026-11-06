@@ -146,6 +146,11 @@ def _schema(cur) -> None:
         ADD COLUMN IF NOT EXISTS notification_sent_at TIMESTAMPTZ
     """)
     cur.execute("""
+        ALTER TABLE vainah_support_tickets
+        ADD COLUMN IF NOT EXISTS customer_rating SMALLINT
+        CHECK (customer_rating BETWEEN 1 AND 5)
+    """)
+    cur.execute("""
         CREATE INDEX IF NOT EXISTS vainah_support_owner_idx
         ON vainah_support_tickets (owner_hash, created_at DESC)
     """)
