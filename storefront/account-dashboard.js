@@ -185,6 +185,122 @@
     }
   }
 
+  function buildAdvisories(data){
+    const notices=[];
+    const sub=data?.subscription;
+    const confirmed=sub?.paid===true&&sub?.status==='delivered';
+    const h1status=safeString(data?.h1cloud?.status);
+    const orders=Array.isArray(data?.orders)?data.orders:[];
+    const hasPaid=orders.some(order=>order&&order.paid===true&&
+      (order.delivered===true||order.status==='delivered'));
+    if(!data)return notices;
+    if(!confirmed){
+      if(hasPaid&&['unavailable','inactive','not_found','not_configured'].includes(h1status)){
+        notices.push({
+          kind:'warning',title:'Подписка оплачена, но состояние H1Cloud не подтверждено',
+          detail:'Покупка есть в истории, однако провайдер не смог подтвердить активный VPN-профиль. Не покупай повторно из-за этой проверки.',
+          href:'support-center.html',action:'Обратиться в поддержку'
+        });
+      }else{
+        notices.push({
+          kind:'info',title:'Пока нет подтверждённой активной подписки',
+          detail:'После оплаты и подтверждения выдачи H1Cloud здесь появятся данные о сроке и трафике.',
+          href:'plans.html',action:'Посмотреть тарифы'
+        });
+      }
+      return notices;
+    }
+    const rawExpiry=typeof sub.expires_at==='string'?sub.expires_at:'';
+    const expiry=rawExpiry?new Date(rawExpiry).getTime():NaN;
+    if(!Number.isFinite(expiry)){
+      notices.push({
+        kind:'info',title:'Дата окончания сейчас неизвестна',
+        detail:'H1Cloud не передал проверенную дату. Не делай выводов об окончании подписки по этой карточке.',
+        href:'support-center.html',action:'Уточнить срок'
+      });
+    }else{
+      const remaining=expiry-Date.now();
+      if(remaining<=0){
+        notices.push({
+          kind:'warning',title:'Указанная H1Cloud дата окончания уже прошла',
+          detail:'Обнови кабинет и проверь реальный статус подключения. Это не подтверждение, что VPN отключён.',
+          href:'support-center.html',action:'Проверить с поддержкой'
+        });
+      }else if(remaining<=3*86400000){
+        notices.push({
+          kind:'warning',title:'До окончания подписки осталось менее трёх дней',
+          detail:'Это предупреждение рассчитано по дате H1Cloud. При необходимости продли подписку.',
+          href:'plans.html',action:'Посмотреть продление'
+        });
+      }else if(remaining<=7*86400000){
+        notices.push({
+          kind:'info',title:'Подписка заканчивается в ближайшие семь дней',
+          detail:'Проверь дату в личном кабинете и при желании сохрани календарное напоминание.',
+          href:'#account-calendar',action:'Напоминание в календарь'
+        });
+      }
+    }
+    const used=sub.traffic?.used_bytes,limit=sub.traffic?.limit_bytes;
+    if(Number.isSafeInteger(used)&&used>=0&&
+        Number.isSafeInteger(limit)&&limit>0){
+      const ratio=used/limit;
+      if(ratio>=1){
+        notices.push({
+          kind:'warning',title:'По счётчикам H1Cloud трафик достиг указанного лимита',
+          detail:'Счётчики могут обновляться с задержкой. Проверь остаток в кабинете и условия подписки.',
+          href:'support-center.html',action:'Помощь с трафиком'
+        });
+      }else if(ratio>=0.9){
+        notices.push({
+          kind:'warning',title:'Использовано больше 90% лимита трафика',
+          detail:'Расчёт основан на проверенных байтах H1Cloud, а не на оценке браузера.',
+          href:'plans.html',action:'Посмотреть тарифы'
+        });
+      }else if(ratio>=0.75){
+        notices.push({
+          kind:'info',title:'Использовано больше 75% лимита трафика',
+          detail:'Следи за статистикой в разделе «Использование VPN».',
+          href:'#account-traffic',action:'Проверить трафик'
+        });
+      }
+    }
+    if(!notices.length){
+      notices.push({
+        kind:'ok',title:'Срочных предупреждений в полученных данных нет',
+        detail:'Это относится только к проверенной дате и доступным счётчикам H1Cloud, а не к работе всего VPN-туннеля.',
+        href:'status.html',action:'Состояние сервисов'
+      });
+    }
+    return notices;
+  }
+  function renderAdvisories(data){
+    const target=$('account-alert-list');
+    const notices=buildAdvisories(data);
+    if(!target)return;
+    target.replaceChildren();
+    write('account-alerts-badge',data
+      ?notices.some(item=>item.kind==='warning')?'Нужно внимание':'Обновлено из H1Cloud'
+      :'Данные скрыты');
+    if(!data){
+      const message=document.createElement('p');
+      message.textContent='Проверка состояния появится после входа и обновления подписки.';
+      target.append(message);return;
+    }
+    for(const notice of notices){
+      const card=document.createElement('div');
+      card.className='account-alert account-alert-'+notice.kind;
+      const title=document.createElement('strong');
+      title.textContent=notice.title;
+      const detail=document.createElement('p');
+      detail.textContent=notice.detail;
+      const link=document.createElement('a');
+      link.href=notice.href;
+      link.textContent=notice.action+' →';
+      card.append(title,detail,link);
+      target.append(card);
+    }
+  }
+
   function validExpiry(value){
     if(typeof value!=='string'||!value.trim())return null;
     const date=new Date(value);
@@ -238,6 +354,7 @@
     if(qrButton)qrButton.disabled=true;
     updateTraffic(null);
     updateExpiryNote(null);
+    renderAdvisories(null);
     updatePrivateActions();
     write('metric-plan','Нет подтверждённых покупок');
     write('metric-expiry','—');
@@ -345,6 +462,7 @@
       const delivery=result.subscription;
       const ready=delivery?.status==='delivered'&&delivery?.paid===true;
       updateTraffic(ready?delivery:null);
+      renderAdvisories(result);
       if(ready){
         write('metric-plan',delivery.plan_title||'VPN-подписка');
         write('metric-expiry',formatDate(delivery.expires_at));
