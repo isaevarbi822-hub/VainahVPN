@@ -29,11 +29,13 @@ const reply=body=>({ok:true,json:async()=>body});
 global.fetch=async(path,options={})=>{
   calls.push({path,options});
   if(path==='/api/support/config')
-    return reply({available:scenario==='ready'});
+    return reply({available:scenario==='ready',email_notifications_available:true});
   if(path==='/api/email-auth/account')
     return reply({authenticated:true});
   if(path==='/api/telegram/account')
     return reply({authenticated:false});
+  if(path.includes('/email-notifications')&&options.method==='POST')
+    return reply({updated:true,email_notifications:true});
   if(path==='/api/support/tickets'&&options.method==='POST')
     return reply({id:'ticketabc',status:'open'});
   if(path==='/api/support/tickets')
@@ -52,6 +54,12 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
     assert.equal($('vs-tickets').children.length,1);
     const ticket=$('vs-tickets').children[0];
     assert.ok(ticket.children.some(c=>c.textContent.includes('<script>')));
+    const toggle=ticket.children.at(-1).children.at(-1);
+    await toggle.events.click();
+    const preferences=calls.filter(c=>c.path.includes('/email-notifications'));
+    assert.equal(preferences.length,1);
+    assert.equal(JSON.parse(preferences[0].options.body).enabled,true);
+    $('vs-notify-email').checked=true;
     $('vs-message').value='VPN does not connect on my phone';
     $('vs-message').events.input();
     assert.ok($('vs-counter').textContent.startsWith('32 /')||
@@ -63,6 +71,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
     assert.equal(posted.path,'/api/support/tickets');
     assert.equal(posted.options.credentials,'same-origin');
     assert.equal(JSON.parse(posted.options.body).category,'connection');
+    assert.equal(JSON.parse(posted.options.body).notify_email,true);
   }else{
     assert.equal($('vs-submit').disabled,true);
     assert.ok($('vs-status').textContent.includes('не настроен'));
