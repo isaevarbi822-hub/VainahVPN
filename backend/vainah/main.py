@@ -77,6 +77,12 @@ async def security_headers(request: Request, call_next):
     # Historical storefront uses inline page scripts and style attributes.
     # Checkout API, billing credentials and web dashboard remain separate.
     if request.url.path in {
+        "/referrals.html",
+        "/rewards.html",
+        "/gifts.html",
+        "/notifications.html",
+        "/vainah-benefits.js",
+        "/vainah-benefits.css",
         "/connection-check.html",
         "/connection-check.js",
         "/connection-check.css",
@@ -135,6 +141,12 @@ async def security_headers(request: Request, call_next):
         "/connection-check.html",
         "/connection-check.js",
         "/connection-check.css",
+        "/referrals.html",
+        "/rewards.html",
+        "/gifts.html",
+        "/notifications.html",
+        "/vainah-benefits.js",
+        "/vainah-benefits.css",
         "/support-center.html",
         "/my-devices.html",
         "/my-devices.js",
