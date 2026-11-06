@@ -177,3 +177,13 @@
  padding:13px;font:12px/1.6 ui-monospace,Consolas,monospace}
 .account-shell .account-manual-report[hidden]{display:none!important}
 @media(max-width:650px){.account-shell #account-calendar,.account-shell #account-support-summary{width:100%}}
+
+
+/* Subscriber-only QR: never loaded until explicitly requested. */
+.account-qr-panel{margin-top:15px;padding:17px;border:1px solid #7663a3;
+ border-radius:15px;background:#17192e;color:#d9d9f2;font-size:12px;
+ line-height:1.6;max-width:520px}
+.account-qr-panel[hidden],#account-qr-image[hidden]{display:none!important}
+.account-qr-panel img{display:block;margin:14px auto;background:white;
+ max-width:100%;height:auto;padding:12px;border-radius:10px}
+.account-qr-panel p{margin:7px 0}
