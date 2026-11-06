@@ -348,3 +348,12 @@ body .vx-utility-rail{position:relative;z-index:1}
 @media(max-width:490px){
  .vx-utility-rail button.vx-utility-search{grid-column:1/-1;min-height:43px}
 }
+
+
+/* Accessible connectivity hint: only shown when navigator.onLine reports offline. */
+.vx-offline-notice{width:min(1200px,calc(100% - 24px));margin:10px auto 0;
+ padding:12px 16px;border:1px solid #a77850;background:#3f2a27;
+ border-radius:13px;color:#ffe1bd;font-size:13px;font-weight:700;
+ line-height:1.5;text-align:center;overflow-wrap:anywhere}
+.vx-offline-notice[hidden]{display:none!important}
+@media(max-width:560px){.vx-offline-notice{font-size:12px;padding:11px}}
