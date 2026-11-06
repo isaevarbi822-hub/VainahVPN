@@ -143,6 +143,9 @@ async def security_headers(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
     elif request.url.path in {
+        "/handoff.html",
+        "/handoff.js",
+        "/handoff-creator.js",
         "/connection-check.html",
         "/connection-check.js",
         "/connection-check.css",
