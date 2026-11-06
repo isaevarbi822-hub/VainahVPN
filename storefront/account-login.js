@@ -161,6 +161,7 @@
       if(availability)availability.textContent='Не удалось проверить почтовую авторизацию.';
     }
   }
-  if(tabs.length)select('email');
+  const requestedTelegram=new URLSearchParams(window.location?.search||'').get('login')==='telegram';
+  if(tabs.length)select(requestedTelegram?'telegram':'email');
   void initEmail();
 })();
