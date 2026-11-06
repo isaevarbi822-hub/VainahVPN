@@ -66,6 +66,30 @@
       return [fmt(remaining/days)+' ГиБ в день',
         'Чтобы распределить '+fmt(remaining)+' ГиБ на '+fmt(days)+' дн., ориентируйся на этот средний дневной бюджет.'];
     },
+    monthly(form){
+      const daily=amount(form,'daily'),days=positive(form,'days');
+      if(!Number.isInteger(days))throw Error('Количество дней должно быть целым числом.');
+      return [fmt(daily*days)+' ГиБ за период',
+        'Планирование на '+fmt(days)+' дн. Это прогноз по введённому расходу, а не счётчик H1Cloud.'];
+    },
+    lifespan(form){
+      const remaining=amount(form,'remaining'),daily=positive(form,'daily');
+      return [fmt(remaining/daily)+' дн.',
+        'Если использовать в среднем '+fmt(daily)+' ГиБ ежедневно, оставшегося лимита хватит примерно на указанный срок.'];
+    },
+    devices(form){
+      const limit=positive(form,'limit'),devices=positive(form,'devices');
+      if(!Number.isInteger(devices)||devices>100)throw Error('Количество устройств: целое число от 1 до 100.');
+      return [fmt(limit/devices)+' ГиБ на устройство',
+        'Равномерное планирование для '+devices+' устройств. Это не настройка серверных ограничений.'];
+    },
+    backup(form){
+      const size=positive(form,'size'),speed=positive(form,'speed'),limit=positive(form,'limit');
+      const seconds=size*(1024**3)*8/(speed*1e6);
+      const percent=Math.round(size/limit*100);
+      return [duration(seconds),
+        'Резервная копия займёт '+fmt(percent)+'% указанного лимита. Без учёта накладных расходов и повторных передач.'];
+    },
     compare(form){
       const direct=positive(form,'direct'),vpn=amount(form,'vpn');
       const delta=(vpn/direct-1)*100;
@@ -82,7 +106,7 @@
   };
   function updateHistory(){
     history.replaceChildren();
-    const entries=[...results.values()].slice(-8).reverse();
+    const entries=[...results.values()].slice(-12).reverse();
     if(!entries.length){const li=document.createElement('li');li.textContent='Пока нет расчётов.';history.append(li);}
     else for(const x of entries){
       const li=document.createElement('li');
