@@ -14,6 +14,7 @@
     image.removeAttribute('src');image.hidden=true;
     panel.hidden=true;
     button.disabled=false;
+    button.textContent='Создать одноразовый QR · 5 минут';
     message.textContent='Новый QR не создан.';
   }
   button.addEventListener('click',async()=>{
