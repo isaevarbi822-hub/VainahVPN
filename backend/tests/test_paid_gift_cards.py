@@ -5,8 +5,6 @@ import inspect
 import json
 from pathlib import Path
 
-import pytest
-from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 
 from vainah import email_auth, gift_cards, live_checkout
