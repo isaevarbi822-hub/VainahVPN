@@ -137,11 +137,11 @@
   stop.addEventListener('click',()=>{if(controller)controller.abort();});
   if(copyButton)copyButton.addEventListener('click',async()=>{
     if(!latest)return;
-    const summary='Vainah VPN · Speed Lab\\nPing: '+format(latest.ping)+' мс'+
-      '\\nJitter: '+format(latest.jitter)+' мс'+
-      '\\nЗагрузка: '+format(latest.download)+' Мбит/с'+
-      '\\nОтдача: '+format(latest.upload)+' Мбит/с'+
-      '\\nПроверка до Render (Франкфурт), не максимальная скорость провайдера.';
+    const summary='Vainah VPN · Speed Lab\nPing: '+format(latest.ping)+' мс'+
+      '\nJitter: '+format(latest.jitter)+' мс'+
+      '\nЗагрузка: '+format(latest.download)+' Мбит/с'+
+      '\nОтдача: '+format(latest.upload)+' Мбит/с'+
+      '\nПроверка до Render (Франкфурт), не максимальная скорость провайдера.';
     try{
       await navigator.clipboard.writeText(summary);
       note('Результат скопирован.','Тест завершён');
