@@ -307,3 +307,19 @@ body :is(a,button,summary):focus-visible{outline:3px solid #b8eaff;outline-offse
 }
 @media(max-width:320px){.vx-journeys{width:calc(100% - 16px)}.vx-journey{padding:12px}}
 @media(prefers-reduced-motion:reduce){.vx-journey{transition:none}}
+
+
+/* Cross-site always-visible utility navigation: no hidden or unreachable buttons. */
+.vx-utility-rail{max-width:1250px;width:calc(100% - 36px);margin:12px auto 0;
+ display:flex;align-items:center;gap:8px;overflow-x:auto;overscroll-behavior-inline:contain;
+ scrollbar-width:thin;scrollbar-color:#7466a5 #1a1f34;padding:4px 0 9px;
+ -webkit-overflow-scrolling:touch}
+.vx-utility-link{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+ min-height:42px;padding:10px 15px;border:1px solid #444b70;background:#192339;
+ color:#d7def0;border-radius:999px;text-decoration:none!important;font-size:12px;
+ font-weight:750;white-space:nowrap;line-height:1.4}
+.vx-utility-link:hover,.vx-utility-link:focus-visible,
+.vx-utility-link[aria-current=page]{border-color:#bc9dff;background:#342b57;color:white}
+body .vx-utility-rail{position:relative;z-index:1}
+@media(max-width:560px){.vx-utility-rail{width:calc(100% - 20px);gap:6px;margin-top:7px;
+ padding-bottom:8px}.vx-utility-link{padding:10px 12px;min-height:44px;font-size:12px}}
