@@ -1284,3 +1284,30 @@ class PostgresLiveOrderLedger:
                 return cur.fetchone() is not None
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
+    def recipient_gift_cards(self, recipient_ref: str) -> list[dict]:
+        """Private recovery list for the verified recipient of an already claimed gift."""
+        if not isinstance(recipient_ref, str) or not re.fullmatch(
+            r"v1_[0-9a-f]{64}", recipient_ref
+        ):
+            raise LiveLedgerError("LIVE_OWNER_INVALID")
+        try:
+            with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT order_id, plan_id, payment_state, delivery_state,
+                           gift_redeemed_at
+                    FROM vainah_live_orders
+                    WHERE owner_ref=%s AND is_gift=TRUE
+                      AND gift_redeemed_at IS NOT NULL
+                    ORDER BY gift_redeemed_at DESC LIMIT 20
+                """, (recipient_ref,))
+                rows = cur.fetchall()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        return [{
+            "order_id": r[0], "plan_id": r[1], "payment_state": r[2],
+            "delivery_state": r[3],
+            "redeemed_at": r[4].isoformat(),
+            "can_finish": r[2] == "paid" and r[3] == "pending",
+        } for r in rows]
