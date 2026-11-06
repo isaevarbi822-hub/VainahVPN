@@ -244,6 +244,11 @@ def _operator_reply(identifier: str, reply: str, status: str) -> dict:
             if previous is None:
                 raise HTTPException(404, "SUPPORT_TICKET_NOT_FOUND")
             changed = previous[0] != reply
+            if changed:
+                # Preserve replies in the ticket timeline before updating
+                # the existing last-reply field. Both writes are atomic.
+                from .support_thread import append_operator_reply
+                append_operator_reply(cur, identifier, reply)
             send = changed and bool(previous[1]) and bool(previous[2])
             next_revision = int(previous[3]) + (1 if send else 0)
             next_state = ("pending" if send else
