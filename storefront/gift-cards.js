@@ -79,8 +79,9 @@
         body:JSON.stringify({plan_id:plan.value}),
       });
       const link=new URL(String(result.pay_url||''));
-      if(link.protocol!=='https:'||link.hostname!=='rollypay.io'||
-         !/^\/pay\/[A-Za-z0-9_-]+\/?$/.test(link.pathname)){
+      if(link.protocol!=='https:'||link.hostname!=='pay.rollypay.io'||
+         !/^\/pay\/[A-Za-z0-9_-]+\/?$/.test(link.pathname)||
+         link.search||link.hash||link.username||link.password){
         throw Error('Провайдер вернул непроверенную ссылку оплаты.');
       }
       window.location.assign(link.href);
