@@ -17,6 +17,7 @@ from .config import Settings, deployment_commit
 from .customer_portal import router as customer_router
 from .db_health import database_status
 from .email_auth import router as email_auth_router
+from .google_auth import router as google_auth_router
 from .h1_panel import public_h1_status
 from .h1_panel import router as h1_router
 from .h1_trial import router as h1_trial_router
@@ -39,6 +40,7 @@ app.include_router(h1_router)
 app.include_router(h1_trial_router)
 app.include_router(telegram_router)
 app.include_router(email_auth_router)
+app.include_router(google_auth_router)
 app.include_router(customer_router)
 app.include_router(public_trial_router)
 app.include_router(speedtest_router)
