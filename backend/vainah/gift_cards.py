@@ -136,6 +136,18 @@ async def _finish_delivery(order_id: str, owner_ref: str) -> dict:
         raise HTTPException(409, "GIFT_REQUIRES_SUPPORT") from None
 
 
+@router.get("/received")
+def my_received_gifts(request: Request) -> dict:
+    email = _email(request)
+    if not live_account_ready():
+        raise HTTPException(503, "GIFT_DATABASE_UNAVAILABLE")
+    try:
+        items = _ledger().recipient_gift_cards(owner_ref_for_email(email))
+    except LiveLedgerError:
+        raise HTTPException(503, "GIFT_DATABASE_UNAVAILABLE") from None
+    return {"items": items}
+
+
 @router.post("/redeem")
 async def redeem_gift_card(request: Request, body: GiftRedeem) -> dict:
     require_same_origin(request)
