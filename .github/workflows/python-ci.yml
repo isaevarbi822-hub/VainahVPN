@@ -53,3 +53,4 @@ jobs:
           node --check storefront/network-check.js
           node --check storefront/repair-wizard.js
           node --check storefront/browser-check.js
+          node --check storefront/connection-monitor.js
