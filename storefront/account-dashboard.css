@@ -139,3 +139,28 @@
 @media(max-width:640px){.account-traffic-grid{grid-template-columns:1fr;gap:8px}
  .account-traffic-stat{padding:13px 15px}.account-traffic-stat strong{font-size:20px}}
 @media(prefers-reduced-motion:reduce){.account-traffic-progress span{transition:none}}
+
+
+/* Private order history tools: visible, touch-friendly and narrow-screen safe. */
+.account-shell .account-order-tools{display:grid;
+ grid-template-columns:minmax(190px,1.4fr) repeat(2,minmax(135px,1fr)) auto;
+ gap:11px;align-items:end;margin:18px 0 8px}
+.account-order-tools label{display:flex;min-width:0;flex-direction:column;gap:7px;
+ color:#bec9df;font-size:12px;font-weight:750}
+.account-order-tools :is(input,select){min-width:0;width:100%;min-height:44px;
+ padding:9px 12px;border:1px solid #5b6686;border-radius:11px;
+ background:#151d30;color:#f6f2ff;font:inherit}
+.account-order-tools :is(input,select):focus-visible{outline:3px solid #c0aaff;outline-offset:2px}
+.account-order-tools button{min-height:44px;min-width:0;white-space:normal;
+ font-size:12px;padding:8px 14px}
+.account-order-tools button:disabled{opacity:.5;cursor:not-allowed}
+.account-history-match{color:#b4c5da;font-size:12px;margin:8px 0 15px}
+#account-expiry-note{display:block;overflow-wrap:anywhere;line-height:1.45}
+@media(max-width:1050px){
+ .account-shell .account-order-tools{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .account-order-tools button{align-self:end}
+}
+@media(max-width:580px){
+ .account-shell .account-order-tools{grid-template-columns:1fr;gap:10px}
+ .account-order-tools button{width:100%}
+}
