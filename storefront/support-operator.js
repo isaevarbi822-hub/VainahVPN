@@ -117,6 +117,20 @@
         finally{historyButton.disabled=false;}
       });
       card.append(historyButton,history);
+      if(ticket.reply){
+        const viewRating=node('button','vs-notification-button','Посмотреть оценку');
+        viewRating.type='button';
+        viewRating.addEventListener('click',async()=>{
+          viewRating.disabled=true;
+          try{
+            const value=await request('/api/support/operator/tickets/'+encodeURIComponent(ticket.id)+'/rating');
+            status.textContent=value.rating===null?'Клиент ещё не оценил ответ.':
+              'Оценка клиента: '+value.rating+' из 5.';
+          }catch(error){status.textContent='Не удалось получить оценку: '+error.message;}
+          finally{viewRating.disabled=false;}
+        });
+        card.append(viewRating);
+      }
       const form=node('form','','');
       const textarea=node('textarea','','');
       textarea.rows=3;textarea.maxLength=1500;textarea.minLength=2;
