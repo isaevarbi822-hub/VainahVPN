@@ -32,10 +32,17 @@ async def _allow(request: Request) -> None:
     address = request.client.host if request.client else "unknown"
     now = time.monotonic()
     async with _lock:
-        if len(_recent) > MAX_IDENTITIES:
+        # Purge expired entries before admitting new addresses. A many-IP
+        # flood must never grow the in-memory limiter without a hard bound.
+        if len(_recent) >= MAX_IDENTITIES:
             for key in list(_recent):
-                if not _recent[key] or now - _recent[key][-1] > WINDOW_SECONDS:
+                calls_for_key = _recent[key]
+                while calls_for_key and now - calls_for_key[0] >= WINDOW_SECONDS:
+                    calls_for_key.popleft()
+                if not calls_for_key:
                     del _recent[key]
+        if address not in _recent and len(_recent) >= MAX_IDENTITIES:
+            raise HTTPException(status_code=429, detail="SPEEDTEST_CAPACITY")
         calls = _recent[address]
         while calls and now - calls[0] >= WINDOW_SECONDS:
             calls.popleft()
