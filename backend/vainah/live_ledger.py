@@ -158,6 +158,37 @@ class PostgresLiveOrderLedger:
             ALTER TABLE vainah_live_orders
             ADD COLUMN IF NOT EXISTS access_email_claim_token CHAR(32)
         """)
+
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS is_gift BOOLEAN NOT NULL DEFAULT FALSE
+        """)
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS gift_buyer_ref VARCHAR(67)
+        """)
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS gift_code_hash CHAR(64)
+        """)
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS gift_code_cipher TEXT
+        """)
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS gift_redeemed_at TIMESTAMPTZ
+        """)
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS vainah_live_gift_code_uq
+            ON vainah_live_orders(gift_code_hash)
+            WHERE gift_code_hash IS NOT NULL
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS vainah_live_gift_buyer_idx
+            ON vainah_live_orders(gift_buyer_ref, created_at DESC)
+            WHERE is_gift = TRUE
+        """)
         cur.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS vainah_live_checkout_nonce_uq
             ON vainah_live_orders (checkout_nonce_hash)
@@ -199,7 +230,8 @@ class PostgresLiveOrderLedger:
     def reserve_checkout(self, *, owner_ref: str, verified_email: str,
                          plan_id: str, idempotency_key: str,
                          pilot: bool = False,
-                         discounted_pilot: bool = False) -> tuple[str, str | None]:
+                         discounted_pilot: bool = False,
+                         gift: bool = False) -> tuple[str, str | None]:
         """One durable invoice intent per browser-generated UUID, per owner.
 
         A pending intent is never retried automatically: an earlier gateway
@@ -224,6 +256,8 @@ class PostgresLiveOrderLedger:
             raise LiveLedgerError("LIVE_PILOT_PLAN_NOT_ALLOWED")
         if pilot and discounted_pilot:
             raise LiveLedgerError("LIVE_PILOT_INVALID")
+        if type(gift) is not bool or (gift and (pilot or discounted_pilot)):
+            raise LiveLedgerError("LIVE_GIFT_INVALID")
         if type(discounted_pilot) is not bool:
             raise LiveLedgerError("LIVE_PILOT_INVALID")
         if type(pilot) is not bool:
@@ -246,6 +280,15 @@ class PostgresLiveOrderLedger:
         ).hexdigest()
         order_id = "vainah_live_" + uuid4().hex
         recipient = seal_live_secret(verified_email.lower())
+        gift_code = "VG" + secrets.token_hex(16).upper() if gift else None
+        gift_code_hash = (
+            hmac.new(
+                key.encode(), ("vainah-gift-code-v1:" + gift_code).encode(),
+                hashlib.sha256,
+            ).hexdigest()
+            if gift_code else None
+        )
+        gift_cipher = seal_live_secret(gift_code) if gift_code else None
         try:
             with psycopg.connect(
                 self._database_url, connect_timeout=4
@@ -270,18 +313,20 @@ class PostgresLiveOrderLedger:
                     INSERT INTO vainah_live_orders (
                         order_id, owner_ref, plan_id, amount_rub,
                         receipt_email_cipher, checkout_nonce_hash,
-                        is_pilot, is_discount_pilot
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        is_pilot, is_discount_pilot, is_gift,
+                        gift_buyer_ref, gift_code_hash, gift_code_cipher
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT DO NOTHING
                     RETURNING order_id
                 """, (order_id, owner_ref, plan_id, price_rub(plan),
-                      recipient, nonce_hash, pilot, discounted_pilot))
+                      recipient, nonce_hash, pilot, discounted_pilot,
+                      gift, owner_ref if gift else None, gift_code_hash, gift_cipher))
                 created = cur.fetchone()
                 if created:
                     return created[0], None
                 cur.execute("""
                     SELECT order_id, plan_id, owner_ref, payment_state,
-                           pay_url_cipher, is_pilot, is_discount_pilot
+                           pay_url_cipher, is_pilot, is_discount_pilot, is_gift
                     FROM vainah_live_orders
                     WHERE checkout_nonce_hash = %s
                 """, (nonce_hash,))
@@ -292,7 +337,8 @@ class PostgresLiveOrderLedger:
                     raise LiveLedgerError("LIVE_DISCOUNT_PILOT_LIMIT_REACHED")
                 if (not existing or existing[1] != plan_id
                         or existing[2] != owner_ref or existing[5] is not pilot
-                        or existing[6] is not discounted_pilot):
+                        or existing[6] is not discounted_pilot
+                        or existing[7] is not gift):
                     raise LiveLedgerError("LIVE_IDEMPOTENCY_CONFLICT")
                 if existing[3] == "created" and existing[4]:
                     return existing[0], unseal_live_secret(existing[4])
@@ -844,6 +890,7 @@ class PostgresLiveOrderLedger:
                         AND payment_state = 'paid'
                         AND webhook_at IS NOT NULL
                         AND delivery_state = 'pending'
+                        AND (target.is_gift = FALSE OR target.gift_redeemed_at IS NOT NULL)
                         AND NOT EXISTS (
                             SELECT 1 FROM vainah_live_orders blocked
                             WHERE blocked.owner_ref = target.owner_ref
