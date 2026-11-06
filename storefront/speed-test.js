@@ -44,9 +44,9 @@
       bar.style.width = (7 + 4*i)+'%';
       await pause();
     }
-    values.sort((a,b)=>a-b);
-    const ping = values[Math.floor(values.length/2)];
     const differences = values.slice(1).map((x,i)=>Math.abs(x-values[i]));
+    const sorted = [...values].sort((a,b)=>a-b);
+    const ping = sorted[Math.floor(sorted.length/2)];
     const jitter = differences.reduce((a,b)=>a+b,0)/differences.length;
     results.ping.textContent = format(ping);
     results.jitter.textContent = format(jitter);
