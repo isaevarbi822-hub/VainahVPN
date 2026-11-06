@@ -140,5 +140,8 @@
     }
   });
   window.addEventListener('pagehide',()=>active?.abort());
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden)active?.abort();
+  });
   render([]);
 })();
