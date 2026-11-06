@@ -2,8 +2,9 @@
 from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
-from vainah.main import app
+
 from vainah import reminder_dispatch as dispatcher
+from vainah.main import app
 
 ORIGIN = "https://vainahvpn-python-preview.onrender.com"
 
