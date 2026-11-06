@@ -161,3 +161,89 @@ body :is(input,textarea,select){max-width:100%}
  html{scroll-behavior:auto!important}
  body :is(.btn,.ux-card,.panel,.card,.ux-plan,.ux-compare-item,.tool-card){transition:none!important}
 }
+
+/* Responsive polish, November 2026: storefront, account and checkout links.
+   Presentation only: no changes to authentication, prices or billing actions. */
+html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+body{overflow-wrap:break-word}
+body :is(.container,.ux-wide,.ux-hero,.ux-grid,.ux-plan-grid,.ux-kpis,
+  .ux-step-rail,.ux-guide-grid,.grid,.grid-2,.grid-3,.grid-4,
+  .form-grid,.footer-grid,.account-panel,.ux-card,.ux-plan,.card,.pricing){
+  min-width:0;
+}
+body :is(img,video,iframe){height:auto;max-width:100%}
+body :is(input,select,textarea){font-size:max(16px,1em)}
+body :is(button,a,input,select,textarea){touch-action:manipulation}
+body :is(.ux-plan-price,.price,.metric-value){font-variant-numeric:tabular-nums}
+body :is(.ux-plan,.pricing,.ux-card,.card,.account-panel){overflow-wrap:anywhere}
+body :is(.table-scroll,.comparison-wrap,[role="region"][aria-label*="таблиц"]){
+  max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch;
+}
+@media (pointer:coarse){
+  body :is(.btn,.ux-link,button,.mobile-nav a,.drawer a){min-height:44px}
+  body :is(.ux-card,.card,.ux-plan){-webkit-tap-highlight-color:transparent}
+}
+@media (max-width:760px){
+  body :is(.ux-hero,.ux-faq,.ux-step-rail,.ux-guide-grid,.ux-plan-grid,.ux-grid,.ux-kpis){
+    grid-template-columns:minmax(0,1fr);
+  }
+  body :is(.ux-action-strip,.ux-bottom-cta,.band){
+    flex-direction:column;align-items:stretch;
+  }
+  body :is(.ux-hero-actions,.hero-buttons){gap:10px}
+  body :is(.ux-hero-actions,.hero-buttons) .btn{max-width:100%}
+  body .ux-hero{padding-top:45px;padding-bottom:34px}
+  body .ux-app-preview{min-height:0}
+  body :is(.ux-action-strip,.ux-bottom-cta){padding:23px}
+}
+@media (max-width:420px){
+  body :is(.ux-wide,.container){padding-inline:16px;max-width:100%}
+  body .container{width:calc(100% - 32px)}
+  body :is(.ux-hero h1,.page-head h1,h1){font-size:clamp(30px,10vw,43px);line-height:1.13;overflow-wrap:anywhere}
+  body :is(.ux-heading h2,h2){font-size:clamp(24px,8vw,32px)}
+  body :is(.ux-hero-actions,.hero-buttons){flex-direction:column;align-items:stretch}
+  body :is(.ux-hero-actions,.hero-buttons) .btn{width:100%;white-space:normal}
+  body :is(.ux-card,.ux-plan,.card,.pricing,.paper){padding:19px}
+  body :is(.ux-action-strip,.ux-bottom-cta){padding:19px;border-radius:20px}
+  body .ux-app-preview{padding:18px;border-radius:23px}
+  body .ux-preview-list>div{padding:10px}
+  body :is(.footer-grid,.form-grid,.grid-2,.grid-3,.grid-4){grid-template-columns:minmax(0,1fr)}
+  body :is(.btn,button){white-space:normal}
+}
+@media (max-width:320px){
+  body :is(.ux-wide,.container){padding-inline:10px}
+  body .container{width:calc(100% - 20px)}
+  body :is(.ux-hero h1,h1){font-size:29px}
+  body :is(.ux-hero,.ux-section,.page-head){padding-block:25px}
+  body :is(.ux-card,.ux-plan,.card,.pricing,.paper){padding:13px;border-radius:14px}
+  body .ux-preview-list>div{gap:7px}
+  body .ux-preview-symbol{width:30px;height:30px}
+  body .vx-explore{padding-inline:8px}
+  body .vx-explore-inner{padding:13px}
+  body .vx-explore-link{gap:8px}
+  body .vx-explore-icon{width:32px;height:32px}
+  body .vx-explore-text{font-size:11px}
+  body :is(.ux-mini-note,.ux-smallprint){font-size:11px!important}
+}
+/* Tiny watch browsers: prioritize readable content; checkout may require a phone. */
+@media (max-width:240px){
+  body :is(.ux-wide,.container){padding-inline:8px}
+  body .container{width:calc(100% - 16px)}
+  body :is(h1,.ux-hero h1){font-size:23px;letter-spacing:-.02em}
+  body :is(h2,.ux-heading h2){font-size:19px}
+  body :is(.ux-card,.ux-plan,.card,.pricing,.paper){padding:9px;border-radius:12px}
+  body .ux-app-preview{display:none}
+  body :is(.ux-hero-actions,.hero-buttons) .btn{padding:9px;min-width:0}
+  body .vx-explore{display:none}
+  body :is(.ux-hero,.section,.ux-section){padding-block:18px}
+}
+@media (prefers-reduced-data:reduce){
+  body :is(.ux-hero,.ux-app-preview,.ux-card){box-shadow:none}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto!important}
+  body *,body *::before,body *::after{
+    animation-duration:0.01ms!important;animation-iteration-count:1!important;
+    transition-duration:0.01ms!important;scroll-behavior:auto!important;
+  }
+}
