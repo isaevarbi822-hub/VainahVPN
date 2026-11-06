@@ -78,6 +78,50 @@
         notices.append(toggle);
       }
       card.append(notices);
+      const threadButton=label('button','vs-notification-button','Показать переписку');
+      threadButton.type='button';
+      const timeline=label('div','vs-ticket-history','');
+      timeline.hidden=true;
+      threadButton.addEventListener('click',async()=>{
+        if(!timeline.hidden){timeline.hidden=true;threadButton.textContent='Показать переписку';return;}
+        threadButton.disabled=true;
+        try{
+          const response=await request('/api/support/tickets/'+encodeURIComponent(ticket.id)+'/messages');
+          timeline.replaceChildren();
+          for(const entry of Array.isArray(response.items)?response.items:[]){
+            const row=label('div',entry.sender==='operator'?'vs-reply':'vs-user-message','');
+            row.append(label('strong','',entry.sender==='operator'?'Поддержка':'Вы'));
+            row.append(label('p','',String(entry.message||'').slice(0,1500)));
+            timeline.append(row);
+          }
+          timeline.hidden=false;
+          threadButton.textContent='Скрыть переписку';
+        }catch(error){note('Не удалось открыть переписку: '+error.message);}
+        finally{threadButton.disabled=false;}
+      });
+      card.append(threadButton,timeline);
+      if(ticket.status!=='closed'){
+        const followup=label('form','vs-followup','');
+        const followText=label('textarea','','');
+        followText.required=true;followText.minLength=4;followText.maxLength=1500;
+        followText.rows=2;followText.placeholder='Дополнить обращение без VPN-ссылок и паролей';
+        const followButton=label('button','vs-notification-button','Отправить уточнение');
+        followButton.type='submit';
+        followup.append(followText,followButton);
+        followup.addEventListener('submit',async event=>{
+          event.preventDefault();followButton.disabled=true;
+          try{
+            await request('/api/support/tickets/'+encodeURIComponent(ticket.id)+'/messages',{
+              method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({message:followText.value.trim()})
+            });
+            note('Уточнение отправлено. Обращение снова открыто.');
+            await load();
+          }catch(error){note('Не удалось отправить уточнение: '+error.message);}
+          finally{followButton.disabled=false;}
+        });
+        card.append(followup);
+      }
       list.append(card);
     }
   }
