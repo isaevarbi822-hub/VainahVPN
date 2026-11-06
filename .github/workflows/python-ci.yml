@@ -57,3 +57,5 @@ jobs:
           node --check storefront/toolkit-ui.mjs
           node --check storefront/command-center.mjs
           node --check storefront/connection-monitor.js
+          node --check storefront/support-center.js
+          node --check storefront/support-operator.js
