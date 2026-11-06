@@ -28,3 +28,19 @@
 .vx-speed-actions{width:100%}.vx-speed-actions button{flex:1}}
 @media(max-width:360px){.vx-speed-grid{grid-template-columns:1fr}.vx-speed-actions{flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.vx-speed-progress span{transition:none}}
+
+
+/* Session-only comparison; no personal data is saved or uploaded. */
+.vx-speed-history{border:1px solid #455679;border-radius:16px;padding:16px 18px;
+ background:#0d1c30bf;margin:18px 0 4px}
+.vx-speed-history-head{display:flex;align-items:center;justify-content:space-between;
+ gap:12px;flex-wrap:wrap}
+.vx-speed-history-head strong{font-size:14px;letter-spacing:-.02em}
+.vx-speed-history-head button{background:#2c3454;border:1px solid #7e7fa6;
+ min-height:42px;border-radius:11px;color:#f2edff;font-size:12px;
+ font-weight:750;padding:10px 14px;cursor:pointer}
+.vx-speed-history-head button:disabled{opacity:.5;cursor:not-allowed}
+.vx-speed-history .vx-speed-notice{margin:10px 0 0}
+@media(max-width:480px){.vx-speed-history{padding:13px}
+ .vx-speed-history-head{align-items:stretch;flex-direction:column}
+ .vx-speed-history-head button{width:100%}}
