@@ -464,7 +464,7 @@
     if(!user||!date||currentData?.subscription?.paid!==true||
        currentData?.subscription?.status!=='delivered')return;
     const reminder=new Date(date.getTime()-86400000);
-    const icsDate=d=>d.toISOString().replace(/[-:]/g,'').replace(/\\.\\d{3}Z$/,'Z');
+    const icsDate=d=>d.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}Z$/,'Z');
     const content=[
       'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Vainah VPN//Subscription Reminder//RU',
       'CALSCALE:GREGORIAN','METHOD:PUBLISH',
@@ -476,7 +476,7 @@
       'SUMMARY:Проверить продление Vainah VPN',
       'DESCRIPTION:Проверь состояние подписки в личном кабинете Vainah VPN. Ссылка и платёжные данные не включены.',
       'END:VEVENT','END:VCALENDAR',''
-    ].join('\\r\\n');
+    ].join('\r\n');
     try{
       const url=URL.createObjectURL(new Blob([content],{type:'text/calendar;charset=utf-8'}));
       const link=document.createElement('a');
@@ -503,7 +503,7 @@
       'Заказов в истории: '+orders.length,
       'Дата окончания: '+(sub?.paid===true&&sub?.status==='delivered'?formatDate(sub.expires_at):'не подтверждена'),
       'VPN-ключи, email, ID заказа и платёжные реквизиты исключены.'
-    ].join('\\n');
+    ].join('\n');
     return text;
   }
   const calendarButton=$('account-calendar');
