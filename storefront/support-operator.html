@@ -1,7 +1,7 @@
 <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow,noarchive"><meta name="theme-color" content="#0b1220">
 <title>Оператор поддержки — Vainah VPN</title>
-<link rel="stylesheet" href="support-center.css"><script src="support-operator.js?v=20261106-email-notifications" defer></script>
+<link rel="stylesheet" href="support-center.css"><script src="support-operator.js?v=20261106-queue-tools" defer></script>
 </head><body class="vx-support">
 <header class="vs-top"><a class="vs-logo" href="index.html">VAINAH <span>VPN</span></a><nav><a href="support-center.html">Клиентский центр</a><a href="account.html">Кабинет</a></nav></header>
 <main class="vs-layout">
@@ -12,5 +12,5 @@
 <div class="vs-form-bottom"><button type="button" id="operator-load">Открыть обращения</button><button type="button" id="operator-lock">Закрыть доступ</button></div>
 <p id="operator-status" class="vs-status" role="status" aria-live="polite">Введи ключ и нажми «Открыть обращения».</p></section>
 <section class="vs-panel"><div class="vs-section-head"><h2>Обращения</h2><p class="vs-muted">Не более 100 последних заявок. Ответ появится в кабинете клиента.</p></div>
-<div class="vs-tickets" id="operator-list"><p class="vs-muted">Заявки скрыты до авторизации оператора.</p></div></section>
+<div class="vs-form-bottom"><label for="operator-search">Поиск по номеру, теме и тексту обращения<input id="operator-search" type="search" maxlength="120" autocomplete="off" placeholder="Найти обращение"></label><label for="operator-filter">Статус<select id="operator-filter"><option value="all">Все</option><option value="open">Открытые</option><option value="answered">С ответом</option><option value="closed">Закрытые</option><option value="pending">Ожидают email</option></select></label><button type="button" id="operator-refresh" disabled>Обновить список</button></div><p id="operator-summary" class="vs-muted" aria-live="polite">Статистика доступна после входа.</p><div class="vs-tickets" id="operator-list"><p class="vs-muted">Заявки скрыты до авторизации оператора.</p></div></section>
 </main><footer class="vs-foot">© 2026 Vainah VPN · Управление поддержкой</footer></body></html>
