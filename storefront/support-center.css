@@ -1,0 +1,44 @@
+:root{color-scheme:dark}*{box-sizing:border-box}
+.vx-support{margin:0;background:#0b1220;color:#f2f4ff;font:15px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.vx-support a{color:#d4c2ff;text-decoration:none}
+.vx-support a:hover{text-decoration:underline}
+.vs-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;
+ padding:20px max(20px,calc((100vw - 1080px)/2));border-bottom:1px solid #364760;background:#141d30}
+.vs-logo{font-size:20px;font-weight:900;letter-spacing:.03em;color:white!important}
+.vs-logo span{color:#bca5ff}
+.vs-top nav{display:flex;flex-wrap:wrap;gap:12px}
+.vs-top nav a{padding:9px 12px;border:1px solid #495779;border-radius:10px;font-size:12px}
+.vs-layout{max-width:1080px;margin:auto;padding:49px 20px 72px}
+.vs-eyebrow{font-weight:900;color:#91e5cc;letter-spacing:.14em;font-size:11px}
+.vs-layout h1{font-size:clamp(31px,5vw,56px);letter-spacing:-.04em;margin:12px 0}
+.vs-intro{max-width:790px;color:#b7c5dc}
+.vs-note,.vs-panel{background:#151f34;border:1px solid #405477;border-radius:20px;padding:24px;margin-top:24px}
+.vs-note{background:#26243b;border-color:#625886;color:#d8d3ef;font-size:13px}
+.vs-note a{text-decoration:underline}
+.vs-panel h2{font-size:21px;margin:0 0 16px}
+.vs-status{margin:20px 0;color:#d7ddf2;padding:13px 16px;background:#212944;
+ border:1px solid #5b6486;border-radius:14px}
+.vs-panel label{display:flex;flex-direction:column;gap:8px;margin:15px 0;
+ font-size:13px;font-weight:700;color:#c1cee5}
+.vs-panel :is(select,textarea,input){background:#101b2e;border:1px solid #697796;
+ border-radius:12px;color:#fff;padding:12px;font:inherit;min-width:0;width:100%}
+.vs-panel :is(input,select,textarea):focus-visible,.vs-panel button:focus-visible,
+.vs-top a:focus-visible{outline:3px solid #b4a4ff;outline-offset:2px}
+.vs-panel button{min-height:44px;border:1px solid #a68ce5;background:#bfa9fa;
+ color:#1b1735;font-weight:850;padding:9px 19px;border-radius:12px;cursor:pointer}
+.vs-panel button:disabled{opacity:.45;cursor:not-allowed}
+.vs-form-bottom,.vs-section-head{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}
+.vs-muted{font-size:12px;color:#aebed6;overflow-wrap:anywhere}
+.vs-tickets{display:grid;gap:12px;margin-top:17px}
+.vs-ticket{border:1px solid #415678;background:#10192b;padding:18px;border-radius:14px;
+ min-width:0;overflow-wrap:anywhere}
+.vs-ticket-head{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.vs-state{color:#b9e7d9;background:#193e3b;padding:4px 9px;font-size:12px;border-radius:99px}
+.vs-user-message{white-space:pre-wrap}
+.vs-reply{border-left:3px solid #a993fa;background:#201e3b;padding:10px 15px;
+ margin-top:14px;border-radius:0 10px 10px 0}
+.vs-reply p{white-space:pre-wrap;margin:7px 0}
+.vs-foot{text-align:center;padding:22px;border-top:1px solid #34445c;
+ color:#a8bad1;font-size:12px}
+@media(max-width:580px){.vs-layout{padding:33px 15px 48px}
+.vs-note,.vs-panel{padding:17px}.vs-top{padding:15px}.vs-form-bottom button{width:100%}}
