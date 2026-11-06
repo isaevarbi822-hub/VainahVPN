@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import html
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import psycopg
 from fastapi import APIRouter, Header, HTTPException
@@ -73,21 +72,25 @@ def _candidates() -> list[tuple]:
         PostgresLiveOrderLedger._schema(cur)
         _schema(cur)
         cur.execute("""
-            SELECT DISTINCT ON (orders.owner_ref)
-                   orders.owner_ref, orders.receipt_email_cipher, orders.h1_expires_at
-            FROM vainah_live_orders AS orders
-            WHERE orders.payment_state='paid'
-              AND orders.delivery_state='delivered'
-              AND orders.h1_expires_at > now()
+            WITH newest_delivery AS (
+                SELECT DISTINCT ON (owner_ref)
+                       owner_ref, receipt_email_cipher, h1_expires_at
+                FROM vainah_live_orders
+                WHERE payment_state='paid'
+                  AND delivery_state='delivered'
+                ORDER BY owner_ref, delivered_at DESC, created_at DESC
+            )
+            SELECT orders.owner_ref, orders.receipt_email_cipher,
+                   orders.h1_expires_at
+            FROM newest_delivery AS orders
+            WHERE orders.h1_expires_at > now()
               AND orders.h1_expires_at <= now()+interval '7 days'
-              AND orders.h1_expires_at IS NOT NULL
               AND NOT EXISTS (
                 SELECT 1 FROM vainah_live_orders AS reversal
                 WHERE reversal.owner_ref=orders.owner_ref
                   AND reversal.payment_state IN ('refunded','chargeback')
               )
-            ORDER BY orders.owner_ref, orders.delivered_at DESC
-            LIMIT 15
+            ORDER BY orders.h1_expires_at ASC LIMIT 15
         """)
         return cur.fetchall()
 
@@ -180,6 +183,10 @@ async def run_batch() -> dict:
             # Claims never expire automatically: unknown delivery outcomes
             # require manual investigation rather than blind email duplication.
             if not await run_in_threadpool(_claim, owner_hash, expiry, day):
+                continue
+            # Recheck opt-in before external delivery to reduce the window
+            # between changing settings and mailing the customer.
+            if not await run_in_threadpool(_eligible, owner_hash, owner_ref, expiry):
                 continue
             body = (
                 "<h2>Vainah VPN — напоминание о подписке</h2>"
