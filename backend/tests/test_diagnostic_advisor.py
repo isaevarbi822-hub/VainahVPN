@@ -87,7 +87,9 @@ global.window={VainahDiagnosticRules:rules};
 global.document={getElementById:id=>elements[id]||null,
                  createElement:tag=>new Node(tag)};
 let copied=null,clock=0;
-global.navigator={onLine:true,clipboard:{writeText:async s=>{copied=s;}}};
+Object.defineProperty(global,'navigator',{
+  configurable:true,value:{onLine:true,clipboard:{writeText:async s=>{copied=s;}}}
+});
 global.performance={now:()=>{clock+=42;return clock;}};
 global.AbortSignal={timeout:()=>null};
 const calls=[];
