@@ -6,6 +6,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED"/>
 
+    <!-- Only launchable apps for an explicit per-app bypass picker.
+         Never request QUERY_ALL_PACKAGES. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.LAUNCHER"/>
+        </intent>
+    </queries>
+
     <application
         android:name=".VainahApplication"
         android:label="${vainahAppLabel}"
