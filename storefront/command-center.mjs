@@ -204,8 +204,9 @@
         const sub=overview.subscription;
         if(sub?.paid===true&&sub.status==='delivered'){
           set(one('[data-hub-plan]',root),sub.plan_title||'VPN-подписка');
-          const expires=new Date(sub.expires_at);
-          set(one('[data-hub-expires]',root),Number.isFinite(expires.getTime())?
+          const expires=typeof sub.expires_at==='string'&&sub.expires_at
+            ?new Date(sub.expires_at):null;
+          set(one('[data-hub-expires]',root),expires&&Number.isFinite(expires.getTime())?
             new Intl.DateTimeFormat('ru-RU').format(expires):'Не указана');
           set(one('[data-hub-devices]',root),Number.isSafeInteger(sub.device_limit)&&sub.device_limit>0?
             String(sub.device_limit):'—');
