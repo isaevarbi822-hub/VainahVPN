@@ -393,3 +393,20 @@ def test_live_email_without_paid_receipt_gets_no_link(client, monkeypatch):
     result = client.get("/api/account/access")
     assert result.status_code == 404
     assert result.json()["detail"] == "PAID_DELIVERY_NOT_FOUND"
+
+
+def test_calendar_export_includes_real_alarm_components():
+    """Calendar reminders are only generated from a confirmed future expiry."""
+    from pathlib import Path
+    site = Path(__file__).resolve().parents[2] / "storefront"
+    script = (site / "account-dashboard.js").read_text(encoding="utf-8")
+    page = (site / "account.html").read_text(encoding="utf-8")
+    assert "account-dashboard.js?v=20261106-calendar-alarms-1" in page
+    assert "const date=validExpiry(currentData?.subscription?.expires_at)" in script
+    assert "currentData?.subscription?.paid!==true" in script
+    for trigger in ("-P7D", "-P3D", "-P1D"):
+        assert trigger in script
+    for part in ("BEGIN:VALARM", "END:VALARM", "ACTION:DISPLAY", "TRIGGER:"):
+        assert part in script
+    assert "'DTSTART:'+icsDate(date)" in script
+    assert "subscriptionUrl" not in script[script.index("  function downloadCalendar()"):script.index("  function safeSupportReport()")]
