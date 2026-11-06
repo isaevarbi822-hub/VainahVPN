@@ -3,15 +3,19 @@
   'use strict';
   const $=id=>document.getElementById(id);
   const keyInput=$('operator-key'),open=$('operator-load'),lock=$('operator-lock'),
-    status=$('operator-status'),list=$('operator-list');
+    status=$('operator-status'),list=$('operator-list'),
+    search=$('operator-search'),filter=$('operator-filter'),refresh=$('operator-refresh'),
+    summary=$('operator-summary');
   if(!keyInput||!open||!lock)return;
-  let key='',revision=0;
+  let key='',revision=0,ticketsCache=[];
   const node=(tag,cls,value)=>{
     const element=document.createElement(tag);element.className=cls;
     element.textContent=value||'';return element;
   };
   function clear(){
-    revision++;key='';keyInput.value='';
+    revision++;key='';keyInput.value='';ticketsCache=[];
+    if(search)search.value='';if(filter)filter.value='all';if(refresh)refresh.disabled=true;
+    if(summary)summary.textContent='Статистика доступна после входа.';
     list.replaceChildren(node('p','vs-muted','Заявки скрыты до авторизации оператора.'));
     status.textContent='Доступ закрыт. Ключ удалён из формы.';
   }
@@ -30,6 +34,25 @@
       typeof body.detail==='string'?body.detail:'Ошибка ('+response.status+')'
     );
     return body;
+  }
+  function render(){
+    const items=ticketsCache;
+    const q=(search?.value||'').trim().toLocaleLowerCase('ru');
+    const selected=filter?.value||'all';
+    const counts={open:0,answered:0,closed:0,pending:0};
+    for(const item of items){
+      if(Object.hasOwn(counts,item.status))counts[item.status]++;
+      if(item.notification_state==='pending')counts.pending++;
+    }
+    const tickets=items.filter(item=>{
+      if(selected==='pending'?item.notification_state!=='pending':selected!=='all'&&item.status!==selected)return false;
+      return !q||[item.id,item.category,item.message,item.reply,item.owner_reference]
+        .some(value=>String(value||'').toLocaleLowerCase('ru').includes(q));
+    });
+    if(summary)summary.textContent='Последние '+items.length+' заявок · Открыты: '+counts.open+
+      ' · С ответом: '+counts.answered+' · Закрыты: '+counts.closed+
+      ' · Ожидают email: '+counts.pending+' · Показано: '+tickets.length;
+    show(tickets);
   }
   function show(tickets){
     list.replaceChildren();
@@ -115,15 +138,22 @@
     try{
       const result=await request('/api/support/operator/tickets');
       if(current!==revision)return;
-      show(Array.isArray(result.items)?result.items:[]);
+      ticketsCache=Array.isArray(result.items)?result.items:[];
+      if(refresh)refresh.disabled=false;
+      render();
       status.textContent='Авторизация оператора подтверждена. Заявки загружены.';
     }catch(error){
       if(current!==revision)return;
       status.textContent='Доступ не подтверждён: '+error.message;
-      list.replaceChildren();
+      list.replaceChildren();ticketsCache=[];
+      if(refresh)refresh.disabled=true;
+      if(summary)summary.textContent='Статистика доступна после входа.';
       key='';keyInput.value='';
     }finally{open.disabled=false;}
   }
+  if(search)search.addEventListener('input',()=>{if(key)render();});
+  if(filter)filter.addEventListener('change',()=>{if(key)render();});
+  if(refresh)refresh.addEventListener('click',()=>{if(key)void load();});
   open.addEventListener('click',()=>{
     const entered=keyInput.value;
     if(entered.length<40){
