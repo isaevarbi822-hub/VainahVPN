@@ -37,14 +37,14 @@
       throw Error('Сервер недоступен (HTTP '+response.status+').');
     }
   }
-  async function timePing() {
+  async function timePing(samples=5) {
     const values = [];
-    for (let i=0; i<5; i++) {
+    for (let i=0; i<samples; i++) {
       const began = performance.now();
       const response = await endpoint('ping');
       check(response);
       values.push(performance.now()-began);
-      bar.style.width = (7 + 4*i)+'%';
+      bar.style.width = (7 + 23*(i+1)/samples)+'%';
       await pause();
     }
     const differences = values.slice(1).map((x,i)=>Math.abs(x-values[i]));
@@ -92,6 +92,10 @@
   }
   async function run(){
     controller=new AbortController();
+    const mode=document.querySelector('input[name="speed-mode"]:checked')?.value==='normal'?'normal':'eco';
+    const options=$('speed-options');
+    if(options)options.disabled=true;
+    const config=mode==='eco'?{pings:3,downloads:1,uploads:1,uploadBytes:128*1024}:{pings:5,downloads:3,uploads:2,uploadBytes:256*1024};
     start.disabled=true;
     stop.disabled=false;
     reset();
@@ -99,14 +103,16 @@
     try {
       abortTimer=setTimeout(()=>controller.abort(),durationLimit);
       note('Измеряем задержку…','Ping и вариация задержки');
-      const latency = await timePing();
+      const latency = await timePing(config.pings);
       note('Получаем данные с сервера…','Загрузка');
-      const download=await throughput('download',3,512*1024,30,68);
+      const download=await throughput('download',config.downloads,512*1024,30,68);
       results.download.textContent=format(download);
       note('Передаём данные серверу…','Отдача');
-      const upload=await throughput('upload',2,256*1024,68,100);
+      const upload=await throughput('upload',config.uploads,config.uploadBytes,68,100);
       results.upload.textContent=format(upload);
-      latest={...latency,download,upload};
+      latest={...latency,download,upload,mode};
+      const modeNode=$('speed-network-mode');
+      if(modeNode)modeNode.textContent='Режим: '+(mode==='eco'?'экономный':'стандартный')+'. Скорости приблизительные и зависят от нагрузки Render.';
       const previousNode=$('speed-previous');
       if(previous&&previousNode){
         const diff=(key,unit)=>{
@@ -129,6 +135,7 @@
     } finally {
       clearTimeout(abortTimer);
       controller=null;
+      if(options)options.disabled=false;
       start.disabled=false;
       stop.disabled=true;
     }
