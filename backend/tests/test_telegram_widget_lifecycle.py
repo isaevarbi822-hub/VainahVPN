@@ -23,7 +23,7 @@ def test_telegram_login_still_has_signed_backend_and_visible_tab():
         assert 'id="account-widget"' in page.text
         assert "onVainahAccountAuth(user)" in script.text
         assert "if(method==='telegram')void initTelegram()" in script.text
-        assert "requestedTelegram?'telegram':'email'" in script.text
+        assert "requestedLogin==='telegram'?'telegram'" in script.text
 
 
 def test_lazy_telegram_mount_retry_and_direct_tab_link():
