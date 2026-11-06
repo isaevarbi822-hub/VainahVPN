@@ -88,7 +88,7 @@ def _notifications(owner: str, data: dict) -> list[dict]:
     if confirmed:
         raw_expiry = sub.get("expires_at")
         try:
-            expiry = datetime.fromisoformat(raw_expiry.replace("Z", "+00:00"))
+            expiry = datetime.fromisoformat(raw_expiry)
             delta = (expiry - datetime.now(UTC)).total_seconds()
         except (ValueError, TypeError, AttributeError):
             delta = None
