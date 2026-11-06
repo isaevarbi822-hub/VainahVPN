@@ -16,6 +16,7 @@ from .billing import router as shop_router
 from .config import Settings, deployment_commit
 from .customer_portal import router as customer_router
 from .db_health import database_status
+from .device_registry import router as device_registry_router
 from .email_auth import router as email_auth_router
 from .google_auth import router as google_auth_router
 from .h1_panel import public_h1_status
@@ -46,6 +47,7 @@ app.include_router(telegram_oidc_router)
 app.include_router(email_auth_router)
 app.include_router(google_auth_router)
 app.include_router(customer_router)
+app.include_router(device_registry_router)
 app.include_router(public_trial_router)
 app.include_router(speedtest_router)
 app.include_router(qr_router)
