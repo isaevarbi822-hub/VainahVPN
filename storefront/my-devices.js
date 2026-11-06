@@ -92,6 +92,18 @@
       const body=await api('/api/account/devices');
       authenticated=true;
       records=Array.isArray(body.items)?body.items.slice(0,12):[];
+      const limitDisplay=$('vd-plan-limit');
+      if(limitDisplay){
+        limitDisplay.textContent='Уточняем лимит тарифа…';
+        void api('/api/account/devices/limits').then(info=>{
+          limitDisplay.textContent=Number.isInteger(info.plan_device_limit)
+            ?'Лимит оплаченного тарифа: '+info.plan_device_limit+
+              ' устройств. Количество занятых VPN-слотов неизвестно.'
+            :'Лимит тарифа не подтверждён. Количество занятых VPN-слотов неизвестно.';
+        }).catch(()=>{
+          limitDisplay.textContent='Не удалось проверить лимит. Активные VPN-сессии не отображаются.';
+        });
+      }
       say('Список получен. Данные об активных VPN-сессиях H1Cloud пока не доступны.');
       render();
     }catch(error){
