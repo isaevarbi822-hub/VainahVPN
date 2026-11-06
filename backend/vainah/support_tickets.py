@@ -25,7 +25,7 @@ TICKET_ID_RE = re.compile(r"^[A-Za-z0-9_-]{18,30}$")
 # We deliberately do not take attachments or private VPN URLs.
 LINK_RE = re.compile(
     r"(?:https?://|vless://|vmess://|trojan://|hysteria2?://|ss://|"
-    r"subscription[_ -]?url\\s*[:=])", re.IGNORECASE
+    r"subscription[_ -]?url\s*[:=])", re.IGNORECASE
 )
 CATEGORIES = ("connection", "payment", "account", "other")
 STATUSES = ("open", "answered", "closed")
@@ -72,7 +72,7 @@ def _owner(request: Request) -> str:
             raise HTTPException(401, "SUPPORT_LOGIN_REQUIRED")
         principal = "email:" + email
     return hmac.new(
-        secret.encode(), ("support-ticket-v1\\n" + principal).encode(),
+        secret.encode(), ("support-ticket-v1\n" + principal).encode(),
         hashlib.sha256,
     ).hexdigest()
 
