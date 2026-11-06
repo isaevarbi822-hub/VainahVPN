@@ -41,6 +41,39 @@
     const checks=['database','h1','rollypay','webhook'];
     const button=$('[data-status-refresh]',pageStatus);
     const updated=$('[data-status-updated]',pageStatus);
+    async function refreshConfig(){
+      const providers=[
+        ['email','/api/email-auth/config'],
+        ['google','/api/google/config'],
+        ['telegram','/api/telegram-oidc/config'],
+        ['telegram-classic','/api/telegram/config'],
+        ['support','/api/support/config'],
+      ];
+      await Promise.all(providers.map(async ([id,url])=>{
+        const element=$('[data-config-card="'+id+'"]',pageStatus);
+        if(!element)return;
+        const badge=$('[data-status-label]',element);
+        const detail=$('[data-status-detail]',element);
+        try{
+          const result=await fetch(url,{
+            method:'GET',cache:'no-store',credentials:'omit',
+            headers:{Accept:'application/json'}
+          });
+          if(!result.ok)throw Error('API unavailable');
+          const config=await result.json();
+          if(config.available===true){
+            badge.textContent='Настроено';badge.dataset.kind='unknown';
+            detail.textContent='Ключи/настройки обнаружены. Это не проверка реального входа.';
+          }else{
+            badge.textContent='Не настроено';badge.dataset.kind='unknown';
+            detail.textContent='Сервис не настроен. Используй другой доступный способ.';
+          }
+        }catch{
+          badge.textContent='Нет данных';badge.dataset.kind='unknown';
+          detail.textContent='Не удалось проверить конфигурацию. Это не доказательство сбоя.';
+        }
+      }));
+    }
     async function refresh(){
       button.disabled=true;
       button.textContent='Проверяем сервисы…';
@@ -90,6 +123,7 @@
         updated.textContent='Не удалось получить данные с Python-сервера: '+err.message;
       }finally{
         button.disabled=false;button.textContent='↻ Обновить статусы';
+        void refreshConfig();
       }
     }
     button.addEventListener('click',refresh);
