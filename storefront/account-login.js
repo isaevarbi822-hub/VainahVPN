@@ -16,6 +16,8 @@
   const emailMsg=$('[data-auth-message="email"]');
   let requestedEmail='';
   let ready=false;
+  let telegramLoading=false;
+  let telegramMounted=false;
   const errorMessages={
     EMAIL_LOGIN_COOLDOWN:'Повторный запрос возможен позже. Проверь почту.',
     EMAIL_LOGIN_LIMIT:'Слишком много запросов. Попробуй позже.',
@@ -33,6 +35,8 @@
       tab.tabIndex=chosen?0:-1;
     }
     for(const pane of panes)pane.hidden=pane.dataset.authPane!==method;
+    // The official third-party widget must be mounted only when its tab is visible.
+    if(method==='telegram')void initTelegram();
   }
   for(let i=0;i<tabs.length;i++){
     tabs[i].addEventListener('click',()=>select(tabs[i].dataset.authTab));
@@ -91,22 +95,48 @@
     }finally{button.disabled=false;}
   });
   async function initTelegram(){
+    if(telegramMounted||telegramLoading)return;
+    telegramLoading=true;
+    if(retry){
+      retry.disabled=true;
+      retry.textContent='Проверяем Telegram…';
+    }
+    if(tgStatus)tgStatus.textContent='Проверяем доступность входа через Telegram…';
     try{
-      const response=await fetch('/api/telegram/config',{cache:'no-store'});
-      if(!response.ok)throw Error('Telegram API недоступен');
+      const response=await fetch('/api/telegram/config',{
+        cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}
+      });
+      if(!response.ok)throw Error('Telegram API недоступен (HTTP '+response.status+').');
       const cfg=await response.json();
       if(!cfg.available){
-        if(tgStatus)tgStatus.textContent=cfg.message||'Telegram Login не настроен.';
-        if(retry)retry.disabled=true;
+        if(tgStatus)tgStatus.textContent='Вход через Telegram пока не настроен на сервере. '+
+          'Используй вкладку «Почта» или повтори проверку позже.';
         return;
       }
-      if(!window.VainahTelegramWidget)throw Error('Виджет Telegram не загрузился');
+      if(!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(cfg.bot_username||'')){
+        throw Error('Неверное имя бота в настройках сервера.');
+      }
+      if(!window.VainahTelegramWidget)throw Error('Не загрузился модуль кнопки Telegram.');
       window.VainahTelegramWidget.mount({
         container:$('#account-widget'),status:tgStatus,retry,
         callback:'onVainahAccountAuth(user)',botUsername:cfg.bot_username
       });
-    }catch(error){if(tgStatus)tgStatus.textContent=error.message;}
+      telegramMounted=true;
+    }catch(error){
+      if(tgStatus)tgStatus.textContent=(error.message||'Неизвестная ошибка')+
+        ' Проверь сеть и нажми «Повторить», либо войди через почту.';
+    }finally{
+      telegramLoading=false;
+      if(!telegramMounted&&retry){
+        retry.disabled=false;
+        retry.textContent='↻ Проверить Telegram ещё раз';
+      }
+    }
   }
+  if(retry)retry.addEventListener('click',()=>{
+    // When configured, the widget owns retry. Otherwise re-check server settings.
+    if(!telegramMounted)void initTelegram();
+  });
   async function initEmail(){
     try{
       const response=await fetch('/api/email-auth/config',{cache:'no-store'});
@@ -133,5 +163,4 @@
   }
   if(tabs.length)select('email');
   void initEmail();
-  void initTelegram();
 })();
