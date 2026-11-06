@@ -137,20 +137,30 @@ def _overview(email: str) -> dict:
             cur.execute("""
                 SELECT COUNT(*)
                 FROM vainah_live_orders
-                WHERE owner_ref=%s AND payment_state='paid'
-                  AND delivery_state='delivered' AND is_pilot=FALSE
+                WHERE payment_state='paid' AND is_pilot=FALSE
                   AND is_discount_pilot=FALSE
-            """, (live_ref,))
+                  AND (
+                    (owner_ref=%s AND is_gift=FALSE
+                      AND delivery_state='delivered')
+                    OR (gift_buyer_ref=%s AND is_gift=TRUE
+                      AND webhook_at IS NOT NULL)
+                  )
+            """, (live_ref, live_ref))
             purchases = int(cur.fetchone()[0])
             cur.execute("""
                 SELECT COUNT(*), COUNT(*) FILTER (
                     WHERE EXISTS (
                         SELECT 1 FROM vainah_live_orders o
-                        WHERE o.owner_ref=i.invitee_live_ref
-                          AND o.payment_state='paid'
-                          AND o.delivery_state='delivered'
+                        WHERE o.payment_state='paid'
                           AND o.is_pilot=FALSE
                           AND o.is_discount_pilot=FALSE
+                          AND (
+                            (o.owner_ref=i.invitee_live_ref AND o.is_gift=FALSE
+                              AND o.delivery_state='delivered')
+                            OR (o.gift_buyer_ref=i.invitee_live_ref
+                              AND o.is_gift=TRUE
+                              AND o.webhook_at IS NOT NULL)
+                          )
                     )
                 )
                 FROM vainah_growth_invites i
