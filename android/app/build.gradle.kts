@@ -13,6 +13,7 @@ if (clerkEnabled) {
     apply(plugin = "org.jetbrains.kotlin.plugin.compose")
 }
 val isolatedPreview = providers.gradleProperty("vainahIsolatedPreview").orNull == "true"
+val nativeLibboxEnabled = providers.gradleProperty("vainahEnableLibbox").orNull == "true"
 val standaloneCheckout = providers.gradleProperty("vainahStandaloneCheckout")
     .orNull == "true"
 
@@ -30,6 +31,7 @@ android {
         buildConfigField("boolean", "VAINAH_CLERK_ENABLED", if (clerkEnabled) "true" else "false")
         buildConfigField("String", "VAINAH_CLERK_PUBLISHABLE_KEY",
             "\""+clerkPublishableKey.replace("\\","").replace("\"","")+"\"")
+        buildConfigField("boolean", "VAINAH_LIBBOX_ENABLED", if (nativeLibboxEnabled) "true" else "false")
         buildConfigField("boolean", "VAINAH_DIRECT_CHECKOUT_ENABLED",
             "false")
     }
@@ -59,7 +61,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    if (providers.gradleProperty("vainahEnableLibbox").orNull == "true") {
+    if (nativeLibboxEnabled) {
         sourceSets.getByName("main").java.srcDir("src/libbox/java")
     }
     if (clerkEnabled) {
@@ -89,7 +91,7 @@ dependencies {
     // Experimental binary dependency. NOT enabled in public APK previews.
     // Review binary provenance/license and Android VpnService PlatformInterface
     // before enabling runtime connections.
-    if (providers.gradleProperty("vainahEnableLibbox").orNull == "true") {
+    if (nativeLibboxEnabled) {
         implementation("com.github.singbox-android:libbox:1.14.0")
     }
     testImplementation("junit:junit:4.13.2")
