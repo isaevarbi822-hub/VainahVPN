@@ -77,7 +77,7 @@
         });
         notices.append(toggle);
       }
-      card.append(notices);
+      // Keep notification preference as the final ticket control.
       const threadButton=label('button','vs-notification-button','Показать переписку');
       threadButton.type='button';
       const timeline=label('div','vs-ticket-history','');
@@ -146,6 +146,7 @@
         });
         card.append(followup);
       }
+      card.append(notices);
       list.append(card);
     }
   }
