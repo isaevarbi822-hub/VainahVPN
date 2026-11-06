@@ -78,6 +78,13 @@ async def security_headers(request: Request, call_next):
             "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
         )
         response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+    elif request.url.path == "/api/account/qr":
+        # The generated SVG contains a subscriber secret; never allow active
+        # SVG content or search indexing, even if the client opens it directly.
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; script-src 'none'; object-src 'none'; sandbox"
+        )
+        response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
     elif request.url.path == "/" or request.url.path.endswith(".html"):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self' 'unsafe-inline' "
