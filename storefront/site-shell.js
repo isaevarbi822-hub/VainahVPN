@@ -24,7 +24,8 @@
     ['security.html','Безопасность','Защита личной конфигурации','приватность'],
     ['privacy.html','Конфиденциальность','Как сайт обращается с данными','данные'],
     ['terms.html','Условия сервиса','Правила использования Vainah VPN','условия'],
-    ['speed.html','Скорость','Что влияет на производительность VPN','задержка медленно'],
+    ['speed.html','Тест скорости','Ping, jitter, загрузка и отдача данных','скорость speedtest интернет mbps download upload'],
+    ['tools.html','Все инструменты','Каталог функций, диагностики и настроек Vainah VPN','инструменты функции разделы все страницы'],
     ['features.html','Возможности','Что доступно на сайте Vainah VPN','функции'],
     ['about.html','О проекте','Как устроен Vainah VPN','команда'],
     ['glossary.html','Словарь VPN','Простые объяснения терминов','термины'],
@@ -56,13 +57,37 @@
     ['hub.html','Центр управления'],
     ['trial.html','Пробный период · 0 ₽'],
     ['diagnostics.html','Диагностика'],
-    ['library.html','Библиотека знаний']
+    ['library.html','Библиотека знаний'],
+    ['speed.html','Проверка скорости'],
+    ['tools.html','Все инструменты']
   ];
   for(const nav of document.querySelectorAll('body > header .mobile-nav,body > header .drawer,body > .site-header .drawer')){
     for(const [href,label] of extra){
       if(nav.querySelector('a[href="'+href+'"]'))continue;
       const a=el('a','',label);a.href=href;nav.append(a);
     }
+  }
+  // A compact always-visible navigation rail exposes important pages even
+  // when legacy desktop navigation is hidden at tablet/mobile widths.
+  if(header && !document.querySelector('.vx-utility-rail')){
+    const rail=el('nav','vx-utility-rail');
+    rail.setAttribute('aria-label','Основные разделы Vainah VPN');
+    const links=[
+      ['index.html','⌂ Главная'],
+      ['trial.html','✦ Бесплатно'],
+      ['plans.html','▤ Тарифы'],
+      ['account.html','▣ Мой VPN'],
+      ['speed.html','↯ Тест скорости'],
+      ['tools.html','⊞ Все функции'],
+      ['contact.html','? Поддержка']
+    ];
+    for(const [href,label] of links){
+      const a=el('a','vx-utility-link',label);
+      a.href=href;
+      if(path===href)a.setAttribute('aria-current','page');
+      rail.append(a);
+    }
+    header.after(rail);
   }
   // Highlight the real trial flow on all public storefront pages.
   // The eligibility, issuance and H1Cloud quotas remain exclusively server-side.
@@ -179,6 +204,7 @@
     const options=[
       ['hub.html','◉','Центр управления','Главная панель'],
       ['compare.html','≋','Сравнение тарифов','Все цены и сроки'],
+      ['speed.html','↯','Тест скорости','Ping и скорость интернета'],
       ['diagnostics.html','↯','Диагностика','Проверки связи'],
       ['account.html','▦','Мой VPN','Личный кабинет']
     ];
@@ -193,7 +219,7 @@
     const search=el('button','','⌕ Поиск по сайту · Ctrl+K');search.type='button';
     search.dataset.vxOpenSearch='';
     quick.append(search);
-    for(const [href,name] of [['library.html','Библиотека знаний'],['device-center.html','Мастер подключения'],['contact.html','Поддержка']]){
+    for(const [href,name] of [['tools.html','Все инструменты'],['library.html','Библиотека знаний'],['device-center.html','Мастер подключения'],['contact.html','Поддержка']]){
       const a=el('a','',name);a.href=href;quick.append(a);
     }
     inner.append(kicker,head,grid,quick);section.append(inner);
