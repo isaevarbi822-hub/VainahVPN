@@ -1,5 +1,6 @@
 """Reminder preferences are opt-in, account scoped, and not a sending endpoint."""
 from fastapi.testclient import TestClient
+
 from vainah import email_auth, reminder_preferences
 from vainah.main import app
 
