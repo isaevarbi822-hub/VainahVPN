@@ -24,6 +24,7 @@
       script.setAttribute('data-onauth',callback);
       script.onerror=()=>{
         if(current!==sequence)return;
+        if(timer)clearTimeout(timer);
         retry.disabled=false;retry.textContent='↻ Повторить';
         status.textContent='Telegram не загрузился: проверь блокировщики и сеть.';
       };
