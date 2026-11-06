@@ -183,6 +183,19 @@
     }
   }
 
+  function validExpiry(value){
+    if(typeof value!=='string'||!value.trim())return null;
+    const date=new Date(value);
+    return Number.isFinite(date.getTime())&&date.getTime()>Date.now()?date:null;
+  }
+  function updatePrivateActions(){
+    const ready=!!user&&currentData?.subscription?.status==='delivered'&&
+      currentData?.subscription?.paid===true;
+    const calendar=$('account-calendar');
+    if(calendar)calendar.disabled=!ready||!validExpiry(currentData?.subscription?.expires_at);
+    const summary=$('account-support-summary');
+    if(summary)summary.disabled=!user||!currentData;
+  }
   function updateExpiryNote(value){
     const date=typeof value==='string'?new Date(value):null;
     if(!date||!Number.isFinite(date.getTime())){
@@ -208,6 +221,7 @@
     if(get)get.disabled=true;
     updateTraffic(null);
     updateExpiryNote(null);
+    updatePrivateActions();
     write('metric-plan','Нет подтверждённых покупок');
     write('metric-expiry','—');
     write('metric-devices','—');
@@ -227,6 +241,8 @@
     const sort=$('account-order-sort');if(sort)sort.value='newest';
     write('account-history-match','Нет подтверждённых покупок');
     const exportButton=$('account-order-export');if(exportButton)exportButton.disabled=true;
+    hide('account-support-manual',true);
+    write('account-calendar-status','Напоминание появится, когда H1Cloud подтвердит дату окончания подписки. Календарь не создаётся автоматически.');
     clearSubscription();
     hide('account-test-vpn',true);
     const testList=$('account-test-vpn-list');
@@ -328,6 +344,7 @@
         write('account-access-status','Доступ доступен. Личную ссылку можно открыть или скопировать.');
         const get=$('account-get-vpn');if(get)get.disabled=false;
       }
+      updatePrivateActions();
     }catch(error){
       if(sessionEpoch!==session||refreshEpoch!==revision)return;
       write('account-h1-state','Не удалось загрузить кабинет: '+error.message);
@@ -440,6 +457,71 @@
       });
     }catch{
       if(sessionEpoch===session)write('account-auth-status','Не удалось завершить выход. Повтори попытку.');
+    }
+  });
+  function downloadCalendar(){
+    const date=validExpiry(currentData?.subscription?.expires_at);
+    if(!user||!date||currentData?.subscription?.paid!==true||
+       currentData?.subscription?.status!=='delivered')return;
+    const reminder=new Date(date.getTime()-86400000);
+    const icsDate=d=>d.toISOString().replace(/[-:]/g,'').replace(/\\.\\d{3}Z$/,'Z');
+    const content=[
+      'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Vainah VPN//Subscription Reminder//RU',
+      'CALSCALE:GREGORIAN','METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      'UID:vainah-renewal-'+icsDate(date)+'@reminder.invalid',
+      'DTSTAMP:'+icsDate(new Date()),
+      'DTSTART:'+icsDate(reminder),
+      'DTEND:'+icsDate(new Date(reminder.getTime()+900000)),
+      'SUMMARY:Проверить продление Vainah VPN',
+      'DESCRIPTION:Проверь состояние подписки в личном кабинете Vainah VPN. Ссылка и платёжные данные не включены.',
+      'END:VEVENT','END:VCALENDAR',''
+    ].join('\\r\\n');
+    try{
+      const url=URL.createObjectURL(new Blob([content],{type:'text/calendar;charset=utf-8'}));
+      const link=document.createElement('a');
+      link.href=url;link.download='vainah-vpn-reminder.ics';
+      link.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      write('account-calendar-status','Календарный файл создан. Открой его и сохрани событие, чтобы получить напоминание.');
+    }catch{
+      write('account-calendar-status','Не удалось скачать календарный файл. Проверь разрешения браузера.');
+    }
+  }
+  function safeSupportReport(){
+    if(!user||!currentData)return;
+    const sub=currentData.subscription;
+    const orders=Array.isArray(currentData.orders)?currentData.orders:[];
+    const status=typeof currentData.h1cloud?.status==='string'&&
+      ['active','inactive','not_found','not_configured','unavailable'].includes(currentData.h1cloud.status)
+      ?currentData.h1cloud.status:'unknown';
+    const text=[
+      'VAINAH VPN — сведения для поддержки',
+      'Вход выполнен: да',
+      'Подтверждённая подписка: '+(sub?.paid===true&&sub?.status==='delivered'?'да':'не подтверждена'),
+      'Состояние H1Cloud: '+status,
+      'Заказов в истории: '+orders.length,
+      'Дата окончания: '+(sub?.paid===true&&sub?.status==='delivered'?formatDate(sub.expires_at):'не подтверждена'),
+      'VPN-ключи, email, ID заказа и платёжные реквизиты исключены.'
+    ].join('\\n');
+    return text;
+  }
+  const calendarButton=$('account-calendar');
+  if(calendarButton)calendarButton.addEventListener('click',downloadCalendar);
+  const supportButton=$('account-support-summary');
+  if(supportButton)supportButton.addEventListener('click',async()=>{
+    const report=safeSupportReport();if(!report)return;
+    const session=sessionEpoch,revision=refreshEpoch;
+    try{
+      if(!navigator.clipboard?.writeText)throw Error('CLIPBOARD_UNAVAILABLE');
+      await navigator.clipboard.writeText(report);
+      if(session===sessionEpoch&&revision===refreshEpoch)
+        write('account-calendar-status','Безопасный статус скопирован для обращения в поддержку.');
+    }catch{
+      if(session!==sessionEpoch||revision!==refreshEpoch)return;
+      const manual=$('account-support-manual');
+      if(manual){manual.hidden=false;manual.value=report;manual.focus();manual.select();}
+      write('account-calendar-status','Браузер запретил копирование. Выделенный текст можно скопировать вручную.');
     }
   });
   const refreshButton=$('account-refresh');
