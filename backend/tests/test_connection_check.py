@@ -1,8 +1,6 @@
 """Vainah Check must not invent VPN health, leak secrets, or expose customer data."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 from fastapi.testclient import TestClient
 
 from vainah import connection_check
