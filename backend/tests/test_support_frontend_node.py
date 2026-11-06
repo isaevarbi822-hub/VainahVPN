@@ -66,7 +66,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
       $('vs-counter').textContent.includes('/ 1500'));
     await $('vs-form').events.submit({preventDefault(){}});
     assert.equal($('vs-message').value,'');
-    const posted=calls.find(c=>c.options.method==='POST');
+    const posted=calls.find(c=>c.options.method==='POST'&&c.path==='/api/support/tickets');
     assert.ok(posted);
     assert.equal(posted.path,'/api/support/tickets');
     assert.equal(posted.options.credentials,'same-origin');
