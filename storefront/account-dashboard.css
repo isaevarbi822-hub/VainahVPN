@@ -187,3 +187,15 @@
 .account-qr-panel img{display:block;margin:14px auto;background:white;
  max-width:100%;height:auto;padding:12px;border-radius:10px}
 .account-qr-panel p{margin:7px 0}
+
+/* Subscription advisories are based only on actual H1Cloud and paid-order data. */
+.account-advisories{margin-top:22px}
+#account-alert-list{display:grid;gap:11px;margin-top:18px}
+.account-alert{border:1px solid #596981;background:#171f33;
+ padding:15px 17px;border-radius:15px;color:#e8edfa}
+.account-alert strong{display:block;font-size:14px;line-height:1.45}
+.account-alert p{font-size:12px;color:#becbdf;line-height:1.6;margin:8px 0}
+.account-alert a{color:#d5c4ff;font-size:12px;text-decoration:underline}
+.account-alert-warning{border-color:#8d6a7f;background:#322334}
+.account-alert-info{border-color:#7063a4;background:#211f3d}
+.account-alert-ok{border-color:#407a67;background:#17332e}
