@@ -47,7 +47,7 @@ def test_verified_checkout_only_delegates_to_real_payments(monkeypatch):
     async def fake_checkout(**kwargs):
         observed.append(kwargs)
         return {"order_id": "vainah_live_" + "a" * 32,
-                "pay_url": "https://rollypay.io/pay/examplegift",
+                "pay_url": "https://pay.rollypay.io/pay/examplegift",
                 "status": "created"}
     monkeypatch.setattr(gift_cards, "start_live_checkout", fake_checkout)
     with customer() as guest:
