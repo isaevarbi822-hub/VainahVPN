@@ -124,6 +124,16 @@ async def security_headers(request: Request, call_next):
             "default-src 'none'; script-src 'none'; object-src 'none'; sandbox"
         )
         response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+    elif request.url.path == "/account.html":
+        # Both permanent and one-use private QR images are rendered as
+        # object URLs. Only this page needs img-src blob: (no blob scripts).
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self' 'unsafe-inline' "
+            "https://telegram.org https://oauth.telegram.org; "
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; "
+            "connect-src 'self'; frame-src https://oauth.telegram.org; "
+            "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+        )
     elif request.url.path == "/" or request.url.path.endswith(".html"):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self' 'unsafe-inline' "
