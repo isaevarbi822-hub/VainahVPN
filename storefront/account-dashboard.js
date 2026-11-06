@@ -468,7 +468,7 @@
       if(session===sessionEpoch&&revision===refreshEpoch)getQR.disabled=false;
     }
   });
-  window.addEventListener('pagehide',clearQR);
+  if(window.addEventListener)window.addEventListener('pagehide',clearQR);
   const get=$('account-get-vpn');
   if(get)get.addEventListener('click',async()=>{
     if(!user||!currentData?.subscription?.order_id)return;
