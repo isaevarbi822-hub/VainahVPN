@@ -1,5 +1,6 @@
 """Support followups stay owner-bound, private and secret-free."""
 from fastapi.testclient import TestClient
+
 from vainah import email_auth, support_thread
 from vainah.main import app
 
