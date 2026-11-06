@@ -178,3 +178,20 @@ def test_support_frontend_does_not_store_secrets_or_use_html_injection():
         assert "noindex" in admin.headers["x-robots-tag"]
         assert "no-store" in admin.headers["cache-control"]
         assert "unsafe-inline" not in admin.headers["content-security-policy"]
+
+
+def test_operator_queue_tools_are_safe_and_present():
+    """Operator filters only the already-authorized ticket list in memory."""
+    page = (SITE / "support-operator.html").read_text(encoding="utf-8")
+    script = (SITE / "support-operator.js").read_text(encoding="utf-8")
+    for element in ("operator-search", "operator-filter", "operator-refresh", "operator-summary"):
+        assert f'id="{element}"' in page
+        assert f"$('{element}')" in script
+    assert "ticketsCache=[]" in script
+    assert "notification_state==='pending'" in script
+    assert "toLocaleLowerCase('ru')" in script
+    assert "textContent" in script
+    assert "innerHTML" not in script
+    assert "localStorage" not in script
+    assert "sessionStorage" not in script
+    assert "X-Vainah-Support-Key" in script
