@@ -117,7 +117,7 @@
       progress.hidden=!canCalculate;
       const percent=canCalculate?Math.min(100,Math.round(used/limit*100)):0;
       progress.setAttribute?.('aria-valuenow',String(percent));
-      if(fill)fill.style.width=percent+'%';
+      if(fill?.style)fill.style.width=percent+'%';
     }
   }
 
