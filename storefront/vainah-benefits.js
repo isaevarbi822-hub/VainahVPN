@@ -147,7 +147,7 @@
       }catch{message('Черновик не сохранился. Доступно максимум 5 черновиков в сутки.',true);}
       finally{save.disabled=false;}
     });
-    panel.append(form,el('p','Покупка подарков и выдача активируемых кодов ещё не подключены.','warning'));
+    panel.append(form,el('p','Черновики не оплачиваются и не превращаются в коды. Настоящие подарочные карты, если продажа доступна, находятся в отдельном блоке ниже.','note'));
     const drafts=Array.isArray(data.drafts)?data.drafts:[];
     panel.append(el('h2','История черновиков'));
     if(!drafts.length)panel.append(el('p','Черновиков пока нет.','muted'));
