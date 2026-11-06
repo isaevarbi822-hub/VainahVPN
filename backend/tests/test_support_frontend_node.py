@@ -121,6 +121,9 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   await form.events.submit({preventDefault(){}});
   assert.equal(calls[1].options.method,'POST');
   assert.equal(calls[1].options.credentials,'omit');
+  assert.equal(calls[1].options.headers['X-Vainah-Support-Key'],secret,
+    'Operator key MUST be included on reply POST; Content-Type cannot replace it');
+  assert.equal(calls[1].options.headers['Content-Type'],'application/json');
   assert.equal(JSON.parse(calls[1].options.body).status,'answered');
   $('operator-lock').events.click();
   assert.equal($('operator-key').value,'');
