@@ -20,6 +20,7 @@
   let ready=false;
   let telegramLoading=false;
   let telegramMounted=false;
+  let telegramOidcReady=false;
   const errorMessages={
     EMAIL_LOGIN_COOLDOWN:'Повторный запрос возможен позже. Проверь почту.',
     EMAIL_LOGIN_LIMIT:'Слишком много запросов. Попробуй позже.',
@@ -97,43 +98,68 @@
     }finally{button.disabled=false;}
   });
   async function initTelegram(){
-    if(telegramMounted||telegramLoading)return;
+    if(telegramOidcReady||telegramMounted||telegramLoading)return;
     telegramLoading=true;
     if(retry){
       retry.disabled=true;
       retry.textContent='Проверяем Telegram…';
     }
-    if(tgStatus)tgStatus.textContent='Проверяем доступность входа через Telegram…';
+    if(tgStatus)tgStatus.textContent='Проверяем новые и резервные способы входа Telegram…';
     try{
+      let oidc=null;
+      try{
+        const modern=await fetch('/api/telegram-oidc/config',{
+          cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}
+        });
+        if(modern.ok)oidc=await modern.json();
+      }catch{
+        // An unavailable modern endpoint must not break configured legacy users.
+      }
+      if(oidc?.available===true){
+        const link=$('#account-telegram-oidc-start');
+        if(link)link.hidden=false;
+        const legacy=$('#account-telegram-legacy');
+        if(legacy)legacy.hidden=true;
+        telegramOidcReady=true;
+        if(tgStatus)tqMessage('Новый вход через Telegram доступен. Нажми «Продолжить с Telegram».');
+        if(retry)retry.hidden=true;
+        return;
+      }
       const response=await fetch('/api/telegram/config',{
         cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}
       });
       if(!response.ok)throw Error('Telegram API недоступен (HTTP '+response.status+').');
       const cfg=await response.json();
       if(!cfg.available){
-        if(tgStatus)tgStatus.textContent='Вход через Telegram пока не настроен на сервере. '+
-          'Используй вкладку «Почта» или повтори проверку позже.';
+        if(tgStatus)tqMessage('Telegram-вход пока не настроен. Для нового входа нужны '+
+          'TELEGRAM_OIDC_CLIENT_ID и TELEGRAM_OIDC_CLIENT_SECRET из BotFather в Render, '+
+          'а также разрешённый адрес сайта. Пока можно войти через почту.');
         return;
       }
       if(!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(cfg.bot_username||'')){
         throw Error('Неверное имя бота в настройках сервера.');
       }
-      if(!window.VainahTelegramWidget)throw Error('Не загрузился модуль кнопки Telegram.');
+      if(!window.VainahTelegramWidget)throw Error('Не загрузился модуль старой кнопки Telegram.');
+      const legacy=$('#account-telegram-legacy');
+      if(legacy)legacy.hidden=false;
       window.VainahTelegramWidget.mount({
         container:$('#account-widget'),status:tgStatus,retry,
         callback:'onVainahAccountAuth(user)',botUsername:cfg.bot_username
       });
       telegramMounted=true;
     }catch(error){
-      if(tgStatus)tgStatus.textContent=(error.message||'Неизвестная ошибка')+
-        ' Проверь сеть и нажми «Повторить», либо войди через почту.';
+      if(tgStatus)tqMessage((error.message||'Неизвестная ошибка')+
+        ' Проверь сеть и нажми «Повторить», либо войди через почту.');
     }finally{
       telegramLoading=false;
-      if(!telegramMounted&&retry){
+      if(!telegramMounted&&!telegramOidcReady&&retry){
         retry.disabled=false;
         retry.textContent='↻ Проверить Telegram ещё раз';
       }
     }
+  }
+  function tqMessage(message){
+    if(tgStatus)tgStatus.textContent=message;
   }
   if(retry)retry.addEventListener('click',()=>{
     // When configured, the widget owns retry. Otherwise re-check server settings.
