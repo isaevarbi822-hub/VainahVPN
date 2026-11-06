@@ -283,7 +283,15 @@ async def discount_pilot_readiness(*, request: Request) -> dict:
 async def start_live_checkout(
     *, request: Request, plan_id: str, idempotency_key: str | None,
     pilot: bool = False, discounted_pilot: bool = False,
+    gift: bool = False,
 ) -> dict:
+    if gift and (pilot or discounted_pilot):
+        raise HTTPException(422, "GIFT_PILOT_FORBIDDEN")
+    if gift and (
+        not live_ready()
+        or os.environ.get("VAINAH_GIFT_CARDS_ENABLED") != "enabled"
+    ):
+        raise HTTPException(503, "GIFT_CHECKOUT_NOT_VERIFIED")
     if discounted_pilot:
         if not discount_pilot_enabled():
             raise HTTPException(503, "DISCOUNT_PILOT_DISABLED")
@@ -325,6 +333,8 @@ async def start_live_checkout(
             reservation["pilot"] = True
         if discounted_pilot:
             reservation["discounted_pilot"] = True
+        if gift:
+            reservation["gift"] = True
         order_id, earlier_url = ledger.reserve_checkout(**reservation)
         if earlier_url:
             return {
@@ -442,6 +452,18 @@ async def handle_live_paid_webhook(
         raise HTTPException(503, "LIVE_LEDGER_UNAVAILABLE") from None
     except (ValueError, UnicodeDecodeError, RecursionError):
         raise HTTPException(400, "LIVE_WEBHOOK_JSON_INVALID") from None
+
+    try:
+        if ledger.is_gift_order(order_id):
+            # Gift purchases are prepaid only. The paid buyer receives
+            # a transferable code, never an automatic H1 subscription.
+            # Recipient must redeem exactly once to initiate fulfillment.
+            return {
+                "ok": True, "status": "paid",
+                "gift_card_funded": True, "vpn_delivered": False,
+            }
+    except LiveLedgerError:
+        raise HTTPException(503, "LIVE_LEDGER_UNAVAILABLE") from None
 
     try:
         result = await fulfill_paid_order_once(
