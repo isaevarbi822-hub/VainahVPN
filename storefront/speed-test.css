@@ -44,3 +44,17 @@
 @media(max-width:480px){.vx-speed-history{padding:13px}
  .vx-speed-history-head{align-items:stretch;flex-direction:column}
  .vx-speed-history-head button{width:100%}}
+
+
+/* Explicit bandwidth budget controls: visible, accessible, never hidden on mobile. */
+.vx-speed-options{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;
+ border:1px solid #495a78;border-radius:16px;padding:14px 18px;margin:22px 0 4px}
+.vx-speed-options legend{font-size:13px;color:#d6e7f6;font-weight:800;padding:0 7px}
+.vx-speed-options label{display:inline-flex;align-items:center;gap:9px;min-height:42px;
+ border:1px solid #4d5676;padding:9px 13px;border-radius:11px;background:#19243a;
+ font-size:12px;font-weight:700;cursor:pointer}
+.vx-speed-options input{width:17px;height:17px;accent-color:#bda4ff;flex:none}
+.vx-speed-options p{flex-basis:100%;margin:2px 0 0;color:#9fb1cd;font-size:12px;line-height:1.55}
+.vx-speed-options:disabled{opacity:.58}
+@media(max-width:600px){.vx-speed-options{padding:13px;gap:8px}
+.vx-speed-options label{width:100%;min-width:0}}
