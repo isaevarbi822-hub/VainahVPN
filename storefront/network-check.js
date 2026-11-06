@@ -16,6 +16,9 @@
     ['shop', 'Состояние оформления заказов']
   ];
   let controller = null;
+  const copy = byId('network-copy');
+  const reportBox = byId('network-report');
+  let lastReport = '';
   const show = (key, value, detail, state='neutral') => {
     const node=byId('network-'+key);
     if (!node) return;
@@ -42,8 +45,23 @@
     if (data.ok !== true) throw Error('Неверный ответ API');
     return Math.round(performance.now()-a);
   }
+  function prepareReport(){
+    // Only fixed check labels and UI states, never tokens, email, IP or payloads.
+    const lines=items.map(([key,label])=>{
+      const node=byId('network-'+key);
+      const state=node?.querySelector('[data-result]')?.textContent||'Не проверено';
+      return label+': '+(state==='Проверяем…'?'Не завершено':state);
+    });
+    lastReport=['VAINAH VPN · Проверка соединения', ...lines,
+      'Источник: диагностика браузера, не проверка VPN-туннеля.'].join('\\n');
+    if(copy)copy.disabled=false;
+  }
   async function execute(){
+    if(controller)return;
     controller=new AbortController();
+    lastReport='';
+    if(copy)copy.disabled=true;
+    if(reportBox)reportBox.hidden=true;
     run.disabled=true;stop.disabled=false;
     for(const [key] of items)show(key,'Проверяем…','', 'neutral');
     const timer=setTimeout(()=>controller?.abort(),17000);
@@ -91,10 +109,28 @@
           show(key,'Не проверено','Сначала необходимо соединение с API.', 'neutral');
       }
     } finally {
-      clearTimeout(timer); controller=null;run.disabled=false;stop.disabled=true;
+      clearTimeout(timer);
+      prepareReport();
+      controller=null;run.disabled=false;stop.disabled=true;
     }
   }
   run.addEventListener('click',execute);
   stop.addEventListener('click',()=>controller?.abort());
+  if(copy)copy.addEventListener('click',async()=>{
+    if(!lastReport)return;
+    try{
+      if(!navigator.clipboard?.writeText)throw Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(lastReport);
+      status.textContent='Отчёт скопирован. Он не содержит VPN-ключей, адреса email и платёжных данных.';
+    }catch{
+      if(reportBox){
+        reportBox.hidden=false;
+        reportBox.value=lastReport;
+        reportBox.focus();
+        reportBox.select();
+        status.textContent='Браузер запретил копирование. Выделенный отчёт можно скопировать вручную.';
+      }else status.textContent='Не удалось скопировать отчёт.';
+    }
+  });
   window.addEventListener('pagehide',()=>controller?.abort(),{once:true});
 })();
