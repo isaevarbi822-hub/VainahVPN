@@ -90,6 +90,49 @@
       mainForTrial.prepend(banner);
     }
   }
+  // Product entry points: visible even when an API endpoint is temporarily slow.
+  // All links are ordinary first-party page navigations; no payment requests here.
+  if(path === 'index.html'){
+    const home=document.querySelector('main');
+    if(home&&!home.querySelector('.vx-journeys')){
+      const journeys=el('section','vx-journeys');
+      journeys.setAttribute('aria-label','Начни работу с Vainah VPN');
+      const heading=el('div','vx-journeys-heading');
+      const intro=el('div');
+      intro.append(el('span','vx-journeys-eyebrow','БЫСТРЫЙ СТАРТ'),
+        el('h2','','Всё нужное — за один шаг'),
+        el('p','','Выбери, что хочешь сделать. Без лишних экранов и запутанных переходов.'));
+      heading.append(intro);
+      const cards=el('div','vx-journeys-grid');
+      const options=[
+        ['trial.html','01','Попробовать бесплатно','24 часа · 2 устройства · 10 ГБ','Бесплатный доступ','trial'],
+        ['plans.html','02','Выбрать подписку','Шесть сроков и семейный тариф','Смотреть тарифы','plans'],
+        ['account.html','03','Открыть мой VPN','Подписка, ключ и история заказов','Личный кабинет','account'],
+        ['device-center.html','04','Настроить устройство','Инструкция для телефона или компьютера','Подключение','devices']
+      ];
+      for(const [href,num,name,detail,action,kind] of options){
+        const a=el('a','vx-journey vx-journey-'+kind);
+        a.href=href;
+        const number=el('span','vx-journey-number',num);
+        const body=el('span','vx-journey-body');
+        body.append(el('strong','',name),el('small','',detail),el('span','vx-journey-action',action+' →'));
+        a.append(number,body);cards.append(a);
+      }
+      journeys.append(heading,cards);
+      const notice=home.querySelector('.vx-trial-banner');
+      if(notice)notice.after(journeys);
+      else home.prepend(journeys);
+    }
+  }
+  // Mark the selected page in navigations without changing destination URLs.
+  for(const nav of document.querySelectorAll('body > header nav,body > .site-header nav')){
+    for(const a of nav.querySelectorAll('a[href]')){
+      const target=a.getAttribute('href')?.split('#')[0]?.split('?')[0];
+      if(target===path)a.setAttribute('aria-current','page');
+      else if(a.getAttribute('aria-current')==='page')a.removeAttribute('aria-current');
+    }
+  }
+
   if(header){
     const toggle=header.querySelector('[data-menu-button]');
     const mobile=header.querySelector('[data-mobile-nav]');
