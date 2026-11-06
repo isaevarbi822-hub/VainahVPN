@@ -140,6 +140,7 @@ def _overview(email: str) -> dict:
                 FROM vainah_live_orders
                 WHERE owner_ref=%s AND payment_state='paid'
                   AND delivery_state='delivered' AND is_pilot=FALSE
+                  AND is_discount_pilot=FALSE
             """, (live_ref,))
             purchases = int(cur.fetchone()[0])
             cur.execute("""
@@ -150,6 +151,7 @@ def _overview(email: str) -> dict:
                           AND o.payment_state='paid'
                           AND o.delivery_state='delivered'
                           AND o.is_pilot=FALSE
+                          AND o.is_discount_pilot=FALSE
                     )
                 )
                 FROM vainah_growth_invites i
@@ -204,11 +206,12 @@ def _claim(email: str, code: str) -> None:
             referrer = str(result[0]).strip()
             if hmac.compare_digest(referrer, owner):
                 raise HTTPException(409, "REFERRAL_SELF_INVITE")
-            # Never allow a retrospective reward claim after paid purchase.
+            # Attribution must precede checkout, including a pending
+            # reservation/invoice. Do not allow last-second or retrospective
+            # claim on an account that has already entered checkout.
             cur.execute("""
                 SELECT 1 FROM vainah_live_orders
-                WHERE owner_ref=%s AND payment_state='paid'
-                LIMIT 1
+                WHERE owner_ref=%s LIMIT 1
             """, (live_ref,))
             if cur.fetchone():
                 raise HTTPException(409, "REFERRAL_ALREADY_CUSTOMER")
