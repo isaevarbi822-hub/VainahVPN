@@ -172,7 +172,7 @@
       card.append(el('strong',item.title||'Событие'),
         el('p',item.description||''),
         el('small',item.read?'Прочитано':'Новое','stamp'));
-      if(/^\/(account|support-center)\.html$/.test(item.href||'')){
+      if(/^\/(account|support-center|gifts)\.html$/.test(item.href||'')){
         const link=el('a','Открыть раздел');
         link.href=item.href;card.append(link,el('span','  '));
       }
