@@ -45,7 +45,7 @@
       details.append(element('strong','',String(record.name||'').slice(0,40)));
       details.append(element('small','',
         (platforms[record.platform]||'Устройство')+' · Сохранено в кабинете'));
-      const rename=element('button','vd-remove','Переименовать');
+      const rename=element('button','vd-rename','Переименовать');
       rename.type='button';
       rename.addEventListener('click',async()=>{
         if(busy||!authenticated)return;
