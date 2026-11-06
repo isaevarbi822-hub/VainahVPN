@@ -132,6 +132,59 @@ def _notifications(owner: str, data: dict) -> list[dict]:
     return results[:12]
 
 
+
+def _gift_alerts(owner: str, email: str) -> list[dict]:
+    """Only paid, verified gift lifecycle events; no voucher code is read."""
+    from .live_checkout import live_account_ready, owner_ref_for_email
+    from .live_ledger import LiveLedgerError, PostgresLiveOrderLedger
+
+    if not live_account_ready():
+        return []
+    try:
+        rows = PostgresLiveOrderLedger(database_url()).owner_gift_notification_states(
+            owner_ref_for_email(email)
+        )
+    except (LiveLedgerError, HTTPException):
+        # Optional gift ledger must not break existing VPN expiry alerts.
+        return []
+    templates = {
+        "ready_to_share": (
+            "Подарочная карта оплачена",
+            "Подписанный платёж подтверждён. Код доступен в разделе подарков.",
+            "info", "/gifts.html",
+        ),
+        "pending_delivery": (
+            "Подарок ожидает завершения выдачи",
+            "Получатель может завершить выдачу в разделе подарков без повторной оплаты.",
+            "info", "/gifts.html",
+        ),
+        "needs_support": (
+            "Выдача подарка требует проверки",
+            "Не покупай повторно. Создай обращение: повторная выдача VPN может быть небезопасна.",
+            "warning", "/support-center.html",
+        ),
+    }
+    result = []
+    for order_id, state in rows:
+        template = templates.get(state)
+        if template is None:
+            continue
+        title, description, level, href = template
+        result.append({
+            "id": _event_id(owner, "gift_" + state, order_id),
+            "type": "gift_" + state,
+            "title": title,
+            "description": description,
+            "level": level,
+            "href": href,
+        })
+    return result
+
+
+def _account_alerts(owner: str, email: str, data: dict) -> list[dict]:
+    return (_notifications(owner, data) + _gift_alerts(owner, email))[:20]
+
+
 def _read_ids(owner: str, identifiers: list[str]) -> set[str]:
     if not identifiers:
         return set()
@@ -164,14 +217,14 @@ async def inbox(request: Request) -> dict:
     email = _email(request)
     owner = _owner(email)
     data = await customer_overview(request)
-    items = _notifications(owner, data)
+    items = _account_alerts(owner, email, data)
     read = _read_ids(owner, [item["id"] for item in items])
     for item in items:
         item["read"] = item["id"] in read
     return {
         "items": items,
         "unread_count": sum(not item["read"] for item in items),
-        "source": "verified_customer_account_and_h1",
+        "source": "verified_customer_account_h1_and_signed_gifts",
         "push_enabled": False,
         "message": "Только события, которые подтверждаются доступными данными подписки.",
     }
@@ -183,7 +236,7 @@ async def mark_read(request: Request, body: MarkRead) -> dict:
     email = _email(request)
     owner = _owner(email)
     data = await customer_overview(request)
-    matches = _notifications(owner, data)
+    matches = _account_alerts(owner, email, data)
     if body.notification_id not in {item["id"] for item in matches}:
         raise HTTPException(404, "NOTIFICATION_NOT_FOUND")
     _mark(owner, body.notification_id)
