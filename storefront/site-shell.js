@@ -26,6 +26,7 @@
     ['terms.html','Условия сервиса','Правила использования Vainah VPN','условия'],
     ['speed.html','Тест скорости','Ping, jitter, загрузка и отдача данных','скорость speedtest интернет mbps download upload'],
     ['network-check.html','Проверка соединения','HTTPS, Python API, email-вход, оплата и отклик сервера','здоровье сети диагностика сеть health check ping'],
+    ['network-toolkit.html','8 сетевых калькуляторов','Скорость, трафик, лимит, сравнение VPN и прогноз времени загрузки','калькулятор расчёт скорость Мбит скачать время трафик мегабайт'],
     ['connection-monitor.html','Монитор стабильности','Повторные замеры отклика API, ошибки и копирование отчёта','монитор интернет стабильно latency ping uptime стабильность'], 
     ['browser-check.html','Проверка браузера','Поддержка HTTPS, копирования и интерфейса','совместимость браузер смартфон проверка'], 
     ['repair-wizard.html','Мастер решения проблем','Пошаговые действия по устройству, оплате и VPN','помоги не работает почта импорт vpn'],
@@ -64,6 +65,7 @@
     ['library.html','Библиотека знаний'],
     ['speed.html','Проверка скорости'],
     ['network-check.html','Проверка соединения'],
+    ['network-toolkit.html','Сетевые калькуляторы'],
     ['connection-monitor.html','Монитор сети'],
     ['browser-check.html','Проверка браузера'],
     ['repair-wizard.html','Мастер помощи'],
@@ -237,6 +239,7 @@
       ['hub.html','◉','Центр управления','Главная панель'],
       ['compare.html','≋','Сравнение тарифов','Все цены и сроки'],
       ['speed.html','↯','Тест скорости','Ping и скорость интернета'],
+      ['network-toolkit.html','▤','Сетевые калькуляторы','8 инструментов расчёта скорости и трафика'],
       ['network-check.html','◉','Проверка сети','Доступность API и оплаты'],
       ['connection-monitor.html','≈','Монитор стабильности','Динамика задержки и ошибки'], 
       ['repair-wizard.html','?','Мастер помощи','Пошаговое решение проблем'],
@@ -255,7 +258,7 @@
     const search=el('button','','⌕ Поиск по сайту · Ctrl+K');search.type='button';
     search.dataset.vxOpenSearch='';
     quick.append(search);
-    for(const [href,name] of [['tools.html','Все инструменты'],['network-check.html','Проверка сети'],['connection-monitor.html','Монитор стабильности'],['repair-wizard.html','Решить проблему'],['browser-check.html','Браузер'],['library.html','Библиотека знаний'],['device-center.html','Мастер подключения'],['contact.html','Поддержка']]){
+    for(const [href,name] of [['tools.html','Все инструменты'],['network-toolkit.html','Калькуляторы сети'],['network-check.html','Проверка сети'],['connection-monitor.html','Монитор стабильности'],['repair-wizard.html','Решить проблему'],['browser-check.html','Браузер'],['library.html','Библиотека знаний'],['device-center.html','Мастер подключения'],['contact.html','Поддержка']]){
       const a=el('a','',name);a.href=href;quick.append(a);
     }
     inner.append(kicker,head,grid,quick);section.append(inner);

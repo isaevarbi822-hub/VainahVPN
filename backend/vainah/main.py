@@ -104,7 +104,7 @@ async def security_headers(request: Request, call_next):
     }:
         response.headers["Cache-Control"] = "no-store, max-age=0"
         response.headers["Pragma"] = "no-cache"
-    elif request.url.path.endswith((".css", ".js", ".svg", ".png", ".jpg", ".jpeg", ".webp")):
+    elif request.url.path.endswith((".css", ".js", ".mjs", ".svg", ".png", ".jpg", ".jpeg", ".webp")):
         # Public static resources can use Starlette's ETag/Last-Modified
         # revalidation. Paths are unversioned, so never cache them long.
         # Private account, operator and API routes above remain no-store.
