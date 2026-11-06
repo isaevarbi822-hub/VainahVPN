@@ -1,4 +1,4 @@
-/* Vainah account extras. No private data is stored in localStorage. */
+/* Vainah account extras. No persistent browser-side private state. */
 (() => {
   'use strict';
   const kind=document.body.dataset.vainahFeature;
