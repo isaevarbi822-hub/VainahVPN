@@ -56,6 +56,20 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
       <strong>Как читать результаты:</strong> «Проверка пройдена» относится только к конкретному API-запросу. «Не подключено» — сайт ещё не настроен на работу с сервисом, а не свидетельство сбоя; «Нет данных» — результат не удалось загрузить. Эти статусы не означают, что произведена успешная оплата или выдана VPN-ссылка.
     </div>
   </section>
+  <section class="ux-section" aria-labelledby="status-login">
+    <div class="ux-heading">
+      <span class="ux-eyebrow">ВХОД И ОБРАЩЕНИЯ</span>
+      <h2 id="status-login">Настройка способов входа</h2>
+      <p>Здесь проверяются только настройки серверов. «Настроено» не означает, что реальный вход в Google или Telegram уже проверен.</p>
+    </div>
+    <div class="ux-status-grid">
+      <article class="ux-status-card" data-config-card="email"><div class="ux-status-top"><h2>✉ Email</h2><span class="ux-status-label" data-kind="unknown" data-status-label>Ожидаем</span></div><p class="ux-status-subtitle" data-status-detail>Доступность кода входа.</p></article>
+      <article class="ux-status-card" data-config-card="google"><div class="ux-status-top"><h2>G Google OAuth</h2><span class="ux-status-label" data-kind="unknown" data-status-label>Ожидаем</span></div><p class="ux-status-subtitle" data-status-detail>Проверка ключей OAuth.</p></article>
+      <article class="ux-status-card" data-config-card="telegram"><div class="ux-status-top"><h2>✈ Telegram OIDC</h2><span class="ux-status-label" data-kind="unknown" data-status-label>Ожидаем</span></div><p class="ux-status-subtitle" data-status-detail>Современный вход через BotFather.</p></article>
+      <article class="ux-status-card" data-config-card="telegram-classic"><div class="ux-status-top"><h2>✈ Telegram Widget</h2><span class="ux-status-label" data-kind="unknown" data-status-label>Ожидаем</span></div><p class="ux-status-subtitle" data-status-detail>Устаревший резервный вход.</p></article>
+      <article class="ux-status-card" data-config-card="support"><div class="ux-status-top"><h2>✉ Центр поддержки</h2><span class="ux-status-label" data-kind="unknown" data-status-label>Ожидаем</span></div><p class="ux-status-subtitle" data-status-detail>Требует отдельной настройки оператора.</p></article>
+    </div>
+  </section>
   <section class="ux-section" aria-labelledby="status-next">
     <div class="ux-heading">
       <span class="ux-eyebrow">ЕСЛИ ЧТО-ТО НЕ РАБОТАЕТ</span>
