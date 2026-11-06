@@ -73,6 +73,9 @@ async def security_headers(request: Request, call_next):
     # Historical storefront uses inline page scripts and style attributes.
     # Checkout API, billing credentials and web dashboard remain separate.
     if request.url.path in {
+        "/connection-check.html",
+        "/connection-check.js",
+        "/connection-check.css",
         "/support-operator.html",
         "/support-operator.js",
         "/my-devices.html",
@@ -125,6 +128,9 @@ async def security_headers(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
     elif request.url.path in {
+        "/connection-check.html",
+        "/connection-check.js",
+        "/connection-check.css",
         "/support-center.html",
         "/my-devices.html",
         "/my-devices.js",
