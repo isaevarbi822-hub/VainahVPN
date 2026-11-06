@@ -101,6 +101,12 @@ h1,h2,h3,h4,p{margin-top:0}h1,h2,h3{letter-spacing:-.045em}h1{font-size:clamp(46
         <button id="speed-stop" type="button" disabled>Остановить</button>
       </div>
     </div>
+    <fieldset class="vx-speed-options" id="speed-options">
+      <legend>Режим проверки</legend>
+      <label><input type="radio" name="speed-mode" value="eco" checked> Экономный · ~0,65 МБ</label>
+      <label><input type="radio" name="speed-mode" value="normal"> Стандартный · ~2 МБ</label>
+      <p>Экономный режим бережёт мобильный трафик. Проверка на небольших объёмах может недооценивать максимальную скорость.</p>
+    </fieldset>
     <div class="vx-speed-grid" aria-live="polite">
       <div class="vx-speed-measure"><small>Ping</small><strong id="speed-ping">—</strong><span>мс</span></div>
       <div class="vx-speed-measure"><small>Jitter</small><strong id="speed-jitter">—</strong><span>мс</span></div>
@@ -109,7 +115,7 @@ h1,h2,h3,h4,p{margin-top:0}h1,h2,h3{letter-spacing:-.045em}h1{font-size:clamp(46
     </div>
     <div class="vx-speed-progress" aria-label="Прогресс проверки"><span id="speed-phase-fill"></span></div>
     <div class="vx-speed-feedback"><p id="speed-status" role="status" aria-live="polite">Проверка запускается только по нажатию кнопки.</p><p id="speed-phase">Готов к запуску</p></div>
-    <p id="speed-explanation" class="vx-speed-notice">Тест измеряет обмен данными с веб-сервером Vainah VPN на Render, а не скорость до ближайшего узла Speedtest. Это короткая приблизительная проверка, а не измерение максимальной скорости провайдера. Используется около 2 МБ трафика.</p>
+    <p id="speed-explanation" class="vx-speed-notice">Тест измеряет обмен данными с веб-сервером Vainah VPN на Render, а не скорость до ближайшего узла Speedtest. Это короткая приблизительная проверка, а не измерение максимальной скорости провайдера. Объём зависит от выбранного режима; на мобильной сети трафик учитывается оператором.</p>
     <div class="vx-speed-history">
       <div class="vx-speed-history-head"><strong>Сравнение результатов</strong><button type="button" id="speed-copy" disabled>Скопировать результат</button></div>
       <p id="speed-previous" class="vx-speed-notice">Первый тест ещё не выполнен. Следующий запуск покажет изменение скорости относительно предыдущего измерения.</p>
