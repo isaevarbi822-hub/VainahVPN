@@ -45,6 +45,8 @@
     section.append(node('strong',title),node('p',description));
     return section;
   };
+  let checkoutNonce=null;
+  let checkoutPlan=null;
   function paidPageReady(info){
     root.replaceChildren();
     root.append(node('h2','Купить настоящую подарочную подписку'));
@@ -67,9 +69,13 @@
       if(!window.crypto||typeof window.crypto.randomUUID!=='function'){
         throw Error('Браузер не поддерживает безопасное создание номера заказа.');
       }
+      if(checkoutPlan!==plan.value){
+        checkoutPlan=plan.value;
+        checkoutNonce=window.crypto.randomUUID();
+      }
       const result=await api('/api/account/gift-cards/checkout',{
         method:'POST',headers:{'Content-Type':'application/json',
-          'Idempotency-Key':window.crypto.randomUUID()},
+          'Idempotency-Key':checkoutNonce},
         body:JSON.stringify({plan_id:plan.value}),
       });
       const link=new URL(String(result.pay_url||''));
