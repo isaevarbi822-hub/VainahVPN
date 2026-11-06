@@ -49,3 +49,6 @@ jobs:
           node --check storefront/site-shell.js
           node --check storefront/experience.js
           node --check storefront/account-dashboard.js
+          node --check storefront/speed-test.js
+          node --check storefront/network-check.js
+          node --check storefront/repair-wizard.js
