@@ -65,6 +65,7 @@
           available?'Можно запросить код для входа по email.':'Сервер не подтвердил доступность входа.',
           available?'good':'warn');
       } catch {
+        if(controller.signal.aborted)throw Error('CHECK_ABORTED');
         show('login','Не удалось проверить','Сервис входа не ответил на безопасный запрос.','warn');
       }
       try {
@@ -74,6 +75,7 @@
           available?'Сервер подтвердил готовность оформления.':'Новые заказы сейчас не подтверждены сервером.',
           available?'good':'warn');
       } catch {
+        if(controller.signal.aborted)throw Error('CHECK_ABORTED');
         show('shop','Не удалось проверить','Нет ответа от публичного API оплаты.','warn');
       }
       status.textContent='Готово. Проверка не создаёт заказов, не подключает VPN и не передаёт ключи.';
