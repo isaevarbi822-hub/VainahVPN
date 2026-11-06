@@ -5,11 +5,13 @@
   const status=$('vs-status'),form=$('vs-form'),submit=$('vs-submit');
   const list=$('vs-tickets'),refresh=$('vs-refresh');
   const message=$('vs-message'),category=$('vs-category'),counter=$('vs-counter');
+  const notifyToggle=$('vs-notify-email'),notifyHint=$('vs-notify-hint');
   if(!form||!submit||!list)return;
   const labels={connection:'Подключение',payment:'Оплата и подписка',
     account:'Вход и аккаунт',other:'Другое'};
   const statusNames={open:'Открыто',answered:'Есть ответ',closed:'Закрыто'};
   let ready=false,authenticated=false,loading=false;
+  let emailNotificationsAvailable=false;
   const note=value=>{status.textContent=value};
   async function request(url,options={}){
     const response=await fetch(url,{credentials:'same-origin',cache:'no-store',
@@ -51,6 +53,31 @@
         response.append(label('p','',String(ticket.reply).slice(0,1500)));
         card.append(response);
       }
+      const notices=label('div','vs-notification-row','');
+      notices.append(label('span','vs-muted',ticket.email_notifications===true
+        ?'Уведомления о следующих ответах включены.'
+        :'Уведомления на почту выключены.'));
+      if(emailNotificationsAvailable){
+        const toggle=label('button','vs-notification-button',
+          ticket.email_notifications===true?'Выключить письма':'Уведомлять по email');
+        toggle.type='button';
+        toggle.addEventListener('click',async()=>{
+          toggle.disabled=true;
+          try{
+            await request('/api/support/tickets/'+encodeURIComponent(ticket.id)+'/email-notifications',{
+              method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({enabled:ticket.email_notifications!==true})
+            });
+            note('Настройка уведомлений сохранена. Прошлые ответы повторно не рассылаются.');
+            await load();
+          }catch(error){
+            note('Не удалось изменить уведомления: '+error.message+
+              '. Для Telegram сначала подтверди почту в личном кабинете.');
+          }finally{toggle.disabled=false;}
+        });
+        notices.append(toggle);
+      }
+      card.append(notices);
       list.append(card);
     }
   }
@@ -72,7 +99,11 @@
         request('/api/email-auth/account').catch(()=>({authenticated:false}))
       ]);
       ready=config.available===true;
+      emailNotificationsAvailable=config.email_notifications_available===true;
       authenticated=telegram.authenticated===true||email.authenticated===true;
+      if(notifyToggle)notifyToggle.disabled=!emailNotificationsAvailable;
+      if(notifyHint&&!emailNotificationsAvailable)
+        notifyHint.textContent='Почтовая доставка временно не настроена. Ответы можно читать в истории заявок.';
       if(!authenticated){
         note('Для создания и просмотра обращений сначала войди в личный кабинет.');
         const signIn=label('a','vs-strong-link','Войти в кабинет');
@@ -96,10 +127,12 @@
     try{
       const response=await request('/api/support/tickets',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({category:category.value,message:message.value.trim()})
+        body:JSON.stringify({category:category.value,message:message.value.trim(),
+          notify_email:notifyToggle?.checked===true})
       });
       message.value='';counter.textContent='0 / 1500';
-      note('Обращение '+response.id+' принято. Ответ появится в истории после ответа оператора.');
+      note('Обращение '+response.id+' принято. Ответ появится в истории. '+
+        (notifyToggle?.checked?'Если почта подтверждена, придёт уведомление.':''));
       await load();
     }catch(error){
       note('Обращение не отправлено: '+error.message+
