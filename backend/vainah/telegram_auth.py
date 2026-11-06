@@ -164,9 +164,19 @@ def read_session(token: str | None, secret: str, *, now: int | None = None) -> d
 
 def current_user(request: Request) -> dict | None:
     settings = _settings()
-    if settings is None:
+    if settings is not None:
+        return read_session(request.cookies.get(SESSION_COOKIE), settings[1])
+    # New BotFather OIDC creates the same signed Telegram customer session,
+    # but must not require a deprecated legacy bot token to read that cookie.
+    # Import lazily to avoid a cycle with telegram_oidc.make_session.
+    from .telegram_oidc import _config as oidc_config
+
+    if oidc_config() is None:
         return None
-    return read_session(request.cookies.get(SESSION_COOKIE), settings[1])
+    return read_session(
+        request.cookies.get(SESSION_COOKIE),
+        os.environ.get("SESSION_SIGNING_KEY", ""),
+    )
 
 
 def require_user(request: Request) -> dict:
