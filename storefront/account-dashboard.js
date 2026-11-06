@@ -394,6 +394,7 @@
   function showSession(next){
     sessionEpoch++;
     user=next||null;resetPrivate();
+    window.dispatchEvent(new Event('vainah-account-session'));
     hide('account-auth-panel',!!user);
     hide('account-private',!user);
     hide('account-alt-private',true);
