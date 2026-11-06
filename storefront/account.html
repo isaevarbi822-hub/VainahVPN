@@ -155,7 +155,11 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
         <div class="account-row-actions">
           <a href="plans.html" class="btn btn-border">Посмотреть тарифы</a><a href="assistant.html" class="btn btn-border">Подобрать тариф</a>
           <button id="account-refresh" type="button" class="btn btn-quiet">↻ Обновить данные</button>
+          <button id="account-calendar" type="button" class="btn btn-border" disabled>Напомнить о продлении · календарь</button>
+          <button id="account-support-summary" type="button" class="btn btn-border" disabled>Скопировать статус для поддержки</button>
         </div>
+        <p id="account-calendar-status" class="account-action-status" role="status" aria-live="polite">Напоминание появится, когда H1Cloud подтвердит дату окончания подписки. Календарь не создаётся автоматически.</p>
+        <textarea id="account-support-manual" class="account-manual-report" aria-label="Статус без личных данных для ручного копирования" readonly hidden></textarea>
       </section>
 
       <aside class="account-panel" aria-labelledby="account-device-heading">
