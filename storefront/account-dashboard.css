@@ -77,3 +77,46 @@
 @media(max-width:680px){.account-shell{padding-top:25px}.account-hero{padding:28px 24px;border-radius:22px}.account-hero h1{font-size:clamp(31px,8vw,43px)}.account-metrics{grid-template-columns:1fr 1fr}.account-metric:last-child{grid-column:1/-1}.account-metric{padding:18px}.account-layout{grid-template-columns:1fr}.account-layout>.account-panel:first-child{grid-column:auto}.account-panel{padding:21px}.account-history{margin-top:14px}.account-order-head{display:none}.account-order{grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:17px}.account-order>*:nth-child(3){grid-column:1}.account-order>*:nth-child(4){grid-column:2;grid-row:1/3;text-align:right}.account-order .order-amount{font-size:13px}.account-auth{padding:22px}}
 @media(max-width:370px){.account-metrics{grid-template-columns:1fr}.account-metric:last-child{grid-column:auto}.account-summary-name{font-size:27px}.account-access .account-access-actions{flex-direction:column}.account-access .btn{width:100%}}
 @media(prefers-reduced-motion:reduce){.account-hero:after{box-shadow:none}}
+
+
+/* Customer dashboard 2026 refresh */
+.account-quick-nav{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:0 0 20px}
+.account-quick-nav a{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+ min-height:44px;padding:10px 14px;border:1px solid #554c79;border-radius:12px;
+ color:#ded1ff;background:#29244288;font-size:12px;font-weight:750;text-decoration:none}
+.account-quick-nav a:hover,.account-quick-nav a:focus-visible{background:#38315b;border-color:#b8a3f7}
+.account-shell .account-metric{box-shadow:0 10px 30px #060b173d}
+.account-shell .account-metric strong{font-variant-numeric:tabular-nums}
+.account-shell .account-access{border-color:#8471bf;background:radial-gradient(ellipse at 100% 0%,#55488466,transparent 65%),linear-gradient(120deg,#2b2949,#15233b)}
+.account-shell .account-access .btn{min-height:46px}
+.account-shell .account-access-status{margin-top:9px;overflow-wrap:anywhere}
+.account-shell .account-order{transition:border-color .17s ease,background-color .17s ease}
+.account-shell .account-order:hover{border-color:#726a9c;background:#202840}
+.account-shell .account-order .order-name,.account-shell .account-order .order-sub{overflow-wrap:anywhere}
+.account-shell .account-order .order-state{line-height:1.45}
+.account-shell .account-empty-actions{margin-top:17px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.account-shell .account-auth input,.account-shell .account-panel input{max-width:100%;min-height:44px}
+.account-shell .account-auth .auth-primary,.account-shell .account-panel .auth-primary{min-height:44px}
+.account-shell .account-summary{gap:18px}
+@media(max-width:780px){
+ .account-shell .account-order{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+ .account-shell .account-order .order-name{grid-column:1}
+ .account-shell .account-order .order-sub{grid-column:1}
+ .account-shell .account-order .order-amount{grid-column:2;grid-row:1;text-align:right}
+ .account-shell .account-order .order-state{grid-column:2;grid-row:2;text-align:right}
+}
+@media(max-width:540px){
+ .account-quick-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .account-quick-nav a{min-width:0;padding:10px;text-align:center;font-size:11px}
+ .account-shell .account-hero{padding:24px 18px}
+ .account-shell .account-panel{padding:19px 16px;border-radius:17px}
+ .account-shell .account-panel-head{align-items:flex-start}
+ .account-shell .account-access{padding:15px}
+ .account-shell .account-access-actions{display:grid;grid-template-columns:1fr}
+ .account-shell .account-access .btn{width:100%;white-space:normal}
+ .account-shell .account-order{padding:13px}
+ .account-shell .account-empty-actions{flex-direction:column}
+ .account-shell .account-empty-actions .btn{width:100%}
+}
+@media(max-width:310px){.account-quick-nav{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.account-shell .account-order{transition:none}}
