@@ -45,6 +45,33 @@
         ' · Статус: '+ticket.status+' · Владелец: '+ticket.owner_reference));
       card.append(node('p','vs-user-message',String(ticket.message||'').slice(0,1500)));
       if(ticket.reply)card.append(node('p','vs-reply','Ответ: '+String(ticket.reply).slice(0,1500)));
+      const delivery=String(ticket.notification_state||'none');
+      const mailHint=node('p','vs-muted',ticket.email_notifications===true
+        ?(delivery==='sent'?'Email-уведомление отправлено через Resend.'
+          :delivery==='pending'?'Email ожидает отправки. Повторная попытка доступна спустя 2 минуты.'
+          :'Клиент включил email-уведомления.')
+        :'Email-уведомления отключены клиентом.');
+      card.append(mailHint);
+      if(delivery==='pending'&&ticket.email_notifications===true){
+        const retry=node('button','vs-notification-button','Повторить отправку письма');
+        retry.type='button';
+        retry.addEventListener('click',async()=>{
+          retry.disabled=true;
+          try{
+            const result=await request(
+              '/api/support/operator/tickets/'+encodeURIComponent(ticket.id)+'/retry-email',
+              {method:'POST'}
+            );
+            status.textContent=result.notification==='sent'
+              ?'Письмо с уведомлением отправлено.'
+              :'Отправка письма пока не подтверждена. Проверь Resend и попробуй позже.';
+            await load();
+          }catch(error){
+            status.textContent='Не удалось повторить письмо: '+error.message;
+          }finally{retry.disabled=false;}
+        });
+        card.append(retry);
+      }
       const form=node('form','','');
       const textarea=node('textarea','','');
       textarea.rows=3;textarea.maxLength=1500;textarea.minLength=2;
@@ -61,13 +88,19 @@
         event.preventDefault();
         const current=revision;button.disabled=true;
         try{
-          await request('/api/support/operator/tickets/'+encodeURIComponent(ticket.id)+'/reply',{
+          const result=await request('/api/support/operator/tickets/'+encodeURIComponent(ticket.id)+'/reply',{
             method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({reply:textarea.value.trim(),status:state.value})
           });
           if(current!==revision)return;
-          feedback.textContent='Ответ отправлен. Клиент увидит его в истории.';
+          const deliveryMessage=result.notification==='sent'
+            ?' Уведомление отправлено на подтверждённую почту.'
+            :result.notification==='pending'
+              ?' Письмо пока не доставлено. Можно повторить отправку позже.'
+              :' Email-уведомление не запрошено или уже отправлялось.';
+          feedback.textContent='Ответ сохранён. Клиент увидит его в истории.'+deliveryMessage;
           await load();
+          if(current===revision)status.textContent='Ответ сохранён.'+deliveryMessage;
         }catch(error){
           if(current===revision)feedback.textContent='Не удалось ответить: '+error.message;
         }finally{button.disabled=false;}
