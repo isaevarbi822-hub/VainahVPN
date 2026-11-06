@@ -26,6 +26,7 @@ from .inspector import InvalidSubscription, inspect_subscription
 from .integration_status import integration_status
 from .public_trial import router as public_trial_router
 from .reminder_preferences import router as reminder_router
+from .reminder_dispatch import router as reminder_dispatch_router
 from .speedtest import router as speedtest_router
 from .subscription_qr import router as qr_router
 from .support_tickets import router as support_router
@@ -54,6 +55,7 @@ app.include_router(speedtest_router)
 app.include_router(qr_router)
 app.include_router(support_router)
 app.include_router(reminder_router)
+app.include_router(reminder_dispatch_router)
 
 
 @app.middleware("http")
