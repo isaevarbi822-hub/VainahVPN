@@ -11,7 +11,6 @@ import hmac
 import os
 import re
 import secrets
-from datetime import UTC, datetime
 
 import psycopg
 from fastapi import APIRouter, HTTPException, Request, status
