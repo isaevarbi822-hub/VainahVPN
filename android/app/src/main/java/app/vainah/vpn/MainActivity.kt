@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.VpnService
+import android.provider.Settings
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -458,14 +459,129 @@ class MainActivity : Activity() {
             "✓  Конфигурации сохраняются в Android Keystore",
             "✓  TLS-проверка подписки не отключается",
             "•  DNS/IPv6-утечки не проверены на этом устройстве",
-            "•  Kill switch требует отдельных системных проверок",
             "•  Приложение не заявляет об анонимности без тестов")) {
             add(protection, t(note, 12f, grey), 11)
         }
+
+        val kill = card()
+        add(body, kill, 16)
+        add(kill, tag("KILL SWITCH / ANDROID"))
+        add(kill, t("Блокировать интернет без VPN", 18f, white, true), 8)
+        add(kill, t(
+            "Это системная защита Android, а не выключатель на сайте. " +
+                "Открой настройки VPN, выбери Vainah VPN Next, включи " +
+                "«Всегда включён VPN», затем «Блокировать подключения без VPN». " +
+                "Если VPN отключится, Android будет блокировать подключения без него.",
+            12f, grey), 9)
+        add(kill, t(
+            "Важно: исключённые приложения при системной блокировке обхода " +
+                "не смогут использовать сеть напрямую. Режимы несовместимы.",
+            12f, errorColor), 12)
+        val openSettings = action("Открыть системные настройки VPN")
+        add(kill, openSettings, 13)
+        openSettings.setOnClickListener {
+            try {
+                startActivity(Intent(Settings.ACTION_VPN_SETTINGS))
+            } catch (_: android.content.ActivityNotFoundException) {
+                startActivity(Intent(Settings.ACTION_SETTINGS))
+            }
+        }
+
+        val split = card()
+        add(body, split, 16)
+        add(split, tag("SPLIT TUNNELING / ANDROID"))
+        add(split, t("Приложения вне VPN", 18f, white, true), 9)
+        val excluded = SplitTunnelPreferences.read(this)
+        add(split, t(
+            if (excluded.isEmpty()) "Исключений нет: приложения работают через VPN."
+            else "Исключений выбрано: " + excluded.size +
+                ". Изменения применятся при следующем подключении.",
+            12f, if (excluded.isEmpty()) grey else errorColor), 9)
+        add(split, t(
+            "Исключённые приложения используют обычный интернет без VPN. " +
+                "Никогда не включай этот режим, если хочешь направить " +
+                "весь трафик через VPN. При системном Kill Switch исключения игнорируются.",
+            12f, grey), 8)
+        if (!BuildConfig.VAINAH_LIBBOX_ENABLED) {
+            add(split, t(
+                "В этой preview-сборке libbox-туннель отключён, " +
+                    "поэтому раздел только информационный.",
+                12f, errorColor), 12)
+        }
+        val manageSplit = action("Выбрать исключённые приложения")
+        manageSplit.isEnabled = BuildConfig.VAINAH_LIBBOX_ENABLED
+        add(split, manageSplit, 12)
+        manageSplit.setOnClickListener { editSplitTunnelApps() }
+
         val diag = action("Открыть диагностику")
         add(protection, diag, 17)
         diag.setOnClickListener { page = Page.DIAGNOSTICS; render() }
     }
+
+    private fun editSplitTunnelApps() {
+        if (!BuildConfig.VAINAH_LIBBOX_ENABLED) {
+            popup("Требуется реальная сборка с libbox. Preview не меняет VPN.")
+            return
+        }
+        if (VpnConnectionState.read(this).canDisconnect) {
+            popup("Сначала отключи VPN. Split Tunneling меняется только перед новым подключением.")
+            return
+        }
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val applications = packageManager.queryIntentActivities(launcher, 0)
+            .mapNotNull { info ->
+                val packageName = info.activityInfo?.packageName ?: return@mapNotNull null
+                if (packageName == packageNameForThisApp() ||
+                    SplitTunnelPolicy.normalize(listOf(packageName), packageNameForThisApp()).isEmpty()
+                ) return@mapNotNull null
+                packageName to info.loadLabel(packageManager).toString()
+            }
+            .distinctBy { it.first }
+            .sortedWith(compareBy<Pair<String, String>> { it.second.lowercase() }
+                .thenBy { it.first })
+        if (applications.isEmpty()) {
+            popup("Android не предоставил список установленных приложений.")
+            return
+        }
+        val old = SplitTunnelPreferences.read(this)
+        val chosen = old.toMutableSet()
+        val labels = applications.map { it.second + " (" + it.first + ")" }.toTypedArray()
+        val checked = applications.map { it.first in old }.toBooleanArray()
+        AlertDialog.Builder(this)
+            .setTitle("Приложения вне VPN")
+            .setMessage("Выбранные программы будут использовать интернет напрямую, " +
+                "не через Vainah VPN. Не совмещай с режимом блокировки без VPN.")
+            .setMultiChoiceItems(labels, checked) { _, index, enabled ->
+                val name = applications[index].first
+                if (enabled) {
+                    if (chosen.size < SplitTunnelPolicy.MAX_EXCLUDED_APPS) chosen.add(name)
+                    else popup("Не более " + SplitTunnelPolicy.MAX_EXCLUDED_APPS + " исключений.")
+                } else chosen.remove(name)
+            }
+            .setNegativeButton("Отмена", null)
+            .setNeutralButton("Сбросить исключения") { _, _ ->
+                if (VpnConnectionState.read(this).canDisconnect) {
+                    popup("Отключи VPN перед изменением списка.")
+                } else if (!SplitTunnelPreferences.save(this, emptySet())) {
+                    popup("Не удалось сохранить настройки.")
+                } else render()
+            }
+            .setPositiveButton("Сохранить") { _, _ ->
+                if (VpnConnectionState.read(this).canDisconnect) {
+                    popup("Отключи VPN перед изменением списка.")
+                } else if (chosen.size > SplitTunnelPolicy.MAX_EXCLUDED_APPS ||
+                    !SplitTunnelPreferences.save(this, chosen)) {
+                    popup("Не удалось сохранить настройки.")
+                } else {
+                    render()
+                    popup("Изменения вступят в силу при следующем подключении VPN. " +
+                        "В режиме системной блокировки обхода исключения не применяются.")
+                }
+            }
+            .show()
+    }
+
+    private fun packageNameForThisApp(): String = packageName
 
     private fun settings(body: LinearLayout) {
         val preferences = card()
