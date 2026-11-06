@@ -7,6 +7,7 @@
   let user=null;
   let subscriptionUrl=null;
   let currentData=null;
+  let historyOrders=[];
   let sessionEpoch=0;
   let refreshEpoch=0;
   async function api(path,options={}){
@@ -44,6 +45,65 @@
     return value==='delivered'?'success':
       value==='pending'||value==='created'||value==='paid'||value==='processing'?'pending':'';
   }
+  function historyView(){
+    const query=safeString($('account-order-search')?.value).trim().toLocaleLowerCase('ru').replace(/ё/g,'е');
+    const filter=safeString($('account-order-filter')?.value)||'all';
+    const sort=safeString($('account-order-sort')?.value)||'newest';
+    const matched=historyOrders.filter(order=>{
+      const title=safeString(order.title).toLocaleLowerCase('ru').replace(/ё/g,'е');
+      if(query&&!title.includes(query))return false;
+      const status=safeString(order.status);
+      if(filter==='delivered'&&status!=='delivered')return false;
+      if(filter==='waiting'&&!['created','pending','paid','processing','needs_review'].includes(status))return false;
+      if(filter==='closed'&&!['cancelled','canceled','expired','failed','revoked','refunded','refund','chargeback'].includes(status))return false;
+      return true;
+    });
+    return matched.sort((a,b)=>{
+      const dateA=new Date(a.created_at).getTime();
+      const dateB=new Date(b.created_at).getTime();
+      const valueA=Number.isFinite(dateA)?dateA:0;
+      const valueB=Number.isFinite(dateB)?dateB:0;
+      return sort==='oldest'?valueA-valueB:valueB-valueA;
+    });
+  }
+  function showHistory(){
+    const items=historyView();
+    write('account-history-match',historyOrders.length
+      ?'Показано: '+items.length+' из '+historyOrders.length:'Нет подтверждённых покупок');
+    const exportButton=$('account-order-export');
+    if(exportButton)exportButton.disabled=!user||!items.length;
+    renderOrders(items);
+  }
+  function csvCell(value){
+    const raw=String(value??'');
+    // Spreadsheet viewers may execute cells beginning with formula markers.
+    const safe=/^[\\s]*[=+@-]/.test(raw)?"'"+raw:raw;
+    return '"'+safe.replace(/"/g,'""')+'"';
+  }
+  function exportHistory(){
+    if(!user||!currentData)return;
+    const rows=historyView();
+    if(!rows.length)return;
+    const csv=[
+      ['Тариф','Дата','Статус'].map(csvCell).join(','),
+      ...rows.map(order=>[
+        safeString(order.title)||'VPN-подписка',
+        formatDate(order.created_at),
+        orderStatus(order.status)
+      ].map(csvCell).join(','))
+    ].join('\\r\\n');
+    try{
+      const blob=new Blob(['\\uFEFF',csv],{type:'text/csv;charset=utf-8'});
+      const link=document.createElement('a');
+      const url=URL.createObjectURL(blob);
+      link.href=url;link.download='vainah-vpn-orders.csv';
+      link.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      write('account-history-hint','Экспортированы только отображаемые заказы. VPN-ключи и email не включены.');
+    }catch{
+      write('account-history-hint','Не удалось сохранить CSV в этом браузере.');
+    }
+  }
   function renderOrders(orders){
     const history=$('account-order-list');
     if(!history)return;
@@ -52,12 +112,14 @@
       const empty=document.createElement('div');
       empty.className='account-empty';
       const heading=document.createElement('strong');
-      heading.textContent='Пока нет заказов';
+      heading.textContent=historyOrders.length?'По запросу ничего не найдено':'Пока нет заказов';
       const detail=document.createElement('span');
-      detail.textContent='Начни с пробного периода или выбери тариф.';
+      detail.textContent=historyOrders.length
+        ?'Измени фильтр или очисти строку поиска.'
+        :'Начни с пробного периода или выбери тариф.';
       const actions=document.createElement('div');
       actions.className='account-empty-actions';
-      for(const [href,label] of [['trial.html','Пробный доступ'],['plans.html','Выбрать тариф']]){
+      for(const [href,label] of (historyOrders.length?[]:[['trial.html','Пробный доступ'],['plans.html','Выбрать тариф']])){
         const link=document.createElement('a');
         link.href=href;link.className='btn btn-border';link.textContent=label;actions.append(link);
       }
@@ -121,6 +183,19 @@
     }
   }
 
+  function updateExpiryNote(value){
+    const date=typeof value==='string'?new Date(value):null;
+    if(!date||!Number.isFinite(date.getTime())){
+      write('account-expiry-note','Срок неизвестен: проверенные данные H1Cloud отсутствуют.');
+      return;
+    }
+    const days=Math.ceil((date.getTime()-Date.now())/86400000);
+    write('account-expiry-note',days<=0
+      ?'Указанная дата уже прошла. Обнови кабинет, чтобы проверить состояние подписки.'
+      :days<=7
+      ?'Подписка заканчивается в ближайшие '+days+' дн. Проверь варианты продления.'
+      :'По данным H1Cloud до указанной даты около '+days+' дн.');
+  }
   function clearSubscription(){
     subscriptionUrl=null;
     const open=$('account-open-vpn');
@@ -132,6 +207,7 @@
     const get=$('account-get-vpn');
     if(get)get.disabled=true;
     updateTraffic(null);
+    updateExpiryNote(null);
     write('metric-plan','Нет подтверждённых покупок');
     write('metric-expiry','—');
     write('metric-devices','—');
@@ -145,6 +221,12 @@
   }
   function resetPrivate(){
     currentData=null;
+    historyOrders=[];
+    const search=$('account-order-search');if(search)search.value='';
+    const filter=$('account-order-filter');if(filter)filter.value='all';
+    const sort=$('account-order-sort');if(sort)sort.value='newest';
+    write('account-history-match','Нет подтверждённых покупок');
+    const exportButton=$('account-order-export');if(exportButton)exportButton.disabled=true;
     clearSubscription();
     hide('account-test-vpn',true);
     const testList=$('account-test-vpn-list');
@@ -203,6 +285,8 @@
     const session=sessionEpoch;
     const revision=++refreshEpoch;
     currentData=null;
+    historyOrders=[];
+    showHistory();
     clearSubscription();
     hide('account-test-vpn',true);
     const testList=$('account-test-vpn-list');
@@ -222,14 +306,16 @@
           :'Почта не подтверждена. Для получения подписки её нужно подтвердить.';
       }
       const orders=Array.isArray(result.orders)?result.orders:[];
+      historyOrders=orders;
       write('account-history-count',String(orders.length));
-      renderOrders(orders);
+      showHistory();
       const delivery=result.subscription;
       const ready=delivery?.status==='delivered'&&delivery?.paid===true;
       updateTraffic(ready?delivery:null);
       if(ready){
         write('metric-plan',delivery.plan_title||'VPN-подписка');
         write('metric-expiry',formatDate(delivery.expires_at));
+        updateExpiryNote(delivery.expires_at);
         write('metric-devices',String(delivery.device_limit||'—'));
         write('account-plan-name',delivery.plan_title||'Активный тариф');
         write('account-plan-chip','Оплачено · доступ выдан');
@@ -245,6 +331,10 @@
     }catch(error){
       if(sessionEpoch!==session||refreshEpoch!==revision)return;
       write('account-h1-state','Не удалось загрузить кабинет: '+error.message);
+      const history=$('account-order-list');
+      if(history)history.textContent='Не удалось получить историю покупок. Нажми «Обновить данные».';
+      write('account-history-match','История пока недоступна.');
+      write('account-history-hint','Сервер не подтвердил состояние заказов. Попробуй обновить кабинет.');
     }finally{
       if(refreshButton&&sessionEpoch===session&&refreshEpoch===revision)refreshButton.disabled=false;
     }
@@ -354,6 +444,12 @@
   });
   const refreshButton=$('account-refresh');
   if(refreshButton)refreshButton.addEventListener('click',refresh);
+  for(const id of ['account-order-search','account-order-filter','account-order-sort']){
+    const control=$(id);
+    if(control)control.addEventListener(id==='account-order-search'?'input':'change',showHistory);
+  }
+  const exportButton=$('account-order-export');
+  if(exportButton)exportButton.addEventListener('click',exportHistory);
   const form=$('account-email-form');
   if(form)form.addEventListener('submit',async(event)=>{
     event.preventDefault();
