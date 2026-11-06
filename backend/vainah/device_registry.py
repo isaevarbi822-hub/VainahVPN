@@ -27,6 +27,11 @@ DEVICE_RE = re.compile(r"^[A-Za-z0-9_-]{20,32}$")
 CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 
+class DeviceRename(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=40)
+
+
 class DeviceInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=40)
@@ -122,6 +127,25 @@ def _create(owner: str, name: str, platform: str) -> dict:
     return {"id": device_id, "name": name, "platform": platform}
 
 
+def _rename(owner: str, device_id: str, name: str) -> bool:
+    try:
+        with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
+            _schema(cur)
+            cur.execute("""
+                UPDATE vainah_device_labels SET device_name=%s
+                WHERE owner_hash=%s AND device_id=%s
+                RETURNING device_id
+            """, (name, owner, device_id))
+            return cur.fetchone() is not None
+    except psycopg.Error:
+        raise HTTPException(503, "DEVICE_REGISTRY_UNAVAILABLE") from None
+
+
+def _valid_name(value: str) -> bool:
+    return bool(1 <= len(value) <= 40 and not CONTROL_RE.search(value)
+        and not re.search(r"(?i)(?:https?://|vless://|vmess://|trojan://)", value))
+
+
 def _remove(owner: str, device_id: str) -> bool:
     try:
         with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
@@ -154,10 +178,23 @@ def register_device(request: Request, body: DeviceInput) -> dict:
     require_same_origin(request)
     owner = _owner(request)
     name = body.name.strip()
-    if (not 1 <= len(name) <= 40 or CONTROL_RE.search(name)
-            or re.search(r"(?i)(?:https?://|vless://|vmess://|trojan://)", name)):
+    if not _valid_name(name):
         raise HTTPException(422, "DEVICE_NAME_INVALID")
     return _create(owner, name, body.platform)
+
+
+@router.patch("/{device_id}")
+def rename_device(request: Request, device_id: str, body: DeviceRename) -> dict:
+    require_same_origin(request)
+    owner = _owner(request)
+    name = body.name.strip()
+    if not DEVICE_RE.fullmatch(device_id):
+        raise HTTPException(404, "DEVICE_RECORD_NOT_FOUND")
+    if not _valid_name(name):
+        raise HTTPException(422, "DEVICE_NAME_INVALID")
+    if not _rename(owner, device_id, name):
+        raise HTTPException(404, "DEVICE_RECORD_NOT_FOUND")
+    return {"renamed": True, "name": name, "vpn_disconnected": False}
 
 
 @router.delete("/{device_id}")
