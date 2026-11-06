@@ -32,6 +32,7 @@ from .reminder_preferences import router as reminder_router
 from .reminder_dispatch import router as reminder_dispatch_router
 from .speedtest import router as speedtest_router
 from .subscription_qr import router as qr_router
+from .qr_handoff import router as handoff_router
 from .support_tickets import router as support_router
 from .support_thread import router as support_thread_router
 from .support_rating import router as support_rating_router
@@ -58,6 +59,7 @@ app.include_router(device_registry_router)
 app.include_router(public_trial_router)
 app.include_router(speedtest_router)
 app.include_router(qr_router)
+app.include_router(handoff_router)
 app.include_router(support_router)
 app.include_router(support_thread_router)
 app.include_router(support_rating_router)
@@ -77,6 +79,9 @@ async def security_headers(request: Request, call_next):
     # Historical storefront uses inline page scripts and style attributes.
     # Checkout API, billing credentials and web dashboard remain separate.
     if request.url.path in {
+        "/handoff.html",
+        "/handoff.js",
+        "/handoff-creator.js",
         "/referrals.html",
         "/rewards.html",
         "/gifts.html",
@@ -112,7 +117,7 @@ async def security_headers(request: Request, call_next):
             "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
         )
         response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
-    elif request.url.path == "/api/account/qr":
+    elif request.url.path in {"/api/account/qr", "/api/account/handoff/qr"}:
         # The generated SVG contains a subscriber secret; never allow active
         # SVG content or search indexing, even if the client opens it directly.
         response.headers["Content-Security-Policy"] = (
