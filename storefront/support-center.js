@@ -100,6 +100,30 @@
         finally{threadButton.disabled=false;}
       });
       card.append(threadButton,timeline);
+      if(ticket.reply){
+        const ratingForm=label('form','vs-rating','');
+        const ratingSelect=label('select','','');
+        ratingSelect.setAttribute('aria-label','Оценка работы поддержки');
+        for(let star=5;star>=1;star--){
+          const option=label('option','',star+' из 5');
+          option.value=String(star);ratingSelect.append(option);
+        }
+        const ratingButton=label('button','vs-notification-button','Оценить ответ');
+        ratingButton.type='submit';
+        ratingForm.append(ratingSelect,ratingButton);
+        ratingForm.addEventListener('submit',async event=>{
+          event.preventDefault();ratingButton.disabled=true;
+          try{
+            await request('/api/support/tickets/'+encodeURIComponent(ticket.id)+'/rating',{
+              method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({rating:Number(ratingSelect.value)})
+            });
+            note('Спасибо! Оценка ответа сохранена.');
+          }catch(error){note('Не удалось сохранить оценку: '+error.message);}
+          finally{ratingButton.disabled=false;}
+        });
+        card.append(ratingForm);
+      }
       if(ticket.status!=='closed'){
         const followup=label('form','vs-followup','');
         const followText=label('textarea','','');
