@@ -105,9 +105,6 @@
       ['plans.html','▤ Тарифы'],
       ['account.html','▣ Мой VPN'],
       ['speed.html','↯ Тест скорости'],
-      ['network-check.html','◉ Проверка сети'],
-      ['repair-wizard.html','? Решить проблему'],
-      ['browser-check.html','◈ Браузер'],
       ['tools.html','⊞ Все функции'],
       ['contact.html','? Поддержка']
     ];
