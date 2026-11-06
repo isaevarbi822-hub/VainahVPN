@@ -600,5 +600,7 @@
     }catch{ /* No active email session. */ }
     if(sessionEpoch===session)showSession(null);
   }
+  // Fail closed before the first async authentication check resolves.
+  updatePrivateActions();
   void resumeSession();
 })();
