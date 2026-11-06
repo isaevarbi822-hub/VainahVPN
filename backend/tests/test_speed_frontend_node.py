@@ -1,4 +1,5 @@
 """Run the real Speed Lab JavaScript in a minimal Node DOM to assert request sizes."""
+
 import subprocess
 from pathlib import Path
 
