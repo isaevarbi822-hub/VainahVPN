@@ -8,6 +8,8 @@
   const panes=[...root.querySelectorAll('[data-auth-pane]')];
   const availability=$('[data-auth-availability]');
   const tgStatus=$('#account-auth-status');
+  const googleLink=$('#account-google-start');
+  const googleStatus=$('#account-google-status');
   const retry=$('#account-telegram-retry');
   const emailForm=$('[data-auth-form="email"]');
   const verifyForm=$('[data-auth-verify="email"]');
@@ -137,6 +139,35 @@
     // When configured, the widget owns retry. Otherwise re-check server settings.
     if(!telegramMounted)void initTelegram();
   });
+  async function initGoogle(){
+    if(!googleStatus)return;
+    const params=new URLSearchParams(window.location?.search||'');
+    const errors={
+      not_configured:'Google Login пока не настроен на сервере. Используй вход по почте.',
+      invalid_state:'Сеанс входа Google истёк или был прерван. Попробуй ещё раз.',
+      cancelled:'Вход через Google отменён. Можно попробовать снова.',
+      missing_code:'Google не вернул код подтверждения. Попробуй снова.',
+      verification_failed:'Google не смог подтвердить вход. Проверь аккаунт и повтори попытку.'
+    };
+    try{
+      const response=await fetch('/api/google/config',{
+        cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}
+      });
+      if(!response.ok)throw Error('Google API временно недоступен.');
+      const config=await response.json();
+      const available=config.available===true;
+      if(googleLink)googleLink.hidden=!available;
+      const err=params.get('google_error');
+      googleStatus.textContent=err&&errors[err]
+        ?errors[err]
+        :available
+        ?'Google-вход доступен. Нажми «Продолжить с Google», затем подтверди аккаунт.'
+        :'Google-вход требует GOOGLE_CLIENT_ID и GOOGLE_CLIENT_SECRET в Render и разрешённый Redirect URI в Google Cloud.';
+    }catch(error){
+      if(googleLink)googleLink.hidden=true;
+      googleStatus.textContent=error.message||'Не удалось проверить Google-вход.';
+    }
+  }
   async function initEmail(){
     try{
       const response=await fetch('/api/email-auth/config',{cache:'no-store'});
@@ -161,7 +192,8 @@
       if(availability)availability.textContent='Не удалось проверить почтовую авторизацию.';
     }
   }
-  const requestedTelegram=new URLSearchParams(window.location?.search||'').get('login')==='telegram';
-  if(tabs.length)select(requestedTelegram?'telegram':'email');
+  const requestedLogin=new URLSearchParams(window.location?.search||'').get('login');
+  if(tabs.length)select(requestedLogin==='telegram'?'telegram':requestedLogin==='google'?'google':'email');
   void initEmail();
+  void initGoogle();
 })();
