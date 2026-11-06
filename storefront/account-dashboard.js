@@ -6,6 +6,8 @@
   const hide=(id,value)=>{const node=$(id);if(node)node.hidden=value;};
   let user=null;
   let subscriptionUrl=null;
+  let privateQrUrl=null;
+  let qrPending=false;
   let currentData=null;
   let historyOrders=[];
   let sessionEpoch=0;
@@ -209,7 +211,20 @@
       ?'Подписка заканчивается в ближайшие '+days+' дн. Проверь варианты продления.'
       :'По данным H1Cloud до указанной даты около '+days+' дн.');
   }
+  function clearQR(){
+    if(privateQrUrl){
+      URL.revokeObjectURL(privateQrUrl);
+      privateQrUrl=null;
+    }
+    const qrImage=$('account-qr-image');
+    if(qrImage){qrImage.removeAttribute('src');qrImage.hidden=true;}
+    const qrButton=$('account-get-qr');
+    if(qrButton)qrButton.textContent='Показать QR для подключения';
+    hide('account-qr-panel',true);
+    write('account-qr-status','QR ещё не запрошен.');
+  }
   function clearSubscription(){
+    clearQR();
     subscriptionUrl=null;
     const open=$('account-open-vpn');
     if(open)open.removeAttribute('href');
@@ -219,6 +234,8 @@
     if(copy)copy.disabled=true;
     const get=$('account-get-vpn');
     if(get)get.disabled=true;
+    const qrButton=$('account-get-qr');
+    if(qrButton)qrButton.disabled=true;
     updateTraffic(null);
     updateExpiryNote(null);
     updatePrivateActions();
@@ -343,6 +360,7 @@
         write('account-plan-price','Смотри в заказе');
         write('account-access-status','Доступ доступен. Личную ссылку можно открыть или скопировать.');
         const get=$('account-get-vpn');if(get)get.disabled=false;
+        const qrButton=$('account-get-qr');if(qrButton)qrButton.disabled=false;
       }
       updatePrivateActions();
     }catch(error){
@@ -409,6 +427,48 @@
       list.textContent='Не удалось загрузить тестовые подписки. Обнови кабинет.';
     }
   }
+  const getQR=$('account-get-qr');
+  if(getQR)getQR.addEventListener('click',async()=>{
+    if(!user||!currentData?.subscription?.paid||
+        currentData?.subscription?.status!=='delivered')return;
+    if(privateQrUrl){
+      clearQR();
+      return;
+    }
+    if(qrPending)return;
+    const session=sessionEpoch,revision=refreshEpoch;
+    qrPending=true;getQR.disabled=true;
+    hide('account-qr-panel',false);
+    write('account-qr-status','Создаём QR-код только для твоей подтверждённой подписки…');
+    try{
+      const response=await fetch('/api/account/qr',{
+        method:'GET',credentials:'same-origin',cache:'no-store',
+        headers:{Accept:'image/svg+xml'}
+      });
+      if(!response.ok)throw Error('Сервер не подтвердил доступ ('+response.status+').');
+      const mime=response.headers?.get('content-type')||'';
+      if(!mime.startsWith('image/svg+xml'))throw Error('Некорректный формат QR-кода.');
+      const blob=await response.blob();
+      if(blob.size<100||blob.size>2_000_000)throw Error('Некорректный размер QR-кода.');
+      if(session!==sessionEpoch||revision!==refreshEpoch)return;
+      const image=$('account-qr-image');
+      if(!image)throw Error('Не найден элемент для QR-кода.');
+      privateQrUrl=URL.createObjectURL(blob);
+      image.src=privateQrUrl;
+      image.hidden=false;
+      getQR.textContent='Скрыть QR-код';
+      write('account-qr-status','Готово. Используй QR только на своём устройстве. Закрой его после подключения.');
+    }catch(error){
+      if(session===sessionEpoch&&revision===refreshEpoch){
+        write('account-qr-status','QR недоступен: '+(error.message||'ошибка')+
+          ' Обычная VPN-ссылка остаётся доступной.');
+      }
+    }finally{
+      qrPending=false;
+      if(session===sessionEpoch&&revision===refreshEpoch)getQR.disabled=false;
+    }
+  });
+  window.addEventListener('pagehide',clearQR);
   const get=$('account-get-vpn');
   if(get)get.addEventListener('click',async()=>{
     if(!user||!currentData?.subscription?.order_id)return;
