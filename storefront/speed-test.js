@@ -14,6 +14,9 @@
     upload: $('speed-upload')
   };
   let controller = null;
+  let previous = null;
+  let latest = null;
+  const copyButton = $('speed-copy');
   const durationLimit = 12000;
   const note = (text, step = '') => {
     status.textContent = text;
@@ -50,6 +53,7 @@
     const jitter = differences.reduce((a,b)=>a+b,0)/differences.length;
     results.ping.textContent = format(ping);
     results.jitter.textContent = format(jitter);
+    return {ping, jitter};
   }
   async function throughput(kind, rounds, size, starting, ending) {
     let bytes=0;
@@ -82,6 +86,8 @@
   function reset(){
     for(const el of Object.values(results))el.textContent='—';
     bar.style.width='0%';
+    latest=null;
+    if(copyButton)copyButton.disabled=true;
     $('speed-explanation').textContent='Тест измеряет обмен данными с веб-сервером Vainah VPN на Render, а не скорость до ближайшего узла Speedtest.';
   }
   async function run(){
@@ -93,11 +99,28 @@
     try {
       abortTimer=setTimeout(()=>controller.abort(),durationLimit);
       note('Измеряем задержку…','Ping и вариация задержки');
-      await timePing();
+      const latency = await timePing();
       note('Получаем данные с сервера…','Загрузка');
-      results.download.textContent=format(await throughput('download',3,512*1024,30,68));
+      const download=await throughput('download',3,512*1024,30,68);
+      results.download.textContent=format(download);
       note('Передаём данные серверу…','Отдача');
-      results.upload.textContent=format(await throughput('upload',2,256*1024,68,100));
+      const upload=await throughput('upload',2,256*1024,68,100);
+      results.upload.textContent=format(upload);
+      latest={...latency,download,upload};
+      const previousNode=$('speed-previous');
+      if(previous&&previousNode){
+        const diff=(key,unit)=>{
+          const change=latest[key]-previous[key];
+          const sign=change>=0?'+':'';
+          return sign+format(change)+' '+unit;
+        };
+        previousNode.textContent='По сравнению с предыдущим тестом: загрузка '+diff('download','Мбит/с')+
+          ', отдача '+diff('upload','Мбит/с')+', ping '+diff('ping','мс')+'.';
+      } else if(previousNode){
+        previousNode.textContent='Первый результат готов. Повтори тест с VPN включённым или выключенным для сравнения.';
+      }
+      previous={...latest};
+      if(copyButton)copyButton.disabled=false;
       note('Готово. Сравни результат с включённым и выключенным VPN.','Тест завершён');
     } catch (error) {
       note(controller.signal.aborted?'Проверка остановлена или превысила лимит времени.':
@@ -112,4 +135,19 @@
   }
   start.addEventListener('click',run);
   stop.addEventListener('click',()=>{if(controller)controller.abort();});
+  if(copyButton)copyButton.addEventListener('click',async()=>{
+    if(!latest)return;
+    const summary='Vainah VPN · Speed Lab\\nPing: '+format(latest.ping)+' мс'+
+      '\\nJitter: '+format(latest.jitter)+' мс'+
+      '\\nЗагрузка: '+format(latest.download)+' Мбит/с'+
+      '\\nОтдача: '+format(latest.upload)+' Мбит/с'+
+      '\\nПроверка до Render (Франкфурт), не максимальная скорость провайдера.';
+    try{
+      await navigator.clipboard.writeText(summary);
+      note('Результат скопирован.','Тест завершён');
+    }catch{
+      note('Браузер не разрешил копирование. Числа доступны на экране.','Тест завершён');
+    }
+  });
+  window.addEventListener('pagehide',()=>controller?.abort(),{once:true});
 })();
