@@ -53,7 +53,7 @@
       return label+': '+(state==='Проверяем…'?'Не завершено':state);
     });
     lastReport=['VAINAH VPN · Проверка соединения', ...lines,
-      'Источник: диагностика браузера, не проверка VPN-туннеля.'].join('\\n');
+      'Источник: диагностика браузера, не проверка VPN-туннеля.'].join('\n');
     if(copy)copy.disabled=false;
   }
   async function execute(){
