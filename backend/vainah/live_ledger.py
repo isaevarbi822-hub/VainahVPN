@@ -1324,3 +1324,38 @@ class PostgresLiveOrderLedger:
             "redeemed_at": r[4].isoformat(),
             "can_finish": r[2] == "paid" and r[3] == "pending",
         } for r in rows]
+
+    def owner_gift_notification_states(self, owner_ref: str) -> list[tuple[str, str]]:
+        """Read-only signed gift lifecycle, without decrypting voucher codes."""
+        if not isinstance(owner_ref, str) or not re.fullmatch(
+            r"v1_[0-9a-f]{64}", owner_ref
+        ):
+            raise LiveLedgerError("LIVE_OWNER_INVALID")
+        try:
+            with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT order_id, CASE
+                        WHEN gift_buyer_ref=%s AND gift_redeemed_at IS NULL
+                             AND payment_state='paid' AND webhook_at IS NOT NULL
+                             AND delivery_state='pending'
+                        THEN 'ready_to_share'
+                        WHEN owner_ref=%s AND gift_redeemed_at IS NOT NULL
+                             AND payment_state='paid' AND webhook_at IS NOT NULL
+                             AND delivery_state='pending'
+                        THEN 'pending_delivery'
+                        WHEN owner_ref=%s AND gift_redeemed_at IS NOT NULL
+                             AND payment_state='paid' AND webhook_at IS NOT NULL
+                             AND delivery_state='manual_review'
+                        THEN 'needs_support'
+                        ELSE 'none'
+                    END AS gift_state
+                    FROM vainah_live_orders
+                    WHERE is_gift=TRUE
+                      AND (gift_buyer_ref=%s OR owner_ref=%s)
+                    ORDER BY created_at DESC LIMIT 30
+                """, (owner_ref, owner_ref, owner_ref, owner_ref, owner_ref))
+                rows = cur.fetchall()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        return [(row[0], row[1]) for row in rows if row[1] != "none"][:8]
