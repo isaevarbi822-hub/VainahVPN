@@ -16,10 +16,14 @@
     status.textContent='Доступ закрыт. Ключ удалён из формы.';
   }
   async function request(path,options={}){
+    // Always merge request headers last. Spreading options AFTER headers
+    // replaced the operator key on POST replies (403 SUPPORT_OPERATOR_FORBIDDEN).
+    const {headers:extraHeaders,...requestOptions}=options;
     const response=await fetch(path,{
       method:'GET',cache:'no-store',credentials:'omit',
+      ...requestOptions,
       headers:{Accept:'application/json','X-Vainah-Support-Key':key,
-        ...(options.headers||{})},...options
+        ...(extraHeaders||{})}
     });
     const body=await response.json().catch(()=>({}));
     if(!response.ok)throw Error(
