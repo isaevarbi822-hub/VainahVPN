@@ -16,7 +16,7 @@ from urllib.parse import urlencode, urlsplit
 
 import httpx
 import jwt
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from .email_auth import EMAIL_SESSION_COOKIE, SESSION_SECONDS, _sign_session, normalize_email
@@ -37,7 +37,8 @@ def _origin() -> str:
         "PUBLIC_SITE_ORIGIN", "https://vainahvpn-python-preview.onrender.com"
     ).rstrip("/")
     parsed = urlsplit(origin)
-    if parsed.scheme != "https" or not parsed.hostname or parsed.path not in ("", "/"):
+    if (parsed.scheme != "https" or not parsed.hostname or parsed.path not in ("", "/")
+            or parsed.query or parsed.fragment or parsed.username or parsed.password):
         return ""
     return origin
 
@@ -177,7 +178,8 @@ async def _verified_email(id_token: str, client_id: str, nonce: str) -> str:
         options={"require": ["iss", "sub", "aud", "exp", "iat", "nonce"]},
         leeway=30,
     )
-    if (not hmac.compare_digest(str(claims.get("nonce", "")), nonce)
+    if (claims.get("azp") not in (None, client_id)
+            or not hmac.compare_digest(str(claims.get("nonce", "")), nonce)
             or claims.get("email_verified") is not True
             or not isinstance(claims.get("sub"), str)
             or not 1 <= len(claims["sub"]) <= 255
@@ -217,7 +219,8 @@ async def callback(
             response.raise_for_status()
             body = response.json()
         email = await _verified_email(body.get("id_token"), client_id, flow["nonce"])
-    except (httpx.HTTPError, ValueError, TypeError, KeyError, jwt.PyJWTError):
+    except (httpx.HTTPError, HTTPException, ValueError, TypeError,
+            AttributeError, KeyError, jwt.PyJWTError):
         return _end("verification_failed")
     result = RedirectResponse("/account.html?login=google&google=success", status_code=303)
     result.delete_cookie(STATE_COOKIE, secure=True, httponly=True, samesite="lax")
