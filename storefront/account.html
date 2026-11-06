@@ -92,6 +92,25 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
       <div class="account-metric"><small>Устройства</small><strong id="metric-devices">—</strong><span>Количество разрешённых устройств</span></div>
     </div>
 
+    <section class="account-panel account-traffic" id="account-traffic" aria-labelledby="account-traffic-heading">
+      <div class="account-panel-head">
+        <div>
+          <div class="eyebrow">ТРАФИК И ЛИМИТЫ</div>
+          <h2 id="account-traffic-heading">Использование VPN</h2>
+        </div>
+        <span id="account-traffic-badge" class="account-chip dim">Проверяем данные</span>
+      </div>
+      <div class="account-traffic-grid">
+        <div class="account-traffic-stat"><small>Использовано</small><strong id="account-traffic-used">—</strong></div>
+        <div class="account-traffic-stat"><small>Лимит</small><strong id="account-traffic-limit">—</strong></div>
+        <div class="account-traffic-stat"><small>Осталось</small><strong id="account-traffic-left">—</strong></div>
+      </div>
+      <div id="account-traffic-progress" class="account-traffic-progress" role="progressbar"
+        aria-label="Доля использованного трафика" aria-valuemin="0" aria-valuemax="100"
+        aria-valuenow="0" hidden><span id="account-traffic-fill"></span></div>
+      <p id="account-traffic-note" role="status" aria-live="polite">Данные о расходе появятся, если VPN-провайдер предоставляет проверенные счётчики.</p>
+    </section>
+
     <section class="account-panel" id="account-email-panel" aria-label="Подтверждённая почта" style="margin-top:22px">
   <div class="account-panel-head"><h2>Получать VPN-подписку на email</h2></div>
   <p id="account-email-status" role="status" aria-live="polite">Проверяем подтверждение почты…</p>
