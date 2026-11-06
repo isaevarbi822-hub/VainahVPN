@@ -55,8 +55,8 @@ def test_customer_tickets_are_isolated_and_require_valid_origin(environment, mon
     seen: list[tuple] = []
     monkeypatch.setattr(
         support_tickets, "_create",
-        lambda owner, category, message: (
-            seen.append((owner, category, message))
+        lambda owner, category, message, encrypted=None: (
+            seen.append((owner, category, message, encrypted))
             or {"id": "localTEST1234567890", "status": "open"}
         ),
     )
