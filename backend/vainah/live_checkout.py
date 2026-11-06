@@ -454,7 +454,8 @@ async def handle_live_paid_webhook(
         raise HTTPException(400, "LIVE_WEBHOOK_JSON_INVALID") from None
 
     try:
-        if ledger.is_gift_order(order_id):
+        check_gift = getattr(ledger, "is_gift_order", None)
+        if check_gift is not None and check_gift(order_id):
             # Gift purchases are prepaid only. The paid buyer receives
             # a transferable code, never an automatic H1 subscription.
             # Recipient must redeem exactly once to initiate fulfillment.
