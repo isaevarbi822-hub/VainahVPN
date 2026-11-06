@@ -103,7 +103,9 @@
       if(ticket.reply){
         const ratingForm=label('form','vs-rating','');
         const ratingSelect=label('select','','');
-        ratingSelect.setAttribute('aria-label','Оценка работы поддержки');
+        if(typeof ratingSelect.setAttribute==='function'){
+          ratingSelect.setAttribute('aria-label','Оценка работы поддержки');
+        }
         for(let star=5;star>=1;star--){
           const option=label('option','',star+' из 5');
           option.value=String(star);ratingSelect.append(option);
