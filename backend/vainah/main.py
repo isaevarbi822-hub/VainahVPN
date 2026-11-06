@@ -26,6 +26,7 @@ from .integration_status import integration_status
 from .public_trial import router as public_trial_router
 from .speedtest import router as speedtest_router
 from .telegram_auth import router as telegram_router
+from .telegram_oidc import router as telegram_oidc_router
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB_DIR = ROOT / "web"
@@ -39,6 +40,7 @@ app.include_router(auth_router)
 app.include_router(h1_router)
 app.include_router(h1_trial_router)
 app.include_router(telegram_router)
+app.include_router(telegram_oidc_router)
 app.include_router(email_auth_router)
 app.include_router(google_auth_router)
 app.include_router(customer_router)
