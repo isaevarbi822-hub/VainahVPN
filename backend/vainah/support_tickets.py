@@ -17,6 +17,7 @@ import psycopg
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
+from starlette.concurrency import run_in_threadpool
 
 from .email_auth import current_email
 from .email_delivery import (
@@ -325,7 +326,7 @@ def _finish_notification(identifier: str, revision: int, sent: bool) -> None:
 
 async def _notify_reply(identifier: str) -> str:
     """Send promptly, retaining a retryable state if Resend is unavailable."""
-    claim = _claim_notification(identifier)
+    claim = await run_in_threadpool(_claim_notification, identifier)
     if claim is None:
         return "not_pending"
     revision, encrypted = claim
@@ -346,9 +347,9 @@ async def _notify_reply(identifier: str) -> str:
             idempotency_key=f"vainah-support-reply-{identifier}-{revision}",
         )
     except (HTTPException, ValueError, InvalidToken, UnicodeDecodeError):
-        _finish_notification(identifier, revision, False)
+        await run_in_threadpool(_finish_notification, identifier, revision, False)
         return "pending"
-    _finish_notification(identifier, revision, True)
+    await run_in_threadpool(_finish_notification, identifier, revision, True)
     return "sent"
 
 
@@ -423,7 +424,7 @@ async def reply(request: Request, ticket_id: str, body: OperatorReply) -> dict:
     message = body.reply.strip()
     if len(message) < 2 or LINK_RE.search(message):
         raise HTTPException(422, "SUPPORT_REPLY_INVALID")
-    stored = _operator_reply(ticket_id, message, body.status)
+    stored = await run_in_threadpool(_operator_reply, ticket_id, message, body.status)
     notification = stored.get("notification", "none") if stored else "none"
     if notification == "pending":
         try:
