@@ -25,6 +25,7 @@
     ['privacy.html','Конфиденциальность','Как сайт обращается с данными','данные'],
     ['terms.html','Условия сервиса','Правила использования Vainah VPN','условия'],
     ['speed.html','Тест скорости','Ping, jitter, загрузка и отдача данных','скорость speedtest интернет mbps download upload'],
+    ['network-check.html','Проверка соединения','HTTPS, Python API, email-вход, оплата и отклик сервера','здоровье сети диагностика сеть health check ping'],
     ['tools.html','Все инструменты','Каталог функций, диагностики и настроек Vainah VPN','инструменты функции разделы все страницы'],
     ['features.html','Возможности','Что доступно на сайте Vainah VPN','функции'],
     ['about.html','О проекте','Как устроен Vainah VPN','команда'],
@@ -59,6 +60,7 @@
     ['diagnostics.html','Диагностика'],
     ['library.html','Библиотека знаний'],
     ['speed.html','Проверка скорости'],
+    ['network-check.html','Проверка соединения'],
     ['tools.html','Все инструменты']
   ];
   for(const nav of document.querySelectorAll('body > header .mobile-nav,body > header .drawer,body > .site-header .drawer')){
@@ -78,6 +80,7 @@
       ['plans.html','▤ Тарифы'],
       ['account.html','▣ Мой VPN'],
       ['speed.html','↯ Тест скорости'],
+      ['network-check.html','◉ Проверка сети'],
       ['tools.html','⊞ Все функции'],
       ['contact.html','? Поддержка']
     ];
@@ -205,6 +208,7 @@
       ['hub.html','◉','Центр управления','Главная панель'],
       ['compare.html','≋','Сравнение тарифов','Все цены и сроки'],
       ['speed.html','↯','Тест скорости','Ping и скорость интернета'],
+      ['network-check.html','◉','Проверка сети','Доступность API и оплаты'],
       ['diagnostics.html','↯','Диагностика','Проверки связи'],
       ['account.html','▦','Мой VPN','Личный кабинет']
     ];
@@ -219,7 +223,7 @@
     const search=el('button','','⌕ Поиск по сайту · Ctrl+K');search.type='button';
     search.dataset.vxOpenSearch='';
     quick.append(search);
-    for(const [href,name] of [['tools.html','Все инструменты'],['library.html','Библиотека знаний'],['device-center.html','Мастер подключения'],['contact.html','Поддержка']]){
+    for(const [href,name] of [['tools.html','Все инструменты'],['network-check.html','Проверка сети'],['library.html','Библиотека знаний'],['device-center.html','Мастер подключения'],['contact.html','Поддержка']]){
       const a=el('a','',name);a.href=href;quick.append(a);
     }
     inner.append(kicker,head,grid,quick);section.append(inner);
