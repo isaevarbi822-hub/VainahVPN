@@ -22,6 +22,69 @@
     );
     return body;
   }
+  const safeString=value=>typeof value==='string'?value:'';
+  function formatDate(value){
+    if(!value)return 'Не указана';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return 'Не указана';
+    return new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'short',year:'numeric'}).format(date);
+  }
+  const statusNames={
+    delivered:'Оплачено · выдано',paid:'Оплачено · выдаётся',
+    pending:'Ожидает оплаты',created:'Ожидает оплаты',
+    processing:'Обрабатывается',cancelled:'Отменён',canceled:'Отменён',
+    expired:'Истёк',failed:'Ошибка обработки',
+    needs_review:'Требуется проверка',
+    refund:'Возврат',refunded:'Возврат'
+  };
+  function orderStatus(value){
+    return statusNames[safeString(value)]||'Статус уточняется';
+  }
+  function statusClass(value){
+    return value==='delivered'?'success':
+      value==='pending'||value==='created'||value==='paid'||value==='processing'?'pending':'';
+  }
+  function renderOrders(orders){
+    const history=$('account-order-list');
+    if(!history)return;
+    history.replaceChildren();
+    if(!orders.length){
+      const empty=document.createElement('div');
+      empty.className='account-empty';
+      const heading=document.createElement('strong');
+      heading.textContent='Пока нет заказов';
+      const detail=document.createElement('span');
+      detail.textContent='Начни с пробного периода или выбери тариф.';
+      const actions=document.createElement('div');
+      actions.className='account-empty-actions';
+      for(const [href,label] of [['trial.html','Пробный доступ'],['plans.html','Выбрать тариф']]){
+        const link=document.createElement('a');
+        link.href=href;link.className='btn btn-border';link.textContent=label;actions.append(link);
+      }
+      empty.append(heading,detail,actions);history.append(empty);
+      return;
+    }
+    for(const order of orders){
+      const row=document.createElement('article');
+      row.className='account-order';
+      const title=document.createElement('div');
+      title.className='order-name';
+      title.textContent=safeString(order.title)||'VPN-подписка';
+      const date=document.createElement('div');
+      date.className='order-sub';
+      date.textContent=formatDate(order.created_at);
+      const amount=document.createElement('div');
+      amount.className='order-amount';
+      // Overview intentionally does not send a verified monetary total.
+      amount.textContent='—';
+      amount.title='Сумма не предоставлена сервером';
+      const state=document.createElement('div');
+      state.className='order-state '+statusClass(order.status);
+      state.textContent=orderStatus(order.status);
+      row.append(title,date,amount,state);
+      history.append(row);
+    }
+  }
   function clearSubscription(){
     subscriptionUrl=null;
     const open=$('account-open-vpn');
@@ -123,24 +186,21 @@
       }
       const orders=Array.isArray(result.orders)?result.orders:[];
       write('account-history-count',String(orders.length));
-      const history=$('account-order-list');
-      if(history){
-        history.replaceChildren();
-        for(const order of orders){
-          const el=document.createElement('p');
-          el.textContent=order.title+' · '+order.status;
-          history.append(el);
-        }
-        if(!orders.length)history.textContent='Заказов пока нет.';
-      }
+      renderOrders(orders);
       const delivery=result.subscription;
       const ready=delivery?.status==='delivered'&&delivery?.paid===true;
       if(ready){
         write('metric-plan',delivery.plan_title||'VPN-подписка');
-        write('metric-expiry',delivery.expires_at||'—');
+        write('metric-expiry',formatDate(delivery.expires_at));
         write('metric-devices',String(delivery.device_limit||'—'));
         write('account-plan-name',delivery.plan_title||'Активный тариф');
         write('account-plan-chip','Оплачено · доступ выдан');
+        write('account-plan-sub',delivery.expires_at
+          ?'Подписка до '+formatDate(delivery.expires_at)
+          :'Точный срок проверь в H1Cloud');
+        write('account-device-limit',String(delivery.device_limit||'—')+' устройства');
+        write('account-device-note','Максимальное число устройств по действующему тарифу.');
+        write('account-plan-price','Смотри в заказе');
         write('account-access-status','Доступ доступен. Личную ссылку можно открыть или скопировать.');
         const get=$('account-get-vpn');if(get)get.disabled=false;
       }
