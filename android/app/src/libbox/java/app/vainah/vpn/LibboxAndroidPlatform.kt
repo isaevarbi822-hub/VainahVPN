@@ -140,6 +140,26 @@ internal class LibboxAndroidPlatform(
             fallbackVirtualDns.distinct().forEach { builder.addDnsServer(it) }
         }
 
+        // Apply per-app exclusion to the actual Android TUN, NOT to a
+        // storefront switch. Lockdown forbids traffic outside the VPN:
+        // ignore bypass selections in that mode to keep apps inside the tunnel.
+        val lockdown = android.os.Build.VERSION.SDK_INT >= 29 && service.isLockdownEnabled
+        val excluded = SplitTunnelPolicy.effectiveExclusions(
+            SplitTunnelPreferences.read(service), service.packageName, lockdown,
+        )
+        if (lockdown && SplitTunnelPreferences.read(service).isNotEmpty()) {
+            onStage("split_tunnel_bypass_blocked_by_android_lockdown")
+        }
+        for (packageName in excluded) {
+            try {
+                builder.addDisallowedApplication(packageName)
+            } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+                // Package uninstalled: safely keep it inside the VPN instead
+                // of failing the entire TUN establishment.
+                onStage("split_tunnel_excluded_app_not_installed")
+            }
+        }
+
         val fd = builder.establish() ?: error("Android denied TUN")
         tun = fd
         // The default-interface monitor may already have started. Attach the
