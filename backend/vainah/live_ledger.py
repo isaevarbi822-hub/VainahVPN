@@ -1166,3 +1166,120 @@ class PostgresLiveOrderLedger:
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
 
+
+    def is_gift_order(self, order_id: str) -> bool:
+        """Trust the persisted gift marker, never a webhook client flag."""
+        if not isinstance(order_id, str) or not LIVE_ORDER_RE.fullmatch(order_id):
+            raise LiveLedgerError("LIVE_ORDER_INVALID")
+        try:
+            with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute(
+                    "SELECT is_gift FROM vainah_live_orders WHERE order_id=%s",
+                    (order_id,),
+                )
+                row = cur.fetchone()
+                return bool(row[0]) if row else False
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
+    def buyer_gift_cards(self, buyer_ref: str) -> list[dict]:
+        """A paid voucher appears only in its verified purchaser's account."""
+        if not re.fullmatch(r"v1_[0-9a-f]{64}", buyer_ref):
+            raise LiveLedgerError("LIVE_OWNER_INVALID")
+        try:
+            with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT order_id, plan_id, payment_state, delivery_state,
+                           gift_code_cipher, gift_redeemed_at, created_at
+                    FROM vainah_live_orders
+                    WHERE is_gift=TRUE AND gift_buyer_ref=%s
+                    ORDER BY created_at DESC LIMIT 20
+                """, (buyer_ref,))
+                rows = cur.fetchall()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        result = []
+        for row in rows:
+            safe_paid = row[2] == "paid"
+            code = (
+                unseal_live_secret(row[4])
+                if safe_paid and row[5] is None and row[4] else None
+            )
+            result.append({
+                "order_id": row[0], "plan_id": row[1],
+                "payment_state": row[2], "delivery_state": row[3],
+                "gift_code": code, "redeemed": row[5] is not None,
+                "created_at": row[6].isoformat(),
+            })
+        return result
+
+    def redeem_paid_gift_once(
+        self, *, gift_code: str, recipient_ref: str, verified_email: str,
+    ) -> str:
+        """Atomic transfer of ONE funded voucher before any H1 write.
+
+        The original purchaser stays in gift_buyer_ref for audit/refunds.
+        Recovery from a crash may retry fulfillment only while pending;
+        already claimed or uncertain H1 writes cannot be repeated.
+        """
+        if not isinstance(gift_code, str) or not re.fullmatch(r"VG[A-F0-9]{32}", gift_code):
+            raise LiveLedgerError("GIFT_CODE_INVALID")
+        if not isinstance(recipient_ref, str) or not re.fullmatch(
+            r"v1_[0-9a-f]{64}", recipient_ref
+        ):
+            raise LiveLedgerError("LIVE_OWNER_INVALID")
+        if not isinstance(verified_email, str) or not (
+            5 <= len(verified_email) <= 254 and verified_email.count("@") == 1
+        ):
+            raise LiveLedgerError("LIVE_EMAIL_INVALID")
+        key = os.environ.get("SESSION_SIGNING_KEY", "")
+        if len(key) < 32:
+            raise LiveLedgerError("LIVE_ENCRYPTION_UNAVAILABLE")
+        code_hash = hmac.new(
+            key.encode(), ("vainah-gift-code-v1:" + gift_code).encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        recipient_cipher = seal_live_secret(verified_email.lower())
+        try:
+            with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                # An ownership transfer, code claim and H1-entitlement gate
+                # share one atomic row update. Parallel redeems cannot win.
+                cur.execute("""
+                    UPDATE vainah_live_orders SET
+                        owner_ref=%s, receipt_email_cipher=%s,
+                        gift_redeemed_at=now(), updated_at=now()
+                    WHERE gift_code_hash=%s AND is_gift=TRUE
+                      AND payment_state='paid' AND webhook_at IS NOT NULL
+                      AND delivery_state='pending'
+                      AND gift_redeemed_at IS NULL
+                    RETURNING order_id
+                """, (recipient_ref, recipient_cipher, code_hash))
+                row = cur.fetchone()
+                if row is None:
+                    raise LiveLedgerError("GIFT_NOT_REDEEMABLE")
+                return row[0]
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
+    def recipient_gift_order(self, *, order_id: str, recipient_ref: str) -> bool:
+        """Allow only the verified receiver to finish their OWN pending claim."""
+        if not isinstance(order_id, str) or not LIVE_ORDER_RE.fullmatch(order_id):
+            return False
+        if not isinstance(recipient_ref, str) or not re.fullmatch(r"v1_[0-9a-f]{64}", recipient_ref):
+            return False
+        try:
+            with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT 1 FROM vainah_live_orders
+                    WHERE order_id=%s AND owner_ref=%s AND is_gift=TRUE
+                      AND payment_state='paid' AND webhook_at IS NOT NULL
+                      AND gift_redeemed_at IS NOT NULL
+                      AND delivery_state IN ('pending', 'delivered')
+                """, (order_id, recipient_ref))
+                return cur.fetchone() is not None
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
