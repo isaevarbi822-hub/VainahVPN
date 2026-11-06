@@ -296,6 +296,17 @@ class PostgresLiveOrderLedger:
                 self._database_url, connect_timeout=4
             ) as conn, conn.cursor() as cur:
                 self._schema(cur)
+                if gift and os.environ.get("VAINAH_GIFT_CARDS_ENABLED") == "pilot":
+                    # Exactly one reserved pilot gift per buyer, including
+                    # uncertain invoices. The schema advisory lock serializes
+                    # concurrent checkouts across Render workers.
+                    cur.execute("""
+                        SELECT 1 FROM vainah_live_orders
+                        WHERE is_gift=TRUE AND gift_buyer_ref=%s
+                          AND checkout_nonce_hash<>%s LIMIT 1
+                    """, (owner_ref, nonce_hash))
+                    if cur.fetchone() is not None:
+                        raise LiveLedgerError("LIVE_GIFT_PILOT_LIMIT_REACHED")
                 if discounted_pilot:
                     # Advisory xact lock acquired in _schema is held to commit.
                     # A retry of an existing nonce is handled below as before.
