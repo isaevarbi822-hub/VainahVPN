@@ -166,6 +166,12 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
             <button id="account-get-vpn" class="btn btn-primary" type="button" disabled>Получить VPN-ссылку</button>
             <a id="account-open-vpn" class="btn btn-border" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden>Открыть подписку ↗</a>
             <button id="account-copy-vpn" class="btn btn-border" type="button" hidden>Скопировать ссылку</button>
+            <button id="account-get-qr" class="btn btn-border" type="button" disabled>Показать QR для подключения</button>
+          </div>
+          <div id="account-qr-panel" class="account-qr-panel" hidden>
+            <p><strong>QR-код — это твой секретный ключ подписки.</strong> Показывай его только на собственном устройстве и не отправляй в общий чат.</p>
+            <img id="account-qr-image" alt="QR-код персональной VPN-подписки — не передавай посторонним" width="260" height="260" hidden>
+            <p id="account-qr-status" role="status" aria-live="polite">QR ещё не запрошен.</p>
           </div>
         </div>
         <div class="account-row-actions">
