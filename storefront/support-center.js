@@ -101,7 +101,10 @@
       ready=config.available===true;
       emailNotificationsAvailable=config.email_notifications_available===true;
       authenticated=telegram.authenticated===true||email.authenticated===true;
-      if(notifyToggle)notifyToggle.disabled=!emailNotificationsAvailable;
+      if(notifyToggle){
+        notifyToggle.disabled=!emailNotificationsAvailable;
+        if(!emailNotificationsAvailable)notifyToggle.checked=false;
+      }
       if(notifyHint&&!emailNotificationsAvailable)
         notifyHint.textContent='Почтовая доставка временно не настроена. Ответы можно читать в истории заявок.';
       if(!authenticated){
@@ -128,7 +131,7 @@
       const response=await request('/api/support/tickets',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({category:category.value,message:message.value.trim(),
-          notify_email:notifyToggle?.checked===true})
+          notify_email:emailNotificationsAvailable&&notifyToggle?.checked===true})
       });
       message.value='';counter.textContent='0 / 1500';
       note('Обращение '+response.id+' принято. Ответ появится в истории. '+
