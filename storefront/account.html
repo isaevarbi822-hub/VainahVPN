@@ -88,7 +88,7 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
     </nav>
     <div class="account-metrics" aria-label="Краткая информация о подписке">
       <div class="account-metric"><small>Твой тариф</small><strong id="metric-plan">Загружаем…</strong><span>Только подтверждённая сервером подписка</span></div>
-      <div class="account-metric"><small>Срок в базе</small><strong id="metric-expiry">—</strong><span>Дата окончания по данным H1Cloud</span></div>
+      <div class="account-metric"><small>Действует до</small><strong id="metric-expiry">—</strong><span id="account-expiry-note">Срок проверяется по данным H1Cloud</span></div>
       <div class="account-metric"><small>Устройства</small><strong id="metric-devices">—</strong><span>Количество разрешённых устройств</span></div>
     </div>
 
@@ -190,6 +190,30 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
         <h2 id="account-history-heading">История покупок <span id="account-history-count" class="account-chip dim">0</span></h2>
         <span id="account-history-hint" class="muted" style="font-size:12px">Показываем реальные заказы</span>
       </div>
+      <div class="account-order-tools" aria-label="Управление историей заказов">
+        <label for="account-order-search">Поиск тарифа
+          <input id="account-order-search" type="search" autocomplete="off" maxlength="90"
+            placeholder="Например: 1 год">
+        </label>
+        <label for="account-order-filter">Статус
+          <select id="account-order-filter">
+            <option value="all">Все статусы</option>
+            <option value="delivered">Выданные</option>
+            <option value="waiting">Ожидающие</option>
+            <option value="closed">Завершённые / ошибки</option>
+          </select>
+        </label>
+        <label for="account-order-sort">Порядок
+          <select id="account-order-sort">
+            <option value="newest">Сначала новые</option>
+            <option value="oldest">Сначала старые</option>
+          </select>
+        </label>
+        <button type="button" id="account-order-export" class="btn btn-border" disabled>
+          Скачать историю CSV
+        </button>
+      </div>
+      <p id="account-history-match" class="account-history-match" role="status" aria-live="polite">Нет подтверждённых покупок</p>
       <div class="account-order-head" aria-hidden="true">
         <span>Тариф</span><span>Дата</span><span>Сумма</span><span>Статус</span>
       </div>
