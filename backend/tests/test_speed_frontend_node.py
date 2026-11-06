@@ -1,6 +1,6 @@
 """Run the real Speed Lab JavaScript in a minimal Node DOM to assert request sizes."""
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 
 SCRIPT = Path(__file__).resolve().parents[2] / "storefront/speed-test.js"
