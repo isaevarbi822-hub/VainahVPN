@@ -45,6 +45,28 @@
       details.append(element('strong','',String(record.name||'').slice(0,40)));
       details.append(element('small','',
         (platforms[record.platform]||'Устройство')+' · Сохранено в кабинете'));
+      const rename=element('button','vd-remove','Переименовать');
+      rename.type='button';
+      rename.addEventListener('click',async()=>{
+        if(busy||!authenticated)return;
+        const next=window.prompt('Новое название устройства (без VPN-ключей):',record.name);
+        if(next===null)return;
+        const cleaned=next.trim();
+        if(!cleaned||cleaned.length>40){
+          say('Название должно содержать от 1 до 40 символов.');return;
+        }
+        busy=true;rename.disabled=true;add.disabled=true;
+        try{
+          const result=await api('/api/account/devices/'+encodeURIComponent(record.id),{
+            method:'PATCH',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({name:cleaned})
+          });
+          if(result.vpn_disconnected!==false)throw Error('Неожиданный ответ сервера');
+          await load();
+          say('Название обновлено. VPN-подключение не изменено.');
+        }catch(error){say('Не удалось переименовать: '+error.message);}
+        finally{busy=false;render();}
+      });
       const remove=element('button','vd-remove','Удалить запись (не отключает VPN)');
       remove.type='button';
       remove.addEventListener('click',async()=>{
@@ -61,7 +83,7 @@
         }catch(error){say('Не удалось удалить запись: '+error.message);}
         finally{busy=false;render();}
       });
-      row.append(details,remove);list.append(row);
+      row.append(details,rename,remove);list.append(row);
     }
   }
   async function load(){
