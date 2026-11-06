@@ -247,3 +247,24 @@ body :is(.table-scroll,.comparison-wrap,[role="region"][aria-label*="табли�
     transition-duration:0.01ms!important;scroll-behavior:auto!important;
   }
 }
+
+/* Visible public trial entry point, independent of payment JavaScript. */
+.vx-trial-nav{color:#d5fff0!important;font-weight:800!important}
+.vx-trial-banner{max-width:1126px;width:calc(100% - 48px);margin:22px auto 0;
+ display:flex;align-items:center;justify-content:space-between;gap:20px;
+ padding:19px 23px;background:linear-gradient(105deg,#173e3b,#23264a 68%,#342752);
+ border:1px solid #80cbb583;border-radius:20px;color:#f7fff9;
+ box-shadow:0 14px 38px #080e2060;position:relative;isolation:isolate}
+.vx-trial-banner strong{font-size:clamp(16px,2.1vw,21px);line-height:1.3;display:block}
+.vx-trial-banner p{font-size:13px;line-height:1.6;margin:6px 0 0;color:#d4e9e8}
+.vx-trial-cta{display:inline-flex;justify-content:center;align-items:center;min-height:46px;
+ padding:12px 18px;white-space:nowrap;background:#c7f9db;color:#11372b!important;
+ border:1px solid #d5ffe6;border-radius:13px;font-size:13px;font-weight:850;
+ text-decoration:none!important;flex-shrink:0}
+.vx-trial-cta:hover,.vx-trial-cta:focus-visible{background:white}
+@media(max-width:640px){
+ .vx-trial-banner{width:calc(100% - 32px);margin-top:14px;padding:18px;
+ flex-direction:column;align-items:stretch;border-radius:17px}
+ .vx-trial-cta{width:100%;white-space:normal}
+}
+@media(max-width:320px){.vx-trial-banner{width:calc(100% - 16px);padding:11px}}
