@@ -197,11 +197,12 @@ def parse_client_status(record: dict, *, now: float | None = None) -> dict:
         raise H1PanelError("PANEL_INVALID_RESPONSE")
     expiry = client_expiry(record)
     banned = client_disabled(record)
+    traffic = verified_traffic_usage(record)
     return {
         "active": not banned and expiry > (time.time() if now is None else now),
         "banned": banned,
         "expires_at": datetime.fromtimestamp(expiry, UTC).isoformat() if expiry else None,
-        "traffic": verified_traffic_usage(record),
+        **({"traffic": traffic} if any(v is not None for v in traffic.values()) else {}),
     }
 
 
