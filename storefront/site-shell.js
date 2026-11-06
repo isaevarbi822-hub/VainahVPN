@@ -45,6 +45,11 @@
   document.body.id=document.body.id||'vainah-top';
   const active=pages.find(p=>p[0]===path);
   const header=document.querySelector('body > header, body > .site-header');
+  // The visual login label is shared across legacy pages. Keep screen readers
+  // in sync with current email sign-in without changing auth callbacks.
+  document.querySelectorAll('a.vainah-login').forEach(link=>{
+    link.setAttribute('aria-label','Войти в личный кабинет Vainah VPN');
+  });
 
   // Keep both generations of navigation usable at laptop and mobile widths.
   const extra=[
