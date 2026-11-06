@@ -73,6 +73,25 @@
       const a=el('a','',label);a.href=href;nav.append(a);
     }
   }
+  // Tell visitors when their browser has lost network connectivity.
+  // Uses only browser online/offline events; no polling, accounts or API calls.
+  if(header && !document.getElementById('vainah-offline-notice')){
+    const notice=el('div','vx-offline-notice');
+    notice.id='vainah-offline-notice';
+    notice.setAttribute('role','status');
+    notice.setAttribute('aria-live','polite');
+    const updateNetworkNotice=()=>{
+      const offline=navigator.onLine===false;
+      notice.hidden=!offline;
+      notice.textContent=offline
+        ?'Нет подключения к сети (по данным браузера). Вход, платежи и диагностика могут быть недоступны.'
+        :'';
+    };
+    header.after(notice);
+    updateNetworkNotice();
+    window.addEventListener('offline',updateNetworkNotice);
+    window.addEventListener('online',updateNetworkNotice);
+  }
   // A compact always-visible navigation rail exposes important pages even
   // when legacy desktop navigation is hidden at tablet/mobile widths.
   if(header && !document.querySelector('.vx-utility-rail')){
