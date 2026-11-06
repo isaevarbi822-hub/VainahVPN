@@ -1,0 +1,46 @@
+:root{color-scheme:dark}*{box-sizing:border-box}
+.vd-body{margin:0;background:#0c1220;color:#f3f6ff;font:15px/1.65 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.vd-body a{color:#d4c4ff;text-decoration:none}.vd-body a:hover{text-decoration:underline}
+.vd-header{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between;
+ padding:20px max(16px,calc((100vw - 1060px)/2));background:#141e30;border-bottom:1px solid #384c67}
+.vd-brand{font-size:20px;letter-spacing:.05em;font-weight:900;color:#fff!important}
+.vd-brand span{color:#bba0ff}
+.vd-header nav{display:flex;gap:10px;flex-wrap:wrap}
+.vd-header nav a{border:1px solid #4d5b79;border-radius:11px;padding:9px 12px;font-size:12px}
+.vd-main{max-width:1060px;margin:auto;padding:45px 20px 76px}
+.vd-kicker{font-size:11px;font-weight:850;color:#93e2cc;letter-spacing:.14em}
+.vd-main h1{font-size:clamp(32px,5vw,58px);letter-spacing:-.04em;margin:10px 0}
+.vd-intro{max-width:800px;color:#b5c5dd}
+.vd-warning{margin:22px 0;border:1px solid #8468ac;background:#292440;
+ padding:18px 20px;border-radius:16px;font-size:13px;color:#ece0ff}
+.vd-card{margin-top:22px;padding:24px 27px;border:1px solid #475d7d;
+ border-radius:21px;background:linear-gradient(150deg,#1b2840,#111c2f)}
+.vd-card h2{font-size:21px;margin:0 0 16px}
+.vd-status{padding:13px 16px;background:#1d2a43;border:1px solid #526d91;
+ border-radius:14px;color:#d4e2f5}
+.vd-card form{display:grid;grid-template-columns:1.5fr 1fr auto;align-items:end;gap:13px}
+.vd-card label{display:flex;flex-direction:column;gap:8px;font-size:12px;
+ color:#c7d4e9;font-weight:750}
+.vd-card input,.vd-card select{width:100%;min-width:0;height:46px;padding:10px 12px;
+ background:#0f1b30;color:#fff;border:1px solid #6a7f9f;border-radius:12px;font:inherit}
+.vd-card button,.vd-secondary{display:inline-block;background:#bca7f8;
+ color:#211b39!important;padding:10px 15px;border:1px solid #bca7f8;
+ border-radius:12px;min-height:46px;font:inherit;font-weight:800;cursor:pointer}
+.vd-card button:disabled{opacity:.45;cursor:not-allowed}
+.vd-card :is(a,button,input,select):focus-visible{outline:3px solid #a3efd9;outline-offset:2px}
+.vd-muted{font-size:12px;color:#abbed5}
+.vd-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.vd-head button{background:#233751;color:#f3f6ff!important;border-color:#63779b}
+.vd-list{display:grid;gap:12px;margin-top:18px}
+.vd-entry{display:flex;align-items:center;justify-content:space-between;gap:18px;
+ border:1px solid #415776;background:#101b30;padding:17px;border-radius:15px;flex-wrap:wrap}
+.vd-entry strong{display:block;font-size:15px;overflow-wrap:anywhere}
+.vd-entry small{display:block;color:#9fb5d1;margin-top:5px}
+.vd-entry .vd-remove{background:#37223d;color:#ffdee6!important;
+ border-color:#8a566c;font-size:12px;min-height:40px}
+.vd-footer{text-align:center;border-top:1px solid #374b65;
+ color:#9fb3d0;font-size:12px;padding:25px}
+@media(max-width:760px){.vd-card form{grid-template-columns:1fr}
+ .vd-card{padding:19px}.vd-main{padding:32px 15px 55px}
+ .vd-card form button{width:100%}}
+@media(max-width:480px){.vd-entry .vd-remove{width:100%}}
