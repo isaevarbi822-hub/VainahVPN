@@ -33,8 +33,9 @@ def test_all_public_html_local_links_and_assets_exist():
         reader.feed(page.read_text(encoding="utf-8"))
         for tag, raw in reader.references:
             value = raw.strip()
-            if (not value or value.startswith(("#", "//", "/api/", "/app"))
-                    or value == "/" or value.startswith(("mailto:", "tel:", "data:"))):
+            if (not value or value == "/" or value.startswith(
+                    ("#", "//", "/api/", "/app", "mailto:", "tel:", "data:")
+            )):
                 continue
             parts = urlsplit(value)
             if parts.scheme or parts.netloc:
