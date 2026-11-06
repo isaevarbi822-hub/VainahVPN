@@ -114,7 +114,7 @@
       const modeNode=$('speed-network-mode');
       if(modeNode)modeNode.textContent='Режим: '+(mode==='eco'?'экономный':'стандартный')+'. Скорости приблизительные и зависят от нагрузки Render.';
       const previousNode=$('speed-previous');
-      if(previous&&previousNode){
+      if(previous&&previousNode&&previous.mode===latest.mode){
         const diff=(key,unit)=>{
           const change=latest[key]-previous[key];
           const sign=change>=0?'+':'';
@@ -123,7 +123,9 @@
         previousNode.textContent='По сравнению с предыдущим тестом: загрузка '+diff('download','Мбит/с')+
           ', отдача '+diff('upload','Мбит/с')+', ping '+diff('ping','мс')+'.';
       } else if(previousNode){
-        previousNode.textContent='Первый результат готов. Повтори тест с VPN включённым или выключенным для сравнения.';
+        previousNode.textContent=previous&&previous.mode!==latest.mode
+          ?'Режим проверки изменился. Для точного сравнения выполни два теста в одном режиме.'
+          :'Первый результат готов. Повтори тест с VPN включённым или выключенным для сравнения.';
       }
       previous={...latest};
       if(copyButton)copyButton.disabled=false;
