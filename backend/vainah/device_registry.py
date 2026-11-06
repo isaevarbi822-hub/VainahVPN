@@ -176,7 +176,8 @@ def devices(request: Request) -> dict:
 @router.get("/limits")
 async def verified_device_limits(request: Request) -> dict:
     """Paid plan limit is distinct from saved labels and live device sessions."""
-    from .customer_portal import PLAN_LABELS, overview as customer_overview
+    from .customer_portal import PLAN_LABELS
+    from .customer_portal import overview as customer_overview
     owner = _owner(request)
     labels = _read(owner)
     data = await customer_overview(request)
