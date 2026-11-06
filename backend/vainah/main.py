@@ -14,6 +14,7 @@ from .auth import auth_public_config
 from .auth import router as auth_router
 from .billing import router as shop_router
 from .config import Settings, deployment_commit
+from .connection_check import router as connection_check_router
 from .customer_portal import router as customer_router
 from .db_health import database_status
 from .device_registry import router as device_registry_router
@@ -60,6 +61,7 @@ app.include_router(support_thread_router)
 app.include_router(support_rating_router)
 app.include_router(reminder_router)
 app.include_router(reminder_dispatch_router)
+app.include_router(connection_check_router)
 
 
 @app.middleware("http")
