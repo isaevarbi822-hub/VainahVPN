@@ -5,6 +5,7 @@
     ['index.html','Главная','Начало, новости сайта, навигация','главная'],
     ['hub.html','Центр управления','Личный кабинет, подписки и состояние сервисов','аккаунт управление сервисы'],
     ['plans.html','Тарифы','Цены всех 6 подписок','цены купить 30 60 90 180 365'],
+    ['trial.html','Пробный период · 0 ₽','1 день, 2 устройства и 10 ГБ бесплатно','пробник пробный бесплатно бесплатный тест 24 часа 10 гб'],
     ['compare.html','Сравнение тарифов','Сравнить сроки, стоимость и устройства','разница тарифов цена'],
     ['assistant.html','Подобрать тариф','Помощник по сроку и количеству устройств','выбрать подобрать'],
     ['account.html','Личный кабинет','VPN, срок, заказы и история после Telegram Login','мой впн мой vpn продление телеграм'],
@@ -48,6 +49,7 @@
   // Keep both generations of navigation usable at laptop and mobile widths.
   const extra=[
     ['hub.html','Центр управления'],
+    ['trial.html','Пробный период · 0 ₽'],
     ['diagnostics.html','Диагностика'],
     ['library.html','Библиотека знаний']
   ];
@@ -55,6 +57,32 @@
     for(const [href,label] of extra){
       if(nav.querySelector('a[href="'+href+'"]'))continue;
       const a=el('a','',label);a.href=href;nav.append(a);
+    }
+  }
+  // Highlight the real trial flow on all public storefront pages.
+  // The eligibility, issuance and H1Cloud quotas remain exclusively server-side.
+  if(header && path !== 'trial.html'){
+    const desktop=header.querySelector('.desktop-nav,.header-links');
+    if(desktop && !desktop.querySelector('a[href="trial.html"]')){
+      const a=el('a','vx-trial-nav','Пробный доступ · 0 ₽');
+      a.href='trial.html';
+      desktop.append(a);
+    }
+  }
+  if(path === 'index.html'){
+    const mainForTrial=document.querySelector('main');
+    if(mainForTrial && !mainForTrial.querySelector('.vx-trial-banner')){
+      const banner=el('section','vx-trial-banner');
+      banner.setAttribute('aria-label','Бесплатный пробный VPN');
+      const copy=el('div','vx-trial-banner-copy');
+      copy.append(
+        el('strong','','Попробуй Vainah VPN бесплатно — 24 часа'),
+        el('p','','10 ГБ на 2 устройства · без банковской карты · один раз после подтверждения email')
+      );
+      const cta=el('a','vx-trial-cta','Активировать за 0 ₽ →');
+      cta.href='trial.html';
+      banner.append(copy,cta);
+      mainForTrial.prepend(banner);
     }
   }
   if(header){
