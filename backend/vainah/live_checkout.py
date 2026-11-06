@@ -287,11 +287,18 @@ async def start_live_checkout(
 ) -> dict:
     if gift and (pilot or discounted_pilot):
         raise HTTPException(422, "GIFT_PILOT_FORBIDDEN")
-    if gift and (
-        not live_ready()
-        or os.environ.get("VAINAH_GIFT_CARDS_ENABLED") != "enabled"
-    ):
-        raise HTTPException(503, "GIFT_CHECKOUT_NOT_VERIFIED")
+    if gift:
+        gift_mode = os.environ.get("VAINAH_GIFT_CARDS_ENABLED")
+        pilot_email = os.environ.get("VAINAH_LIVE_PILOT_EMAIL", "").strip().lower()
+        actor = current_email(request)
+        pilot_allowed = (
+            gift_mode == "pilot"
+            and actor is not None and 5 <= len(pilot_email) <= 254
+            and pilot_email.count("@") == 1
+            and secrets.compare_digest(actor.strip().lower(), pilot_email)
+        )
+        if not live_ready() or not (gift_mode == "enabled" or pilot_allowed):
+            raise HTTPException(503, "GIFT_CHECKOUT_NOT_VERIFIED")
     if discounted_pilot:
         if not discount_pilot_enabled():
             raise HTTPException(503, "DISCOUNT_PILOT_DISABLED")
@@ -363,6 +370,7 @@ async def start_live_checkout(
             "LIVE_IDEMPOTENCY_CONFLICT",
             "LIVE_PILOT_ALREADY_RESERVED",
             "LIVE_DISCOUNT_PILOT_LIMIT_REACHED",
+            "LIVE_GIFT_PILOT_LIMIT_REACHED",
         }:
             raise HTTPException(409, code) from None
         if code in {"LIVE_IDEMPOTENCY_INVALID", "LIVE_PLAN_INVALID",
