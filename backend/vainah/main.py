@@ -22,6 +22,7 @@ from .h1_panel import router as h1_router
 from .h1_trial import router as h1_trial_router
 from .inspector import InvalidSubscription, inspect_subscription
 from .integration_status import integration_status
+from .public_trial import router as public_trial_router
 from .telegram_auth import router as telegram_router
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,6 +39,7 @@ app.include_router(h1_trial_router)
 app.include_router(telegram_router)
 app.include_router(email_auth_router)
 app.include_router(customer_router)
+app.include_router(public_trial_router)
 
 
 @app.middleware("http")
@@ -55,6 +57,9 @@ async def security_headers(request: Request, call_next):
         "/operations.html",
         "/operations.css",
         "/operations.js",
+        "/trial.html",
+        "/trial.js",
+        "/trial.css",
     }:
         # No inline JS/CSS or external assets on the token-entry page.
         # Static HTML is public, but both billing endpoints require operator
