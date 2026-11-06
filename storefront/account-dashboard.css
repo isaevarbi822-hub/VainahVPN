@@ -164,3 +164,16 @@
  .account-shell .account-order-tools{grid-template-columns:1fr;gap:10px}
  .account-order-tools button{width:100%}
 }
+
+
+/* Privacy-safe customer self-service tools. */
+.account-shell #account-calendar,
+.account-shell #account-support-summary{min-height:44px;white-space:normal;line-height:1.35}
+.account-shell .account-action-status{padding:10px 13px;margin:14px 0 0;
+ border:1px solid #445d74;background:#17243a;border-radius:12px;
+ color:#bcd2e7;font-size:12px;line-height:1.6}
+.account-shell .account-manual-report{width:100%;min-height:130px;margin-top:12px;
+ background:#141e33;color:#f4f6ff;border:1px solid #7182a1;border-radius:12px;
+ padding:13px;font:12px/1.6 ui-monospace,Consolas,monospace}
+.account-shell .account-manual-report[hidden]{display:none!important}
+@media(max-width:650px){.account-shell #account-calendar,.account-shell #account-support-summary{width:100%}}
