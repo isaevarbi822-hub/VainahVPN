@@ -6,6 +6,7 @@ No remote hosts, no disk writes, no user secrets and no unrestricted payloads.
 from __future__ import annotations
 
 import asyncio
+import secrets
 import time
 from collections import defaultdict, deque
 
@@ -21,7 +22,7 @@ MAX_UPLOAD_BYTES = 256 * 1024
 WINDOW_SECONDS = 60
 REQUESTS_PER_WINDOW = 24
 MAX_IDENTITIES = 2048
-_download_payload = bytes(DOWNLOAD_BYTES)
+_download_payload = secrets.token_bytes(DOWNLOAD_BYTES)
 _lock = asyncio.Lock()
 _recent: dict[str, deque[float]] = defaultdict(deque)
 
@@ -48,7 +49,7 @@ async def ping(request: Request):
     await _allow(request)
     return Response(
         status_code=204,
-        headers={"Cache-Control": "no-store", "Timing-Allow-Origin": "'self'"},
+        headers={"Cache-Control": "no-store"},
     )
 
 
