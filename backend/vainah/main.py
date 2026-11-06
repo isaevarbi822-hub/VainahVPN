@@ -26,6 +26,7 @@ from .integration_status import integration_status
 from .public_trial import router as public_trial_router
 from .speedtest import router as speedtest_router
 from .subscription_qr import router as qr_router
+from .support_tickets import router as support_router
 from .telegram_auth import router as telegram_router
 from .telegram_oidc import router as telegram_oidc_router
 
@@ -48,6 +49,7 @@ app.include_router(customer_router)
 app.include_router(public_trial_router)
 app.include_router(speedtest_router)
 app.include_router(qr_router)
+app.include_router(support_router)
 
 
 @app.middleware("http")
