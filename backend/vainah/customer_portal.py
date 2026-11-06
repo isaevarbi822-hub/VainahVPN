@@ -154,7 +154,8 @@ async def h1_customer_state(telegram_id: str) -> dict:
     if not result["active"]:
         return {"status": "inactive", "message": "VPN-профиль сейчас неактивен."}
     return {"status": "active", "message": "Профиль H1Cloud активен.",
-            "expires_at": result.get("expires_at")}
+            "expires_at": result.get("expires_at"),
+            "traffic": result.get("traffic")}
 
 
 async def h1_email_customer_state(email: str) -> dict:
@@ -192,6 +193,7 @@ async def h1_email_customer_state(email: str) -> dict:
         "status": "active",
         "message": "VPN-профиль активен; оплаченная выдача отдельно не подтверждена.",
         "expires_at": result.get("expires_at"),
+        "traffic": result.get("traffic"),
     }
 
 
@@ -322,6 +324,7 @@ async def overview(request: Request) -> dict:
                 "order_id": delivered["order_id"],
                 "plan_title": title, "device_limit": devices,
                 "expires_at": state.get("expires_at"),
+                "traffic": state.get("traffic"),
             }
         return {
             "authenticated": True,
@@ -342,6 +345,7 @@ async def overview(request: Request) -> dict:
             "order_id": last["order_id"],
             "plan_title": title, "device_limit": limit,
             "expires_at": state.get("expires_at"),
+            "traffic": state.get("traffic"),
         }
     return {
         "authenticated": True,
