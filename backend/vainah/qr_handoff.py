@@ -17,8 +17,8 @@ import psycopg
 import qrcode
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
-from qrcode.image.svg import SvgPathImage
 from qrcode.constants import ERROR_CORRECT_M
+from qrcode.image.svg import SvgPathImage
 
 from .customer_portal import access
 from .email_delivery import database_url
