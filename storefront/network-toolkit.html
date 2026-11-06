@@ -1,16 +1,16 @@
 <!doctype html><html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0b1121">
-<meta name="description" content="8 сетевых калькуляторов Vainah VPN: скорость, трафик, время загрузки, лимиты и сравнение VPN. Всё работает локально.">
+<meta name="description" content="12 сетевых калькуляторов Vainah VPN: скорость, трафик, время загрузки, лимиты и сравнение VPN. Всё работает локально.">
 <link rel="canonical" href="https://vainahvpn-python-preview.onrender.com/network-toolkit.html">
-<title>8 сетевых инструментов — Vainah VPN</title>
+<title>12 сетевых инструментов — Vainah VPN</title>
 <link rel="stylesheet" href="site-shell.css"><link rel="stylesheet" href="network-toolkit.css">
 <script src="site-shell.js" defer></script><script src="network-toolkit.js" defer></script>
 </head><body class="nt-body">
 <header class="nt-header"><div class="nt-top"><a href="index.html" class="nt-brand">VAINAH <span>VPN</span></a><nav class="nt-links" aria-label="Главное меню"><a href="tools.html">Все инструменты</a><a href="speed.html">Speed Lab</a><a href="account.html">Мой VPN</a></nav></div></header>
 <main class="nt-wrap" id="main"><span class="nt-eyebrow">VAINAH VPN · NETWORK TOOLKIT</span>
 <h1>Твоя сеть.<br>Твои расчёты.</h1>
-<p class="nt-intro">Восемь полезных инструментов: оцени время скачивания и отправки файлов, расход и остаток трафика, дневной лимит, изменение скорости и задержки при использовании VPN. Никакие введённые значения не отправляются на сервер.</p>
+<p class="nt-intro">Двенадцать полезных инструментов: оцени время скачивания и отправки файлов, расход и остаток трафика, дневной лимит, изменение скорости и задержки при использовании VPN. Никакие введённые значения не отправляются на сервер.</p>
 <div id="network-toolkit">
 <section class="nt-grid" aria-label="Сетевые расчёты">
 <form class="nt-card" data-calculator="convert" novalidate>
@@ -76,6 +76,27 @@
 </div><button type="submit">Рассчитать</button>
 <div class="nt-result" role="status" aria-live="polite"><strong data-result>—</strong><p data-detail>Укажи значения и нажми «Рассчитать».</p></div>
 </form>
+<form class="nt-card" data-calculator="monthly" novalidate>
+<h2>9. Прогноз за месяц</h2><p>Оцени общий расход трафика по своему среднему дневному использованию.</p><div class="nt-inputs">
+<label>Трафик в день (ГиБ)<input name="daily" type="number" min="0" max="1000000000" step="any" value="1.5" inputmode="decimal" required></label>
+<label>Количество дней<input name="days" type="number" min="1" max="1000000000" step="1" value="30" inputmode="numeric" required></label>
+</div><button type="submit">Рассчитать</button><div class="nt-result" role="status" aria-live="polite"><strong data-result>—</strong><p data-detail>Укажи расход за день и период.</p></div></form>
+<form class="nt-card" data-calculator="lifespan" novalidate>
+<h2>10. На сколько хватит трафика</h2><p>Прогноз срока расходования оставшегося лимита.</p><div class="nt-inputs">
+<label>Остаток (ГиБ)<input name="remaining" type="number" min="0" max="1000000000" step="any" value="8" inputmode="decimal" required></label>
+<label>В день (ГиБ)<input name="daily" type="number" min="0" max="1000000000" step="any" value="1" inputmode="decimal" required></label>
+</div><button type="submit">Рассчитать</button><div class="nt-result" role="status" aria-live="polite"><strong data-result>—</strong><p data-detail>Расчёт основан на твоих числах.</p></div></form>
+<form class="nt-card" data-calculator="devices" novalidate>
+<h2>11. Трафик на устройство</h2><p>Равномерное распределение общего лимита между устройствами.</p><div class="nt-inputs">
+<label>Лимит (ГиБ)<input name="limit" type="number" min="0" max="1000000000" step="any" value="10" inputmode="decimal" required></label>
+<label>Устройств<input name="devices" type="number" min="1" max="100" step="1" value="2" inputmode="numeric" required></label>
+</div><button type="submit">Рассчитать</button><div class="nt-result" role="status" aria-live="polite"><strong data-result>—</strong><p data-detail>Это планирование, а не техническое ограничение устройств.</p></div></form>
+<form class="nt-card" data-calculator="backup" novalidate>
+<h2>12. Резервная копия</h2><p>Оцени время загрузки резервной копии в облако и её размер относительно лимита.</p><div class="nt-inputs">
+<label>Размер (ГиБ)<input name="size" type="number" min="0" max="1000000000" step="any" value="5" inputmode="decimal" required></label>
+<label>Отдача (Мбит/с)<input name="speed" type="number" min="0" max="1000000000" step="any" value="20" inputmode="decimal" required></label>
+<label>Лимит (ГиБ)<input name="limit" type="number" min="0" max="1000000000" step="any" value="10" inputmode="decimal" required></label>
+</div><button type="submit">Рассчитать</button><div class="nt-result" role="status" aria-live="polite"><strong data-result>—</strong><p data-detail>Фактический расход зависит от синхронизации и повторных передач.</p></div></form>
 </section>
 <section class="nt-history" aria-labelledby="nt-history-heading">
 <h2 id="nt-history-heading">Результаты в этой вкладке</h2>
