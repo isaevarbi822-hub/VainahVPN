@@ -39,7 +39,7 @@ global.fetch=async(url,options={})=>{
     registered.push({id:'a'.repeat(24),...body});
     return {ok:true,json:async()=>({id:'a'.repeat(24)})};
   }
-  if(url==='/api/account/devices'&&!options.method)
+  if(url==='/api/account/devices'&&options.method==='GET')
     return {ok:true,json:async()=>({items:[...registered],source:'customer_managed_labels',
       live_sessions_available:false})};
   if(url==='/api/account/devices/'+'a'.repeat(24)&&options.method==='DELETE'){
