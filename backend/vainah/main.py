@@ -65,6 +65,9 @@ async def security_headers(request: Request, call_next):
     if request.url.path in {
         "/support-operator.html",
         "/support-operator.js",
+        "/my-devices.html",
+        "/my-devices.js",
+        "/my-devices.css",
         "/support-center.js",
         "/support-center.css",
         "/operator-pilot.html",
@@ -113,6 +116,8 @@ async def security_headers(request: Request, call_next):
         response.headers["Cache-Control"] = "no-store"
     elif request.url.path in {
         "/support-center.html",
+        "/my-devices.html",
+        "/my-devices.js",
         "/support-operator.html",
         "/support-operator.js",
         "/account.html",
