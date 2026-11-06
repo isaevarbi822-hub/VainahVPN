@@ -44,3 +44,7 @@
  .vd-card{padding:19px}.vd-main{padding:32px 15px 55px}
  .vd-card form button{width:100%}}
 @media(max-width:480px){.vd-entry .vd-remove{width:100%}}
+
+.vd-entry .vd-rename{background:#243f57;color:#e6f2ff!important;
+border-color:#6186ac;font-size:12px;min-height:40px}
+@media(max-width:480px){.vd-entry .vd-rename{width:100%}}
