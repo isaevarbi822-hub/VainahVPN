@@ -165,7 +165,7 @@ def test_support_frontend_does_not_store_secrets_or_use_html_injection():
     page=(SITE / "support-center.html").read_text(encoding="utf-8")
     script=(SITE / "support-center.js").read_text(encoding="utf-8")
     operator=(SITE / "support-operator.js").read_text(encoding="utf-8")
-    assert 'src="support-center.js"' in page
+    assert 'src="support-center.js?v=' in page
     assert 'id="vs-form"' in page
     assert "textContent" in script and "textContent" in operator
     assert "innerHTML" not in script + operator
