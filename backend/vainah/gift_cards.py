@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import re
+import secrets
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -41,10 +42,19 @@ class GiftRedeem(BaseModel):
     code: str = Field(min_length=34, max_length=34)
 
 
-def gift_checkout_ready() -> bool:
-    return (
-        os.environ.get("VAINAH_GIFT_CARDS_ENABLED") == "enabled"
-        and live_ready()
+def gift_checkout_ready(request: Request | None = None) -> bool:
+    if not live_ready():
+        return False
+    mode = os.environ.get("VAINAH_GIFT_CARDS_ENABLED")
+    if mode == "enabled":
+        return True
+    if mode != "pilot" or request is None:
+        return False
+    email = current_email(request)
+    allowed = os.environ.get("VAINAH_LIVE_PILOT_EMAIL", "").strip().lower()
+    return bool(
+        email and 5 <= len(allowed) <= 254 and allowed.count("@") == 1
+        and secrets.compare_digest(email.strip().lower(), allowed)
     )
 
 
@@ -59,9 +69,9 @@ def gift_redemption_ready() -> bool:
 
 
 @router.get("/status")
-def gift_card_status() -> dict:
+def gift_card_status(request: Request) -> dict:
     return {
-        "purchase_enabled": gift_checkout_ready(),
+        "purchase_enabled": gift_checkout_ready(request),
         "redemption_available": gift_redemption_ready(),
         "funding_source": "rollypay_signed_paid_only",
         "gift_code_after_payment": True,
@@ -69,7 +79,7 @@ def gift_card_status() -> dict:
         "gift_code_reuse_allowed": False,
         "message": (
             "Подарочные карты доступны для покупки и активации."
-            if gift_checkout_ready()
+            if gift_checkout_ready(request)
             else "Покупка подарочных карт ожидает отдельного подтверждения. "
                  "Черновики не являются оплаченными подарками."
         ),
@@ -82,7 +92,7 @@ async def gift_checkout(
     idempotency_key: str | None = Header(default=None),
 ) -> dict:
     require_same_origin(request)
-    if not gift_checkout_ready():
+    if not gift_checkout_ready(request):
         raise HTTPException(503, "GIFT_CHECKOUT_NOT_VERIFIED")
     if current_email(request) is None:
         raise HTTPException(401, "VERIFIED_EMAIL_REQUIRED")
