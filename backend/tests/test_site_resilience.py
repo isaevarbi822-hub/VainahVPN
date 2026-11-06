@@ -100,7 +100,7 @@ global.fetch=async(url)=>{
   assert.equal($('network-copy').disabled,false);
   await $('network-copy').events.click();
   assert.ok(global.copied.includes('Ответ сервера Vainah VPN: Доступен'));
-  assert.ok(global.copied.includes('Оформление заказов: Оплата доступна'));
+  assert.ok(global.copied.includes('Состояние оформления заказов: Оплата доступна'));
   assert.ok(global.copied.includes('\n'));
   assert.ok(!global.copied.includes('subscription_url'));
   navigator.clipboard.writeText=async()=>{throw Error('denied')};
