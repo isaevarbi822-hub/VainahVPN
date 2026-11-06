@@ -133,3 +133,15 @@ def test_new_frontend_is_safe_and_reports_render_not_vpn_latency():
     assert "sessionStorage" not in js
     assert "innerHTML" not in js
     assert "textContent" in js
+
+
+def test_check_page_has_strict_csp_and_private_cache_policy():
+    with TestClient(app, base_url=BASE) as client:
+        response = client.get("/connection-check.html")
+        script = client.get("/connection-check.js")
+    assert response.status_code == 200
+    assert script.status_code == 200
+    assert "noindex" in response.headers.get("x-robots-tag", "")
+    assert "unsafe-inline" not in response.headers.get("content-security-policy", "")
+    assert "no-store" in response.headers.get("cache-control", "")
+    assert "no-store" in script.headers.get("cache-control", "")
