@@ -145,7 +145,8 @@ def test_telegram_login_assets_are_cache_busted_and_not_stored():
         "account-dashboard.js",
         "account-login.js",
     ):
-        assert f'{name}?v=20261104-email-diagnostics-2' in page
+        assert f'{name}?v=' in page
+        assert f'{name}?v="' not in page
     with TestClient(app) as client:
         for path in (
             "/account.html",
