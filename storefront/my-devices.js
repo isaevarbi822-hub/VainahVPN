@@ -83,7 +83,7 @@
         }catch(error){say('Не удалось удалить запись: '+error.message);}
         finally{busy=false;render();}
       });
-      row.append(details,rename,remove);list.append(row);
+      row.append(details,remove,rename);list.append(row);
     }
   }
   async function load(){
