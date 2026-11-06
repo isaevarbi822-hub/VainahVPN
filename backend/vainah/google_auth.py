@@ -19,7 +19,12 @@ import jwt
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from .email_auth import EMAIL_SESSION_COOKIE, SESSION_SECONDS, _sign_session, normalize_email
+from .email_auth import (
+    EMAIL_SESSION_COOKIE,
+    SESSION_SECONDS,
+    _sign_session,
+    normalize_email,
+)
 from .telegram_auth import SESSION_COOKIE
 
 AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
