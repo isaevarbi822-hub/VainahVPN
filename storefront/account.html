@@ -35,10 +35,10 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
     <h2 id="account-login-heading">Войти в Vainah VPN</h2>
     <p>Войди по подтверждённой электронной почте, чтобы просмотреть свои подписки, заказы и VPN-ссылки. Для ранее связанных аккаунтов может быть доступен вход через Telegram.</p>
     <div class="account-auth-choice" role="tablist" aria-label="Способ входа">
-      <button type="button" role="tab" aria-controls="account-pane-telegram" aria-selected="true" data-auth-tab="telegram">✈ Telegram</button>
-      <button type="button" role="tab" aria-controls="account-pane-email" aria-selected="false" data-auth-tab="email">✉ Почта</button>
+      <button type="button" role="tab" aria-controls="account-pane-telegram" aria-selected="false" data-auth-tab="telegram">✈ Telegram</button>
+      <button type="button" role="tab" aria-controls="account-pane-email" aria-selected="true" data-auth-tab="email">✉ Почта</button>
     </div>
-    <div id="account-pane-telegram" class="account-auth-method" role="tabpanel" data-auth-pane="telegram">
+    <div id="account-pane-telegram" class="account-auth-method" role="tabpanel" data-auth-pane="telegram" hidden>
       <h3>Войти через Telegram</h3>
       <p>Вход подтверждает Telegram; Render проверяет криптографическую подпись. Пароли и токены здесь не вводятся.</p>
       <div id="account-widget"></div>
@@ -48,7 +48,7 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
       <div id="account-auth-status" class="account-auth-message" role="status" aria-live="polite">Загружаем Telegram Login…</div>
       <p>Если кнопка не появляется, проверь имя бота, домен Render в настройках BotFather и блокировщики браузера.</p>
     </div>
-    <div id="account-pane-email" class="account-auth-method" role="tabpanel" data-auth-pane="email" hidden>
+    <div id="account-pane-email" class="account-auth-method" role="tabpanel" data-auth-pane="email">
       <h3>Войти по электронной почте</h3>
       <p>Введи адрес, получи шестизначный код и войди без пароля. Подтверждённый email можно использовать независимо от Telegram.</p>
       <form data-auth-form="email">
@@ -64,7 +64,7 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
       <div class="account-auth-message" data-auth-message="email" role="status" aria-live="polite">Проверяем доступность почтового входа…</div>
     </div>
     <div class="account-auth-why" data-auth-availability role="status" aria-live="polite">Проверяем доступные способы входа…</div>
-    <div class="account-auth-why">Новый email создаёт отдельный кабинет. Ранее подтверждённая почта Telegram-аккаунта откроет только подписки этого же владельца. Реальная оплата пока закрыта.</div>
+    <div class="account-auth-why">Доступ к заказам привязан к подтверждённому аккаунту. Никому не сообщай код из письма или личную VPN-ссылку. Оплата новых заказов проверяется на странице оформления.</div>
   </section>
 
   <section id="account-alt-private" class="account-alt-private" hidden aria-labelledby="account-alt-title">
@@ -79,16 +79,23 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
   </section>
 
   <div id="account-private" class="account-main" hidden>
+    <nav class="account-quick-nav" aria-label="Быстрые действия в кабинете">
+      <a href="#account-sub-heading">◈ Моя подписка</a>
+      <a href="#account-device-heading">▣ Устройства</a>
+      <a href="#account-history-heading">≡ Заказы</a>
+      <a href="trial.html">✦ Пробный VPN</a>
+      <a href="contact.html">? Поддержка</a>
+    </nav>
     <div class="account-metrics" aria-label="Краткая информация о подписке">
-      <div class="account-metric"><small>Твой тариф</small><strong id="metric-plan">Загружаем…</strong><span>Последняя выданная покупка на сайте</span></div>
-      <div class="account-metric"><small>Срок в базе</small><strong id="metric-expiry">—</strong><span>Статус H1Cloud проверяется отдельно</span></div>
-      <div class="account-metric"><small>Устройства</small><strong id="metric-devices">—</strong><span>Максимум по твоему тарифу</span></div>
+      <div class="account-metric"><small>Твой тариф</small><strong id="metric-plan">Загружаем…</strong><span>Только подтверждённая сервером подписка</span></div>
+      <div class="account-metric"><small>Срок в базе</small><strong id="metric-expiry">—</strong><span>Дата окончания по данным H1Cloud</span></div>
+      <div class="account-metric"><small>Устройства</small><strong id="metric-devices">—</strong><span>Количество разрешённых устройств</span></div>
     </div>
 
     <section class="account-panel" id="account-email-panel" aria-label="Подтверждённая почта" style="margin-top:22px">
   <div class="account-panel-head"><h2>Получать VPN-подписку на email</h2></div>
   <p id="account-email-status" role="status" aria-live="polite">Проверяем подтверждение почты…</p>
-  <p>Ключ после оплаченного и выданного заказа отправим только на адрес, который ты подтвердил кодом. Пока реальная оплата закрыта.</p>
+  <p>После подтверждённой оплаты и выдачи подписки письмо с VPN-доступом отправляется на подтверждённый адрес. Также доступ остаётся в личном кабинете.</p>
   <form id="account-email-form" autocomplete="on">
     <label for="account-email-input">Электронная почта</label>
     <input id="account-email-input" type="email" name="email" maxlength="254" placeholder="you@example.com" required>
@@ -113,7 +120,7 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
             <div id="account-plan-sub" class="muted" style="font-size:12px;margin-top:9px">Проверяем покупки</div>
           </div>
           <div class="account-price">
-            <small>Стоимость последней покупки</small>
+            <small>Подробности покупки</small>
             <b id="account-plan-price">—</b>
           </div>
         </div>
@@ -141,7 +148,7 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
             <p id="account-device-note">Лимит устройств появится после покупки.</p>
           </div>
           <div class="account-device-info">
-            <small>Профиль H1Cloud</small>
+            <small>Состояние подключения H1Cloud</small>
             <div id="account-h1-state" class="account-vpn-live" role="status" aria-live="polite" style="margin-top:8px">Проверяем…</div>
           </div>
         </div>
