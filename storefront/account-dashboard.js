@@ -85,6 +85,42 @@
       history.append(row);
     }
   }
+  function formatBytes(value){
+    if(!Number.isSafeInteger(value)||value<0)return '—';
+    if(value===0)return '0 Б';
+    const units=['Б','КиБ','МиБ','ГиБ','ТиБ','ПиБ'];
+    let amount=value,index=0;
+    while(amount>=1024&&index<units.length-1){amount/=1024;index++;}
+    return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:index?2:0}).format(amount)+' '+units[index];
+  }
+  function updateTraffic(subscription){
+    const traffic=subscription?.traffic;
+    const used=traffic?.used_bytes;
+    const limit=traffic?.limit_bytes;
+    const knownUsed=Number.isSafeInteger(used)&&used>=0;
+    const knownLimit=Number.isSafeInteger(limit)&&limit>0;
+    const available=knownUsed||knownLimit;
+    write('account-traffic-used',knownUsed?formatBytes(used):'Нет данных');
+    write('account-traffic-limit',knownLimit?formatBytes(limit):'Нет данных');
+    write('account-traffic-left',knownUsed&&knownLimit?
+      formatBytes(Math.max(0,limit-used)):'Нет данных');
+    write('account-traffic-badge',available?'Данные H1Cloud':'Нет статистики');
+    write('account-traffic-note',available
+      ?(knownUsed&&knownLimit
+        ?'Данные получены из H1Cloud. Остаток рассчитан по подтверждённым байтам.'
+        :'H1Cloud передал только часть показателей. Недостающие значения не рассчитываются.')
+      :'H1Cloud не предоставил проверенную статистику трафика для этой подписки.');
+    const progress=$('account-traffic-progress');
+    const fill=$('account-traffic-fill');
+    if(progress){
+      const canCalculate=knownUsed&&knownLimit;
+      progress.hidden=!canCalculate;
+      const percent=canCalculate?Math.min(100,Math.round(used/limit*100)):0;
+      progress.setAttribute?.('aria-valuenow',String(percent));
+      if(fill)fill.style.width=percent+'%';
+    }
+  }
+
   function clearSubscription(){
     subscriptionUrl=null;
     const open=$('account-open-vpn');
@@ -95,6 +131,7 @@
     if(copy)copy.disabled=true;
     const get=$('account-get-vpn');
     if(get)get.disabled=true;
+    updateTraffic(null);
     write('metric-plan','Нет подтверждённых покупок');
     write('metric-expiry','—');
     write('metric-devices','—');
@@ -189,6 +226,7 @@
       renderOrders(orders);
       const delivery=result.subscription;
       const ready=delivery?.status==='delivered'&&delivery?.paid===true;
+      updateTraffic(ready?delivery:null);
       if(ready){
         write('metric-plan',delivery.plan_title||'VPN-подписка');
         write('metric-expiry',formatDate(delivery.expires_at));
