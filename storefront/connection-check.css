@@ -40,3 +40,15 @@ h2{font-size:clamp(21px,3vw,28px);letter-spacing:-.02em;margin:7px 0 0}
 footer{border-top:1px solid #35455e;text-align:center;padding:24px;color:#9daec6;font-size:12px}
 @media(max-width:600px){.top{padding:15px}.wrap{padding:30px 15px 52px}.panel{padding:18px}.top nav{gap:10px}.entry{flex-direction:column}.entry .pill{align-self:flex-start}.actions button{width:100%}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+
+/* Guided diagnostic assistant */
+.advisor-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0 12px}
+.advisor-fields label{display:grid;gap:8px;color:#d4e0f0;font-size:13px;font-weight:700}
+.advisor-fields select{width:100%;min-height:46px;border-radius:11px;padding:9px 13px;background:#0e192a;border:1px solid #647896;color:#f2f6ff;font:inherit}
+.advisor-result{border-radius:15px;border:1px solid #3b4e69;background:#0d192b;padding:18px;margin-top:15px}
+.advisor-result h3{font-size:20px;margin:0 0 12px}
+.advisor-result h4{font-size:14px;margin:16px 0 6px;color:#c6a8ff}
+.advisor-steps{margin:10px 0;padding-left:24px;display:grid;gap:9px;color:#e0e8f6}
+.advisor-facts{border-left:3px solid #7bddc9;padding-left:13px;margin:10px 0}
+.advisor-facts p{margin:5px 0}
+@media(max-width:650px){.advisor-fields{grid-template-columns:1fr}}
