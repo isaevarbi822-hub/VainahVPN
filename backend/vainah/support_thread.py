@@ -10,9 +10,8 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from .email_delivery import database_url
-from .support_tickets import (
-    LINK_RE, TICKET_ID_RE, _owner, _require_operator, _schema as ticket_schema,
-)
+from .support_tickets import LINK_RE, TICKET_ID_RE, _owner, _require_operator
+from .support_tickets import _schema as ticket_schema
 from .telegram_auth import require_same_origin
 
 router = APIRouter(prefix="/api/support", tags=["Ticket conversation"])
