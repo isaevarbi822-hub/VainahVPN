@@ -173,6 +173,38 @@ def devices(request: Request) -> dict:
     }
 
 
+@router.get("/limits")
+async def verified_device_limits(request: Request) -> dict:
+    """Paid plan limit is distinct from saved labels and live device sessions."""
+    from .customer_portal import PLAN_LABELS, overview as customer_overview
+    owner = _owner(request)
+    labels = _read(owner)
+    data = await customer_overview(request)
+    sub = data.get("subscription") if isinstance(data.get("subscription"), dict) else {}
+    limit = None
+    if sub.get("paid") is True and sub.get("status") == "delivered":
+        candidate = sub.get("device_limit")
+        if type(candidate) is int and 1 <= candidate <= 20:
+            limit = candidate
+    if limit is None:
+        orders = data.get("orders") if isinstance(data.get("orders"), list) else []
+        for order in orders:
+            if isinstance(order, dict) and order.get("paid") is True and order.get("delivered") is True:
+                plan = PLAN_LABELS.get(order.get("plan_id"))
+                if plan:
+                    limit = plan[1]
+                    break
+    return {
+        "plan_device_limit": limit,
+        "active_vpn_sessions": None,
+        "slots_available": None,
+        "saved_labels": len(labels),
+        "label_registry_limit": MAX_DEVICES,
+        "device_disconnect_supported": False,
+        "message": "Лимит тарифа подтверждён заказом, но H1Cloud не предоставляет список активных устройств и освобождение слотов.",
+    }
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 def register_device(request: Request, body: DeviceInput) -> dict:
     require_same_origin(request)
