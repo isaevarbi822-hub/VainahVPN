@@ -93,6 +93,11 @@
       if(path===href)a.setAttribute('aria-current','page');
       rail.append(a);
     }
+    const searchButton=el('button','vx-utility-link vx-utility-search','⌕ Поиск');
+    searchButton.type='button';
+    searchButton.dataset.vxOpenSearch='';
+    searchButton.setAttribute('aria-label','Поиск разделов Vainah VPN');
+    rail.append(searchButton);
     header.after(rail);
   }
   // Highlight the real trial flow on all public storefront pages.
