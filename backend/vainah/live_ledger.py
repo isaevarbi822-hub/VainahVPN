@@ -1204,7 +1204,8 @@ class PostgresLiveOrderLedger:
                 self._schema(cur)
                 cur.execute("""
                     SELECT order_id, plan_id, payment_state, delivery_state,
-                           gift_code_cipher, gift_redeemed_at, created_at
+                           gift_code_cipher, gift_redeemed_at, created_at,
+                           webhook_at
                     FROM vainah_live_orders
                     WHERE is_gift=TRUE AND gift_buyer_ref=%s
                     ORDER BY created_at DESC LIMIT 20
@@ -1214,7 +1215,8 @@ class PostgresLiveOrderLedger:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
         result = []
         for row in rows:
-            safe_paid = row[2] == "paid"
+            safe_paid = (row[2] == "paid" and row[7] is not None
+                         and row[3] == "pending")
             code = (
                 unseal_live_secret(row[4])
                 if safe_paid and row[5] is None and row[4] else None
