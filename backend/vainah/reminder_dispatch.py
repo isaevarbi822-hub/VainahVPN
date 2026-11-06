@@ -17,10 +17,10 @@ from starlette.concurrency import run_in_threadpool
 
 from .email_delivery import database_url, email_service_ready, send_email
 from .h1_panel import H1PanelError, read_h1_issued_client_status
+from .live_checkout import owner_ref_for_email
 from .live_ledger import LiveLedgerError, PostgresLiveOrderLedger, unseal_live_secret
 from .production_contracts import LiveContractError, h1_provision_intent
 from .reminder_preferences import _schema as preference_schema
-from .live_checkout import owner_ref_for_email
 
 router = APIRouter(prefix="/api/internal/reminders", tags=["Scheduled reminders"])
 WINDOWS = (7, 3, 1)
