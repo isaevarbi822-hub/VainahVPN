@@ -42,7 +42,7 @@ def test_sales_disabled_by_default_and_guest_cannot_check_out(monkeypatch):
 
 def test_verified_checkout_only_delegates_to_real_payments(monkeypatch):
     monkeypatch.setenv("SESSION_SIGNING_KEY", KEY)
-    monkeypatch.setattr(gift_cards, "gift_checkout_ready", lambda: True)
+    monkeypatch.setattr(gift_cards, "gift_checkout_ready", lambda _request: True)
     observed = []
     async def fake_checkout(**kwargs):
         observed.append(kwargs)
@@ -185,3 +185,16 @@ def test_page_never_treats_gift_draft_as_payment():
     assert "innerHTML" not in js
     assert "localStorage" not in js
     assert "gift-cards.js" in html
+
+
+def test_gift_pilot_only_visible_to_allowlisted_verified_account(monkeypatch):
+    monkeypatch.setenv("SESSION_SIGNING_KEY", KEY)
+    monkeypatch.setenv("VAINAH_GIFT_CARDS_ENABLED", "pilot")
+    monkeypatch.setenv("VAINAH_LIVE_PILOT_EMAIL", "operator@example.com")
+    monkeypatch.setattr(gift_cards, "live_ready", lambda: True)
+    with customer() as anonymous:
+        assert anonymous.get("/api/account/gift-cards/status").json()["purchase_enabled"] is False
+    with customer("other@example.com") as other:
+        assert other.get("/api/account/gift-cards/status").json()["purchase_enabled"] is False
+    with customer("operator@example.com") as operator:
+        assert operator.get("/api/account/gift-cards/status").json()["purchase_enabled"] is True
