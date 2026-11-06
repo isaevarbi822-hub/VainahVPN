@@ -21,7 +21,7 @@ class AssetLinks(HTMLParser):
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
         for attribute in ("href", "src"):
-            if attribute in values and values[attribute]:
+            if values.get(attribute):
                 self.links.append((attribute, values[attribute]))
 
 
