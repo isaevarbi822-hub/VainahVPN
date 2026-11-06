@@ -1,5 +1,6 @@
 """Customer feedback is validated, owner-bound and operator-gated."""
 from fastapi.testclient import TestClient
+
 from vainah import email_auth, support_rating
 from vainah.main import app
 
