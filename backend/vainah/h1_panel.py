@@ -163,6 +163,30 @@ def client_disabled(record: dict) -> bool:
     return banned is True or status in ("banned", "disabled")
 
 
+MAX_TRAFFIC_BYTES = 2**63 - 1
+
+
+def verified_traffic_usage(record: dict) -> dict:
+    """Read optional provider counters; never infer traffic or device identifiers.
+
+    A missing/invalid counter means unavailable, not zero. The traffic quota
+    field is verified against H1Cloud's real 10-GiB trial post-check contract.
+    """
+    result = {"used_bytes": None, "limit_bytes": None}
+    # Only explicit byte-valued keys; no ambiguous 'traffic' or 'usage' units.
+    for field, key in (
+        ("traffic_used_bytes", "used_bytes"),
+        ("traffic_limit_bytes", "limit_bytes"),
+    ):
+        value = record.get(field)
+        if type(value) is int and 0 <= value <= MAX_TRAFFIC_BYTES:
+            # A zero limit is not proof of an unlimited plan.
+            if key == "limit_bytes" and value == 0:
+                continue
+            result[key] = value
+    return result
+
+
 def parse_client_status(record: dict, *, now: float | None = None) -> dict:
     """Validate state fields from an already identity-checked panel profile.
 
@@ -177,6 +201,7 @@ def parse_client_status(record: dict, *, now: float | None = None) -> dict:
         "active": not banned and expiry > (time.time() if now is None else now),
         "banned": banned,
         "expires_at": datetime.fromtimestamp(expiry, UTC).isoformat() if expiry else None,
+        "traffic": verified_traffic_usage(record),
     }
 
 
