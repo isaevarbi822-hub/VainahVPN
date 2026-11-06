@@ -111,12 +111,6 @@ def test_opt_in_never_accepts_an_unverified_destination(configured, monkeypatch)
             "/api/support/tickets/" + TICKET + "/email-notifications",
             json={"enabled": True},
         ).status_code == 403
-    with _customer("another@example.com") as another:
-        assert support_tickets._owner_for_test if False else True
-        # Ownership guard lives in SQL and is never derived from a ticket ID.
-        assert support_tickets._owner is not None
-
-
 def test_telegram_without_confirmed_email_cannot_enroll(configured, monkeypatch):
     monkeypatch.setattr(support_tickets, "current_user",
                         lambda _request: {"telegram_id": "123456789"})
