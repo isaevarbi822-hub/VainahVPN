@@ -19,6 +19,7 @@
   const copy = byId('network-copy');
   const reportBox = byId('network-report');
   let lastReport = '';
+  if(copy)copy.disabled=true; // Fail closed even if HTML attributes are modified.
   const show = (key, value, detail, state='neutral') => {
     const node=byId('network-'+key);
     if (!node) return;
