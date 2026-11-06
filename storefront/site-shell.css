@@ -337,3 +337,14 @@ body .vx-utility-rail{position:relative;z-index:1}
  .vx-utility-rail{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px!important}
  .vx-utility-link{font-size:11px!important;line-height:1.25!important}
 }
+
+
+/* Search action uses the same touch-friendly grid as links. */
+.vx-utility-rail button.vx-utility-search{font-family:inherit;cursor:pointer;
+ border:1px solid #7b6c9f;background:#292345;color:#e8ddff}
+.vx-utility-rail button.vx-utility-search:hover,
+.vx-utility-rail button.vx-utility-search:focus-visible{
+ border-color:#d3b8ff;background:#3e3260;color:white}
+@media(max-width:490px){
+ .vx-utility-rail button.vx-utility-search{grid-column:1/-1;min-height:43px}
+}
