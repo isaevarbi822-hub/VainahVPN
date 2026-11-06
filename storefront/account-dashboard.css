@@ -120,3 +120,22 @@
 }
 @media(max-width:310px){.account-quick-nav{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.account-shell .account-order{transition:none}}
+
+
+/* Authenticated, provider-verified traffic summary. */
+.account-traffic{margin-top:18px;border-color:#466b75;
+ background:radial-gradient(ellipse at 95% 0%,#1c6b7760,transparent 56%),
+ linear-gradient(140deg,#17263b,#111827)}
+.account-traffic .eyebrow{margin-bottom:8px;color:#9ce7d4;font-size:10px;font-weight:850;letter-spacing:.14em}
+.account-traffic .account-panel-head{margin-bottom:18px}
+.account-traffic-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.account-traffic-stat{min-width:0;padding:18px;border:1px solid #445770;border-radius:15px;background:#0c182a91}
+.account-traffic-stat small{color:#a9c1d1;font-size:12px;display:block;margin-bottom:9px}
+.account-traffic-stat strong{color:#f2fffd;font-size:clamp(17px,2.5vw,26px);line-height:1.25;font-weight:850;overflow-wrap:anywhere}
+.account-traffic-progress{height:11px;background:#283a50;border-radius:100px;overflow:hidden;margin-top:17px}
+.account-traffic-progress[hidden]{display:none!important}
+.account-traffic-progress span{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#6dc6bf,#b99fff);transition:width .3s ease}
+.account-traffic #account-traffic-note{margin-top:16px}
+@media(max-width:640px){.account-traffic-grid{grid-template-columns:1fr;gap:8px}
+ .account-traffic-stat{padding:13px 15px}.account-traffic-stat strong{font-size:20px}}
+@media(prefers-reduced-motion:reduce){.account-traffic-progress span{transition:none}}
