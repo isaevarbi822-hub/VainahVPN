@@ -233,3 +233,39 @@ def test_rename_device_is_owner_scoped_and_does_not_touch_vpn(auth, monkeypatch)
     assert "method:'PATCH'" in source
     assert "vpn_disconnected!==false" in source
     assert "innerHTML" not in source
+
+
+def test_verified_plan_limit_is_not_a_claim_about_active_vpn_slots(auth, monkeypatch):
+    from vainah import customer_portal
+    monkeypatch.setattr(device_registry, "_owner", lambda request: "a" * 64)
+    monkeypatch.setattr(device_registry, "_read", lambda owner: [
+        {"id": "labelonly", "name": "My laptop"}
+    ])
+    async def paid_overview(request):
+        return {
+            "orders": [{"paid": True, "delivered": True, "plan_id": "365-family"}],
+            "subscription": None, "h1cloud": {"status": "unavailable"},
+        }
+    monkeypatch.setattr(customer_portal, "overview", paid_overview)
+    with _client("owner@example.com") as user:
+        response = user.get("/api/account/devices/limits")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["plan_device_limit"] == 6
+    assert data["saved_labels"] == 1
+    assert data["active_vpn_sessions"] is None
+    assert data["slots_available"] is None
+    assert data["device_disconnect_supported"] is False
+
+
+def test_unknown_paid_plan_never_fabricates_device_quota(auth, monkeypatch):
+    from vainah import customer_portal
+    monkeypatch.setattr(device_registry, "_owner", lambda request: "a" * 64)
+    monkeypatch.setattr(device_registry, "_read", lambda owner: [])
+    async def no_verified_subscription(request):
+        return {"orders": [], "subscription": None}
+    monkeypatch.setattr(customer_portal, "overview", no_verified_subscription)
+    with _client("owner@example.com") as user:
+        data = user.get("/api/account/devices/limits").json()
+    assert data["plan_device_limit"] is None
+    assert data["active_vpn_sessions"] is None
