@@ -79,9 +79,10 @@ global.document={getElementById:$};
 global.window={
   location:{protocol:'https:'},addEventListener(){}
 };
-global.navigator={
-  onLine:true,clipboard:{writeText:async(value)=>{global.copied=value;}}
-};
+Object.defineProperty(global,'navigator',{
+  configurable:true,
+  value:{onLine:true,clipboard:{writeText:async(value)=>{global.copied=value;}}}
+});
 global.performance={now:()=>100};
 global.fetch=async(url)=>{
   if(String(url).startsWith('/api/health'))
