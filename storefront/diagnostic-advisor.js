@@ -31,6 +31,7 @@
       method: 'GET', cache: 'no-store', credentials: 'omit',
       signal: AbortSignal.timeout(8000),
     });
+    if (response.status === 429) throw new Error('HTTP_429');
     if (response.status !== 204) throw new Error('PROBE_FAILED');
     return Math.round(performance.now() - started);
   };
