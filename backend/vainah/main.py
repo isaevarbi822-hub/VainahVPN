@@ -20,6 +20,7 @@ from .customer_portal import router as customer_router
 from .db_health import database_status
 from .device_registry import router as device_registry_router
 from .email_auth import router as email_auth_router
+from .gift_cards import router as gift_cards_router
 from .google_auth import router as google_auth_router
 from .growth import router as growth_router
 from .h1_panel import public_h1_status
@@ -67,6 +68,7 @@ app.include_router(reminder_router)
 app.include_router(reminder_dispatch_router)
 app.include_router(connection_check_router)
 app.include_router(growth_router)
+app.include_router(gift_cards_router)
 app.include_router(account_feed_router)
 
 
