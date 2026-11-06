@@ -56,8 +56,8 @@
             method:'DELETE'
           });
           if(response.vpn_disconnected!==false)throw Error('Неожиданный ответ сервера');
-          say('Запись удалена. Настоящее VPN-подключение не изменено.');
           await load();
+          say('Запись удалена. Настоящее VPN-подключение не изменено.');
         }catch(error){say('Не удалось удалить запись: '+error.message);}
         finally{busy=false;render();}
       });
@@ -105,8 +105,8 @@
         body:JSON.stringify({name:label,platform:platform.value})
       });
       name.value='';
-      say('Название сохранено только в твоём аккаунте. Лимит VPN не изменён.');
       await load();
+      say('Название сохранено только в твоём аккаунте. Лимит VPN не изменён.');
     }catch(error){say('Не удалось добавить устройство: '+error.message);}
     finally{busy=false;add.disabled=!authenticated||records.length>=12;}
   });
