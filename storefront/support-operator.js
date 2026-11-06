@@ -95,6 +95,28 @@
         });
         card.append(retry);
       }
+      const historyButton=node('button','vs-notification-button','История диалога');
+      historyButton.type='button';
+      const history=node('div','vs-ticket-history','');
+      history.hidden=true;
+      historyButton.addEventListener('click',async()=>{
+        if(!history.hidden){history.hidden=true;historyButton.textContent='История диалога';return;}
+        historyButton.disabled=true;
+        try{
+          const response=await request('/api/support/operator/tickets/'+encodeURIComponent(ticket.id)+'/messages');
+          history.replaceChildren();
+          for(const message of Array.isArray(response.items)?response.items:[]){
+            const item=node('div',message.sender==='operator'?'vs-reply':'vs-user-message','');
+            item.append(node('strong','',message.sender==='operator'?'Оператор':'Клиент'));
+            item.append(node('p','',String(message.message||'').slice(0,1500)));
+            history.append(item);
+          }
+          history.hidden=false;
+          historyButton.textContent='Скрыть диалог';
+        }catch(error){status.textContent='Не удалось прочитать диалог: '+error.message;}
+        finally{historyButton.disabled=false;}
+      });
+      card.append(historyButton,history);
       const form=node('form','','');
       const textarea=node('textarea','','');
       textarea.rows=3;textarea.maxLength=1500;textarea.minLength=2;
