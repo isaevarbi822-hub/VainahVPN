@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .account_feed import router as account_feed_router
 from .auth import auth_public_config
 from .auth import router as auth_router
 from .billing import router as shop_router
@@ -21,21 +22,20 @@ from .device_registry import router as device_registry_router
 from .email_auth import router as email_auth_router
 from .google_auth import router as google_auth_router
 from .growth import router as growth_router
-from .account_feed import router as account_feed_router
 from .h1_panel import public_h1_status
 from .h1_panel import router as h1_router
 from .h1_trial import router as h1_trial_router
 from .inspector import InvalidSubscription, inspect_subscription
 from .integration_status import integration_status
 from .public_trial import router as public_trial_router
-from .reminder_preferences import router as reminder_router
+from .qr_handoff import router as handoff_router
 from .reminder_dispatch import router as reminder_dispatch_router
+from .reminder_preferences import router as reminder_router
 from .speedtest import router as speedtest_router
 from .subscription_qr import router as qr_router
-from .qr_handoff import router as handoff_router
-from .support_tickets import router as support_router
-from .support_thread import router as support_thread_router
 from .support_rating import router as support_rating_router
+from .support_thread import router as support_thread_router
+from .support_tickets import router as support_router
 from .telegram_auth import router as telegram_router
 from .telegram_oidc import router as telegram_oidc_router
 
