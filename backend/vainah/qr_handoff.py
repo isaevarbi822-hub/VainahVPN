@@ -144,11 +144,11 @@ async def redeem_handoff(request: Request, body: RedeemInput) -> dict:
     owner = _owner(_email(request))
     # Independently validate active paid access again before releasing a key.
     result = await access(request)
-    if not _consume(owner, body.token):
-        raise HTTPException(404, "HANDOFF_EXPIRED_OR_ALREADY_USED")
     value = result.get("subscription_url")
     if not isinstance(value, str) or not value.startswith("https://"):
         raise HTTPException(503, "HANDOFF_ACCESS_UNAVAILABLE")
+    if not _consume(owner, body.token):
+        raise HTTPException(404, "HANDOFF_EXPIRED_OR_ALREADY_USED")
     return {
         "redeemed": True,
         "subscription_url": value,
