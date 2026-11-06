@@ -181,25 +181,49 @@
     refresh?.addEventListener('click',run);
     (async()=>{
       try{
-        const [email,tg]=await Promise.allSettled([
-          fetch('/api/email-auth/account',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json()),
-          fetch('/api/telegram/account',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json())
-        ]);
-        const signed=email.status==='fulfilled'&&email.value?.authenticated===true
-          ?email.value:tg.status==='fulfilled'&&tg.value?.authenticated===true?tg.value:null;
-        if(signed){
-          if(badge){badge.dataset.level='good';set(badge,'Вход подтверждён');}
-          set(userName,'Аккаунт подтверждён');
-          set(userDescription,'Подробности подписки и личная ссылка доступны только в кабинете.');
-          set(loginMessage,'Зайди в личный кабинет для проверки оплаченной выдачи.');
-        }else{
+        // The account overview is owner-scoped on the server. Never fetch or
+        // display the private subscription URL in this public hub.
+        const response=await fetch('/api/account/overview',{
+          method:'GET',credentials:'same-origin',cache:'no-store',
+          headers:{Accept:'application/json'}
+        });
+        if(response.status===401){
           if(badge){badge.dataset.level='neutral';set(badge,'Требуется вход');}
           set(userName,'Добро пожаловать!');
-          set(userDescription,'Для просмотра личной подписки войди по email.');
-          set(loginMessage,'Данные о заказах не показываются гостям.');
+          set(userDescription,'Для просмотра подписки войди с подтверждённым email.');
+          set(loginMessage,'Личные покупки и VPN-доступ гостям не показываются.');
+          return;
         }
-        // Never obtain or display subscription URLs in the public hub.
-      }catch{set(loginMessage,'Статус входа неизвестен. Открой личный кабинет.');}
+        if(!response.ok)throw Error('ACCOUNT_UNAVAILABLE');
+        const overview=await response.json();
+        if(overview?.authenticated!==true)throw Error('ACCOUNT_INVALID');
+        if(badge){badge.dataset.level='good';set(badge,'Вход подтверждён');}
+        set(userName,'Личный кабинет');
+        const orders=Array.isArray(overview.orders)?overview.orders:[];
+        set(one('[data-hub-orders]',root),String(orders.length));
+        const sub=overview.subscription;
+        if(sub?.paid===true&&sub.status==='delivered'){
+          set(one('[data-hub-plan]',root),sub.plan_title||'VPN-подписка');
+          const expires=new Date(sub.expires_at);
+          set(one('[data-hub-expires]',root),Number.isFinite(expires.getTime())?
+            new Intl.DateTimeFormat('ru-RU').format(expires):'Не указана');
+          set(one('[data-hub-devices]',root),Number.isSafeInteger(sub.device_limit)&&sub.device_limit>0?
+            String(sub.device_limit):'—');
+          set(userDescription,'В кабинете есть подтверждённая сервером подписка.');
+          set(loginMessage,'Чтобы получить личный ключ и обновить данные, открой кабинет.');
+        }else{
+          set(one('[data-hub-plan]',root),'Нет активной выдачи');
+          set(one('[data-hub-expires]',root),'—');
+          set(one('[data-hub-devices]',root),'—');
+          set(userDescription,'Покупка или действующая выдача пока не подтверждена.');
+          set(loginMessage,'Посмотри историю в кабинете и проверь H1Cloud.');
+        }
+      }catch{
+        if(badge){badge.dataset.level='neutral';set(badge,'Данные недоступны');}
+        set(userName,'Состояние аккаунта неизвестно');
+        set(userDescription,'Сервер не подтвердил сведения о подписке.');
+        set(loginMessage,'Повтори попытку в личном кабинете.');
+      }
     })();
     (async()=>{
       try{
