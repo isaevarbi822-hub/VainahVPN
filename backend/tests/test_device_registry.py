@@ -189,3 +189,47 @@ def test_registry_frontend_has_strict_security_and_truthful_description():
     assert "/api/account/devices" in script
     assert "vpn_disconnected!==false" in script
     assert re.search(r"window\.confirm\(", script)
+
+
+def test_rename_device_is_owner_scoped_and_does_not_touch_vpn(auth, monkeypatch):
+    saved = {}
+    def rename(owner, device_id, name):
+        if (owner, device_id) not in saved:
+            return False
+        saved[(owner, device_id)] = name
+        return True
+    monkeypatch.setattr(device_registry, "_rename", rename)
+    identifier = "d" * 24
+    with _client("alice@example.com") as alice:
+        # Use a test-only map without exposing hashed ids.
+        captured = []
+        original_rename = device_registry._rename
+        def set_owner_and_rename(owner, device_id, name):
+            captured.append(owner)
+            if not saved and not captured[:-1]:
+                saved[(owner, device_id)] = "Old name"
+            return original_rename(owner, device_id, name)
+        monkeypatch.setattr(device_registry, "_rename", set_owner_and_rename)
+        assert alice.patch("/api/account/devices/" + identifier,
+                           json={"name": "Desktop"}).status_code == 403
+        response = alice.patch("/api/account/devices/" + identifier,
+                               headers={"Origin": ORIGIN},
+                               json={"name": "Desktop"})
+        assert response.status_code == 200
+        assert response.json() == {
+            "renamed": True, "name": "Desktop", "vpn_disconnected": False
+        }
+        assert saved[(captured[-1], identifier)] == "Desktop"
+        for invalid in ("vless://secret", "https://secret.test", "   ", "A" * 41):
+            assert alice.patch("/api/account/devices/" + identifier,
+                               headers={"Origin": ORIGIN},
+                               json={"name": invalid}).status_code == 422
+    with _client("bob@example.com") as bob:
+        response = bob.patch("/api/account/devices/" + identifier,
+                             headers={"Origin": ORIGIN},
+                             json={"name": "Intruder"})
+        assert response.status_code == 404
+    source = (SITE / "my-devices.js").read_text(encoding="utf-8")
+    assert "method:'PATCH'" in source
+    assert "vpn_disconnected!==false" in source
+    assert "innerHTML" not in source
