@@ -641,18 +641,27 @@
     const date=validExpiry(currentData?.subscription?.expires_at);
     if(!user||!date||currentData?.subscription?.paid!==true||
        currentData?.subscription?.status!=='delivered')return;
-    const reminder=new Date(date.getTime()-86400000);
     const icsDate=d=>d.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}Z$/,'Z');
+    // A real calendar alarm is needed: merely creating an event does not
+    // guarantee the user will receive a reminder.
+    const alarms=[
+      ['-P7D','за 7 дней'],['-P3D','за 3 дня'],['-P1D','за 1 день']
+    ].flatMap(([trigger,label])=>[
+      'BEGIN:VALARM','ACTION:DISPLAY','TRIGGER:'+trigger,
+      'DESCRIPTION:Проверь подписку Vainah VPN ('+label+').',
+      'END:VALARM'
+    ]);
     const content=[
       'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Vainah VPN//Subscription Reminder//RU',
       'CALSCALE:GREGORIAN','METHOD:PUBLISH',
       'BEGIN:VEVENT',
       'UID:vainah-renewal-'+icsDate(date)+'@reminder.invalid',
       'DTSTAMP:'+icsDate(new Date()),
-      'DTSTART:'+icsDate(reminder),
-      'DTEND:'+icsDate(new Date(reminder.getTime()+900000)),
+      'DTSTART:'+icsDate(date),
+      'DTEND:'+icsDate(new Date(date.getTime()+900000)),
       'SUMMARY:Проверить продление Vainah VPN',
       'DESCRIPTION:Проверь состояние подписки в личном кабинете Vainah VPN. Ссылка и платёжные данные не включены.',
+      ...alarms,
       'END:VEVENT','END:VCALENDAR',''
     ].join('\r\n');
     try{
@@ -661,7 +670,7 @@
       link.href=url;link.download='vainah-vpn-reminder.ics';
       link.click();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
-      write('account-calendar-status','Календарный файл создан. Открой его и сохрани событие, чтобы получить напоминание.');
+      write('account-calendar-status','Календарь создан: напоминания за 7, 3 и 1 день. Импортируй файл в календарь и разреши уведомления.');
     }catch{
       write('account-calendar-status','Не удалось скачать календарный файл. Проверь разрешения браузера.');
     }
