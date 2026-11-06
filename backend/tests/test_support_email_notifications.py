@@ -260,7 +260,7 @@ def test_support_ui_explains_consent_and_delivery_status():
     js = (SITE / "support-center.js").read_text(encoding="utf-8")
     operator = (SITE / "support-operator.js").read_text(encoding="utf-8")
     assert 'id="vs-notify-email"' in html
-    assert "notify_email:notifyToggle?.checked===true" in js
+    assert "notify_email:emailNotificationsAvailable&&notifyToggle?.checked===true" in js
     assert "/email-notifications" in js
     assert "email_notifications_available" in js
     assert "/retry-email" in operator
