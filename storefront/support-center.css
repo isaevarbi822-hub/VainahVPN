@@ -42,3 +42,16 @@
  color:#a8bad1;font-size:12px}
 @media(max-width:580px){.vs-layout{padding:33px 15px 48px}
 .vs-note,.vs-panel{padding:17px}.vs-top{padding:15px}.vs-form-bottom button{width:100%}}
+
+/* Explicit opt-in and per-ticket controls; never display verified email. */
+.vs-panel .vs-notify-label{flex-direction:row;align-items:flex-start;
+ gap:12px;padding:12px 15px;background:#1e2a42;border-radius:13px;
+ border:1px solid #5c6d8d;font-weight:500;cursor:pointer}
+.vs-panel .vs-notify-label input{flex:none;width:20px;height:20px;
+ min-width:20px;margin:2px 0 0;accent-color:#bfa9fa}
+.vs-panel .vs-notify-label input:disabled{opacity:.5}
+.vs-notification-row{display:flex;flex-wrap:wrap;align-items:center;
+ justify-content:space-between;gap:9px;margin-top:13px;
+ padding-top:11px;border-top:1px solid #384a65}
+.vs-notification-row .vs-notification-button{font-size:12px;
+ padding:8px 12px;min-height:38px}
