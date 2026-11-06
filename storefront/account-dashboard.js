@@ -77,7 +77,7 @@
   function csvCell(value){
     const raw=String(value??'');
     // Spreadsheet viewers may execute cells beginning with formula markers.
-    const safe=/^[\\s]*[=+@-]/.test(raw)?"'"+raw:raw;
+    const safe=/^[\s]*[=+@-]/.test(raw)?"'"+raw:raw;
     return '"'+safe.replace(/"/g,'""')+'"';
   }
   function exportHistory(){
@@ -91,9 +91,9 @@
         formatDate(order.created_at),
         orderStatus(order.status)
       ].map(csvCell).join(','))
-    ].join('\\r\\n');
+    ].join('\r\n');
     try{
-      const blob=new Blob(['\\uFEFF',csv],{type:'text/csv;charset=utf-8'});
+      const blob=new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'});
       const link=document.createElement('a');
       const url=URL.createObjectURL(blob);
       link.href=url;link.download='vainah-vpn-orders.csv';
@@ -305,7 +305,7 @@
           ?'Подтверждённая почта: '+result.email.address
           :'Почта не подтверждена. Для получения подписки её нужно подтвердить.';
       }
-      const orders=Array.isArray(result.orders)?result.orders:[];
+      const orders=Array.isArray(result.orders)?result.orders.filter(order=>order&&typeof order==='object'):[];
       historyOrders=orders;
       write('account-history-count',String(orders.length));
       showHistory();
