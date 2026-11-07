@@ -873,49 +873,36 @@ class MainActivity : Activity() {
         val results = column()
         add(sheet, results)
 
-        val redrawRows: () -> Unit = {
-            val matches = directory(
-                serverSearchQuery, showFavoriteServers, serverSort
-            )
-            favoriteButton.text = if (showFavoriteServers)
-                "★ Только избранные" else "☆ Избранные"
-            sortButton.text = when (serverSort) {
-                ServerSort.SUBSCRIPTION -> "По подписке"
-                ServerSort.COUNTRY -> "По стране"
-                ServerSort.MEASURED_TCP -> "По TCP"
-            }
-            count.text = "Показано: ${matches.size} из ${nodes.size}"
-            results.removeAllViews()
-            if (matches.isEmpty()) {
-                val message = if (nodes.isEmpty())
-                    "Подписка пока не содержит поддерживаемых серверов. " +
-                        "Добавь профиль VLESS/TCP/REALITY."
-                else if (showFavoriteServers)
-                    "В избранном нет серверов по этому запросу. " +
-                        "Добавь звёздочку в общем списке."
-                else "Нет серверов по запросу. Попробуй название страны."
-                add(results, t(message, 13f, muted).apply {
-                    setPadding(dp(13), dp(12), dp(13), dp(18))
-                })
-            } else {
-                putServerRows(results, matches, true, onFavoriteChanged = {
-                    // No Activity redraw while typing or toggling favorites.
-                    // Latest encrypted favorite state is re-read for each row.
-                    val after = directory(serverSearchQuery,
-                        showFavoriteServers, serverSort)
-                    count.text = "Показано: ${after.size} из ${nodes.size}"
-                    results.removeAllViews()
-                    if (after.isEmpty()) {
-                        add(results, t("В избранном пока нет подходящих серверов.",
-                            13f, muted))
-                    } else {
-                        // Recreating only row views, never the search field.
-                        putServerRows(results, after, true, onFavoriteChanged = {
-                            page = Page.LOCATIONS
-                            render()
-                        })
-                    }
-                })
+        val redrawRows = object : () -> Unit {
+            override fun invoke() {
+                val matches = directory(
+                    serverSearchQuery, showFavoriteServers, serverSort
+                )
+                favoriteButton.text = if (showFavoriteServers)
+                    "★ Только избранные" else "☆ Избранные"
+                sortButton.text = when (serverSort) {
+                    ServerSort.SUBSCRIPTION -> "По подписке"
+                    ServerSort.COUNTRY -> "По стране"
+                    ServerSort.MEASURED_TCP -> "По TCP"
+                }
+                count.text = "Показано: ${matches.size} из ${nodes.size}"
+                results.removeAllViews()
+                if (matches.isEmpty()) {
+                    val message = if (nodes.isEmpty())
+                        "Подписка пока не содержит поддерживаемых серверов. " +
+                            "Добавь профиль VLESS/TCP/REALITY."
+                    else if (showFavoriteServers)
+                        "В избранном нет серверов по этому запросу. " +
+                            "Добавь звёздочку в общем списке."
+                    else "Нет серверов по запросу. Попробуй название страны."
+                    add(results, t(message, 13f, muted).apply {
+                        setPadding(dp(13), dp(12), dp(13), dp(18))
+                    })
+                } else {
+                    putServerRows(results, matches, true, onFavoriteChanged = {
+                        invoke()
+                    })
+                }
             }
         }
         favoriteButton.setOnClickListener {
