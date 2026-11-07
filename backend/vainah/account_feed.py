@@ -102,6 +102,13 @@ def _notifications(owner: str, data: dict) -> list[dict]:
                     "Обнови данные и уточни состояние подписки. Это не доказательство отключения VPN.",
                     "warning", "/account.html",
                 )
+            elif delta <= DAY:
+                emit(
+                    "expiry", "one:" + scope,
+                    "До окончания подписки осталось менее суток",
+                    "Срок подтверждён H1Cloud. Если хочешь продолжить пользоваться VPN, проверь продление в кабинете. Не оплачивай повторно уже оплаченный заказ.",
+                    "warning", "/account.html",
+                )
             elif delta <= DAY * 3:
                 emit(
                     "expiry", "three:" + scope,
