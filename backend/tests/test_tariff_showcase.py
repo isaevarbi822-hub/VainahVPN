@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from vainah.billing import CATALOG, DISCOUNT_PILOT_PLAN, get_plan, price_rub
 from vainah.main import app
-from vainah.tariff_catalog import ORDER, NEW_PLAN_IDS, public_tariff_catalog
+from vainah.tariff_catalog import NEW_PLAN_IDS, ORDER, public_tariff_catalog
 
 ORIGIN = "https://vainahvpn-python-preview.onrender.com"
 SITE = Path(__file__).resolve().parents[2] / "storefront"
