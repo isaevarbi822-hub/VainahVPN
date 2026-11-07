@@ -419,6 +419,53 @@ class MainActivity : Activity() {
                 "При смене Wi-Fi/4G libbox получает обновление интерфейса.",
             12f, grey), 8)
 
+        val recovery = VpnUnderlayStatus.recovery(
+            this, connectionActive && VainahVpnService.runningInProcess
+        )
+        val recoveryCard = card()
+        add(body, recoveryCard, 16)
+        add(recoveryCard, tag("ВОССТАНОВЛЕНИЕ СЕТИ"))
+        add(recoveryCard, t(recovery.title, 17f, white, true), 8)
+        add(recoveryCard, t(
+            recovery.message, 12f, if (recovery.attention) errorColor else grey
+        ), 8)
+        add(recoveryCard, t(
+            "VPN никогда не перезапускается автоматически при изменении сети. " +
+                "Решение о ручном переподключении остаётся за тобой.",
+            12f, grey
+        ), 8)
+        val reopen = action("Открыть управление подключением")
+        add(recoveryCard, reopen, 10)
+        reopen.setOnClickListener { page = Page.HOME; render() }
+        val refreshRecovery = action("Обновить состояние сети")
+        add(recoveryCard, refreshRecovery, 9)
+        refreshRecovery.setOnClickListener { render() }
+
+        val failedCode = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+            .getString("last_failure_code", null)
+        if (VpnConnectionState.read(this).phase == VpnConnectionState.FAILED &&
+            failedCode != null
+        ) {
+            val engineAdvice = VpnFailureAdvisor.fromStage(
+                getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+                    .getString("last_stage", null)
+            )
+            val recognized = VpnFailureAdvisor.sanitizedCode(failedCode)
+            val failureCard = card()
+            add(body, failureCard, 16)
+            add(failureCard, tag("ДИАГНОСТИКА LIBBOX"))
+            add(failureCard, t(
+                if (recognized == engineAdvice.code) engineAdvice.title
+                else "Ошибка VPN-движка", 16f, white, true
+            ), 8)
+            add(failureCard, t(
+                if (recognized == engineAdvice.code) engineAdvice.action
+                else "Проверь разрешение VPN и отправь обезличенный отчёт в поддержку.",
+                12f, grey
+            ), 8)
+            add(failureCard, t("Код ошибки: " + recognized, 12f, teal), 8)
+        }
+
         val routes = card()
         add(body, routes, 16)
         add(routes, tag("DNS / IPv4 / IPv6"))
@@ -512,6 +559,11 @@ class MainActivity : Activity() {
                     transitions = underlay.transitions,
                 ),
                 handoffEvents = VpnUnderlayStatus.history(this),
+                recoveryCode = VpnUnderlayStatus.recovery(
+                    this, state.canDisconnect && VainahVpnService.runningInProcess
+                ).code,
+                failureCode = if (state.phase == VpnConnectionState.FAILED)
+                    diag.getString("last_failure_code", null) else null,
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("Vainah VPN diagnostic", text))
