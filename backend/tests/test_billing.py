@@ -826,7 +826,7 @@ def test_rollypay_currency_alias_requires_explicit_rub(fields, accepted):
 
 @pytest.mark.parametrize(("amount","currency_field"), [
     ("149", "payment_currency"),
-    (99, "currency"),
+    (149, "currency"),
     ("149.0", "currency"),
 ])
 def test_provider_paid_status_accepts_equivalent_amount_and_currency_alias(
