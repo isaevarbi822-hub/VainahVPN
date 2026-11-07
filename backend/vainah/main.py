@@ -37,6 +37,7 @@ from .subscription_qr import router as qr_router
 from .support_rating import router as support_rating_router
 from .support_thread import router as support_thread_router
 from .support_tickets import router as support_router
+from .tariff_catalog import router as tariff_catalog_router
 from .telegram_auth import router as telegram_router
 from .telegram_oidc import router as telegram_oidc_router
 
@@ -70,6 +71,7 @@ app.include_router(connection_check_router)
 app.include_router(growth_router)
 app.include_router(gift_cards_router)
 app.include_router(account_feed_router)
+app.include_router(tariff_catalog_router)
 
 
 @app.middleware("http")
