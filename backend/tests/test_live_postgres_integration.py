@@ -35,7 +35,7 @@ def reserve_invoice(live, *, owner=OWNER, email="owner@example.com"):
 def signed_event(order_id, payment_id, *, status="paid", **changes):
     data = {
         "order_id": order_id, "payment_id": payment_id, "status": status,
-        "event_type": "payment." + status, "amount": "99.00",
+        "event_type": "payment." + status, "amount": "149.00",
         "currency": "RUB", "test": False,
     }
     data.update(changes)
