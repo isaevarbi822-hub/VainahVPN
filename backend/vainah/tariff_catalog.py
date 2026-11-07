@@ -1,8 +1,8 @@
-"""Public VPN plan catalog: 11 existing paid, 10 proposed, one free trial.
+"""Public catalog of 21 priced paid plans and one free trial.
 
-Proposed tariff metadata is read-only and not a RollyPay/H1Cloud contract.
-To launch a proposed tariff, verify its duration/device capabilities and
-merchant fulfillment separately before adding its ID to billing.CATALOG.
+All paid plans share the server billing catalog, signed RollyPay webhook
+validation, durable order ledger, and H1Cloud post-write verification.
+Checkout remains gated by runtime merchant/fulfillment readiness.
 """
 from __future__ import annotations
 
@@ -15,42 +15,15 @@ router = APIRouter(prefix="/api/site", tags=["Public tariff catalog"])
 # First five additional offers were activated and are already in CATALOG.
 NEW_PLAN_IDS = frozenset({"7", "14", "45", "120", "30-family"})
 
-# The next ten are PROPOSALS. Never put these in checkout or gift allowlists
-# until RollyPay/H1Cloud production contracts, especially 730-day terms,
-# have passed independent readiness and actual end-to-end verification.
-UPCOMING = (
-    {"id": "mini-3d", "title": "Vainah Mini", "days": 3,
-     "kopeks": 2900, "devices": 3, "category": "personal",
-     "segment": "short", "tag": "На три дня"},
-    {"id": "sprint-5d", "title": "Vainah Sprint", "days": 5,
-     "kopeks": 4500, "devices": 3, "category": "personal",
-     "segment": "short", "tag": "Быстрый старт"},
-    {"id": "start-plus-21d", "title": "Vainah Start+", "days": 21,
-     "kopeks": 11900, "devices": 3, "category": "personal",
-     "segment": "short", "tag": "Три недели"},
-    {"id": "balance-75d", "title": "Vainah Balance", "days": 75,
-     "kopeks": 28900, "devices": 3, "category": "personal",
-     "segment": "standard", "tag": "Гибкий срок"},
-    {"id": "comfort-150d", "title": "Vainah Comfort", "days": 150,
-     "kopeks": 46900, "devices": 3, "category": "personal",
-     "segment": "long", "tag": "Пять месяцев"},
-    {"id": "max-270d", "title": "Vainah Max", "days": 270,
-     "kopeks": 74900, "devices": 3, "category": "personal",
-     "segment": "long", "tag": "Девять месяцев"},
-    {"id": "legend-730d", "title": "Vainah Legend", "days": 730,
-     "kopeks": 179000, "devices": 3, "category": "personal",
-     "segment": "long", "tag": "Два года"},
-    {"id": "family-plus-90d", "title": "Vainah Family+", "days": 90,
-     "kopeks": 59900, "devices": 6, "category": "family",
-     "segment": "family", "tag": "Семейный на три месяца"},
-    {"id": "family-pro-180d", "title": "Vainah Family Pro", "days": 180,
-     "kopeks": 97900, "devices": 6, "category": "family",
-     "segment": "family", "tag": "Семейный на полгода"},
-    {"id": "family-max-730d", "title": "Vainah Family Max", "days": 730,
-     "kopeks": 269000, "devices": 6, "category": "family",
-     "segment": "family", "tag": "Семейный на два года"},
-)
-UPCOMING_IDS = frozenset(plan["id"] for plan in UPCOMING)
+# Added to the shared RollyPay/H1Cloud billing catalog; not gift cards.
+ADDED_PLAN_IDS = frozenset({
+    "mini-3d", "sprint-5d", "start-plus-21d", "balance-75d",
+    "comfort-150d", "max-270d", "legend-730d", "family-plus-90d",
+    "family-pro-180d", "family-max-730d",
+})
+UPCOMING_IDS = frozenset()
+UPCOMING = ()
+
 LIVE_TAGS = {
     "7": "На короткий срок",
     "14": "Гибкий старт",
@@ -63,6 +36,16 @@ LIVE_TAGS = {
     "180": "Экономный",
     "365": "На год",
     "365-family": "Семья на год",
+    "mini-3d": "На три дня",
+    "sprint-5d": "Быстрый старт",
+    "start-plus-21d": "Три недели",
+    "balance-75d": "Гибкий срок",
+    "comfort-150d": "Пять месяцев",
+    "max-270d": "Девять месяцев",
+    "legend-730d": "Два года",
+    "family-plus-90d": "Семейный на три месяца",
+    "family-pro-180d": "Семейный на полгода",
+    "family-max-730d": "Семейный на два года",
 }
 ORDER = (
     "trial-free", "mini-3d", "sprint-5d", "7", "14", "start-plus-21d",
@@ -86,7 +69,7 @@ def _segment(days: int, category: str) -> str:
 def public_tariff_catalog() -> dict:
     paid = []
     for plan in CATALOG:
-        category = "family" if plan["id"].endswith("-family") else "personal"
+        category = "family" if plan["devices"] == 6 else "personal"
         paid.append({
             "id": plan["id"], "title": plan["title"],
             "days": plan["days"], "devices": plan["devices"],
@@ -95,15 +78,6 @@ def public_tariff_catalog() -> dict:
             "tag": LIVE_TAGS.get(plan["id"], ""),
             "status": "existing", "checkout_supported": True,
             "checkout_path": "/checkout.html?plan=" + plan["id"],
-        })
-    for plan in UPCOMING:
-        paid.append({
-            "id": plan["id"], "title": plan["title"],
-            "days": plan["days"], "devices": plan["devices"],
-            "price_rub": price_rub(plan),
-            "category": plan["category"], "segment": plan["segment"],
-            "tag": plan["tag"], "status": "upcoming",
-            "checkout_supported": False, "checkout_path": None,
         })
     trial = {
         "id": "trial-free", "title": "Пробный день", "days": 1,
@@ -117,14 +91,13 @@ def public_tariff_catalog() -> dict:
         "plans": all_plans,
         "total": len(all_plans),
         "existing_paid_count": len(CATALOG),
-        "upcoming_count": len(UPCOMING),
-        "newly_launched_count": len(NEW_PLAN_IDS),
+        "upcoming_count": 0,
+        "newly_launched_count": len(NEW_PLAN_IDS | ADDED_PLAN_IDS),
         "trial_count": 1,
         "note": (
-            "11 действующих платных тарифов и 10 новых предварительных "
-            "предложений. Новые предложения НЕ принимают оплату до отдельной "
-            "проверки RollyPay и H1Cloud. Один пробный день предоставляется "
-            "без оплаты."
+            "21 платный тариф доступен для оформления при готовности кассы "
+            "RollyPay и H1Cloud. VPN выдаётся только после подтверждённого "
+            "платежа. Бесплатный пробный день без оплаты."
         ),
     }
 

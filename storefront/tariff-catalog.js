@@ -1,11 +1,11 @@
-/* Server allowlist: 11 paid, 10 read-only previews, one trial. */
+/* Shared live catalog: 21 paid tariff IDs and one free trial. */
 (() => {
   'use strict';
   const root=document.querySelector('[data-tariff-catalog]');
   const status=document.getElementById('tariff-catalog-status');
   if(!root||!status)return;
-  const allowedPaid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family']);
-  const upcomingIds=new Set(['mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d']);
+  const allowedPaid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d']);
+  const upcomingIds=new Set([]);
   const order=['trial-free','mini-3d','sprint-5d','7','14',
     'start-plus-21d','30','45','60','balance-75d','90','120',
     'comfort-150d','180','max-270d','365','legend-730d',
@@ -108,7 +108,7 @@
     root.replaceChildren(fragment);
     applyFilter();
     status.textContent=
-      '22 варианта: '+live.length+' действующих платных, '+queued.length+' в подготовке и 1 бесплатный пробный.';
+      '22 варианта: '+live.length+' доступен(ны) к оформлению платных тарифов и 1 бесплатный пробный.';
     const counter=document.getElementById('tariff-compare-label');
     if(counter)counter.textContent=
       'Сравнить все 22 варианта ↗';
@@ -127,8 +127,8 @@
         new Set(plans.map(p=>p.id)).size!==22 ||
         !plans.every(valid) ||
         plans.filter(p=>p.status==='trial').length!==1 ||
-        plans.filter(p=>p.status==='existing').length!==11 ||
-        plans.filter(p=>p.status==='upcoming').length!==10
+        plans.filter(p=>p.status==='existing').length!==21 ||
+        plans.filter(p=>p.status==='upcoming').length!==0
       )throw Error('CATALOG_INVALID');
       render(plans);
     }catch{

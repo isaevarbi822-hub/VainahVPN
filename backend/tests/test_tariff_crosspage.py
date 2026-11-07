@@ -1,15 +1,20 @@
-"""Browser regressions for shared 12-tariff comparison and opt-in recommendations."""
+"""Browser regressions for all paid tariffs in comparison and advisor."""
 from __future__ import annotations
 
 import subprocess
 from pathlib import Path
 
 from vainah.billing import CATALOG, get_plan
-from vainah.tariff_catalog import NEW_PLAN_IDS, UPCOMING_IDS, public_tariff_catalog
+from vainah.tariff_catalog import (
+    ADDED_PLAN_IDS,
+    NEW_PLAN_IDS,
+    UPCOMING_IDS,
+    public_tariff_catalog,
+)
 
 SITE = Path(__file__).resolve().parents[2] / "storefront"
 NEW_IDS = {"7", "14", "45", "120", "30-family"}
-PREVIEW_IDS = {"mini-3d", "sprint-5d", "start-plus-21d", "balance-75d", "comfort-150d", "max-270d", "legend-730d", "family-plus-90d", "family-pro-180d", "family-max-730d"}
+ADDED_IDS = {"mini-3d", "sprint-5d", "start-plus-21d", "balance-75d", "comfort-150d", "max-270d", "legend-730d", "family-plus-90d", "family-pro-180d", "family-max-730d"}
 
 
 def _node(source: str, filename: str) -> None:
@@ -20,7 +25,7 @@ def _node(source: str, filename: str) -> None:
     assert result.returncode == 0, result.stderr + result.stdout
 
 
-def test_comparison_browser_renders_all_and_blocks_future_checkout():
+def test_comparison_browser_renders_all_paid_checkout_links():
     harness = r"""
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 class El {
@@ -65,16 +70,16 @@ global.document={
   querySelector:s=>s==='[data-compare]'?compare:null,
   createElement:t=>new El(t),
 };
-const paid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family']);
+const paid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d']);
 const data=[
   ['trial-free','trial',1,0,2],
-  ['mini-3d','upcoming',3,29,3],['sprint-5d','upcoming',5,45,3],
- ['start-plus-21d','upcoming',21,119,3],['balance-75d','upcoming',75,289,3],
- ['comfort-150d','upcoming',150,469,3],['max-270d','upcoming',270,749,3],
- ['legend-730d','upcoming',730,1790,3],
- ['family-plus-90d','upcoming',90,599,6],
- ['family-pro-180d','upcoming',180,979,6],
- ['family-max-730d','upcoming',730,2690,6],
+  ['mini-3d','existing',3,29,3],['sprint-5d','existing',5,45,3],
+ ['start-plus-21d','existing',21,119,3],['balance-75d','existing',75,289,3],
+ ['comfort-150d','existing',150,469,3],['max-270d','existing',270,749,3],
+ ['legend-730d','existing',730,1790,3],
+ ['family-plus-90d','existing',90,599,6],
+ ['family-pro-180d','existing',180,979,6],
+ ['family-max-730d','existing',730,2690,6],
  ['7','existing',7,59,3],
   ['14','existing',14,99,3],['30','existing',30,149,3],
   ['45','existing',45,209,3],['60','existing',60,239,3],
@@ -98,13 +103,15 @@ function deep(node){return [node,...node.children.flatMap(deep)]}
   assert.equal(table.children.length,22);
   assert.equal(count.textContent,'22 из 22 вариантов');
   const links=deep(grid).filter(x=>x.tagName==='A');
-  assert.equal(links.length,12); // 11 paid, 1 trial
+  assert.equal(links.length,22); // 21 paid, 1 trial
   const paidLinks=links.filter(x=>x.href.startsWith('/checkout'));
-  assert.equal(paidLinks.length,11);
-  assert.ok(paidLinks.every(x=>/^(\/checkout\.html\?plan=)(7|14|30|45|60|90|120|180|365|30-family|365-family)$/.test(x.href)));
+  assert.equal(paidLinks.length,21);
+  assert.ok(paidLinks.every(x=>x.href.startsWith('/checkout.html?plan=')));
+  assert.ok(paidLinks.some(x=>x.href.endsWith('legend-730d')));
+  assert.ok(paidLinks.some(x=>x.href.endsWith('family-max-730d')));
   assert.ok(links.some(x=>x.href.includes('30-family')));
   const disabled=deep(grid).filter(x=>x.tagName==='BUTTON'&&x.disabled);
-  assert.equal(disabled.length,10);
+  assert.equal(disabled.length,0);
   device.value='6';device.events.change();
   assert.equal(count.textContent,'5 из 22 вариантов');
   duration.value='short';duration.events.change();
@@ -141,16 +148,16 @@ const advisor={
  querySelectorAll:()=>[]
 };
 global.document={querySelector:s=>s==='[data-tariff-advisor]'?advisor:null};
-const paid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family']);
+const paid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d']);
 const plans=[
  ['trial-free','trial',1,0,2],
-  ['mini-3d','upcoming',3,29,3],['sprint-5d','upcoming',5,45,3],
- ['start-plus-21d','upcoming',21,119,3],['balance-75d','upcoming',75,289,3],
- ['comfort-150d','upcoming',150,469,3],['max-270d','upcoming',270,749,3],
- ['legend-730d','upcoming',730,1790,3],
- ['family-plus-90d','upcoming',90,599,6],
- ['family-pro-180d','upcoming',180,979,6],
- ['family-max-730d','upcoming',730,2690,6],
+  ['mini-3d','existing',3,29,3],['sprint-5d','existing',5,45,3],
+ ['start-plus-21d','existing',21,119,3],['balance-75d','existing',75,289,3],
+ ['comfort-150d','existing',150,469,3],['max-270d','existing',270,749,3],
+ ['legend-730d','existing',730,1790,3],
+ ['family-plus-90d','existing',90,599,6],
+ ['family-pro-180d','existing',180,979,6],
+ ['family-max-730d','existing',730,2690,6],
  ['7','existing',7,59,3],
  ['14','existing',14,99,3],['30','existing',30,149,3],
  ['45','existing',45,209,3],['60','existing',60,239,3],
@@ -195,12 +202,13 @@ def test_five_new_plans_are_in_live_checkout_contract():
         assert get_plan(plan_id) == plans[plan_id]
     all_plans = public_tariff_catalog()["plans"]
     assert len(all_plans) == 22
-    assert sum(p["checkout_supported"] for p in all_plans) == 11
-    assert UPCOMING_IDS == PREVIEW_IDS
-    assert sum(p["status"] == "existing" for p in all_plans) == 11
-    assert sum(p["status"] == "upcoming" for p in all_plans) == 10
-    assert all(not p["checkout_supported"] for p in all_plans
-               if p["id"] in PREVIEW_IDS)
+    assert sum(p["checkout_supported"] for p in all_plans) == 21
+    assert UPCOMING_IDS == frozenset()
+    assert ADDED_PLAN_IDS == ADDED_IDS
+    assert sum(p["status"] == "existing" for p in all_plans) == 21
+    assert sum(p["status"] == "upcoming" for p in all_plans) == 0
+    assert all(p["checkout_supported"] for p in all_plans
+               if p["id"] in ADDED_IDS)
 
 
 def test_cross_page_links_and_copy_match_twelve_plan_catalog():
@@ -211,7 +219,7 @@ def test_cross_page_links_and_copy_match_twelve_plan_catalog():
     assert 'data-compare-loading' in compare
     assert 'value="2">До 2 устройств' in compare
     assert 'value="medium"' in compare
-    assert 'data-show-upcoming' in assistant
+    assert 'data-show-upcoming' not in assistant
     assert 'min="3"' in assistant
     assert "/api/site/tariffs" in experience
     assert "/api/site/tariffs" in toolkit

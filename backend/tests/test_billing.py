@@ -20,19 +20,26 @@ from vainah.main import app
 client = TestClient(app)
 
 
-def test_catalog_includes_existing_eleven_repriced_paid_plans():
+def test_catalog_includes_all_twenty_one_paid_plans():
     r = client.get("/api/shop/plans")
     assert r.status_code == 200
     rows = r.json()["items"]
     assert [x["priceRub"] for x in rows] == [
         "59.00", "99.00", "149.00", "209.00", "239.00", "329.00",
-        "419.00", "509.00", "1050.00", "289.00", "1499.00"
+        "419.00", "509.00", "1050.00", "289.00", "1499.00",
+        "29.00", "45.00", "119.00", "289.00", "469.00",
+        "749.00", "1790.00", "599.00", "979.00", "2690.00"
     ]
     assert [x["id"] for x in rows] == [
         "7", "14", "30", "45", "60", "90", "120", "180",
-        "365", "30-family", "365-family"
+        "365", "30-family", "365-family",
+        "mini-3d", "sprint-5d", "start-plus-21d", "balance-75d",
+        "comfort-150d", "max-270d", "legend-730d",
+        "family-plus-90d", "family-pro-180d", "family-max-730d"
     ]
     assert rows[-1]["devices"] == 6
+    assert rows[-1]["days"] == 730
+    assert rows[11]["days"] == 3
     assert next(p for p in rows if p["id"] == "30-family")["devices"] == 6
     assert rows[0]["devices"] == 3
 
