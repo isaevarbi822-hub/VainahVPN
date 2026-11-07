@@ -17,12 +17,21 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
   <section class="container checkout-intro">
     <div class="eyebrow">VAINAH VPN / БЕЗОПАСНОЕ ОФОРМЛЕНИЕ</div>
     <h1>Выбирай свободу. <span class="gradient">Плати удобно.</span></h1>
-    <p>Выбери тариф и оформи подписку через защищённую страницу RollyPay, когда публичные продажи будут включены. Текущий статус оплаты показан ниже.</p>
+    <p>Выбери один из 21 платного тарифа. Срок, устройства и итоговую сумму сервер проверяет перед открытием RollyPay. Текущая доступность оплаты показана ниже.</p>
     <div class="shop-notice" role="status" id="shop-config-status" aria-live="polite">Проверяем готовность платежей…</div>
   </section>
   <div class="container checkout-columns">
     <section class="shop-panel" aria-labelledby="plans-title">
       <div class="shop-heading"><span class="tiny-tag">ШАГ 01</span><h2 id="plans-title">Выбери подписку</h2><p>Цены, лимиты устройств и сроки загружаются напрямую с Python-сервера. Бесплатный пробный тариф активируется отдельно без оформления платежа.</p></div>
+      <div class="shop-filter-controls" aria-label="Поиск тарифов перед оплатой">
+        <label for="shop-plan-search">Поиск подписки
+          <input id="shop-plan-search" type="search" maxlength="80" autocomplete="off" placeholder="Название, срок, 30, Legend…">
+        </label>
+        <label for="shop-plan-kind">Тип подписки
+          <select id="shop-plan-kind"><option value="all">Все 21 тарифа</option><option value="personal">Личные · 3 устройства</option><option value="family">Семейные · 6 устройств</option></select>
+        </label>
+      </div>
+      <p id="shop-plan-results" role="status" aria-live="polite" class="shop-filter-results">Загружаем тарифы с сервера…</p>
       <div id="shop-plans" class="shop-plans" role="group" aria-label="Тарифы"></div><p class="fineprint">Хочешь сначала проверить подключение? <a class="shop-inline-link" href="trial.html">Пробный день бесплатно: 2 устройства и 10 ГБ</a></p>
     </section>
     <aside class="shop-panel shop-summary" aria-label="Оформление заказа">
@@ -33,7 +42,7 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
       <div class="shop-line shop-total"><span>Итого</span><strong id="shop-total">—</strong></div>
       <div class="payment-method"><span class="payment-symbol">R</span><span><strong>RollyPay</strong><small>Защищённая платёжная форма. Доступные способы определяет твоя касса.</small></span></div>
       <button class="shop-submit" id="shop-buy" type="button" disabled>Проверяем возможность оплаты…</button>
-      <p class="fineprint">Создание счёта не списывает деньги само по себе. После включения продаж платёж совершается только на защищённой странице RollyPay. Нужен подтверждённый вход по email; VPN выдаётся после подтверждённой оплаты.</p>
+      <p class="fineprint">Создание счёта не списывает деньги само по себе. При доступной оплате платёж совершается только на защищённой странице RollyPay. Нужен подтверждённый вход по email; VPN выдаётся после подтверждённой оплаты.</p>
       <a class="shop-inline-link" href="account.html">Войти по email / Мой VPN</a><a class="shop-inline-link" href="plans.html">← Вернуться к тарифам</a>
     </aside>
   </div>
