@@ -25,6 +25,37 @@ class ReminderPreference(BaseModel):
     enabled: StrictBool
 
 
+def delivery_active() -> bool:
+    """Only advertise email reminders with a verified scheduled runner.
+
+    The workflow in a non-default GitHub branch cannot run on schedule.
+    An operator must verify scheduling and set an explicit confirmation
+    in addition to the protected dispatcher feature flags. No emails
+    are sent from a user's preference endpoint.
+    """
+    from .email_delivery import email_service_ready
+    from .reminder_dispatch import enabled
+
+    runner = os.environ.get("VAINAH_REMINDER_RUNNER_KEY", "")
+    signing = os.environ.get("SESSION_SIGNING_KEY", "")
+    return (
+        enabled() and email_service_ready()
+        and os.environ.get("VAINAH_REMINDER_SCHEDULE_CONFIRMED") == "confirmed"
+        and len(runner) >= 40 and runner != signing and len(signing) >= 32
+    )
+
+
+def _delivery_state() -> dict:
+    active = delivery_active()
+    return {
+        "delivery_active": active,
+        "message": (
+            "Email reminders are scheduled for opted-in accounts."
+            if active else "Email reminders are not yet scheduled."
+        ),
+    }
+
+
 def _identity(request: Request) -> str:
     email = current_email(request)
     if not email:
@@ -89,8 +120,7 @@ def _write(owner: str, enabled: bool) -> None:
 @router.get("/reminder-preference")
 def get_reminder_preference(request: Request) -> dict:
     owner = _identity(request)
-    return {"enabled": _read(owner), "delivery_active": False,
-            "message": "Email reminders are not yet scheduled."}
+    return {"enabled": _read(owner), **_delivery_state()}
 
 
 @router.post("/reminder-preference")
@@ -98,5 +128,4 @@ def set_reminder_preference(request: Request, body: ReminderPreference) -> dict:
     require_same_origin(request)
     owner = _identity(request)
     _write(owner, body.enabled)
-    return {"enabled": body.enabled, "delivery_active": False,
-            "message": "Preference saved; automated email delivery is not active yet."}
+    return {"enabled": body.enabled, **_delivery_state()}
