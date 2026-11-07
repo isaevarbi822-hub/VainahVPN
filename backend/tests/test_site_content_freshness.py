@@ -72,3 +72,48 @@ def test_shop_and_help_no_longer_advertise_legacy_rates_or_telegram_checkout():
     assert "99 ₽" not in operator_js
     assert "текущей серверной цене" in operator_js
     assert "/api/shop/checkout" not in (SITE / "site-shell.js").read_text("utf-8")
+
+
+def test_final_fifty_plan_copy_and_live_support_are_consistent():
+    """A previous content refresh left a few stale footer and fallback labels."""
+    expected = {
+        "index.html": (
+            "50 тарифов + пробник", "бесплатный пробный день на 10 ГБ",
+        ),
+        "features.html": (
+            "50 платных тарифов", "фильтры по бюджету",
+        ),
+        "about.html": ("50 платными тарифами", "H1Cloud"),
+        "start.html": ("50 платных тарифов", "10 ГБ"),
+        "help.html": ("support-center.html", "серверного каталога"),
+        "hub.html": ("50 платных тарифов", "Здесь отображаются заказы"),
+        "compare.html": (
+            "50 платных тарифов доступны к оформлению",
+            "Загружаем актуальные тарифы",
+        ),
+        "terms.html": ("7 ноября 2026", "50 платных тарифов"),
+    }
+    for filename, phrases in expected.items():
+        html = (SITE / filename).read_text(encoding="utf-8")
+        for phrase in phrases:
+            assert phrase in html, (filename, phrase)
+    for filename in ("index.html", "features.html", "compare.html"):
+        html = (SITE / filename).read_text(encoding="utf-8")
+        assert "всех шести вариантов" not in html
+        assert "50 тариф + пробник" not in html
+        assert "6 из 6 действующих" not in html
+    help_page = (SITE / "help.html").read_text(encoding="utf-8")
+    assert "Создай заявку" in help_page
+    assert 'href="support-center.html"' in help_page
+    hub = (SITE / "hub.html").read_text(encoding="utf-8")
+    assert "Заказы бота остаются отдельными." not in hub
+
+
+def test_refreshed_customer_pages_are_served():
+    with TestClient(app) as client:
+        for filename in ("index.html", "about.html", "features.html",
+                         "start.html", "help.html", "hub.html",
+                         "compare.html", "terms.html"):
+            response = client.get("/" + filename)
+            assert response.status_code == 200, filename
+            assert "<main" in response.text
