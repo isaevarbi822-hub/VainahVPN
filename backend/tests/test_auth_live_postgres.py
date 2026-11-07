@@ -121,7 +121,7 @@ def test_live_signed_paid_claim_is_once_and_uncertainty_cannot_retry(postgres_ur
     body = json.dumps({
         "event_type": "payment.paid", "status": "paid",
         "order_id": order, "payment_id": payment_id,
-        "amount": "99.00", "currency": "RUB",
+        "amount": "149.00", "currency": "RUB",
     }).encode()
     timestamp = str(int(time.time()))
     secret = "test-only-webhook-signing-secret-" + "s" * 32
