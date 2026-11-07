@@ -56,7 +56,10 @@ object VpnUnderlayStatus {
             ) edit.putLong("offline_since_elapsed", now)
         } else {
             edit.remove("offline_since_elapsed")
-            if (old == "none") edit.putLong("last_outage_ms", outageMs ?: -1L)
+            if (old == "none") {
+                edit.putLong("last_outage_ms", outageMs ?: -1L)
+                edit.putLong("recovered_at_elapsed", now)
+            }
         }
         edit.commit()
     }
@@ -85,9 +88,15 @@ object VpnUnderlayStatus {
                 now, prefs.getLong("offline_since_elapsed", -1L)
             )
         else null
-        val lastDuration = prefs.getLong("last_outage_ms", -1L).takeIf {
-            it in 0..VpnRecoveryAdvisor.MAX_TRACKED_MS
-        }
+        val lastDuration = if (
+            VpnRecoveryAdvisor.ageSince(
+                now, prefs.getLong("recovered_at_elapsed", -1L)
+            )?.let { it <= 300_000L } == true
+        ) {
+            prefs.getLong("last_outage_ms", -1L).takeIf {
+                it in 0..VpnRecoveryAdvisor.MAX_TRACKED_MS
+            }
+        } else null
         return VpnRecoveryAdvisor.advice(VpnRecoveryState(
             vpnActive, snapshot.transport, snapshot.validated, offline, lastDuration
         ))
