@@ -24,7 +24,7 @@
         typeof p.title==='string'&&p.title.length>0&&p.title.length<=60&&
         Number.isInteger(p.days)&&p.days>=1&&p.days<=365&&
         Number.isInteger(p.devices)&&p.devices>=2&&p.devices<=6&&
-        typeof p.price_rub==='string'&&/^(0|[1-9][0-9]{0,5})\\.[0-9]{2}$/.test(p.price_rub)&&
+        typeof p.price_rub==='string'&&/^(0|[1-9][0-9]{0,5})\.[0-9]{2}$/.test(p.price_rub)&&
         ['trial','existing','upcoming'].includes(p.status)&&
         (p.status==='trial'?(p.id==='trial-free'&&p.price_rub==='0.00'&&p.traffic_gb===10):
         p.status==='existing'?paidIds.has(p.id):
