@@ -36,6 +36,10 @@ class MainActivity : Activity() {
     private var lastError: String? = null
     private var cacheMessage = "Серверы ещё не обновлены"
     private var nextAutoRefresh = 0L
+    private var serverProbeRunning = false
+    private var serverProbeGeneration = 0
+    private var serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
+    private var serverProbes: List<ServerTcpObservation> = emptyList()
     private var stateView: TextView? = null
     private var detailView: TextView? = null
     private var trafficView: TextView? = null
@@ -89,6 +93,7 @@ class MainActivity : Activity() {
         super.onPause()
     }
     override fun onDestroy() {
+        serverProbeGeneration++
         source.invalidate()
         main.removeCallbacks(ticker)
         super.onDestroy()
@@ -294,6 +299,7 @@ class MainActivity : Activity() {
                 return@setOnClickListener
             }
             entry.text.clear()
+            invalidateServerProbes()
             nodes = source.cachedNodes()
             selected = nodes.firstOrNull()
             lastError = null
@@ -395,9 +401,16 @@ class MainActivity : Activity() {
                 "Добавь HTTPS-подписку или VLESS-ключ. Локации, названия " +
                     "и доступность не подменяются демоданными.", 13f, grey), 13)
         }
-        for (node in nodes) {
+        for ((index, node) in nodes.withIndex()) {
+            val observation = serverProbes.firstOrNull { it.index == index }
+            val latency = observation?.takeIf { it.successes >= 2 }?.medianMs
+            val suffix = when {
+                latency != null -> " · TCP " + latency + " мс"
+                observation != null -> " · TCP недоступен/не измерен"
+                else -> ""
+            }
             val choose = action(
-                (if (node.uri == selected?.uri) "✓  " else "") + node.label)
+                (if (node.uri == selected?.uri) "✓  " else "") + node.label + suffix)
             add(locationCard, choose, 8)
             choose.setOnClickListener {
                 selected = node
@@ -415,11 +428,81 @@ class MainActivity : Activity() {
 
         val note = card()
         add(body, note, 15)
-        add(note, tag("Задержка и работа серверов"))
-        add(note, t("Пинг не измерен", 17f, white, true), 10)
-        add(note, t("Реальная задержка появится только после проверки сети. " +
-            "Наличие узла в подписке не означает, что сервер сейчас доступен.",
+        add(note, tag("TCP-задержка входных серверов"))
+        add(note, t(serverProbeMessage, 15f, white, true), 10)
+        add(note, t(
+            "Измеряется физическое TCP-соединение до узла: не VPN-пинг, " +
+                "не задержка REALITY, не нагрузка сервера и не гарантия подключения. " +
+                "Замеры выполняются без активного VPN после нажатия кнопки. " +
+                "Проверяются первые " + ServerTcpSelector.MAX_PROBED_NODES + " локаций.",
             12f, grey), 9)
+        val probe = action(if (serverProbeRunning) "Проверяем TCP…" else
+            "Измерить и выбрать самый быстрый по TCP", true)
+        probe.isEnabled = nodes.isNotEmpty() && !serverProbeRunning &&
+            !VpnConnectionState.read(this).canDisconnect
+        add(note, probe, 13)
+        probe.setOnClickListener { probeServersAndChoose() }
+    }
+
+    private fun invalidateServerProbes() {
+        serverProbeGeneration++
+        serverProbes = emptyList()
+        serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
+    }
+
+    private fun probeServersAndChoose() {
+        if (serverProbeRunning) return
+        if (VpnConnectionState.read(this).canDisconnect) {
+            popup("Для корректной проверки сначала отключи VPN.")
+            return
+        }
+        val capture = nodes.take(ServerTcpSelector.MAX_PROBED_NODES).toList()
+        if (capture.isEmpty()) {
+            popup("Сначала добавь и обнови подписку.")
+            return
+        }
+        serverProbeRunning = true
+        val version = ++serverProbeGeneration
+        val selectedBefore = selected?.uri
+        serverProbeMessage = "Проверяем TCP-подключение к узлам…"
+        render()
+        Thread({
+            val measured = capture.mapIndexed { index, node ->
+                ServerTcpMeasurement.sample(node).copy(index = index)
+            }
+            main.post {
+                if (version != serverProbeGeneration || isFinishing || isDestroyed)
+                    return@post
+                serverProbeRunning = false
+                val unchanged = capture == nodes.take(capture.size) &&
+                    source.savedLink() != null
+                if (!unchanged) {
+                    serverProbes = emptyList()
+                    serverProbeMessage = "Список серверов изменился. Повтори замер."
+                } else if (VpnConnectionState.read(this).canDisconnect) {
+                    serverProbes = emptyList()
+                    serverProbeMessage = "VPN подключён во время замера. Данные сброшены."
+                } else {
+                    serverProbes = measured
+                    val best = ServerTcpSelector.best(measured)
+                    if (best == null) {
+                        serverProbeMessage = "Нет двух успешных TCP-замеров для выбора."
+                    } else {
+                        val chosen = capture[best]
+                        val latency = measured[best].medianMs
+                        if (selected?.uri == selectedBefore) {
+                            selected = nodes.firstOrNull { it.uri == chosen.uri } ?: selected
+                            serverProbeMessage = "Выбран " + chosen.label + " · TCP " +
+                                latency + " мс. Нажми «Подключиться», чтобы проверить VPN."
+                        } else {
+                            serverProbeMessage = "Замер завершён · лучший TCP " +
+                                latency + " мс. Твой ручной выбор сохранён."
+                        }
+                    }
+                }
+                render()
+            }
+        }, "vainah-tcp-entry-probe").start()
     }
 
     private fun devices(body: LinearLayout) {
@@ -641,6 +724,7 @@ class MainActivity : Activity() {
             SubscriptionRefreshPolicy.NORMAL_MS
         val started = source.refresh { result ->
             result.onSuccess { fresh ->
+                invalidateServerProbes()
                 nodes = ServerListReconciler.unique(fresh)
                 selected = ServerListReconciler.preserve(selected, nodes)
                     ?: nodes.firstOrNull()
