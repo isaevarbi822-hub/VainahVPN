@@ -19,11 +19,14 @@
     const data=await response.json().catch(()=>({}));
     if(!response.ok){
       const error=new Error(response.status===401?
-        'Сначала войди по подтверждённой почте.':
-        response.status===404?'Код не найден или уже использован.':
-        response.status===409?'Проверка требует обращения в поддержку.':
-        response.status===503?'Проверка временно недоступна. Не оплачивай повторно.':
-        'Не удалось выполнить действие.');
+        'Войди через подтверждённую почту в личном кабинете.':
+        response.status===404?
+          (path.endsWith('/redeem')?'Код не найден, уже использован или недоступен.':
+            'Раздел временно недоступен (HTTP 404). Обратись в поддержку.'):
+        response.status===409?'Подарок требует проверки поддержки. Не оплачивай повторно.':
+        response.status===422?'Проверь код или выбранный тариф.':
+        response.status===503?'Сервис подарков временно недоступен. Не оплачивай повторно.':
+        'Не удалось выполнить действие. Ошибка '+response.status+'.');
       error.status=response.status;
       throw error;
     }
@@ -58,11 +61,20 @@
     root.append(explanation);
     const plan=node('select');
     plan.setAttribute('aria-label','Тариф подарочной карты');
-    for(const [id,title] of [
+    const titles=new Map([
       ['30','1 месяц'],['60','2 месяца'],['90','3 месяца'],
       ['180','6 месяцев'],['365','1 год'],['365-family','Семейный год']
-    ]){
-      const option=node('option',title);option.value=id;plan.append(option);
+    ]);
+    const offered=Array.isArray(info.plans)?info.plans:[];
+    const catalog=offered.length?offered:[
+      ...titles.entries()].map(([id,title])=>({id,title}));
+    for(const offer of catalog){
+      if(!offer||!titles.has(offer.id))continue;
+      const price=typeof offer.price_rub==='string'&&
+        /^\d{1,6}\.\d{2}$/.test(offer.price_rub)
+          ?' · '+offer.price_rub+' ₽':'';
+      const option=node('option',titles.get(offer.id)+price);
+      option.value=offer.id;plan.append(option);
     }
     const planBox=node('div','','row');
     const checkout=action('Перейти к безопасной оплате RollyPay',async()=>{
@@ -86,7 +98,7 @@
       }
       window.location.assign(link.href);
     });
-    checkout.disabled=!info.purchase_enabled;
+    checkout.disabled=info.purchase_enabled!==true;
     planBox.append(plan,checkout);root.append(planBox);
     root.append(node('h2','Активировать подарочный код'));
     root.append(node('p','Код действителен только после подтверждения оплаты. Войди в аккаунт получателя.','note'));
@@ -109,7 +121,12 @@
           (result.email_pending?' Письмо отправится после повторной проверки.':''));
       await refreshLists();
     });
-    redeem.disabled=!info.redemption_available;
+    redeem.disabled=info.redemption_available!==true;
+    if(info.redemption_available!==true){
+      root.append(node('p',
+        'Активация ранее оплаченных кодов сейчас недоступна. Не покупай второй подарок: обратитесь в поддержку с номером заказа, без отправки кода в публичный чат.',
+        'warning'));
+    }
     const redeemBox=node('div','','row');
     redeemBox.append(code,redeem);root.append(redeemBox);
     const buyerSection=node('div');buyerSection.id='gift-buyer-list';root.append(buyerSection);
@@ -172,14 +189,27 @@
       recipient.append(node('p','Список недоступен. Обнови страницу после входа.','note'));
     }
   }
-  (async()=>{
+  async function initialize(){
+    say('Проверяем настройки подарочных карт…');
     try{
       const info=await api('/api/account/gift-cards/status');
       paidPageReady(info);
-      say(info.purchase_enabled?
-        'Покупка подарков готова. Пожалуйста, внимательно выбери тариф.':
-        'Продажа подарков пока отключена. Оплаченные коды можно проверить после входа.');
+      say(info.purchase_enabled===true?
+        'Покупка подарков доступна. Проверь цену и тариф перед переходом на RollyPay.':
+        info.redemption_available===true?
+          'Новые покупки пока закрыты; ранее оплаченные коды можно активировать.':
+          'Новые покупки и активация сейчас недоступны. Черновики не являются подарками.');
       await refreshLists();
-    }catch(error){say('Не удалось проверить подарочные карты: '+error.message);}
-  })();
+    }catch(error){
+      say('Не удалось проверить подарочные карты: '+error.message);
+      root.replaceChildren(node('p',
+        'Не создавай второй платёж при ошибке страницы. Попробуй ещё раз или напиши в поддержку.',
+        'warning'));
+      const retry=action('Повторить проверку',initialize,true);
+      const help=node('a','Поддержка Vainah VPN');
+      help.href='/support-center.html';
+      root.append(retry,help);
+    }
+  }
+  void initialize();
 })();
