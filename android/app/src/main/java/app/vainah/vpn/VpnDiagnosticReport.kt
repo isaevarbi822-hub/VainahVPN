@@ -39,7 +39,8 @@ object VpnDiagnosticReport {
         androidApiLevel: Int,
         serviceRunning: Boolean,
         networkFacts: VpnNetworkFacts? = null,
-        underlay: VpnUnderlayFacts? = null
+        underlay: VpnUnderlayFacts? = null,
+        handoffEvents: List<VpnHandoffEvent> = emptyList()
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
@@ -66,6 +67,7 @@ object VpnDiagnosticReport {
             "underlay_switches=${underlay?.transitions?.takeIf {
                 it in 0..9999
             }?.toString() ?: "unknown"}",
+            "underlay_history=${VpnHandoffJournal.sanitized(handoffEvents)}",
             "vpn_egress=not_verified_on_device"
         ).joinToString("\n")
     }
