@@ -231,20 +231,34 @@
         const response=await fetch('/api/shop/plans',{credentials:'omit',cache:'no-store'});
         if(!response.ok)throw Error('CATALOG');
         const body=await response.json();
-        if(!Array.isArray(body?.items))throw Error('CATALOG');
+        if(!Array.isArray(body?.items)||body.items.length!==21||
+           new Set(body.items.map(p=>p?.id)).size!==21)throw Error('CATALOG');
+        const featured=['mini-3d','30','90','365','family-plus-90d','family-max-730d'];
+        const planById=new Map(body.items.map(p=>[p.id,p]));
+        const verified=featured.map(id=>{
+          const p=planById.get(id);
+          if(!p||p.id!==id||typeof p.title!=='string'||p.title.length>60||
+             !Number.isSafeInteger(p.kopeks)||p.kopeks<=0||
+             !Number.isSafeInteger(p.days)||p.days<1||p.days>730||
+             ![3,6].includes(p.devices))throw Error('CATALOG_INVALID');
+          return p;
+        });
         planGrid?.replaceChildren();
-        for(const p of body.items){
-          if(!p||typeof p.title!=='string'||!Number.isSafeInteger(p.kopeks))continue;
+        for(const p of verified){
           const card=document.createElement('article');card.className='cx-plan-card';
           const name=document.createElement('h3');set(name,p.title);
           const price=document.createElement('strong');set(price,
             new Intl.NumberFormat('ru-RU').format(p.kopeks/100)+' ₽');
           const desc=document.createElement('p');set(desc,
-            (p.days||'—')+' дней · до '+(p.devices||'—')+' устройств');
-          const link=document.createElement('a');link.href='plans.html';set(link,'Выбрать тариф ↗');
+            p.days+' дней · до '+p.devices+' устройств');
+          const link=document.createElement('a');
+          link.href='checkout.html?plan='+p.id;
+          set(link,'Выбрать тариф ↗');
           card.append(name,price,desc,link);planGrid?.append(card);
         }
-        set(plansMessage,'Цены получены из публичного API; оплата проверяется отдельно.');
+        set(plansMessage,
+          '6 примеров из 21 платного тарифа. Цены получены из API; '+
+          'доступность оплаты проверяется отдельно при оформлении.');
       }catch{set(plansMessage,'Каталог тарифов не загрузился. Открой страницу «Тарифы».');}
     })();
     void run();
