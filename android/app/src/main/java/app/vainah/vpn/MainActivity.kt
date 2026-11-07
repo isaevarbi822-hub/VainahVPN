@@ -19,6 +19,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -42,6 +43,7 @@ class MainActivity : Activity() {
     private var serverProbeGeneration = 0
     private var serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
     private var serverProbes: List<ServerTcpObservation> = emptyList()
+    private var serverListExpanded = false
     private var routeScanVersion = 0
     private var routeScanRunning = false
     private var routeSnapshot: VpnNetworkFacts? = null
@@ -178,10 +180,14 @@ class MainActivity : Activity() {
         detailView = null
         trafficView = null
         connectView = null
-        val frame = column().apply { setBackgroundColor(bg) }
+        val light = page == Page.HOME || page == Page.LOCATIONS
+        val frame = column().apply {
+            setBackgroundColor(if (light) ServerListVisual.backgroundColor() else bg)
+        }
         val scroll = ScrollView(this).apply { isFillViewport = true }
         val body = column().apply {
-            setPadding(dp(20), dp(28), dp(20), dp(28))
+            setPadding(dp(if (light) 14 else 20), dp(if (light) 18 else 28),
+                dp(if (light) 14 else 20), dp(28))
         }
         scroll.addView(body)
         frame.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -195,8 +201,10 @@ class MainActivity : Activity() {
             Page.SECURITY -> "Безопасность"
             Page.SETTINGS -> "Настройки"
             Page.MORE -> "Больше возможностей"
-        }, 25f, white, true), 8)
-        add(body, t("Android · " + BuildConfig.VERSION_NAME, 12f, grey), 7)
+        }, if (light) 22f else 25f,
+            if (light) ServerListVisual.textColor() else white, true), 8)
+        add(body, t("Android · " + BuildConfig.VERSION_NAME, 12f,
+            if (light) ServerListVisual.mutedColor() else grey), 7)
         when (page) {
             Page.HOME -> home(body)
             Page.LOCATIONS -> locations(body)
@@ -208,7 +216,7 @@ class MainActivity : Activity() {
             Page.MORE -> more(body)
         }
         val nav = horizontal().apply {
-            setBackgroundColor(card)
+            setBackgroundColor(if (light) ServerListVisual.cardColor() else card)
             setPadding(dp(12), dp(9), dp(12), dp(9))
         }
         val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
@@ -220,6 +228,13 @@ class MainActivity : Activity() {
             val button = action(label, target == selectedTab).apply {
                 minHeight = dp(44)
                 textSize = 12f
+                if (light && target != selectedTab) {
+                    setTextColor(ServerListVisual.textColor())
+                    background = shape(
+                        ServerListVisual.cardColor(),
+                        ServerListVisual.backgroundColor(), 13
+                    )
+                }
                 setOnClickListener {
                     if (target != page) {
                         page = target
