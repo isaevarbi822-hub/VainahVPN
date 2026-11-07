@@ -25,7 +25,7 @@ def test_catalog_includes_existing_eleven_repriced_paid_plans():
     assert r.status_code == 200
     rows = r.json()["items"]
     assert [x["priceRub"] for x in rows] == [
-        "59.00", "149.00", "149.00", "209.00", "239.00", "329.00",
+        "59.00", "99.00", "149.00", "209.00", "239.00", "329.00",
         "419.00", "509.00", "1050.00", "289.00", "1499.00"
     ]
     assert [x["id"] for x in rows] == [
