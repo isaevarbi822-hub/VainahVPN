@@ -160,15 +160,16 @@ const plans=[
  ['family-plus-90d','upcoming',90,599,6],
  ['family-pro-180d','upcoming',180,979,6],
  ['family-max-730d','upcoming',730,2690,6],
- ['7','existing',7,39,3],['14','existing',14,65,3],
- ['30','existing',30,99,3],['45','existing',45,139,3],
- ['60','existing',60,160,3],['90','existing',90,219,3],
- ['120','existing',120,279,3],['180','existing',180,339,3],
- ['365','existing',365,700,3],['30-family','existing',30,189,6],
- ['365-family','existing',365,1000,6],
+ ['7','existing',7,59,3],['14','existing',14,99,3],
+ ['30','existing',30,149,3],['45','existing',45,209,3],
+ ['60','existing',60,239,3],['90','existing',90,329,3],
+ ['120','existing',120,419,3],['180','existing',180,509,3],
+ ['365','existing',365,1050,3],['30-family','existing',30,289,6],
+ ['365-family','existing',365,1499,6],
 ].map(([id,mode,days,rub,devices])=>({
  id,title:'Тариф '+id,status:mode,days,devices,
- price_rub:rub.toFixed(2),checkout_supported:mode==='existing',
+ price_rub:rub.toFixed(2),traffic_gb:mode==='trial'?10:undefined,
+ checkout_supported:mode==='existing',
  checkout_path:mode==='existing'?'/checkout.html?plan='+id:null
 }));
 global.fetch=async()=>({ok:true,json:async()=>({total:22,plans})});
