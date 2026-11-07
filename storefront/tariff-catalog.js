@@ -1,10 +1,10 @@
-/* A 12-option public showcase; live checkout stays on verified legacy plans. */
+/* 11 paid plans and one free trial; checkout links are server allowlisted. */
 (() => {
   'use strict';
   const root=document.querySelector('[data-tariff-catalog]');
   const status=document.getElementById('tariff-catalog-status');
   if(!root||!status)return;
-  const allowedPaid=new Set(['30','60','90','180','365','365-family']);
+  const allowedPaid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family']);
   const order=[
     'trial-free','7','14','30','45','60','90','120',
     '180','365','30-family','365-family'
@@ -73,11 +73,10 @@
     }
     root.replaceChildren(fragment);
     status.textContent=
-      '12 вариантов: '+live.length+' действующих платных, '+
-      queued.length+' новых в подготовке и 1 бесплатный пробный.';
+      '12 вариантов: '+live.length+' платных тарифов и 1 бесплатный пробный.';
     const counter=document.getElementById('tariff-compare-label');
     if(counter)counter.textContent=
-      'Сравнить 6 действующих платных тарифов ↗';
+      'Сравнить 11 платных тарифов ↗';
   }
   async function load(){
     status.textContent='Загружаем актуальный каталог тарифов…';
@@ -93,8 +92,8 @@
         new Set(plans.map(p=>p.id)).size!==12 ||
         !plans.every(valid) ||
         plans.filter(p=>p.status==='trial').length!==1 ||
-        plans.filter(p=>p.status==='existing').length!==6 ||
-        plans.filter(p=>p.status==='upcoming').length!==5
+        plans.filter(p=>p.status==='existing').length!==11 ||
+        plans.filter(p=>p.status==='upcoming').length!==0
       )throw Error('CATALOG_INVALID');
       render(plans);
     }catch{

@@ -20,17 +20,20 @@ from vainah.main import app
 client = TestClient(app)
 
 
-def test_catalog_matches_historical_six_plans():
+def test_catalog_includes_existing_six_and_five_new_paid_plans():
     r = client.get("/api/shop/plans")
     assert r.status_code == 200
     rows = r.json()["items"]
     assert [x["priceRub"] for x in rows] == [
-        "99.00", "160.00", "219.00", "339.00", "700.00", "1000.00"
+        "39.00", "65.00", "99.00", "139.00", "160.00", "219.00",
+        "279.00", "339.00", "700.00", "189.00", "1000.00"
     ]
     assert [x["id"] for x in rows] == [
-        "30", "60", "90", "180", "365", "365-family"
+        "7", "14", "30", "45", "60", "90", "120", "180",
+        "365", "30-family", "365-family"
     ]
     assert rows[-1]["devices"] == 6
+    assert next(p for p in rows if p["id"] == "30-family")["devices"] == 6
     assert rows[0]["devices"] == 3
 
 

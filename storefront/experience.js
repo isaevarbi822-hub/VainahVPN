@@ -17,7 +17,7 @@
     let cards=$$('[data-plan-days][data-plan-kopeks][data-plan-devices]',grid);
     const validIds=new Set(['trial-free','7','14','30','45','60','90',
       '120','180','365','30-family','365-family']);
-    const paidIds=new Set(['30','60','90','180','365','365-family']);
+    const paidIds=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family']);
     const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
     function isSafe(p){
       return p&&validIds.has(p.id)&&
@@ -121,8 +121,8 @@
       if(data.total!==12||!Array.isArray(data.plans)||data.plans.length!==12||
         !data.plans.every(isSafe)||
         new Set(data.plans.map(p=>p.id)).size!==12||
-        data.plans.filter(p=>p.status==='existing').length!==6||
-        data.plans.filter(p=>p.status==='upcoming').length!==5||
+        data.plans.filter(p=>p.status==='existing').length!==11||
+        data.plans.filter(p=>p.status==='upcoming').length!==0||
         data.plans.filter(p=>p.status==='trial').length!==1
       )throw Error('CATALOG_MISMATCH');
       const newCards=data.plans.map(makeCard);
