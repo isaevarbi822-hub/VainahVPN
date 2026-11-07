@@ -57,4 +57,7 @@ object VpnFailureAdvisor {
 
     fun sanitizedCode(value: String?): String =
         value?.takeIf { it in allowed } ?: "unknown"
+
+    fun fromCode(value: String?): VpnFailureAdvice =
+        known.values.firstOrNull { it.code == sanitizedCode(value) } ?: default
 }
