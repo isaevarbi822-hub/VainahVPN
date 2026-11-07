@@ -1,0 +1,36 @@
+name: Renewal reminders (opt-in only)
+on:
+  schedule:
+    - cron: '15 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vainah-renewal-reminders
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      RUNNER_KEY: ${{ secrets.VAINAH_REMINDER_RUNNER_KEY }}
+    steps:
+      - name: Skip until private runner key is configured
+        if: env.RUNNER_KEY == ''
+        run: echo "Reminder runner not configured; no requests sent."
+      - name: Request verified reminder batch
+        if: env.RUNNER_KEY != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            --max-time 120 \
+            --retry 0 \
+            --request POST \
+            --header "X-Vainah-Reminder-Key: ${RUNNER_KEY}" \
+            --header 'Accept: application/json' \
+            'https://vainahvpn-python-preview.onrender.com/api/internal/reminders/run' \
+          | python3 -c 'import json,sys; d=json.load(sys.stdin); print("Enabled:",d.get("enabled"),"Checked:",d.get("checked"),"Sent:",d.get("sent"))'

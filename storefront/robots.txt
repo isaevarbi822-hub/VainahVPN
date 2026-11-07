@@ -1,0 +1,8 @@
+# Vainah VPN public preview website
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /app
+Disallow: /docs
+Disallow: /openapi.json
+Sitemap: https://vainahvpn-python-preview.onrender.com/sitemap.xml

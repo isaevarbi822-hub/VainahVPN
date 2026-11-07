@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Операционный мониторинг · Vainah VPN</title>
+<link rel="stylesheet" href="operations.css">
+<script src="operations.js" defer></script>
+</head>
+<body>
+<main class="wrap">
+  <header><div class="eyebrow">VAINAH VPN / OPERATIONS</div>
+    <h1>Состояние заказов</h1>
+    <p>Только чтение. Ни платежи, ни VPN-пользователи здесь не создаются. Для доступа войди по подтверждённой почте оператора в <a href="account.html">личный кабинет</a>.</p>
+  </header>
+  <section class="panel login" aria-label="Доступ оператора">
+    <label for="ops-sandbox">Операторский тестовый токен</label>
+    <input type="password" id="ops-sandbox" autocomplete="off" spellcheck="false">
+    <label for="ops-pilot">Токен Live Pilot</label>
+    <input type="password" id="ops-pilot" autocomplete="off" spellcheck="false">
+    <div class="actions"><button id="ops-check" type="button">Проверить заказы</button>
+      <button id="ops-clear" type="button" class="secondary">Очистить токены</button></div>
+    <div id="ops-status" class="status" role="status" aria-live="polite">Токены не сохраняются в браузере. Повторная проверка — вручную.</div>
+  </section>
+  <section id="ops-dashboard" hidden>
+    <p id="ops-checked-at" class="notice"></p>
+    <div id="ops-metrics" class="metrics" aria-label="Показатели заказов"></div>
+    <section class="panel">
+      <h2>Последние 20 заказов</h2>
+      <p class="notice">Номера и статусы без email, платежных ссылок, H1-ключей и токенов. Неподтверждённые счета не считаются оплаченной выручкой.</p>
+      <div class="tablewrap"><table><thead><tr><th>Заказ</th><th>Тариф</th><th>Оплата</th><th>Выдача</th><th>Email</th><th>Дата UTC</th></tr></thead>
+      <tbody id="ops-recent"></tbody></table></div>
+    </section>
+    <p class="notice">Сроки — снимок даты окончания, подтверждённой H1Cloud в момент выдачи. Это не текущая проверка всех профилей. Вручную продлённые или изменённые подписки могут отличаться. Отправка предупреждений клиентам не включена.</p>
+  </section>
+  <footer><a href="operator-pilot.html">Пилотные заказы</a><a href="contact.html">Клиентская поддержка</a><a href="index.html">На главную</a></footer>
+</main>
+</body>
+</html>

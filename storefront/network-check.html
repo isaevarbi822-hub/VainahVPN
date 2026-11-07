@@ -1,0 +1,64 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1120">
+<meta name="description" content="Диагностика соединения Vainah VPN: проверь HTTPS, сервер Python, время отклика, вход по email и доступность оплаты.">
+<link rel="canonical" href="https://vainahvpn-python-preview.onrender.com/network-check.html">
+<title>Проверка соединения — Vainah VPN</title>
+<link rel="stylesheet" href="site-shell.css">
+<script src="site-shell.js" defer></script><script src="network-check.js" defer></script>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0b1120;color:#f5f4ff;font:15px/1.6 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+a{color:inherit;text-decoration:none}button{font:inherit;cursor:pointer}
+.site-header{background:#121a2d;border-bottom:1px solid #35415a}
+.n-header{max-width:1160px;margin:auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;padding:17px 20px}
+.n-brand{font-size:19px;font-weight:900;letter-spacing:.04em}.n-brand span{color:#baa4ff}
+.n-header-links{display:flex;gap:10px;flex-wrap:wrap}.n-header-links a,.n-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border:1px solid #566481;border-radius:12px;padding:10px 15px;font-size:12px;font-weight:800;color:#d7dcf1}
+.n-wrap{max-width:1160px;margin:auto;padding:55px 20px 75px}
+.n-eyebrow{color:#94ebd4;font-size:11px;letter-spacing:.15em;font-weight:900}
+.n-wrap h1{font-size:clamp(34px,5.4vw,66px);letter-spacing:-.055em;line-height:1.08;margin:12px 0 17px}
+.n-lead{max-width:760px;font-size:15px;color:#aebdd5}
+.n-controls{display:flex;gap:10px;flex-wrap:wrap;margin:25px 0}
+.n-controls button{min-height:49px;border:1px solid #a38def;border-radius:12px;padding:11px 20px;background:#cbbaff;color:#1b1935;font-weight:900}
+.n-controls #network-stop,.n-controls #network-copy{background:#202940;color:#f0eafd;border-color:#5e6888}
+.n-controls button:disabled{opacity:.5;cursor:not-allowed}
+.n-status{color:#c4d2e8;font-size:13px;min-height:23px}
+.n-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:24px 0}
+.n-card{min-width:0;padding:22px;background:linear-gradient(150deg,#1b2740,#111928);border-radius:19px;border:1px solid #3b4d69}
+.n-card h2{margin:0 0 12px;font-size:17px;letter-spacing:-.02em}
+.n-card [data-result]{font-weight:900;font-size:13px;display:inline-flex;padding:6px 11px;border-radius:99px;border:1px solid #60708b;background:#26324e;color:#d8e4f3}
+.n-card [data-result][data-state=good]{border-color:#438e79;background:#1b5347;color:#a2f0d2}
+.n-card [data-result][data-state=warn]{border-color:#9b7651;background:#5d392b;color:#f4cfa7}
+.n-card p{margin:11px 0 0;color:#aebed5;font-size:12px;line-height:1.6}
+.n-help{margin-top:40px;padding:27px;border-radius:20px;border:1px solid #564c86;background:linear-gradient(130deg,#242542,#14253b)}
+.n-help h2{font-size:23px;letter-spacing:-.03em}
+.n-help p{color:#b2bed4;font-size:13px}
+.n-links{display:flex;gap:10px;flex-wrap:wrap}
+.n-links a{min-height:44px;border:1px solid #615a85;padding:10px 14px;border-radius:12px;font-size:12px;font-weight:800}
+.n-footer{border-top:1px solid #39445d;padding:22px;text-align:center;color:#a4b0c4;font-size:12px}
+@media(max-width:870px){.n-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:570px){.n-grid{grid-template-columns:1fr}.n-wrap{padding:35px 15px 60px}.n-controls button{flex:1}.n-card{padding:19px}}
+#network-report{width:100%;min-height:140px;display:block;resize:vertical;
+ background:#142238;color:#eef4ff;border:1px solid #7082a2;border-radius:13px;
+ padding:14px;font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}
+#network-report[hidden]{display:none!important}
+</style></head><body>
+<header class="site-header"><div class="n-header"><a class="n-brand" href="index.html">VAINAH <span>VPN</span></a><nav class="n-header-links" aria-label="Главное меню"><a href="index.html">Главная</a><a href="tools.html">Все функции</a><a href="account.html">Мой VPN</a></nav></div></header>
+<main class="n-wrap" id="main">
+<div class="n-eyebrow">VAINAH VPN · NETWORK HEALTH</div>
+<h1>Проверь своё<br>соединение.</h1>
+<p class="n-lead">Шесть безопасных проверок, чтобы понять, доступен ли сайт, работает ли вход и может ли сервер оформлять заказы. Всё запускается вручную; VPN-туннель не переключается.</p>
+<div class="n-controls"><button id="network-run" type="button">◉ Начать диагностику</button><button id="network-stop" type="button" disabled>Остановить</button><button id="network-copy" type="button" disabled>Скопировать отчёт</button></div>
+<textarea id="network-report" aria-label="Текст диагностического отчёта" readonly hidden></textarea>
+<p id="network-status" class="n-status" role="status" aria-live="polite">Нажми «Начать диагностику», чтобы выполнить проверки.</p>
+<section class="n-grid" aria-label="Результаты диагностики">
+<article class="n-card" id="network-internet"><h2>Состояние сети</h2><span data-result data-state="neutral">Не проверено</span><p data-detail>Проверка статуса браузера.</p></article>
+<article class="n-card" id="network-https"><h2>Безопасность HTTPS</h2><span data-result data-state="neutral">Не проверено</span><p data-detail>Проверка защиты соединения с сайтом.</p></article>
+<article class="n-card" id="network-api"><h2>Python API</h2><span data-result data-state="neutral">Не проверено</span><p data-detail>Проверка ответа сервера Vainah VPN.</p></article>
+<article class="n-card" id="network-ping"><h2>Отклик сервера</h2><span data-result data-state="neutral">Не проверено</span><p data-detail>Время ответа HTTP-запроса, не ICMP ping.</p></article>
+<article class="n-card" id="network-login"><h2>Email-вход</h2><span data-result data-state="neutral">Не проверено</span><p data-detail>Проверка доступности выдачи кода без отправки письма.</p></article>
+<article class="n-card" id="network-shop"><h2>Оформление заказов</h2><span data-result data-state="neutral">Не проверено</span><p data-detail>Проверка состояния RollyPay без создания счёта.</p></article>
+</section>
+<section class="n-help"><h2>Нужна подробная проверка?</h2>
+<p>Эта страница не измеряет доступность конкретного VPN-сервера и не диагностирует системный VPN-клиент. Для скорости, настройки устройств и проблем подключения есть отдельные инструменты.</p>
+<nav class="n-links" aria-label="Другие проверки"><a href="speed.html">↯ Тест скорости</a><a href="diagnostics.html">Подробная диагностика</a><a href="device-center.html">Мастер подключения</a><a href="contact.html">Поддержка</a></nav></section>
+</main><footer class="n-footer">© 2026 Vainah VPN · Твоё соединение. Твои правила.</footer></body></html>

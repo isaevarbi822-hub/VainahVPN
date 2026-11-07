@@ -1,0 +1,45 @@
+:root{color-scheme:dark}*{box-sizing:border-box}
+.vc-body{margin:0;background:#0b1220;color:#f5f7ff;font:15px/1.65 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.vc-body a{color:inherit;text-decoration:none}
+.vc-body a:hover{text-decoration:underline}
+.vc-top{padding:16px max(18px,calc((100vw - 1100px)/2));background:#121b2d;
+ border-bottom:1px solid #3b4c65;display:flex;align-items:center;justify-content:space-between;
+ flex-wrap:wrap;gap:15px}
+.vc-logo{font-size:20px;font-weight:900;letter-spacing:.04em}
+.vc-logo span{color:#c5b1ff}
+.vc-top nav{display:flex;flex-wrap:wrap;gap:10px}
+.vc-top nav a{padding:9px 13px;border-radius:11px;border:1px solid #495a78;font-size:12px}
+.vc-main{max-width:1100px;margin:auto;padding:52px 20px 72px}
+.vc-kicker{font-size:11px;font-weight:900;letter-spacing:.14em;color:#8be2c9}
+.vc-main h1{font-size:clamp(35px,6vw,60px);letter-spacing:-.04em;line-height:1.2;margin:8px 0}
+.vc-intro{color:#b6c6dc;max-width:795px}
+.vc-panel{margin-top:26px;border:1px solid #425676;background:linear-gradient(150deg,#1c2740,#111c2f);
+ padding:27px;border-radius:22px}
+.vc-panel h2{font-size:21px;letter-spacing:-.02em;margin:7px 0 15px}
+.vc-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 30px}
+.vc-tabs button{min-height:44px;border-radius:12px;padding:10px 14px;border:1px solid #61718e;
+ background:#202e46;color:#e7eafd;font:inherit;cursor:pointer}
+.vc-tabs button[aria-selected=true]{background:#bea7ff;border-color:#dbcbff;color:#201a35;font-weight:900}
+.vc-steps{display:grid;gap:12px;margin:20px 0}
+.vc-step{display:flex;align-items:flex-start;gap:14px;padding:16px;border-radius:15px;
+ border:1px solid #475a78;background:#111e33;cursor:pointer;font-size:14px}
+.vc-step input{width:20px;height:20px;flex:none;accent-color:#bea7ff;margin:2px 0 0}
+.vc-step span{overflow-wrap:anywhere}
+.vc-progress{height:12px;border-radius:99px;background:#36415d;overflow:hidden;border:1px solid #596785}
+.vc-progress span{display:block;width:0%;height:100%;background:#a9e6d4;transition:width .15s}
+#vc-progress-text{font-size:12px;color:#b9c9e1}
+.vc-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:21px}
+.vc-actions a,.vc-actions button{min-height:44px;border:1px solid #6d7599;border-radius:12px;
+ padding:10px 15px;background:#24334e;color:#f7f4ff;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.vc-actions a.vc-primary{background:#c0adff;color:#211c3b;border-color:#c0adff}
+.vc-hint{font-size:12px;color:#acbed5}
+#vc-manual{width:100%;min-height:140px;margin-top:14px;border:1px solid #657c9f;border-radius:11px;
+ background:#132238;color:#f6f8ff;padding:12px;font:12px/1.6 ui-monospace,Consolas,monospace}
+#vc-manual[hidden]{display:none!important}
+.vc-foot{text-align:center;padding:25px;font-size:12px;color:#a7b8d1;border-top:1px solid #36465d}
+.vc-body :is(button,a,input,textarea):focus-visible{outline:3px solid #aef1e4;outline-offset:2px}
+@media(max-width:560px){.vc-main{padding:36px 15px 52px}.vc-panel{padding:17px}
+.vc-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.vc-tabs button{padding:9px 7px}.vc-actions{flex-direction:column}
+.vc-actions a,.vc-actions button{width:100%;text-align:center}}
+@media(prefers-reduced-motion:reduce){.vc-progress span{transition:none}}

@@ -1,0 +1,43 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#0c1220">
+<title>Мои устройства — Vainah VPN</title>
+<meta name="description" content="Личный список устройств для настройки Vainah VPN без раскрытия VPN-ключей.">
+<link rel="stylesheet" href="my-devices.css"><script src="my-devices.js?v=20261106-plan-limit-v1" defer></script>
+</head><body class="vd-body">
+<header class="vd-header"><a class="vd-brand" href="index.html">VAINAH <span>VPN</span></a>
+<nav><a href="account.html">Личный кабинет</a><a href="connect.html">Vainah Connect</a><a href="support-center.html">Поддержка</a></nav></header>
+<main class="vd-main">
+<span class="vd-kicker">ЛИЧНЫЙ КАБИНЕТ · УСТРОЙСТВА</span>
+<h1>Мои устройства</h1>
+<p class="vd-intro">Сохрани названия телефонов и компьютеров, на которых настраиваешь Vainah VPN. Записи видны только после подтверждённого входа в твой аккаунт.</p>
+<div class="vd-warning"><strong>Важно:</strong> это твой список устройств, а не данные об активных VPN-соединениях H1Cloud. Добавление не увеличивает лимит тарифа, а удаление записи <strong>не отключает VPN</strong> на устройстве. Функции реального отключения появятся только при наличии проверенного API провайдера.</div>
+<p id="vd-status" class="vd-status" role="status" aria-live="polite">Проверяем вход и загружаем список…</p>
+<section class="vd-card" aria-labelledby="vd-add-title">
+<h2 id="vd-add-title">Добавить устройство</h2>
+<form id="vd-form">
+<label for="vd-name">Как назовём устройство?
+<input id="vd-name" type="text" required minlength="1" maxlength="40" autocomplete="off" placeholder="Например, мой Samsung или домашний ПК"></label>
+<label for="vd-platform">Платформа
+<select id="vd-platform" required>
+<option value="android">Android</option><option value="ios">iPhone / iPad</option>
+<option value="windows">Windows</option><option value="macos">macOS</option>
+<option value="linux">Linux</option><option value="other">Другое</option>
+</select></label>
+<button id="vd-add" type="submit" disabled>Добавить в мой список</button>
+</form>
+<p class="vd-muted">Вводи только название — не вставляй ключ VPN, ссылку подписки, пароль или серийный номер.</p>
+</section>
+<section class="vd-card" aria-labelledby="vd-list-title">
+<div class="vd-head"><h2 id="vd-list-title">Сохранённые устройства</h2><button id="vd-refresh" type="button" disabled>↻ Обновить</button></div>
+<p id="vd-count" class="vd-muted">Количество устройств уточняется.</p>
+<p id="vd-plan-limit" class="vd-muted">Проверяем реальный лимит тарифа. Занятые VPN-слоты пока не определяются.</p>
+<div id="vd-list" class="vd-list" aria-live="polite"><p>Устройства пока не загружены.</p></div>
+</section>
+<section class="vd-card">
+<h2>Как подключить устройство?</h2>
+<p>Открой <a href="connect.html">мастер Vainah Connect</a>, выбери платформу и импортируй свою личную VPN-ссылку. Настоящий лимит одновременно разрешённых устройств определяется тарифом и H1Cloud, а не количеством записей выше.</p>
+<a class="vd-secondary" href="account.html">Вернуться к подписке и QR-коду</a>
+</section>
+</main><footer class="vd-footer">© 2026 Vainah VPN · Твоё соединение. Твои правила.</footer>
+</body></html>

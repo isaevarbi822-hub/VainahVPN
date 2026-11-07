@@ -1,0 +1,471 @@
+"""Read-only H1Cloud integration tests; no live provider needed."""
+from __future__ import annotations
+
+import socket
+import ssl
+
+import httpx
+import pytest
+from fastapi.testclient import TestClient
+
+from vainah.h1_panel import (
+    H1PanelError,
+    inspect_h1_panel,
+    panel_settings,
+    panel_tls_verify,
+    public_h1_status,
+    read_h1_status,
+)
+from vainah.main import app
+
+client = TestClient(app)
+BASE = "https://vpn-panel.example.com/api"
+TOKEN = "fake-test-only-h1-token"
+
+
+@pytest.fixture
+def config(monkeypatch):
+    monkeypatch.setenv("PANEL_BASE_URL", BASE)
+    monkeypatch.setenv("PANEL_API_TOKEN", TOKEN)
+    monkeypatch.setenv("PANEL_CLIENT_PREFIX", "tg")
+
+
+def test_h1_public_ca_remains_verified_by_default(monkeypatch):
+    monkeypatch.delenv("PANEL_TLS_CA_PEM", raising=False)
+    assert panel_tls_verify() is True
+
+
+def test_h1_private_ca_pem_preserves_certificate_and_hostname_checks(monkeypatch):
+    from pathlib import Path
+
+    import certifi
+
+    bundle = Path(certifi.where()).read_text(encoding="utf-8")
+    certificate = "-----BEGIN CERTIFICATE-----"
+    certificate += bundle.split("-----BEGIN CERTIFICATE-----", 1)[1].split(
+        "-----END CERTIFICATE-----", 1
+    )[0]
+    certificate += "-----END CERTIFICATE-----"
+    monkeypatch.setenv("PANEL_TLS_CA_PEM", certificate)
+    context = panel_tls_verify()
+    assert isinstance(context, ssl.SSLContext)
+    assert context.check_hostname is True
+    assert context.verify_mode == ssl.CERT_REQUIRED
+
+
+@pytest.mark.parametrize("pem", [
+    "not a certificate",
+    "-----BEGIN CERTIFICATE-----\\nINVALID\\n-----END CERTIFICATE-----",
+    "-----BEGIN PRIVATE KEY-----\\nTOPSECRET\\n-----END PRIVATE KEY-----",
+])
+def test_h1_malformed_custom_ca_fails_closed(config, monkeypatch, pem):
+    import asyncio
+
+    monkeypatch.setenv("PANEL_TLS_CA_PEM", pem)
+    with pytest.raises(H1PanelError, match="PANEL_CA_INVALID"):
+        panel_tls_verify()
+    report = asyncio.run(inspect_h1_panel(
+        transport=httpx.MockTransport(
+            lambda _req: pytest.fail("Invalid CA must never send a request")
+        )
+    ))
+    assert report == {"ok": False, "panel": "invalid_configuration"}
+
+
+def test_h1_origin_requires_https_and_public_hostname(monkeypatch):
+    monkeypatch.setenv("PANEL_API_TOKEN", TOKEN)
+    for url in (
+        "http://vpn-panel.example.com",
+        "https://127.0.0.1",
+        "https://localhost",
+        "https://vpn-panel.example.com@evil.example",
+        "https://vpn-panel.example.com/?token=private",
+        "https://vpn-panel.example.com/api/clients",
+    ):
+        monkeypatch.setenv("PANEL_BASE_URL", url)
+        with pytest.raises(H1PanelError):
+            panel_settings()
+
+
+def test_h1_dedicated_https_management_port_is_preserved(config, monkeypatch):
+    import asyncio
+
+    expected = "https://vpn-panel.example.com:25626/api"
+    monkeypatch.setenv("PANEL_BASE_URL", expected)
+    settings = panel_settings()
+    assert settings is not None
+    assert settings.origin == "https://vpn-panel.example.com:25626"
+
+    observed = []
+
+    def fake_api(request: httpx.Request):
+        observed.append(str(request.url))
+        return httpx.Response(404, json={"error": "user_not_found"})
+
+    result = asyncio.run(inspect_h1_panel(
+        transport=httpx.MockTransport(fake_api),
+    ))
+    assert result["authentication"] == "accepted"
+    assert observed == [
+        "https://vpn-panel.example.com:25626/api/info?name=tg999999999999999999"
+    ]
+
+
+@pytest.mark.parametrize("bad_port_url", [
+    "https://vpn-panel.example.com:0/api",
+    "https://vpn-panel.example.com:22/api",
+    "https://vpn-panel.example.com:99999/api",
+    "https://vpn-panel.example.com:notanumber/api",
+])
+def test_h1_rejects_invalid_or_privileged_port(config, monkeypatch, bad_port_url):
+    monkeypatch.setenv("PANEL_BASE_URL", bad_port_url)
+    with pytest.raises(H1PanelError, match="PANEL_URL_INVALID"):
+        panel_settings()
+
+
+def test_h1_read_only_and_redacted_status(config):
+    import asyncio
+
+    observed = []
+    def provider(request: httpx.Request):
+        observed.append((request.method, str(request.url), request.headers.get("authorization")))
+        return httpx.Response(200, json={"ok": True, "client": {
+            "name": "tg123456789", "expires_at": 2000000000,
+            "uuid": "SECRET_UUID", "subscription_url": "https://vpn.example/SECRET",
+            "vless": "vless://TOP_SECRET", "devices": ["secret-device"],
+        }})
+
+    result = asyncio.run(read_h1_status(
+        "123456789", transport=httpx.MockTransport(provider), now=1800000000
+    ))
+    assert result["panel_ready"] is True
+    assert result["found"] is True
+    assert result["active"] is True
+    assert result["banned"] is False
+    assert len(observed) == 1
+    assert observed[0] == (
+        "GET", "https://vpn-panel.example.com/api/info?name=tg123456789",
+        "Bearer " + TOKEN
+    )
+    assert not any(secret in str(result) for secret in (
+        "SECRET_UUID", "TOP_SECRET", "SECRET", "vless://", "devices", TOKEN,
+    ))
+
+
+def test_h1_probe_404_missing_sentinel_proves_auth_without_real_user(config):
+    import asyncio
+
+    def provider(request: httpx.Request):
+        assert request.method == "GET"
+        assert request.url.path == "/api/info"
+        assert request.url.params.get("name") == "tg999999999999999999"
+        return httpx.Response(404, json={"error": "user_not_found"})
+
+    result = asyncio.run(inspect_h1_panel(transport=httpx.MockTransport(provider)))
+    assert result == {"ok": True, "panel": "reachable",
+                      "authentication": "accepted", "vpn_delivered": False}
+
+
+def test_h1_wrong_auth_and_html_response_redact_provider_error(config):
+    import asyncio
+
+    result = asyncio.run(inspect_h1_panel(
+        transport=httpx.MockTransport(
+            lambda _request: httpx.Response(
+                401, text="token=" + TOKEN + " SECRET host/private"
+            )
+        )
+    ))
+    assert result == {"ok": False, "panel": "reachable",
+                      "authentication": "rejected"}
+
+    result = asyncio.run(inspect_h1_panel(
+        transport=httpx.MockTransport(
+            lambda _request: httpx.Response(200, text="<html>SECRET</html>")
+        )
+    ))
+    assert result["ok"] is False
+    assert "SECRET" not in str(result)
+
+
+def test_h1_profile_banned_cannot_be_active(config):
+    import asyncio
+
+    response = httpx.MockTransport(lambda _request: httpx.Response(
+        200, json={"ok": True, "client": {
+            "name": "tg123456789", "expires_at": 2000000000,
+            "status": "banned",
+        }}
+    ))
+    result = asyncio.run(read_h1_status(
+        "123456789", transport=response, now=1800000000
+    ))
+    assert result["found"] is True and result["active"] is False
+
+
+def test_h1_operator_endpoint_is_protected(monkeypatch):
+    monkeypatch.setenv("VAINAH_SANDBOX_TEST_TOKEN", "x" * 32)
+    response = client.get("/api/site/integrations/h1cloud/check")
+    assert response.status_code == 401
+    assert public_h1_status()["status"] in {"not_connected", "configured", "error"}
+    # Unknown code/data is never turned into public details.
+
+
+def test_h1_invalid_identity_rejected_without_request(config):
+    import asyncio
+
+    with pytest.raises(H1PanelError):
+        asyncio.run(read_h1_status("123/../../no"))
+
+
+@pytest.mark.parametrize(("failure", "reason"), [
+    ("dns", "dns_failed"),
+    ("tls", "tls_failed"),
+    ("connect", "connect_failed"),
+    ("connect_timeout", "connect_timeout"),
+    ("read_timeout", "response_timeout"),
+    ("protocol", "protocol_error"),
+])
+def test_h1_network_diagnostics_redact_errors(config, failure, reason):
+    import asyncio
+
+    def unavailable(request: httpx.Request):
+        if failure == "dns":
+            try:
+                raise socket.gaierror(-2, "secret DNS hostname")
+            except socket.gaierror as exc:
+                raise httpx.ConnectError(
+                    "secret DNS hostname", request=request,
+                ) from exc
+        if failure == "tls":
+            try:
+                raise ssl.SSLCertVerificationError("secret certificate hostname")
+            except ssl.SSLError as exc:
+                raise httpx.ConnectError(
+                    "secret TLS hostname", request=request,
+                ) from exc
+        if failure == "connect":
+            raise httpx.ConnectError("secret address", request=request)
+        if failure == "connect_timeout":
+            raise httpx.ConnectTimeout("secret address", request=request)
+        if failure == "read_timeout":
+            raise httpx.ReadTimeout("secret address", request=request)
+        raise httpx.RemoteProtocolError("secret address", request=request)
+
+    status = asyncio.run(inspect_h1_panel(
+        transport=httpx.MockTransport(unavailable),
+    ))
+    assert status == {
+        "ok": False, "panel": "unavailable", "reason": reason,
+    }
+    assert "secret" not in str(status)
+    assert TOKEN not in str(status)
+
+
+def test_h1_operator_client_check_requires_token_and_uses_post(monkeypatch):
+    from vainah import h1_panel
+
+    monkeypatch.setenv("VAINAH_SANDBOX_TEST_TOKEN", "x" * 32)
+    called = []
+
+    async def fake_read(telegram_id: str):
+        called.append(telegram_id)
+        return {
+            "panel_ready": True, "found": True, "active": True,
+            "banned": False, "expires_at": "2030-01-01T00:00:00+00:00",
+            "subscription_url": "https://secret.example/user-secret",
+            "uuid": "secret-uuid", "vless": "vless://secret",
+        }
+
+    monkeypatch.setattr(h1_panel, "read_h1_status", fake_read)
+
+    unauthorized = client.post(
+        "/api/site/integrations/h1cloud/client/check",
+        json={"telegram_id": "123456789"},
+    )
+    assert unauthorized.status_code == 401
+    assert called == []
+
+    invalid = client.post(
+        "/api/site/integrations/h1cloud/client/check",
+        headers={"X-Sandbox-Token": "x" * 32},
+        json={"telegram_id": "123/../../oops"},
+    )
+    assert invalid.status_code == 422
+    assert called == []
+
+    allowed = client.post(
+        "/api/site/integrations/h1cloud/client/check",
+        headers={"X-Sandbox-Token": "x" * 32},
+        json={"telegram_id": "123456789"},
+    )
+    assert allowed.status_code == 200
+    assert called == ["123456789"]
+    assert allowed.json() == {
+        "ok": True, "found": True, "active": True,
+        "banned": False, "expires_at": "2030-01-01T00:00:00+00:00",
+        "vpn_delivered": False,
+    }
+    assert all(
+        secret not in allowed.text for secret in
+        ["secret-uuid", "vless://", "user-secret", "subscription_url"]
+    )
+
+
+def test_h1_issued_client_read_only_and_redacted(config):
+    import asyncio
+
+    from vainah.h1_panel import read_h1_issued_client_status
+
+    client_name = "vn" + "a" * 28
+    observed = []
+
+    def provider(request: httpx.Request):
+        observed.append((request.method, str(request.url)))
+        return httpx.Response(200, json={
+            "ok": True, "client": {
+                "name": client_name,
+                "expires_at": 2000000000,
+                "device_limit": 3,
+                "subscription_url": "https://sub.example/private-secret",
+                "uuid": "hidden-user-uuid",
+            },
+        })
+
+    result = asyncio.run(read_h1_issued_client_status(
+        client_name, transport=httpx.MockTransport(provider),
+        now=1800000000,
+    ))
+    assert result["active"] is True
+    assert result["found"] is True
+    assert observed == [
+        ("GET", f"https://vpn-panel.example.com/api/info?name={client_name}")
+    ]
+    assert "private-secret" not in str(result)
+    assert "hidden-user-uuid" not in str(result)
+    assert TOKEN not in str(result)
+
+
+@pytest.mark.parametrize("client_name", [
+    "", "vn123", "vn" + "g" * 28, "tg123456",
+    "vn" + "a" * 27 + "/api/create",
+])
+def test_h1_issued_client_rejects_untrusted_names(config, client_name):
+    import asyncio
+
+    from vainah.h1_panel import read_h1_issued_client_status
+
+    with pytest.raises(H1PanelError, match="CLIENT_NAME_INVALID"):
+        asyncio.run(read_h1_issued_client_status(
+            client_name, transport=httpx.MockTransport(
+                lambda _request: pytest.fail("Invalid name must not be sent")
+            )
+        ))
+
+
+def test_h1_operator_client_check_for_issued_name(monkeypatch):
+    from vainah import h1_panel
+
+    issued_name = "vn" + "b" * 28
+    monkeypatch.setenv("VAINAH_SANDBOX_TEST_TOKEN", "x" * 32)
+    seen = []
+
+    async def fake_read(name: str):
+        seen.append(name)
+        return {
+            "panel_ready": True, "found": False, "active": False,
+            "expires_at": None,
+        }
+
+    monkeypatch.setattr(h1_panel, "read_h1_issued_client_status", fake_read)
+    headers = {"X-Sandbox-Token": "x" * 32}
+    response = client.post(
+        "/api/site/integrations/h1cloud/client/check",
+        json={"client_name": issued_name},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": True, "found": False, "active": False,
+        "banned": False, "expires_at": None, "vpn_delivered": False,
+    }
+    assert seen == [issued_name]
+
+    for payload in (
+        {}, {"telegram_id": "123", "client_name": issued_name},
+        {"client_name": "vn123"}, {"client_name": issued_name, "admin": True},
+    ):
+        rejected = client.post(
+            "/api/site/integrations/h1cloud/client/check",
+            json=payload, headers=headers,
+        )
+        assert rejected.status_code == 422
+    assert seen == [issued_name]
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("expires_at", True),
+    ("expires_at", 2000000000.75),
+    ("expires_at", "2000000000.75"),
+    ("expires_at", 2000000000000),
+    ("expires_at", 10**100),
+    ("expires_at", -1),
+    ("status", []),
+    ("status", {}),
+    ("banned", "true"),
+    ("banned", 1),
+])
+def test_malformed_panel_state_is_sanitized_and_not_active(config, field, value):
+    import asyncio
+
+    calls = []
+
+    def provider(request):
+        calls.append(request.method)
+        profile = {
+            "name": request.url.params["name"], "expires_at": 2000000000,
+            "subscription_url": "https://sub.example/PRIVATE_LINK",
+            "uuid": "PRIVATE_UUID", field: value,
+        }
+        return httpx.Response(200, json={"ok": True, "client": profile})
+
+    transport = httpx.MockTransport(provider)
+    with pytest.raises(H1PanelError, match="PANEL_INVALID_RESPONSE"):
+        asyncio.run(read_h1_status("123456789", transport=transport))
+    result = asyncio.run(inspect_h1_panel(transport=transport))
+    assert result == {"ok": False, "panel": "unavailable", "reason": "invalid_response"}
+    assert calls == ["GET", "GET"]
+    assert "PRIVATE" not in str(result)
+    assert TOKEN not in str(result)
+
+
+def test_integer_string_expiry_has_same_active_state_as_integer(config):
+    import asyncio
+
+    def provider(request):
+        return httpx.Response(200, json={"ok": True, "client": {
+            "name": request.url.params["name"], "expires_at": "2000000000",
+            "banned": False, "status": "active",
+        }})
+
+    status = asyncio.run(read_h1_status(
+        "123456789", transport=httpx.MockTransport(provider), now=1800000000,
+    ))
+    assert status == {
+        "panel_ready": True, "found": True, "active": True, "banned": False,
+        "expires_at": "2033-05-18T03:33:20+00:00",
+    }
+
+
+@pytest.mark.parametrize("token", ["private\nvalue", "private value", "private\x7fvalue", "private-токен"])
+def test_invalid_bearer_header_is_a_safe_configuration_error(config, monkeypatch, token):
+    import asyncio
+
+    monkeypatch.setenv("PANEL_API_TOKEN", token)
+    with pytest.raises(H1PanelError, match="PANEL_TOKEN_INVALID"):
+        panel_settings()
+    result = asyncio.run(inspect_h1_panel(transport=httpx.MockTransport(
+        lambda _request: pytest.fail("Invalid credentials must not reach transport"),
+    )))
+    assert result == {"ok": False, "panel": "invalid_configuration"}
+    assert token not in str(result)

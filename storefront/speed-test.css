@@ -1,0 +1,60 @@
+/* Vainah speed laboratory */
+.vx-speedtest{margin:4px auto 28px;max-width:1190px;width:calc(100% - 48px)}
+.vx-speed-card{border:1px solid #6e72a8;border-radius:28px;padding:32px;background:
+ radial-gradient(ellipse at 80% -10%,#6554ae78,transparent 55%),
+ linear-gradient(130deg,#18243e,#101625 85%);box-shadow:0 25px 65px #05081480}
+.vx-speed-head{display:flex;gap:24px;align-items:flex-start;justify-content:space-between}
+.vx-speed-label{color:#95ebcb;font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.vx-speed-head h2{margin:9px 0;font-size:clamp(26px,4.1vw,45px);letter-spacing:-.04em}
+.vx-speed-head p{font-size:13px;line-height:1.7;max-width:620px}
+.vx-speed-actions{display:flex;gap:9px;flex-wrap:wrap}
+.vx-speed-actions button{min-height:48px;padding:12px 18px;font-size:13px;font-weight:850;border-radius:13px;border:1px solid #a49aca;background:#c7b5ff;color:#1c1934}
+.vx-speed-actions button:last-child{background:#1a2439;color:#dae5f5;border-color:#586580}
+.vx-speed-actions button:disabled{opacity:.45;cursor:not-allowed}
+.vx-speed-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:24px 0}
+.vx-speed-measure{padding:20px;border:1px solid #404d70;background:#111b30d9;border-radius:18px;min-width:0}
+.vx-speed-measure small{font-size:12px;color:#aebcd2}
+.vx-speed-measure strong{display:block;margin:10px 0 3px;font-size:clamp(22px,4vw,37px);color:#f7f4ff;font-variant-numeric:tabular-nums;line-height:1.15}
+.vx-speed-measure span{font-size:11px;color:#91a8c4}
+.vx-speed-progress{height:11px;background:#27334e;border-radius:50px;overflow:hidden}
+.vx-speed-progress span{height:100%;width:0;display:block;border-radius:inherit;background:linear-gradient(90deg,#67dac2,#a28eff);transition:width .18s ease}
+.vx-speed-feedback{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0}
+.vx-speed-feedback p{margin:0;font-size:13px;color:#cbdaec}
+.vx-speed-notice{color:#acbdd4;font-size:12px;line-height:1.7;margin:18px 0 0}
+.vx-speed-links{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 0}
+.vx-speed-links a{font-size:12px;color:#cbb8ff;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:920px){.vx-speed-head{flex-direction:column}.vx-speed-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.vx-speedtest{width:calc(100% - 28px)}.vx-speed-card{padding:19px;border-radius:19px}
+.vx-speed-actions{width:100%}.vx-speed-actions button{flex:1}}
+@media(max-width:360px){.vx-speed-grid{grid-template-columns:1fr}.vx-speed-actions{flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.vx-speed-progress span{transition:none}}
+
+
+/* Session-only comparison; no personal data is saved or uploaded. */
+.vx-speed-history{border:1px solid #455679;border-radius:16px;padding:16px 18px;
+ background:#0d1c30bf;margin:18px 0 4px}
+.vx-speed-history-head{display:flex;align-items:center;justify-content:space-between;
+ gap:12px;flex-wrap:wrap}
+.vx-speed-history-head strong{font-size:14px;letter-spacing:-.02em}
+.vx-speed-history-head button{background:#2c3454;border:1px solid #7e7fa6;
+ min-height:42px;border-radius:11px;color:#f2edff;font-size:12px;
+ font-weight:750;padding:10px 14px;cursor:pointer}
+.vx-speed-history-head button:disabled{opacity:.5;cursor:not-allowed}
+.vx-speed-history .vx-speed-notice{margin:10px 0 0}
+@media(max-width:480px){.vx-speed-history{padding:13px}
+ .vx-speed-history-head{align-items:stretch;flex-direction:column}
+ .vx-speed-history-head button{width:100%}}
+
+
+/* Explicit bandwidth budget controls: visible, accessible, never hidden on mobile. */
+.vx-speed-options{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;
+ border:1px solid #495a78;border-radius:16px;padding:14px 18px;margin:22px 0 4px}
+.vx-speed-options legend{font-size:13px;color:#d6e7f6;font-weight:800;padding:0 7px}
+.vx-speed-options label{display:inline-flex;align-items:center;gap:9px;min-height:42px;
+ border:1px solid #4d5676;padding:9px 13px;border-radius:11px;background:#19243a;
+ font-size:12px;font-weight:700;cursor:pointer}
+.vx-speed-options input{width:17px;height:17px;accent-color:#bda4ff;flex:none}
+.vx-speed-options p{flex-basis:100%;margin:2px 0 0;color:#9fb1cd;font-size:12px;line-height:1.55}
+.vx-speed-options:disabled{opacity:.58}
+@media(max-width:600px){.vx-speed-options{padding:13px;gap:8px}
+.vx-speed-options label{width:100%;min-width:0}}
