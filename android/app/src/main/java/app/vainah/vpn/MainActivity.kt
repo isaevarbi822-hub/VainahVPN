@@ -20,6 +20,9 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.text.Editable
+import android.text.TextWatcher
+import android.text.InputType
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -44,6 +47,9 @@ class MainActivity : Activity() {
     private var serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
     private var serverProbes: List<ServerTcpObservation> = emptyList()
     private var serverListExpanded = false
+    private var serverSearchQuery = ""
+    private var showFavoriteServers = false
+    private var serverSort = ServerSort.SUBSCRIPTION
     private var routeScanVersion = 0
     private var routeScanRunning = false
     private var routeSnapshot: VpnNetworkFacts? = null
@@ -261,30 +267,49 @@ class MainActivity : Activity() {
         minHeight = dp(43)
     }
 
+    private fun directory(
+        query: String = "",
+        favoriteOnly: Boolean = false,
+        sort: ServerSort = ServerSort.SUBSCRIPTION,
+    ): List<ServerDirectoryEntry> = ServerDirectory.view(
+        nodes, source.favoriteNodeIds(), query, favoriteOnly, sort, serverProbes
+    )
+
     private fun putServerRows(
         sheet: LinearLayout,
-        limit: Int,
-        returnHomeAfterSelection: Boolean
+        entries: List<ServerDirectoryEntry>,
+        returnHomeAfterSelection: Boolean,
+        onFavoriteChanged: (() -> Unit)? = null,
     ) {
-        val rows = ServerRowPresentation.describeList(nodes)
-        for (index in 0 until minOf(limit, rows.size)) {
-            val node = nodes[index]
-            val observation = serverProbes.firstOrNull { it.index == index }
+        for ((position, entry) in entries.withIndex()) {
+            val node = nodes[entry.index]
+            val observation = serverProbes.firstOrNull { it.index == entry.index }
             val latency = ServerRowPresentation.latency(observation)
             val server = ServerListVisual.row(
-                this, rows[index], latency, node.uri == selected?.uri
+                context = this,
+                info = entry.info,
+                latency = latency,
+                isSelected = node.uri == selected?.uri,
+                isFavorite = entry.favorite,
+                onFavoriteClick = {
+                    if (source.setFavorite(node.uri, nodes, !entry.favorite)) {
+                        if (onFavoriteChanged != null) onFavoriteChanged() else render()
+                    } else {
+                        popup("Не удалось сохранить избранное. Максимум " +
+                            ServerDirectory.MAX_FAVORITES + " серверов.")
+                    }
+                },
             ) {
-                // Selection changes the NEXT connection only. Never switch a
-                // running VPN tunnel implicitly.
+                // Selecting a row never interrupts an existing VPN tunnel.
                 selected = node
                 if (returnHomeAfterSelection) {
-                    serverListExpanded = index >= 8
+                    serverListExpanded = true
                     page = Page.HOME
                 }
                 render()
             }
             sheet.addView(server, LinearLayout.LayoutParams(-1, -2))
-            if (index + 1 < minOf(limit, rows.size)) {
+            if (position + 1 < entries.size) {
                 sheet.addView(ServerListVisual.separator(this),
                     LinearLayout.LayoutParams(-1, dp(1)))
             }
@@ -415,11 +440,12 @@ class MainActivity : Activity() {
                 13f, muted
             ).apply { setPadding(dp(13), dp(12), dp(13), dp(15)) })
         } else {
+            val ordered = directory()
             val visible = if (serverListExpanded)
-                nodes.size else minOf(8, nodes.size)
-            putServerRows(sheet, visible, false)
+                ordered.size else minOf(8, ordered.size)
+            putServerRows(sheet, ordered.take(visible), false)
             if (nodes.size > 8) {
-                val expand = lightAction(if (visible == nodes.size)
+                val expand = lightAction(if (visible == ordered.size)
                     "Свернуть список" else "Показать все ${nodes.size} серверов")
                 add(sheet, expand, 8)
                 expand.setOnClickListener {
@@ -807,15 +833,116 @@ class MainActivity : Activity() {
                 setPadding(dp(13), 0, dp(13), dp(12))
             })
         }
-        if (nodes.isEmpty()) {
-            add(sheet, t(
-                "Подписка не содержит поддерживаемых серверов или ещё не обновлена. " +
-                    "Добавь профиль VLESS/TCP/REALITY — доступные локации появятся здесь.",
-                13f, muted
-            ).apply { setPadding(dp(13), dp(10), dp(13), dp(18)) })
-        } else {
-            putServerRows(sheet, nodes.size, true)
+        // Search/filter only updates the row container. Keeping EditText
+        // alive preserves keyboard focus while the user is typing.
+        val search = EditText(this).apply {
+            hint = "Поиск по стране или названию"
+            setSingleLine(true)
+            inputType = InputType.TYPE_CLASS_TEXT
+            textSize = 14f
+            setTextColor(ink)
+            setHintTextColor(muted)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = shape(Color.rgb(248, 250, 254),
+                Color.rgb(224, 231, 242), 13)
+            setText(serverSearchQuery)
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         }
+        add(sheet, search, 8)
+        val controls = horizontal().apply {
+            setPadding(dp(5), dp(9), dp(5), dp(12))
+        }
+        val favoriteButton = lightAction("☆ Избранные").apply {
+            textSize = 12f
+        }
+        controls.addView(favoriteButton, LinearLayout.LayoutParams(
+            0, dp(46), 1f
+        ))
+        val sortButton = lightAction("Сортировка").apply {
+            textSize = 12f
+        }
+        controls.addView(sortButton, LinearLayout.LayoutParams(
+            0, dp(46), 1f
+        ).apply { marginStart = dp(8) })
+        add(sheet, controls)
+
+        val count = t("", 11.5f, muted).apply {
+            setPadding(dp(13), dp(5), dp(13), dp(10))
+        }
+        add(sheet, count)
+        val results = column()
+        add(sheet, results)
+
+        val redrawRows: () -> Unit = {
+            val matches = directory(
+                serverSearchQuery, showFavoriteServers, serverSort
+            )
+            favoriteButton.text = if (showFavoriteServers)
+                "★ Только избранные" else "☆ Избранные"
+            sortButton.text = when (serverSort) {
+                ServerSort.SUBSCRIPTION -> "По подписке"
+                ServerSort.COUNTRY -> "По стране"
+                ServerSort.MEASURED_TCP -> "По TCP"
+            }
+            count.text = "Показано: ${matches.size} из ${nodes.size}"
+            results.removeAllViews()
+            if (matches.isEmpty()) {
+                val message = if (nodes.isEmpty())
+                    "Подписка пока не содержит поддерживаемых серверов. " +
+                        "Добавь профиль VLESS/TCP/REALITY."
+                else if (showFavoriteServers)
+                    "В избранном нет серверов по этому запросу. " +
+                        "Добавь звёздочку в общем списке."
+                else "Нет серверов по запросу. Попробуй название страны."
+                add(results, t(message, 13f, muted).apply {
+                    setPadding(dp(13), dp(12), dp(13), dp(18))
+                })
+            } else {
+                putServerRows(results, matches, true, onFavoriteChanged = {
+                    // No Activity redraw while typing or toggling favorites.
+                    // Latest encrypted favorite state is re-read for each row.
+                    val after = directory(serverSearchQuery,
+                        showFavoriteServers, serverSort)
+                    count.text = "Показано: ${after.size} из ${nodes.size}"
+                    results.removeAllViews()
+                    if (after.isEmpty()) {
+                        add(results, t("В избранном пока нет подходящих серверов.",
+                            13f, muted))
+                    } else {
+                        // Recreating only row views, never the search field.
+                        putServerRows(results, after, true, onFavoriteChanged = {
+                            page = Page.LOCATIONS
+                            render()
+                        })
+                    }
+                })
+            }
+        }
+        favoriteButton.setOnClickListener {
+            showFavoriteServers = !showFavoriteServers
+            redrawRows()
+        }
+        sortButton.setOnClickListener {
+            val options = arrayOf("По порядку подписки", "По стране",
+                "По измеренной TCP-задержке")
+            AlertDialog.Builder(this).setTitle("Сортировка серверов")
+                .setSingleChoiceItems(options, serverSort.ordinal) { dialog, which ->
+                    serverSort = ServerSort.values()[which]
+                    dialog.dismiss()
+                    redrawRows()
+                }.setNegativeButton("Отмена", null).show()
+        }
+        search.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int,
+                count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int,
+                before: Int, count: Int) {
+                serverSearchQuery = s?.toString()?.take(60).orEmpty()
+                redrawRows()
+            }
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
+        redrawRows()
         val actions = horizontal().apply {
             setPadding(dp(8), dp(12), dp(8), 0)
         }
