@@ -63,7 +63,8 @@ def test_reminder_settings_never_claim_email_is_active():
     script = (site / "account-reminder-preference.js").read_text(encoding="utf-8")
     assert "account-reminder-optin" in page
     assert "account-reminder-preference.js" in page
-    assert "Автоматическая отправка ещё не включена" in page
+    assert "Отправка начнётся только после настройки" in page
     assert "localStorage" not in script
     assert "innerHTML" not in script
-    assert "delivery_active" not in script or "false" in script
+    assert "delivery_active" in script
+    assert "Автоматические email-письма ещё не запущены" in script
