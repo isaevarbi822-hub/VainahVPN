@@ -116,6 +116,22 @@ def test_public_api_returns_catalog_without_authentication():
     assert "Set-Cookie" not in reply.headers
 
 
+def test_landing_fallback_prices_match_repriced_catalog():
+    html = (SITE / "index.html").read_text(encoding="utf-8")
+    for plan_id, label in (
+        ("30", "149 ₽"),
+        ("60", "239 ₽"),
+        ("90", "329 ₽"),
+        ("180", "509 ₽"),
+        ("365", "1 050 ₽"),
+        ("365-family", "1 499 ₽"),
+    ):
+        assert f'href="checkout.html?plan={plan_id}"' in html
+        assert f'<div class="ux-plan-price">{label}</div>' in html
+    assert '<div class="ux-plan-price">99 ₽</div>' not in html
+    assert "10 предложений в подготовке" in html
+
+
 def test_plans_page_has_progressive_legacy_fallback():
     html = (SITE / "plans.html").read_text(encoding="utf-8")
     js = (SITE / "tariff-catalog.js").read_text(encoding="utf-8")
