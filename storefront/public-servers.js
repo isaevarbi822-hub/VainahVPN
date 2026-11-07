@@ -28,7 +28,9 @@
   function safeLocation(value,index){
     if(!value||typeof value!=='object')return null;
     const name=typeof value.name==='string'?value.name.trim():'';
-    if(!name||name.length>80||/[<>\r\n\u0000-\u001f]/.test(name))return null;
+    if(!name||name.length>80||/[<>\r\n\u0000-\u001f]/.test(name)||
+       name.includes('://')||/[@?#=]/.test(name)||
+       /[a-f0-9]{8}-[a-f0-9]{4}-/i.test(name))return null;
     const flag=typeof value.flag==='string'&&value.flag.length<=8?
       value.flag:'🌐';
     // Name comes from the operator's PUBLIC list, never private VPN keys.
