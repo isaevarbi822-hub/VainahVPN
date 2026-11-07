@@ -5,10 +5,10 @@ import subprocess
 from pathlib import Path
 
 from vainah.billing import CATALOG, get_plan
-from vainah.tariff_catalog import UPCOMING, public_tariff_catalog
+from vainah.tariff_catalog import NEW_PLAN_IDS, public_tariff_catalog
 
 SITE = Path(__file__).resolve().parents[2] / "storefront"
-UPCOMING_IDS = {"7", "14", "45", "120", "30-family"}
+NEW_IDS = {"7", "14", "45", "120", "30-family"}
 
 
 def _node(source: str, filename: str) -> None:
@@ -64,14 +64,14 @@ global.document={
   querySelector:s=>s==='[data-compare]'?compare:null,
   createElement:t=>new El(t),
 };
-const paid=new Set(['30','60','90','180','365','365-family']);
+const paid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family']);
 const data=[
-  ['trial-free','trial',1,0,2],['7','upcoming',7,39,3],
-  ['14','upcoming',14,65,3],['30','existing',30,99,3],
-  ['45','upcoming',45,139,3],['60','existing',60,160,3],
-  ['90','existing',90,219,3],['120','upcoming',120,279,3],
+  ['trial-free','trial',1,0,2],['7','existing',7,39,3],
+  ['14','existing',14,65,3],['30','existing',30,99,3],
+  ['45','existing',45,139,3],['60','existing',60,160,3],
+  ['90','existing',90,219,3],['120','existing',120,279,3],
   ['180','existing',180,339,3],['365','existing',365,700,3],
-  ['30-family','upcoming',30,189,6],
+  ['30-family','existing',30,189,6],
   ['365-family','existing',365,1000,6]
 ].map(([id,status,days,rub,devices])=>({
   id,title:'Тариф '+id,status,days,devices,price_rub:rub.toFixed(2),
@@ -89,13 +89,13 @@ function deep(node){return [node,...node.children.flatMap(deep)]}
   assert.equal(table.children.length,12);
   assert.equal(count.textContent,'12 из 12 вариантов');
   const links=deep(grid).filter(x=>x.tagName==='A');
-  assert.equal(links.length,7); // 6 paid, 1 trial
+  assert.equal(links.length,12); // 11 paid, 1 trial
   const paidLinks=links.filter(x=>x.href.startsWith('/checkout'));
-  assert.equal(paidLinks.length,6);
-  assert.ok(paidLinks.every(x=>/^(\/checkout\.html\?plan=)(30|60|90|180|365|365-family)$/.test(x.href)));
-  assert.ok(!links.some(x=>x.href.includes('30-family')));
+  assert.equal(paidLinks.length,11);
+  assert.ok(paidLinks.every(x=>/^(\/checkout\.html\?plan=)(7|14|30|45|60|90|120|180|365|30-family|365-family)$/.test(x.href)));
+  assert.ok(links.some(x=>x.href.includes('30-family')));
   const disabled=deep(grid).filter(x=>x.tagName==='BUTTON'&&x.disabled);
-  assert.equal(disabled.length,5);
+  assert.equal(disabled.length,0);
   device.value='6';device.events.change();
   assert.equal(count.textContent,'2 из 12 вариантов');
   duration.value='short';duration.events.change();
@@ -132,14 +132,14 @@ const advisor={
  querySelectorAll:()=>[]
 };
 global.document={querySelector:s=>s==='[data-tariff-advisor]'?advisor:null};
-const paid=new Set(['30','60','90','180','365','365-family']);
+const paid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family']);
 const plans=[
- ['trial-free','trial',1,0,2],['7','upcoming',7,39,3],
- ['14','upcoming',14,65,3],['30','existing',30,99,3],
- ['45','upcoming',45,139,3],['60','existing',60,160,3],
- ['90','existing',90,219,3],['120','upcoming',120,279,3],
+ ['trial-free','trial',1,0,2],['7','existing',7,39,3],
+ ['14','existing',14,65,3],['30','existing',30,99,3],
+ ['45','existing',45,139,3],['60','existing',60,160,3],
+ ['90','existing',90,219,3],['120','existing',120,279,3],
  ['180','existing',180,339,3],['365','existing',365,700,3],
- ['30-family','upcoming',30,189,6],
+ ['30-family','existing',30,189,6],
  ['365-family','existing',365,1000,6]
 ].map(([id,status,days,rub,devices])=>({
  id,title:'Тариф '+id,status,days,devices,
@@ -151,38 +151,35 @@ const tick=()=>new Promise(r=>setImmediate(r));
 (async()=>{
  vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
  await tick();await tick();
- assert.equal(name.textContent,'Тариф 30');
- assert.equal(link.href,'checkout.html?plan=30');
+ assert.equal(name.textContent,'Тариф 7');
+ assert.equal(link.href,'checkout.html?plan=7');
  assert.ok(payment.textContent.includes('действующих'));
  pending.checked=true;pending.events.change();
  assert.ok(name.textContent.includes('Тариф 7'));
- assert.equal(link.href,'plans.html');
- assert.ok(payment.textContent.includes('не проверены'));
+ assert.equal(link.href,'checkout.html?plan=7');
+ assert.ok(payment.textContent.includes('действующих'));
  devices.value='6';devices.events.change();
  days.value='30';days.events.input();
  assert.ok(name.textContent.includes('30-family'));
- assert.equal(link.href,'plans.html');
+ assert.equal(link.href,'checkout.html?plan=30-family');
  pending.checked=false;pending.events.change();
  assert.equal(name.textContent,'Тариф 365-family');
- assert.equal(link.href,'checkout.html?plan=365-family');
+ assert.equal(link.href,'checkout.html?plan=30-family');
 })().catch(e=>{console.error(e);process.exitCode=1});
 """
     _node(harness, "toolkit-ui.mjs")
 
 
-def test_future_plans_are_not_a_live_payment_or_gift_contract():
-    live_ids = {p["id"] for p in CATALOG}
-    before = {p["id"]: p.copy() for p in CATALOG}
-    for item in UPCOMING:
-        assert item["id"] not in live_ids
-        assert get_plan(item["id"]) is None
-        assert 2 <= item["devices"] <= 6
-        assert 7 <= item["days"] <= 365
-        assert item["kopeks"] > 0
-    assert before == {p["id"]: p for p in CATALOG}
+def test_five_new_plans_are_in_live_checkout_contract():
+    plans = {p["id"]: p for p in CATALOG}
+    assert NEW_PLAN_IDS == NEW_IDS
+    assert NEW_IDS.issubset(plans)
+    for plan_id in NEW_IDS:
+        assert get_plan(plan_id) == plans[plan_id]
     all_plans = public_tariff_catalog()["plans"]
     assert len(all_plans) == 12
-    assert sum(p["checkout_supported"] for p in all_plans) == 6
+    assert sum(p["checkout_supported"] for p in all_plans) == 11
+    assert all(p["status"] == "existing" for p in all_plans if p["id"] != "trial-free")
 
 
 def test_cross_page_links_and_copy_match_twelve_plan_catalog():
@@ -193,7 +190,7 @@ def test_cross_page_links_and_copy_match_twelve_plan_catalog():
     assert 'data-compare-loading' in compare
     assert 'value="2">До 2 устройств' in compare
     assert 'value="medium"' in compare
-    assert 'data-show-upcoming' in assistant
+    assert 'data-show-upcoming' not in assistant
     assert 'min="7"' in assistant
     assert "/api/site/tariffs" in experience
     assert "/api/site/tariffs" in toolkit
