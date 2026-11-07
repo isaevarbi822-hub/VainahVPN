@@ -23,6 +23,25 @@ internal class LibboxAndroidPlatform(
     @Volatile private var tun: ParcelFileDescriptor? = null
     private var callback: ConnectivityManager.NetworkCallback? = null
     @Volatile private var interfaceListener: InterfaceUpdateListener? = null
+    // Hold the last validated physical underlay across overlapping callbacks.
+    // Never pin a VPN network or log Android Network identifiers.
+    private var selectedPhysicalKey: String? = null
+    private var lastAppliedName = ""
+    private var lastAppliedIndex = -1
+    private var lastAppliedMetered = false
+    private var lastAppliedValidated = false
+    private var underlayAppliedToTun = false
+
+    private data class PhysicalUnderlay(
+        val key: String,
+        val network: Network,
+        val name: String,
+        val index: Int,
+        val validated: Boolean,
+        val metered: Boolean,
+        val transport: String,
+    )
+
 
     override fun localDNSTransport(): LocalDNSTransport? = null
     override fun usePlatformAutoDetectInterfaceControl(): Boolean = true
@@ -172,6 +191,8 @@ internal class LibboxAndroidPlatform(
     }
 
     override fun startDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
+        callback?.let { runCatching { connectivity.unregisterNetworkCallback(it) } }
+        callback = null
         interfaceListener = listener
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -181,10 +202,11 @@ internal class LibboxAndroidPlatform(
             override fun onAvailable(network: Network) { updateDefault(listener) }
             override fun onLost(network: Network) { updateDefault(listener) }
             override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-                // React when mobile data validates before the old Wi-Fi drops.
                 updateDefault(listener)
             }
-            override fun onLinkPropertiesChanged(network: Network, props: android.net.LinkProperties) {
+            override fun onLinkPropertiesChanged(
+                network: Network, props: android.net.LinkProperties
+            ) {
                 updateDefault(listener)
             }
         }
@@ -195,40 +217,79 @@ internal class LibboxAndroidPlatform(
 
     @Synchronized
     private fun updateDefault(listener: InterfaceUpdateListener) {
-        // A VPN network must never become its own upstream.
-        val candidates = connectivity.allNetworks.filter { network ->
-            val caps = connectivity.getNetworkCapabilities(network)
-            caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
-                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) &&
-                connectivity.getLinkProperties(network)?.interfaceName != null
+        // Old callbacks must never mutate the replacement libbox session.
+        if (interfaceListener !== listener) return
+
+        val available = connectivity.allNetworks.mapNotNull { network ->
+            val caps = connectivity.getNetworkCapabilities(network) ?: return@mapNotNull null
+            if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ||
+                !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+            ) return@mapNotNull null
+            val name = connectivity.getLinkProperties(network)?.interfaceName
+                ?: return@mapNotNull null
+            if (name.isBlank()) return@mapNotNull null
+            val index = runCatching { JavaNetworkInterface.getByName(name)?.index }
+                .getOrNull() ?: return@mapNotNull null
+            if (index < 1) return@mapNotNull null
+            PhysicalUnderlay(
+                key = network.toString(),
+                network = network, name = name, index = index,
+                validated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                metered = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
+                transport = when {
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
+                    else -> "other"
+                },
+            )
         }
-        val network = candidates.firstOrNull { net ->
-            connectivity.getNetworkCapabilities(net)?.hasCapability(
-                NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
-        } ?: candidates.firstOrNull()
-        val name = network?.let { connectivity.getLinkProperties(it)?.interfaceName }
-        val index = name?.let { JavaNetworkInterface.getByName(it)?.index } ?: -1
-        // isActiveNetworkMetered reflects the Android default (possibly the
-        // VPN), not necessarily the physical interface libbox will dial on.
-        val metered = network?.let {
-            connectivity.getNetworkCapabilities(it)?.hasCapability(
-                NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true
-        } ?: false
-        // Notify libbox and Android of the new physical underlay. The app
-        // never binds its own upstream to Android's VPN tunnel (tun0).
-        if (hasTun()) {
+
+        val selected = UnderlaySelectionPolicy.choose(
+            selectedPhysicalKey,
+            available.map {
+                UnderlayCandidate(it.key, it.validated, !it.metered, it.transport)
+            },
+        )
+        val physical = available.firstOrNull { it.key == selected?.key }
+        val name = physical?.name.orEmpty()
+        val index = physical?.index ?: -1
+        val metered = physical?.metered ?: false
+        val validated = physical?.validated ?: false
+        val tunReady = hasTun()
+        val unchanged = physical?.key == selectedPhysicalKey &&
+            name == lastAppliedName && index == lastAppliedIndex &&
+            metered == lastAppliedMetered && validated == lastAppliedValidated
+        // On Android the first callback can happen BEFORE TUN establishment.
+        // Force an OS underlay update once TUN is available, even if unchanged.
+        if (unchanged && (!tunReady || underlayAppliedToTun)) return
+        selectedPhysicalKey = physical?.key
+        lastAppliedName = name
+        lastAppliedIndex = index
+        lastAppliedMetered = metered
+        lastAppliedValidated = validated
+
+        if (tunReady) {
             runCatching {
-                service.setUnderlyingNetworks(if (network == null) emptyArray()
-                    else arrayOf(network))
+                service.setUnderlyingNetworks(
+                    if (physical == null) emptyArray() else arrayOf(physical.network)
+                )
             }
+            VpnUnderlayStatus.record(service, physical?.transport ?: "none", validated)
+            underlayAppliedToTun = true
         }
-        listener.updateDefaultInterface(name.orEmpty(), index, metered, false)
+        // Inform libbox of real underlay changes: it may recover connections.
+        // This does not claim VPN traffic or the exit IP has been verified.
+        listener.updateDefaultInterface(name, index, metered, false)
     }
 
     override fun closeDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
-        if (interfaceListener === listener) interfaceListener = null
+        if (interfaceListener !== listener) return
+        interfaceListener = null
         callback?.let { runCatching { connectivity.unregisterNetworkCallback(it) } }
         callback = null
+        selectedPhysicalKey = null
+        underlayAppliedToTun = false
     }
 
     override fun getInterfaces(): NetworkInterfaceIterator {
@@ -313,6 +374,8 @@ internal class LibboxAndroidPlatform(
         interfaceListener = null
         callback?.let { runCatching { connectivity.unregisterNetworkCallback(it) } }
         callback = null
+        selectedPhysicalKey = null
+        underlayAppliedToTun = false
         runCatching { tun?.close() }
         tun = null
     }
