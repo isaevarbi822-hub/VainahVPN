@@ -278,7 +278,7 @@ def test_cross_page_links_and_copy_match_twelve_plan_catalog():
     assert 'value="2">До 2 устройств' in compare
     assert 'value="medium"' in compare
     assert 'data-show-upcoming' not in assistant
-    assert 'min="3"' in assistant
+    assert 'min="2"' in assistant
     assert "/api/site/tariffs" in experience
     assert "/api/site/tariffs" in toolkit
     assert "checkout_supported===false" in toolkit
