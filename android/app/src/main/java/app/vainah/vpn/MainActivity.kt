@@ -389,7 +389,12 @@ class MainActivity : Activity() {
             "other" -> "другое подключение"
             else -> "нет подтверждённого интерфейса"
         }
-        add(info, t("Физическая сеть libbox: " + kind, 13f, white, true), 12)
+        val connectionActive = VpnConnectionState.read(this).canDisconnect
+        add(info, t(
+            "Физическая сеть в VPN-сеансе: " + kind +
+                (if (connectionActive) "" else " · последнее наблюдение"),
+            13f, white, true
+        ), 12)
         add(info, t(
             "Проверка сети Android: " +
                 (if (network.validated) "подтверждена системой" else "не подтверждена") +
