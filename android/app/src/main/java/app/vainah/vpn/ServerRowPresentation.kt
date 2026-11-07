@@ -87,6 +87,20 @@ object ServerRowPresentation {
         )
     }
 
+    /** Display all nodes, keeping actual subscription order and distinguishing identical names. */
+    fun describeList(nodes: List<VainahNode>): List<ServerRowInfo> {
+        val original = nodes.mapIndexed { index, node -> describe(node, index) }
+        val totals = original.groupingBy { it.title }.eachCount()
+        val seen = mutableMapOf<String, Int>()
+        return original.map { info ->
+            val count = (seen[info.title] ?: 0) + 1
+            seen[info.title] = count
+            if ((totals[info.title] ?: 0) > 1)
+                info.copy(title = info.title + " · " + count)
+            else info
+        }
+    }
+
     /** Only previously measured entry-point TCP delays may appear as numbers. */
     fun latency(observation: ServerTcpObservation?): String {
         if (observation == null) return "н/д"
