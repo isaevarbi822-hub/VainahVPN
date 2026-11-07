@@ -49,11 +49,17 @@ DISCOUNT_PILOT_PLAN = {
     "days": 1, "kopeks": 1000, "devices": 3,
 }
 CATALOG = (
+    {"id": "7", "title": "Неделя", "days": 7, "kopeks": 3900, "devices": 3},
+    {"id": "14", "title": "Две недели", "days": 14, "kopeks": 6500, "devices": 3},
     {"id": "30", "title": "1 месяц", "days": 30, "kopeks": 9900, "devices": 3},
+    {"id": "45", "title": "Полтора месяца", "days": 45, "kopeks": 13900, "devices": 3},
     {"id": "60", "title": "2 месяца", "days": 60, "kopeks": 16000, "devices": 3},
     {"id": "90", "title": "3 месяца", "days": 90, "kopeks": 21900, "devices": 3},
+    {"id": "120", "title": "Четыре месяца", "days": 120, "kopeks": 27900, "devices": 3},
     {"id": "180", "title": "6 месяцев", "days": 180, "kopeks": 33900, "devices": 3},
     {"id": "365", "title": "1 год", "days": 365, "kopeks": 70000, "devices": 3},
+    {"id": "30-family", "title": "Семейный месяц", "days": 30,
+     "kopeks": 18900, "devices": 6},
     {"id": "365-family", "title": "Семейный год", "days": 365,
      "kopeks": 100000, "devices": 6},
 )
