@@ -4,6 +4,7 @@
   const pages=[
     ['index.html','Главная','Начало, новости сайта, навигация','главная'],
     ['hub.html','Центр управления','Подписки, подарки, напоминания, поддержка и статус сервисов','аккаунт управление сервисы центр'],
+    ['whats-new.html','Что нового · Ultra Plus','Темы, личный кабинет, тарифы, устройства, подарки и обновления','апдейт обновление ultra mega super plus новые функции'],
     ['plans.html','21 платный тариф','Поиск, сортировка и сравнение трёх планов; срок 3–730 дней','цены купить подписка тарифы mini sprint legend family ₽ 149'],
     ['trial.html','Пробный период · 0 ₽','1 день, 2 устройства и 10 ГБ бесплатно','пробник пробный бесплатно бесплатный тест 24 часа 10 гб'],
     ['compare.html','Сравнение тарифов','21 платный тариф, цена за день, срок и число устройств','разница тарифов цена за день семейные'],
@@ -75,7 +76,8 @@
     ['connection-monitor.html','Монитор сети'],
     ['browser-check.html','Проверка браузера'],
     ['repair-wizard.html','Мастер помощи'],
-    ['tools.html','Все инструменты']
+    ['tools.html','Все инструменты'],
+    ['whats-new.html','Что нового']
   ];
   for(const nav of document.querySelectorAll('body > header .mobile-nav,body > header .drawer,body > .site-header .drawer')){
     for(const [href,label] of extra){
@@ -114,6 +116,7 @@
       ['account.html','▣ Мой VPN'],
       ['speed.html','↯ Тест скорости'],
       ['tools.html','⊞ Все функции'],
+      ['whats-new.html','✧ Новое'],
       ['contact.html','? Поддержка']
     ];
     for(const [href,label] of links){
@@ -354,13 +357,13 @@
   if (!document.querySelector('link[data-vx-ultra]')) {
     const style=document.createElement('link');
     style.rel='stylesheet';
-    style.href='ultra-experience.css?v=20261107-ultra1';
+    style.href='ultra-experience.css?v=20261107-superplus2';
     style.dataset.vxUltra='style';
     document.head.append(style);
   }
   if (!document.querySelector('script[data-vx-ultra]')) {
     const script=document.createElement('script');
-    script.src='ultra-experience.js?v=20261107-ultra1';
+    script.src='ultra-experience.js?v=20261107-superplus2';
     script.dataset.vxUltra='script';
     script.defer=true;
     document.head.append(script);
