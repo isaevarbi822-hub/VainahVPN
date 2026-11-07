@@ -151,3 +151,28 @@
 }
 @media(max-width:360px){.vx-super-grid{grid-template-columns:1fr}.vx-super-grid>a{min-height:120px}}
 @media(prefers-reduced-motion:reduce){.vx-super-grid>a{transition:none}.vx-super-grid>a:hover{transform:none}}
+
+/* Ultra Mega Super Plus: server-verified prices on the home screen. */
+.vx-picks-section{padding-top:34px;padding-bottom:20px}
+.vx-picks-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.vx-picks-heading>div{max-width:780px}
+.vx-picks-heading h2{font-size:clamp(25px,3.5vw,42px);margin:10px 0;letter-spacing:-.04em}
+.vx-picks-heading p{font-size:14px;color:#bfcde3;line-height:1.7;margin:0}
+.vx-picks-heading button{min-height:45px}
+.vx-picks-message{font-size:12px;color:#d0dff5;line-height:1.7;margin:18px 0 15px;min-height:20px}
+.vx-picks-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-bottom:18px}
+.vx-pick{min-width:0;padding:22px;border:1px solid #5366a0;border-radius:20px;
+ background:linear-gradient(135deg,#1c2a4a,#121c34);display:flex;flex-direction:column;gap:10px;
+ box-shadow:0 12px 29px #0002}
+.vx-pick-label{color:#9ceaf3;font-size:10px;letter-spacing:.1em;font-weight:900}
+.vx-pick h3{margin:2px 0 0;font-size:17px;overflow-wrap:anywhere}
+.vx-pick-price{font-size:30px;letter-spacing:-.035em;line-height:1.1;color:#f6f3ff}
+.vx-pick-details{font-size:12px;line-height:1.6;color:#c2d1e8;margin:0 0 4px}
+.vx-pick-link{display:inline-flex;align-items:center;justify-content:center;min-height:42px;
+ padding:10px 13px;border-radius:12px;color:#10172d!important;
+ text-decoration:none!important;background:linear-gradient(110deg,#c7b5ff,#91daef);
+ font-size:13px;font-weight:850;margin-top:auto}
+.vx-pick-link:hover{filter:brightness(1.07)}
+.vx-pick-link:focus-visible{outline:3px solid #e5eeff;outline-offset:3px}
+@media(max-width:920px){.vx-picks-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:570px){.vx-picks-grid{grid-template-columns:1fr}.vx-pick{padding:17px}.vx-pick-price{font-size:25px}}
