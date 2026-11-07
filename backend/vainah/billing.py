@@ -25,8 +25,8 @@ from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
-from .expanded_tariffs import EXTRA_CATALOG
 from .email_delivery import send_sandbox_receipt
+from .expanded_tariffs import EXTRA_CATALOG
 from .postgres_ledger import LedgerUnavailable, PostgresSandboxLedger
 from .sandbox_ledger import SandboxLedger
 
