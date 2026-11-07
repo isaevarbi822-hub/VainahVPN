@@ -53,7 +53,7 @@
     let catalogue=null;
     const currency=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
     function render(){
-      const wantedDays=Math.max(3,Math.min(730,Number(days?.value)||30));
+      const wantedDays=Math.max(2,Math.min(730,Number(days?.value)||30));
       const wantedDevices=Math.max(1,Math.min(6,Number(devices?.value)||3));
       const allowUpcoming=pending?.checked===true;
       set(dayLabel,wantedDays+' дн.');
