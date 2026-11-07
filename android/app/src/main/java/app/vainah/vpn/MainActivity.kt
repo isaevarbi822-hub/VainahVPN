@@ -446,22 +446,16 @@ class MainActivity : Activity() {
         if (VpnConnectionState.read(this).phase == VpnConnectionState.FAILED &&
             failedCode != null
         ) {
-            val engineAdvice = VpnFailureAdvisor.fromStage(
-                getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
-                    .getString("last_stage", null)
-            )
+            val engineAdvice = VpnFailureAdvisor.fromCode(failedCode)
             val recognized = VpnFailureAdvisor.sanitizedCode(failedCode)
             val failureCard = card()
             add(body, failureCard, 16)
             add(failureCard, tag("ДИАГНОСТИКА LIBBOX"))
             add(failureCard, t(
-                if (recognized == engineAdvice.code) engineAdvice.title
-                else "Ошибка VPN-движка", 16f, white, true
+                engineAdvice.title, 16f, white, true
             ), 8)
             add(failureCard, t(
-                if (recognized == engineAdvice.code) engineAdvice.action
-                else "Проверь разрешение VPN и отправь обезличенный отчёт в поддержку.",
-                12f, grey
+                engineAdvice.action, 12f, grey
             ), 8)
             add(failureCard, t("Код ошибки: " + recognized, 12f, teal), 8)
         }
