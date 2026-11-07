@@ -499,6 +499,10 @@ class MainActivity : Activity() {
                 return@setOnClickListener
             }
             entry.text.clear()
+            serverSearchQuery = ""
+            showFavoriteServers = false
+            serverSort = ServerSort.SUBSCRIPTION
+            serverListExpanded = false
             invalidateServerProbes()
             nodes = source.cachedNodes()
             selected = nodes.firstOrNull()
