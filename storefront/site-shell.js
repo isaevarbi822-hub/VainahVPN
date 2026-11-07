@@ -171,7 +171,7 @@
       const cards=el('div','vx-journeys-grid');
       const options=[
         ['trial.html','01','Попробовать бесплатно','24 часа · 2 устройства · 10 ГБ','Бесплатный доступ','trial'],
-        ['plans.html','02','Выбрать подписку','Шесть сроков и семейный тариф','Смотреть тарифы','plans'],
+        ['plans.html','02','Выбрать подписку','21 платный тариф · от 3 до 730 дней','Смотреть тарифы','plans'],
         ['account.html','03','Открыть мой VPN','Подписка, ключ и история заказов','Личный кабинет','account'],
         ['device-center.html','04','Настроить устройство','Инструкция для телефона или компьютера','Подключение','devices']
       ];
@@ -245,7 +245,7 @@
       ['hub.html','◉','Центр управления','Главная панель'],
       ['compare.html','≋','Сравнение тарифов','Все цены и сроки'],
       ['speed.html','↯','Тест скорости','Ping и скорость интернета'],
-      ['network-toolkit.html','▤','Сетевые калькуляторы','8 инструментов расчёта скорости и трафика'],
+      ['network-toolkit.html','▤','Сетевые калькуляторы','12 инструментов расчёта скорости и трафика'],
       ['network-check.html','◉','Проверка сети','Доступность API и оплаты'],
       ['connection-monitor.html','≈','Монитор стабильности','Динамика задержки и ошибки'], 
       ['repair-wizard.html','?','Мастер помощи','Пошаговое решение проблем'],
@@ -348,6 +348,22 @@
       }
     },{threshold:.06,rootMargin:'0px 0px 40px 0px'});
     for(const target of targets)observer.observe(target);
+  }
+  // Load the shared ULTRA UI layer without altering authentication or purchase JS.
+  // Standalone benefits pages opt in with a static include instead.
+  if (!document.querySelector('link[data-vx-ultra]')) {
+    const style=document.createElement('link');
+    style.rel='stylesheet';
+    style.href='ultra-experience.css?v=20261107-ultra1';
+    style.dataset.vxUltra='style';
+    document.head.append(style);
+  }
+  if (!document.querySelector('script[data-vx-ultra]')) {
+    const script=document.createElement('script');
+    script.src='ultra-experience.js?v=20261107-ultra1';
+    script.dataset.vxUltra='script';
+    script.defer=true;
+    document.head.append(script);
   }
   // No timers or background API polling are created by the shared shell.
 })();
