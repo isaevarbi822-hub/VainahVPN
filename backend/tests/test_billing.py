@@ -20,13 +20,13 @@ from vainah.main import app
 client = TestClient(app)
 
 
-def test_catalog_includes_existing_six_and_five_new_paid_plans():
+def test_catalog_includes_existing_eleven_repriced_paid_plans():
     r = client.get("/api/shop/plans")
     assert r.status_code == 200
     rows = r.json()["items"]
     assert [x["priceRub"] for x in rows] == [
-        "39.00", "65.00", "99.00", "139.00", "160.00", "219.00",
-        "279.00", "339.00", "700.00", "189.00", "1000.00"
+        "59.00", "99.00", "149.00", "209.00", "239.00", "329.00",
+        "419.00", "509.00", "1050.00", "289.00", "1499.00"
     ]
     assert [x["id"] for x in rows] == [
         "7", "14", "30", "45", "60", "90", "120", "180",
@@ -70,7 +70,7 @@ def test_mock_sandbox_order_no_money_no_vpn(monkeypatch):
     r = client.post("/api/shop/sandbox/start", headers=headers, json={"plan": "365-family"})
     assert r.status_code == 200, r.text
     order = r.json()
-    assert order["amount_rub"] == "1000.00"
+    assert order["amount_rub"] == "1499.00"
     assert order["test_only"] is True
     assert order["real_charge"] is False
     assert order["vpn_delivered"] is False
@@ -210,11 +210,11 @@ def test_provider_sandbox_create_and_signed_status():
         payloads.append(payload)
         assert payload["test"] is True
         assert payload["payment_currency"] == "RUB"
-        assert payload["amount"] == "99.00"
+        assert payload["amount"] == "149.00"
         return httpx.Response(200, json={
             "order_id": payload["order_id"],
             "payment_id": "pay_test_1234567890",
-            "amount": "99.00", "payment_currency": "RUB",
+            "amount": "149.00", "payment_currency": "RUB",
             "test": True, "environment": "sandbox", "status": "created",
             "pay_url": "https://pay.rollypay.io/pay/tok_123456",
         })
@@ -226,7 +226,7 @@ def test_provider_sandbox_create_and_signed_status():
     event = {
         "event_type": "payment.paid", "status": "paid", "test": True,
         "order_id": order["order_id"], "payment_id": "pay_test_1234567890",
-        "amount": "99.00", "currency": "RUB",
+        "amount": "149.00", "currency": "RUB",
     }
     assert provider.process_webhook(event)["status"] == "paid"
     assert provider.process_webhook(event)["status"] == "paid"
@@ -249,7 +249,7 @@ def test_provider_rejects_unsafe_return_link_and_does_not_save_order():
         payload = json.loads(request.content)
         return httpx.Response(200, json={
             "order_id": payload["order_id"], "payment_id": "pay_test_1234567890",
-            "amount": "99.00", "payment_currency": "RUB", "status": "created",
+            "amount": "149.00", "payment_currency": "RUB", "status": "created",
             "test": True, "environment": "sandbox",
             "pay_url": "https://phishing.example/pay/123456",
         })
@@ -267,7 +267,7 @@ def test_provider_status_refresh_returns_real_sandbox_status_only():
             created = json.loads(request.content)
             return httpx.Response(200, json={
                 "order_id": created["order_id"], "payment_id": payment_id,
-                "amount": "99.00", "payment_currency": "RUB",
+                "amount": "149.00", "payment_currency": "RUB",
                 "test": True, "environment": "sandbox", "status": "created",
                 "pay_url": "https://pay.rollypay.io/pay/tok_123456",
             })
@@ -276,7 +276,7 @@ def test_provider_status_refresh_returns_real_sandbox_status_only():
         assert request.headers.get("X-Nonce")
         return httpx.Response(200, json={
             "order_id": order_id, "payment_id": payment_id,
-            "amount": "99.00", "payment_currency": "RUB",
+            "amount": "149.00", "payment_currency": "RUB",
             "test": True, "environment": "sandbox", "status": "paid",
         })
 
@@ -295,7 +295,7 @@ def test_provider_rejects_ambiguous_non_sandbox_payment_at_creation():
         created = json.loads(request.content)
         return httpx.Response(200, json={
             "order_id": created["order_id"],
-            "payment_id": "pay_test_1234567890", "amount": "99.00",
+            "payment_id": "pay_test_1234567890", "amount": "149.00",
             "payment_currency": "RUB", "status": "created",
             "pay_url": "https://pay.rollypay.io/pay/tok_123456",
         })
@@ -313,14 +313,14 @@ def test_provider_rejects_status_from_non_sandbox_payment():
             created = json.loads(request.content)
             return httpx.Response(200, json={
                 "order_id": created["order_id"], "payment_id": payment_id,
-                "amount": "99.00", "payment_currency": "RUB",
+                "amount": "149.00", "payment_currency": "RUB",
                 "test": True, "environment": "sandbox",
                 "status": "created",
                 "pay_url": "https://pay.rollypay.io/pay/tok_123456",
             })
         return httpx.Response(200, json={
             "order_id": order_id, "payment_id": payment_id,
-            "amount": "99.00", "payment_currency": "RUB",
+            "amount": "149.00", "payment_currency": "RUB",
             "test": False, "environment": "production", "status": "paid",
         })
     service = BillingSandbox("provider", "test-key", httpx.MockTransport(response))
@@ -452,7 +452,7 @@ def test_provider_creation_errors_identify_which_field_failed(
         body = json.loads(request.content)
         return httpx.Response(200, json={
             "order_id": body["order_id"],
-            "amount": "99.00",
+            "amount": "149.00",
             "payment_currency": "RUB",
             "test": True,
             "environment": "sandbox",
@@ -507,7 +507,7 @@ def test_provider_accepts_non_prefix_opaque_id_without_weakening_sandbox():
             return httpx.Response(200, json={
                 "order_id": created["order_id"],
                 "payment_id": opaque_id,
-                "amount": "99.00",
+                "amount": "149.00",
                 "payment_currency": "RUB",
                 "test": True,
                 "environment": "sandbox",
@@ -517,7 +517,7 @@ def test_provider_accepts_non_prefix_opaque_id_without_weakening_sandbox():
         return httpx.Response(200, json={
             "order_id": order_id,
             "payment_id": opaque_id,
-            "amount": "99.00",
+            "amount": "149.00",
             "payment_currency": "RUB",
             "test": True,
             "environment": "sandbox",
@@ -566,7 +566,7 @@ def test_provider_payment_status_restored_from_local_sandbox_ledger(tmp_path):
             return httpx.Response(200, json={
                 "order_id": data["order_id"],
                 "payment_id": "opaque_123456",
-                "amount": "1000.00",
+                "amount": "1499.00",
                 "payment_currency": "RUB",
                 "test": True,
                 "environment": "sandbox",
@@ -577,7 +577,7 @@ def test_provider_payment_status_restored_from_local_sandbox_ledger(tmp_path):
         return httpx.Response(200, json={
             "order_id": created["order_id"],
             "payment_id": "opaque_123456",
-            "amount": "1000.00",
+            "amount": "1499.00",
             "payment_currency": "RUB",
             "test": True,
             "environment": "sandbox",
@@ -657,7 +657,7 @@ def test_signed_provider_webhook_receipt_survives_restart(tmp_path):
         return httpx.Response(200, json={
             "order_id": payload["order_id"],
             "payment_id": "pay_test_signed_123456",
-            "amount": "99.00", "payment_currency": "RUB",
+            "amount": "149.00", "payment_currency": "RUB",
             "test": True, "environment": "sandbox", "status": "created",
             "pay_url": "https://pay.rollypay.io/pay/tok_signed_123456",
         })
@@ -669,7 +669,7 @@ def test_signed_provider_webhook_receipt_survives_restart(tmp_path):
     event = {
         "event_type": "payment.paid", "status": "paid", "test": True,
         "order_id": order["order_id"], "payment_id": "pay_test_signed_123456",
-        "amount": "99.00", "currency": "RUB",
+        "amount": "149.00", "currency": "RUB",
     }
     assert first.process_webhook(event)["vpn_delivered"] is False
     assert first.read(order["order_id"])["webhook_received"] is True
@@ -686,7 +686,7 @@ def test_fake_webhook_never_marks_receipt(tmp_path):
         svc.process_webhook({
             "event_type": "payment.paid", "status": "paid", "test": True,
             "order_id": order["order_id"], "payment_id": "fake_123456",
-            "amount": "99.00", "currency": "RUB",
+            "amount": "149.00", "currency": "RUB",
         })
     assert svc.read(order["order_id"])["webhook_received"] is False
 
@@ -708,7 +708,7 @@ def test_provider_status_without_optional_sandbox_markers_requires_provenance():
             return httpx.Response(201, json={
                 "order_id": payload["order_id"],
                 "payment_id": payment_id,
-                "amount": "99.00",
+                "amount": "149.00",
                 "payment_currency": "RUB",
                 "test": True,
                 "environment": "sandbox",
@@ -720,7 +720,7 @@ def test_provider_status_without_optional_sandbox_markers_requires_provenance():
         return httpx.Response(200, json={
             "order_id": original_order["id"],
             "payment_id": payment_id,
-            "amount": "99.00",
+            "amount": "149.00",
             "payment_currency": "RUB",
             "status": "paid",
         })
@@ -760,7 +760,7 @@ def test_sandbox_poll_never_accepts_conflicting_markers_or_identity(overrides):
             return httpx.Response(200, json={
                 "order_id": created["order_id"],
                 "payment_id": payment_id,
-                "amount": "99.00",
+                "amount": "149.00",
                 "payment_currency": "RUB",
                 "test": True,
                 "environment": "sandbox",
@@ -770,7 +770,7 @@ def test_sandbox_poll_never_accepts_conflicting_markers_or_identity(overrides):
         return httpx.Response(200, json={
             "order_id": order_ref["id"],
             "payment_id": payment_id,
-            "amount": "99.00",
+            "amount": "149.00",
             "payment_currency": "RUB",
             "status": "paid",
             **overrides,
@@ -798,16 +798,16 @@ def test_sandbox_poll_never_accepts_conflicting_markers_or_identity(overrides):
 
 
 @pytest.mark.parametrize(("amount","accepted"), [
-    ("99.00", True), ("99", True), ("99.0", True),
-    (99, True), (99.0, True), ("099.00", True),
-    ("99.01", False), ("98.99", False), ("99.001", False),
+    ("149.00", True), ("149", True), ("149.0", True),
+    (149, True), (149.0, True), ("0149.00", True),
+    ("149.01", False), ("148.99", False), ("149.001", False),
     (True, False), (None, False), ("9.9e1", False),
-    ("-99.00", False), ("99,00", False), ("", False),
+    ("-149.00", False), ("149,00", False), ("", False),
 ])
 def test_rollypay_rub_amount_exact_numeric_match(amount, accepted):
     from vainah.billing import _matches_exact_rub_amount
 
-    assert _matches_exact_rub_amount(amount, "99.00") is accepted
+    assert _matches_exact_rub_amount(amount, "149.00") is accepted
 
 
 @pytest.mark.parametrize(("fields","accepted"), [
@@ -825,9 +825,9 @@ def test_rollypay_currency_alias_requires_explicit_rub(fields, accepted):
 
 
 @pytest.mark.parametrize(("amount","currency_field"), [
-    ("99", "payment_currency"),
-    (99, "currency"),
-    ("99.0", "currency"),
+    ("149", "payment_currency"),
+    (149, "currency"),
+    ("149.0", "currency"),
 ])
 def test_provider_paid_status_accepts_equivalent_amount_and_currency_alias(
     amount, currency_field,
@@ -843,7 +843,7 @@ def test_provider_paid_status_accepts_equivalent_amount_and_currency_alias(
             return httpx.Response(200, json={
                 "order_id": body["order_id"],
                 "payment_id": payment_id,
-                "amount": "99.00", "payment_currency": "RUB",
+                "amount": "149.00", "payment_currency": "RUB",
                 "test": True, "environment": "sandbox",
                 "status": "created",
                 "pay_url": "https://pay.rollypay.io/pay/tok_123456",
@@ -877,7 +877,7 @@ def test_signed_created_then_polled_paid_never_becomes_paid_webhook_proof(tmp_pa
             known["id"] = json.loads(request.content)["order_id"]
         return httpx.Response(200, json={
             "order_id": known["id"], "payment_id": payment_id,
-            "amount": "99.00", "payment_currency": "RUB",
+            "amount": "149.00", "payment_currency": "RUB",
             "status": "created" if request.method == "POST" else "paid",
             "test": True, "environment": "sandbox",
             "pay_url": "https://pay.rollypay.io/pay/test_123456",
@@ -890,7 +890,7 @@ def test_signed_created_then_polled_paid_never_becomes_paid_webhook_proof(tmp_pa
     created_event = {
         "event_type": "payment.created", "status": "created", "test": True,
         "order_id": order["order_id"], "payment_id": payment_id,
-        "amount": "99.00", "currency": "RUB",
+        "amount": "149.00", "currency": "RUB",
     }
     service.process_webhook(created_event)
     paid = asyncio.run(service.refresh(order["order_id"]))
@@ -916,12 +916,12 @@ def test_callback_rejects_malformed_and_contradictory_fields(overrides):
     order_id = "vainah_test_" + "a" * 32
     service = BillingSandbox("provider")
     service.orders[order_id] = TestOrder(
-        order_id, "30", "99.00", "pay_test_123456", "created", "provider",
+        order_id, "30", "149.00", "pay_test_123456", "created", "provider",
     )
     event = {
         "event_type": "payment.paid", "status": "paid", "test": True,
         "order_id": order_id, "payment_id": "pay_test_123456",
-        "amount": "99.00", "currency": "RUB", **overrides,
+        "amount": "149.00", "currency": "RUB", **overrides,
     }
     with pytest.raises(HTTPException) as caught:
         service.process_webhook(event)
@@ -939,7 +939,7 @@ def test_durable_reservation_precedes_provider_post_and_early_callback_retries(t
         event = {
             "event_type": "payment.paid", "status": "paid", "test": True,
             "order_id": order_id, "payment_id": "pay_test_early123",
-            "amount": "99.00", "currency": "RUB",
+            "amount": "149.00", "currency": "RUB",
         }
         assert worker.read(order_id)["status"] == "created"
         with pytest.raises(HTTPException) as caught:
@@ -949,7 +949,7 @@ def test_durable_reservation_precedes_provider_post_and_early_callback_retries(t
         observed.append(event)
         return httpx.Response(201, json={
             "order_id": order_id, "payment_id": event["payment_id"],
-            "amount": "99.00", "payment_currency": "RUB",
+            "amount": "149.00", "payment_currency": "RUB",
             "test": True, "environment": "sandbox", "status": "created",
             "pay_url": "https://pay.rollypay.io/pay/test_123456",
         })
@@ -991,7 +991,7 @@ def test_auto_receipt_waits_for_verified_issuance_and_then_sends_once(monkeypatc
     monkeypatch.setenv("SESSION_SIGNING_KEY", "test-secret-" + "a" * 40)
     service = BillingSandbox("provider")
     service.orders[order_id] = billing.TestOrder(
-        order_id, "30", "99.00", "pay_test_receipt123", "paid", "provider",
+        order_id, "30", "149.00", "pay_test_receipt123", "paid", "provider",
         owner_ref="v1_" + "f" * 64, webhook_received=True,
         paid_webhook_received=True,
         receipt_recipient=billing._seal_receipt_recipient("owner@example.com"),
@@ -1038,7 +1038,7 @@ def test_sqlite_independent_workers_refresh_new_orders_and_preserve_refund(tmp_p
     writer = BillingSandbox("provider", ledger_path=filename)
     order_id = "vainah_test_" + "8" * 32
     order = TestOrder(
-        order_id, "30", "99.00", "pay_workers_123456", "created", "provider",
+        order_id, "30", "149.00", "pay_workers_123456", "created", "provider",
         owner_ref="v1_" + "b" * 64,
     )
     writer.ledger.save(order)
@@ -1064,7 +1064,7 @@ def test_concurrent_refund_returns_canonical_state_instead_of_stale_paid(
     filename = str(tmp_path / "refund-race.sqlite3")
     service = BillingSandbox("provider", "test-api-key", ledger_path=filename)
     order = TestOrder(
-        "vainah_test_" + "9" * 32, "30", "99.00", "pay_refund_123456",
+        "vainah_test_" + "9" * 32, "30", "149.00", "pay_refund_123456",
         "created", "provider",
     )
     service.ledger.save(order)
@@ -1095,7 +1095,7 @@ def test_expired_sqlite_receipt_worker_cannot_release_or_finish_reclaimed_lease(
 
     store = SandboxLedger(str(tmp_path / "receipt-tokens.sqlite3"))
     order = TestOrder(
-        "vainah_test_" + "7" * 32, "30", "99.00", "pay_receipt_123456",
+        "vainah_test_" + "7" * 32, "30", "149.00", "pay_receipt_123456",
         "paid", "provider", owner_ref="v1_" + "c" * 64,
         webhook_received=True, paid_webhook_received=True,
         receipt_recipient="encrypted-test-recipient",
@@ -1116,7 +1116,7 @@ def test_sqlite_outage_does_not_reuse_cached_order_or_leak_path(tmp_path):
 
     service = BillingSandbox("provider", ledger_path=str(tmp_path / "private-ledger.sqlite3"))
     order = TestOrder(
-        "vainah_test_" + "6" * 32, "30", "99.00", "pay_deleted_123456",
+        "vainah_test_" + "6" * 32, "30", "149.00", "pay_deleted_123456",
         "created", "provider",
     )
     service.ledger.save(order)
@@ -1146,7 +1146,7 @@ def test_fresh_sqlite_workers_migrate_ledger_concurrently(tmp_path):
     def initialize(_):
         store = SandboxLedger(filename)
         order = TestOrder(
-            "vainah_test_" + uuid4().hex, "30", "99.00",
+            "vainah_test_" + uuid4().hex, "30", "149.00",
             "pay_fresh_" + uuid4().hex, "created", "provider",
         )
         store.save(order)

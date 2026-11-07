@@ -15,20 +15,22 @@
     const table=$('.ux-table tbody',compare);
     const loading=$('[data-compare-loading]',compare);
     let cards=$$('[data-plan-days][data-plan-kopeks][data-plan-devices]',grid);
-    const validIds=new Set(['trial-free','7','14','30','45','60','90',
-      '120','180','365','30-family','365-family']);
+    const futureIds=new Set(['mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d']);
+    const validIds=new Set(['trial-free','7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d']);
     const paidIds=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family']);
     const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
     function isSafe(p){
       return p&&validIds.has(p.id)&&
         typeof p.title==='string'&&p.title.length>0&&p.title.length<=60&&
-        Number.isInteger(p.days)&&p.days>=1&&p.days<=365&&
+        Number.isInteger(p.days)&&p.days>=1&&p.days<=730&&
         Number.isInteger(p.devices)&&p.devices>=2&&p.devices<=6&&
         typeof p.price_rub==='string'&&/^(0|[1-9][0-9]{0,5})\.[0-9]{2}$/.test(p.price_rub)&&
         ['trial','existing','upcoming'].includes(p.status)&&
         (p.status==='trial'?(p.id==='trial-free'&&p.price_rub==='0.00'&&p.traffic_gb===10):
-        p.status==='existing'?paidIds.has(p.id):
-        !paidIds.has(p.id));
+        p.status==='existing'?paidIds.has(p.id)&&p.checkout_supported===true&&
+          p.checkout_path==='/checkout.html?plan='+p.id:
+        p.status==='upcoming'&&futureIds.has(p.id)&&p.checkout_supported===false&&
+          p.checkout_path===null);
     }
     function elem(tag,contents,cls){
       const result=document.createElement(tag);
@@ -118,11 +120,11 @@
       headers:{Accept:'application/json'}}).then(async response=>{
       if(!response.ok)throw Error('HTTP '+response.status);
       const data=await response.json();
-      if(data.total!==12||!Array.isArray(data.plans)||data.plans.length!==12||
+      if(data.total!==22||!Array.isArray(data.plans)||data.plans.length!==22||
         !data.plans.every(isSafe)||
-        new Set(data.plans.map(p=>p.id)).size!==12||
+        new Set(data.plans.map(p=>p.id)).size!==22||
         data.plans.filter(p=>p.status==='existing').length!==11||
-        data.plans.filter(p=>p.status==='upcoming').length!==0||
+        data.plans.filter(p=>p.status==='upcoming').length!==10||
         data.plans.filter(p=>p.status==='trial').length!==1
       )throw Error('CATALOG_MISMATCH');
       const newCards=data.plans.map(makeCard);
@@ -131,7 +133,7 @@
       cards=newCards;
       update();
       if(loading)loading.textContent=
-        'Все 12 вариантов. Новые предложения помечены «Скоро» и не принимают оплату.';
+        'Все 22 варианта: 11 действующих платных, 10 новых в подготовке и 1 бесплатный пробный.';
     }).catch(()=>{
       // Keep the 6 original verified cards AND table if API is down.
       if(loading)loading.textContent=

@@ -1,14 +1,38 @@
-/* 11 paid plans and one free trial; checkout links are server allowlisted. */
+/* Server allowlist: 11 paid, 10 read-only previews, one trial. */
 (() => {
   'use strict';
   const root=document.querySelector('[data-tariff-catalog]');
   const status=document.getElementById('tariff-catalog-status');
   if(!root||!status)return;
   const allowedPaid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family']);
-  const order=[
-    'trial-free','7','14','30','45','60','90','120',
-    '180','365','30-family','365-family'
-  ];
+  const upcomingIds=new Set(['mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d']);
+  const order=['trial-free','mini-3d','sprint-5d','7','14',
+    'start-plus-21d','30','45','60','balance-75d','90','120',
+    'comfort-150d','180','max-270d','365','legend-730d',
+    '30-family','family-plus-90d','family-pro-180d',
+    '365-family','family-max-730d'];
+  const filters=Array.from(document.querySelectorAll?.('[data-tariff-filter]')||[]);
+  let visibleCards=[];
+  let currentFilter='all';
+  function applyFilter(){
+    let count=0;
+    for(const card of visibleCards){
+      card.hidden=currentFilter!=='all' && card.tariffSegment!==currentFilter;
+      if(!card.hidden)count++;
+    }
+    for(const button of filters){
+      button.setAttribute('aria-pressed',
+        String(button.dataset.tariffFilter===currentFilter));
+    }
+    const counter=document.getElementById('tariff-filter-count');
+    if(counter)counter.textContent=count+' из '+visibleCards.length+' платных тарифов';
+  }
+  for(const button of filters)button.addEventListener('click',()=>{
+    const next=button.dataset.tariffFilter;
+    if(['all','short','standard','long','family'].includes(next)){
+      currentFilter=next;applyFilter();
+    }
+  });
   const create=(tag,text='',className='')=>{
     const result=document.createElement(tag);
     result.textContent=String(text);
@@ -20,19 +44,28 @@
       order.includes(plan.id) &&
       typeof plan.title==='string' &&
       plan.title.length>0 && plan.title.length<=60 &&
-      Number.isInteger(plan.days) && plan.days>=1 && plan.days<=366 &&
+      Number.isInteger(plan.days) && plan.days>=1 && plan.days<=730 &&
       Number.isInteger(plan.devices) && plan.devices>=1 && plan.devices<=6 &&
       typeof plan.price_rub==='string' &&
       /^(0|[1-9][0-9]{0,5})\.[0-9]{2}$/.test(plan.price_rub) &&
-      ['existing','upcoming','trial'].includes(plan.status);
+      (plan.id==='trial-free'?
+        (plan.status==='trial' && plan.price_rub==='0.00' &&
+         plan.checkout_supported===false && plan.traffic_gb===10):
+       allowedPaid.has(plan.id)?
+        (plan.status==='existing' && plan.checkout_supported===true &&
+         plan.checkout_path==='/checkout.html?plan='+plan.id):
+        (upcomingIds.has(plan.id) && plan.status==='upcoming' &&
+         plan.checkout_supported===false && plan.checkout_path===null));
   }
   function render(plans){
     const paid=plans.filter(plan=>plan.status!=='trial');
     const live=paid.filter(plan=>plan.status==='existing');
     const queued=paid.filter(plan=>plan.status==='upcoming');
     const fragment=document.createDocumentFragment();
+    visibleCards=[];
     for(const plan of paid){
       const card=create('article','','plan tariff-card');
+      card.tariffSegment=plan.segment;
       const eyebrow=create('div',plan.days+' ДНЕЙ','duration');
       card.append(eyebrow);
       const badge=create('span',
@@ -69,14 +102,16 @@
         // No unchecked URL can ever be followed as a payment link.
         card.append(create('p','Оформление недоступно.','tariff-note'));
       }
+      visibleCards.push(card);
       fragment.append(card);
     }
     root.replaceChildren(fragment);
+    applyFilter();
     status.textContent=
-      '12 вариантов: '+live.length+' платных тарифов и 1 бесплатный пробный.';
+      '22 варианта: '+live.length+' действующих платных, '+queued.length+' в подготовке и 1 бесплатный пробный.';
     const counter=document.getElementById('tariff-compare-label');
     if(counter)counter.textContent=
-      'Сравнить 11 платных тарифов ↗';
+      'Сравнить все 22 варианта ↗';
   }
   async function load(){
     status.textContent='Загружаем актуальный каталог тарифов…';
@@ -88,12 +123,12 @@
       if(!response.ok)throw Error('CATALOG_UNAVAILABLE');
       const data=await response.json();
       const plans=Array.isArray(data.plans)?data.plans:[];
-      if(data.total!==12 || plans.length!==12 ||
-        new Set(plans.map(p=>p.id)).size!==12 ||
+      if(data.total!==22 || plans.length!==22 ||
+        new Set(plans.map(p=>p.id)).size!==22 ||
         !plans.every(valid) ||
         plans.filter(p=>p.status==='trial').length!==1 ||
         plans.filter(p=>p.status==='existing').length!==11 ||
-        plans.filter(p=>p.status==='upcoming').length!==0
+        plans.filter(p=>p.status==='upcoming').length!==10
       )throw Error('CATALOG_INVALID');
       render(plans);
     }catch{

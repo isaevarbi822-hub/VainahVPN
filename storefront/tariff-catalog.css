@@ -10,3 +10,9 @@
 .tariff-card button.btn[disabled]{opacity:.72;cursor:not-allowed;background:#343d55;color:#d2d8e7;border-color:#5a6883}
 .tariff-legend{margin:18px 0 13px;font-size:13px;color:#bfc9dd}
 @media(max-width:520px){.tariff-card{min-height:unset}.tariff-card .price small{font-size:11px}}
+
+.tariff-filters{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 15px}
+.tariff-filters button{padding:11px 15px;border-radius:13px;border:1px solid #425071;color:#d8e2f4;background:#182137;cursor:pointer;font:inherit;font-size:13px;font-weight:650;transition:background .15s,border-color .15s}
+.tariff-filters button:hover{border-color:#91a8d6}
+.tariff-filters button[aria-pressed="true"]{background:#273f6c;border-color:#93b1f7;color:#fff}
+#tariff-filter-count{margin:0 0 19px;color:#a5b6d3;font-size:12px}

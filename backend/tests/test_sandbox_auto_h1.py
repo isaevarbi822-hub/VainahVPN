@@ -389,7 +389,7 @@ def test_signed_payment_real_postgres_otp_to_one_h1_delivery(
         assert pending == ("created",)
         invoice.update({
             "order_id": body["order_id"], "payment_id": "pay_test_1234567890",
-            "amount": "99.00", "currency": "RUB", "status": "created",
+            "amount": "149.00", "currency": "RUB", "status": "created",
             "test": True, "environment": "sandbox",
             "pay_url": "https://pay.rollypay.io/pay/synthetic_test_only",
         })
@@ -482,7 +482,7 @@ def test_signed_payment_real_postgres_otp_to_one_h1_delivery(
         assert recipient == "buyer@example.com"
         assert receipt["vpn_issued"] is True
         assert receipt["order_id"] == order_id
-        assert receipt["amount_rub"] == "99.00"
+        assert receipt["amount_rub"] == "149.00"
         assert receipt["duration_days"] == 30
         assert receipt["devices"] == 3
         assert receipt["subscription_url"] == "https://sub.example.com/secret-sandbox-only"
@@ -538,7 +538,7 @@ def test_postgres_claim_concurrency_and_only_prewrite_retry(configured, postgres
     monkeypatch.setenv("DATABASE_URL", postgres_url)
     ledger = PostgresSandboxLedger(postgres_url)
     order = billing.TestOrder(
-        "vainah_test_" + "a" * 32, "30", "99.00", "pay_test_1234567890",
+        "vainah_test_" + "a" * 32, "30", "149.00", "pay_test_1234567890",
         "paid", "provider", owner_ref="v1_" + "a" * 64,
         receipt_recipient="encrypted-recipient", webhook_received=True,
         paid_webhook_received=True,
@@ -561,7 +561,7 @@ def test_postgres_legacy_generic_paid_proof_is_not_claimable(configured, postgre
     monkeypatch.setenv("DATABASE_URL", postgres_url)
     ledger = PostgresSandboxLedger(postgres_url)
     order = billing.TestOrder(
-        "vainah_test_" + "b" * 32, "30", "99.00", "pay_test_1234567890",
+        "vainah_test_" + "b" * 32, "30", "149.00", "pay_test_1234567890",
         "paid", "provider", owner_ref="v1_" + "a" * 64,
         receipt_recipient="encrypted-recipient", webhook_received=True,
     )
@@ -593,7 +593,7 @@ def test_postgres_legacy_delivery_schema_migrates_without_reclaim(
     for index, state in enumerate(("claimed", "needs_review", "issued")):
         order_id = "vainah_test_" + str(index) * 32
         ledger.save(billing.TestOrder(
-            order_id, "30", "99.00", "pay_test_" + str(index) * 32,
+            order_id, "30", "149.00", "pay_test_" + str(index) * 32,
             "paid", "provider", owner_ref="v1_" + "a" * 64,
             receipt_recipient="encrypted-recipient", webhook_received=True,
             paid_webhook_received=True,
@@ -664,7 +664,7 @@ def test_refund_during_preflight_prevents_h1_write(configured, postgres_url, mon
     monkeypatch.setattr(auto, "auto_enabled", lambda: True)
     ledger = PostgresSandboxLedger(postgres_url)
     order = billing.TestOrder(
-        "vainah_test_" + "c" * 32, "30", "99.00", "pay_test_1234567890",
+        "vainah_test_" + "c" * 32, "30", "149.00", "pay_test_1234567890",
         "paid", "provider", owner_ref="v1_" + "a" * 64,
         receipt_recipient="encrypted-recipient", webhook_received=True,
         paid_webhook_received=True,
@@ -695,7 +695,7 @@ def test_issued_row_without_link_is_not_reported_delivered(configured, postgres_
 
     monkeypatch.setenv("DATABASE_URL", postgres_url)
     order = billing.TestOrder(
-        "vainah_test_" + "d" * 32, "30", "99.00", "pay_test_1234567890",
+        "vainah_test_" + "d" * 32, "30", "149.00", "pay_test_1234567890",
         "paid", "provider", owner_ref="v1_" + "a" * 64,
         receipt_recipient="encrypted-recipient", webhook_received=True,
         paid_webhook_received=True,
@@ -715,7 +715,7 @@ def test_stale_state_transition_does_not_report_success(
 ):
     monkeypatch.setenv("DATABASE_URL", postgres_url)
     order = billing.TestOrder(
-        "vainah_test_" + "e" * 32, "30", "99.00", "pay_test_1234567890",
+        "vainah_test_" + "e" * 32, "30", "149.00", "pay_test_1234567890",
         "paid", "provider", owner_ref="v1_" + "a" * 64,
         receipt_recipient="encrypted-recipient", webhook_received=True,
         paid_webhook_received=True,
@@ -734,7 +734,7 @@ def test_refund_after_h1_write_does_not_deliver_access(configured, postgres_url,
     monkeypatch.setenv("DATABASE_URL", postgres_url)
     monkeypatch.setattr(auto, "auto_enabled", lambda: True)
     order = billing.TestOrder(
-        "vainah_test_" + "f" * 32, "30", "99.00", "pay_test_1234567890",
+        "vainah_test_" + "f" * 32, "30", "149.00", "pay_test_1234567890",
         "paid", "provider", owner_ref="v1_" + "a" * 64,
         receipt_recipient="encrypted-recipient", webhook_received=True,
         paid_webhook_received=True,
@@ -773,7 +773,7 @@ def test_delivery_database_lock_waits_are_bounded(
 
     monkeypatch.setenv("DATABASE_URL", postgres_url)
     order = billing.TestOrder(
-        "vainah_test_" + "b" * 32, "30", "99.00", "pay_test_1234567890",
+        "vainah_test_" + "b" * 32, "30", "149.00", "pay_test_1234567890",
         "paid", "provider", owner_ref="v1_" + "a" * 64,
         receipt_recipient="encrypted-recipient", webhook_received=True,
         paid_webhook_received=True,

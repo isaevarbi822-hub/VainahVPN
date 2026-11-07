@@ -139,7 +139,7 @@ def _event() -> tuple[bytes, str, str]:
     data = {
         "event_type": "payment.paid", "status": "paid",
         "order_id": ORDER, "payment_id": PAYMENT_ID,
-        "amount": "99.00", "currency": "RUB",
+        "amount": "149.00", "currency": "RUB",
     }
     raw = json.dumps(data, separators=(",", ":")).encode()
     timestamp = str(int(time.time()))
@@ -299,7 +299,7 @@ def test_malformed_signed_live_event_is_rejected_before_ledger(
     data = {
         "event_type": "payment.paid", "status": "paid",
         "order_id": ORDER, "payment_id": PAYMENT_ID,
-        "amount": "99.00", "currency": "RUB", **overrides,
+        "amount": "149.00", "currency": "RUB", **overrides,
     }
     monkeypatch.setattr(live_checkout, "_ledger", lambda: pytest.fail(
         "Malformed event must not reach payment recording or H1 fulfillment"
@@ -357,7 +357,7 @@ def test_refunded_live_webhook_rejects_h1_delivery(
     data = {
         "event_type": "payment.refunded", "status": "refunded",
         "order_id": ORDER, "payment_id": PAYMENT_ID,
-        "amount": "99.00", "currency": "RUB",
+        "amount": "149.00", "currency": "RUB",
     }
     raw = json.dumps(data, separators=(",", ":")).encode()
     stamp = str(int(time.time()))
@@ -391,7 +391,7 @@ def test_verification_rejects_refund_of_other_order(simulated_production):
     raw = json.dumps({
         "event_type": "payment.chargeback", "status": "chargeback",
         "order_id": ORDER, "payment_id": "pay_different0000000",
-        "amount": "99.00", "currency": "RUB",
+        "amount": "149.00", "currency": "RUB",
     }).encode()
     stamp = str(int(time.time()))
     sig = hmac.new(

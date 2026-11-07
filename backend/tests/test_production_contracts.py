@@ -89,7 +89,7 @@ def test_live_gateway_uses_catalog_amount_and_hosted_payment_page():
         assert request.url.host == "rollypay.io"
         assert request.headers["X-API-Key"] == KEY
         assert request.headers.get("X-Nonce")
-        assert payload["amount"] == "1000.00"
+        assert payload["amount"] == "1499.00"
         assert payload["payment_currency"] == "RUB"
         assert "test" not in payload
         return httpx.Response(200, json=invoice(order))
@@ -102,7 +102,7 @@ def test_live_gateway_uses_catalog_amount_and_hosted_payment_page():
         transport=httpx.MockTransport(provider),
     ))
     assert result.order_id == order.order_id
-    assert result.amount_rub == "1000.00"
+    assert result.amount_rub == "1499.00"
     assert result.pay_url.startswith("https://pay.rollypay.io/pay/")
     assert len(observed) == 1
 

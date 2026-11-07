@@ -30,13 +30,13 @@ def test_signed_test_payment_cycle_never_issues_real_vpn(monkeypatch):
         if request.method == "POST":
             data = json.loads(request.content)
             assert data["test"] is True
-            assert data["amount"] == "99.00"
+            assert data["amount"] == "149.00"
             assert data["payment_currency"] == "RUB"
             calls.append(data["order_id"])
             return httpx.Response(200, json={
                 "order_id": data["order_id"],
                 "payment_id": "opaque_test_123456",
-                "amount": "99.00",
+                "amount": "149.00",
                 "payment_currency": "RUB",
                 "test": True,
                 "environment": "sandbox",
@@ -48,7 +48,7 @@ def test_signed_test_payment_cycle_never_issues_real_vpn(monkeypatch):
         return httpx.Response(200, json={
             "order_id": calls[0],
             "payment_id": "opaque_test_123456",
-            "amount": "99.00",
+            "amount": "149.00",
             "payment_currency": "RUB",
             "test": True,
             "environment": "sandbox",
@@ -80,7 +80,7 @@ def test_signed_test_payment_cycle_never_issues_real_vpn(monkeypatch):
         "order_id": order["order_id"],
         "payment_id": "opaque_test_123456",
         "currency": "RUB",
-        "amount": "99.00",
+        "amount": "149.00",
         "test": True,
     }
     raw = json.dumps(data, separators=(",", ":")).encode()
