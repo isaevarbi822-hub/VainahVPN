@@ -63,8 +63,11 @@
       root.replaceChildren(fragment);
       message.textContent='Цены получены из сервера. Выбор тарифа не списывает деньги; готовность RollyPay проверяется при оформлении.';
     }catch{
-      if(turn===generation)message.textContent=
-        'Свежий каталог недоступен. Открой страницу тарифов, чтобы проверить цену и доступность оформления.';
+      if(turn===generation){
+        root.replaceChildren();
+        message.textContent=
+          'Свежий каталог недоступен. Открой страницу тарифов, чтобы проверить цену и доступность оформления.';
+      }
     }finally{if(turn===generation&&refresh)refresh.disabled=false;}
   }
   refresh?.addEventListener('click',()=>{void load();});
