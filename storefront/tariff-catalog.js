@@ -11,6 +11,28 @@
     'comfort-150d','180','max-270d','365','legend-730d',
     '30-family','family-plus-90d','family-pro-180d',
     '365-family','family-max-730d'];
+  const filters=Array.from(document.querySelectorAll?.('[data-tariff-filter]')||[]);
+  let visibleCards=[];
+  let currentFilter='all';
+  function applyFilter(){
+    let count=0;
+    for(const card of visibleCards){
+      card.hidden=currentFilter!=='all' && card.tariffSegment!==currentFilter;
+      if(!card.hidden)count++;
+    }
+    for(const button of filters){
+      button.setAttribute('aria-pressed',
+        String(button.dataset.tariffFilter===currentFilter));
+    }
+    const counter=document.getElementById('tariff-filter-count');
+    if(counter)counter.textContent=count+' из '+visibleCards.length+' платных тарифов';
+  }
+  for(const button of filters)button.addEventListener('click',()=>{
+    const next=button.dataset.tariffFilter;
+    if(['all','short','standard','long','family'].includes(next)){
+      currentFilter=next;applyFilter();
+    }
+  });
   const create=(tag,text='',className='')=>{
     const result=document.createElement(tag);
     result.textContent=String(text);
@@ -40,8 +62,10 @@
     const live=paid.filter(plan=>plan.status==='existing');
     const queued=paid.filter(plan=>plan.status==='upcoming');
     const fragment=document.createDocumentFragment();
+    visibleCards=[];
     for(const plan of paid){
       const card=create('article','','plan tariff-card');
+      card.tariffSegment=plan.segment;
       const eyebrow=create('div',plan.days+' ДНЕЙ','duration');
       card.append(eyebrow);
       const badge=create('span',
@@ -78,9 +102,11 @@
         // No unchecked URL can ever be followed as a payment link.
         card.append(create('p','Оформление недоступно.','tariff-note'));
       }
+      visibleCards.push(card);
       fragment.append(card);
     }
     root.replaceChildren(fragment);
+    applyFilter();
     status.textContent=
       '22 варианта: '+live.length+' действующих платных, '+queued.length+' в подготовке и 1 бесплатный пробный.';
     const counter=document.getElementById('tariff-compare-label');
