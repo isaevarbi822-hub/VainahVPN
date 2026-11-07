@@ -45,7 +45,7 @@ class FakePaidLedger:
         self.claimed = True
         return PendingLiveOrder(
             order_id=order_id, owner_ref=OWNER, plan_id=self.plan_id,
-            amount_rub="99.00", payment_id=PAYMENT,
+            amount_rub="149.00", payment_id=PAYMENT,
             payment_state="paid", delivery_state="claimed",
         )
 
@@ -85,7 +85,7 @@ def _signed_paid_event():
     event = {
         "event_type": "payment.paid", "status": "paid",
         "order_id": ORDER_ID, "payment_id": PAYMENT,
-        "amount": "99.00", "currency": "RUB",
+        "amount": "149.00", "currency": "RUB",
     }
     raw = json.dumps(event, separators=(",", ":")).encode()
     timestamp = str(int(time.time()))
