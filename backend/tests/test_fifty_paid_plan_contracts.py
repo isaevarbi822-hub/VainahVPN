@@ -122,7 +122,7 @@ def test_each_new_h1_write_and_verification_is_exact(monkeypatch, plan_id, opera
         if len(seen) == 1:
             assert request.method == "GET"
             if operation == "create":
-                return httpx.Response(404, json={"error": "not_found"})
+                return httpx.Response(404, json={"error": "user_not_found"})
             return httpx.Response(200, json={"ok": True, "client": {
                 "name": intent.client_name, "expires_at": old_expiry,
             }})
