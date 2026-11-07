@@ -5,6 +5,9 @@
   const status=document.getElementById('account-reminder-status');
   if(!box||!status)return;
   let revision=0;
+  const deliveryText=(result)=>result.delivery_active===true
+    ?'Email-напоминания настроены на стороне сервиса. Письма отправляются только при твоём согласии и подтверждённой подписке.'
+    :'Выбор сохранён. Автоматические email-письма ещё не запущены. Напоминания на сайте доступны в разделе уведомлений.';
   async function api(method,body){
     const response=await fetch('/api/account/reminder-preference',{
       method,credentials:'same-origin',cache:'no-store',
@@ -25,7 +28,7 @@
       if(current!==revision)return;
       box.checked=result.enabled===true;
       box.disabled=false;
-      status.textContent='Настройка сохранена. Автоматическая email-рассылка пока не включена.';
+      status.textContent=deliveryText(result);
     }catch(error){
       if(current!==revision)return;
       box.disabled=true;
@@ -43,7 +46,7 @@
       const result=await api('POST',{enabled});
       if(current!==revision)return;
       box.checked=result.enabled===true;
-      status.textContent='Выбор сохранён. Email-рассылка ещё не включена.';
+      status.textContent=deliveryText(result);
     }catch{
       if(current!==revision)return;
       box.checked=!enabled;
