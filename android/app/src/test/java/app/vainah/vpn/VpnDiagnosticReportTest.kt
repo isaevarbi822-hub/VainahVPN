@@ -51,6 +51,37 @@ class VpnDiagnosticReportTest {
         assertTrue(report.contains("vpn_egress=not_verified_on_device"))
     }
 
+    @Test fun reportsUnderlayHandoffWithoutWifiNamesOrVpnCredentials() {
+        val report = VpnDiagnosticReport.create(
+            "tun_ready", "vpn_https_probe_success", "https_204", 35, true,
+            underlay = VpnUnderlayFacts(
+                transport = "cellular", validated = true, transitions = 2
+            )
+        )
+        assertTrue(report.contains("underlay_type=cellular"))
+        assertTrue(report.contains("underlay_validated=yes"))
+        assertTrue(report.contains("underlay_switches=2"))
+        assertTrue(report.contains("vpn_egress=not_verified_on_device"))
+        assertFalse(report.contains("wifi-ssid"))
+        assertFalse(report.contains("vless://"))
+        assertFalse(report.contains("underlay_ip="))
+    }
+
+    @Test fun sanitizesMaliciousOrUnboundedHandoffFacts() {
+        val report = VpnDiagnosticReport.create(
+            "tun_ready", null, null, 35, true,
+            underlay = VpnUnderlayFacts(
+                transport = "wifi\\nsecret=vless://private", validated = false,
+                transitions = 9999999
+            )
+        )
+        assertTrue(report.contains("underlay_type=unknown"))
+        assertTrue(report.contains("underlay_validated=no"))
+        assertTrue(report.contains("underlay_switches=unknown"))
+        assertFalse(report.contains("secret="))
+        assertFalse(report.contains("vless://private"))
+    }
+
     @Test fun maliciousValuesCannotLeakIntoClipboard() {
         val privateUrl = "https://example.org/?token=really_private"
         val profile = "vless://secret-uuid@host.example:443"
