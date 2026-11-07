@@ -2,6 +2,8 @@ package app.vainah.vpn
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -379,6 +381,47 @@ class MainActivity : Activity() {
             "Состояние VPN берётся из Android-службы. Наличие TUN не подтверждает " +
                 "внешний IP и отсутствие DNS-утечек.",
             12f, grey), 10)
+        val network = VpnUnderlayStatus.read(this)
+        val kind = when (network.transport) {
+            "wifi" -> "Wi-Fi"
+            "cellular" -> "4G / 5G"
+            "ethernet" -> "Ethernet"
+            "other" -> "другое подключение"
+            else -> "нет подтверждённого интерфейса"
+        }
+        add(info, t("Физическая сеть libbox: " + kind, 13f, white, true), 12)
+        add(info, t(
+            "Проверка сети Android: " +
+                (if (network.validated) "подтверждена системой" else "не подтверждена") +
+                " · переходов между интерфейсами: " + network.transitions,
+            12f, grey), 6)
+        add(info, t(
+            "Это только состояние физической сети Android, не доказательство " +
+                "работы VPN, доступа к сайтам или отсутствия DNS-утечек. " +
+                "При смене Wi-Fi/4G libbox получает обновление интерфейса.",
+            12f, grey), 8)
+        val report = action("Скопировать безопасный отчёт")
+        add(info, report, 12)
+        report.setOnClickListener {
+            val diag = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+            val state = VpnConnectionState.read(this)
+            val underlay = VpnUnderlayStatus.read(this)
+            val text = VpnDiagnosticReport.create(
+                state.phase,
+                diag.getString("last_stage", null),
+                diag.getString("vpn_probe_reason", null),
+                Build.VERSION.SDK_INT,
+                VainahVpnService.runningInProcess,
+                underlay = VpnUnderlayFacts(
+                    transport = underlay.transport,
+                    validated = underlay.validated,
+                    transitions = underlay.transitions,
+                ),
+            )
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("Vainah VPN diagnostic", text))
+            popup("Обезличенный отчёт скопирован. В нём нет VPN-ключей или адресов серверов.")
+        }
         val retry = action("Обновить серверы")
         add(info, retry, 12)
         retry.setOnClickListener { page = Page.HOME; render(); refreshServers(true) }
@@ -673,8 +716,9 @@ class MainActivity : Activity() {
         add(preferences, tag("Настройки подключения"))
         add(preferences, t("Параметры Vainah Next", 19f, white, true), 8)
         add(preferences, t(
-            "Смена Wi-Fi/4G/5G, защита от утечек и автоподключение " +
-                "будут включаться по мере тестирования нативного движка.",
+            "При смене Wi-Fi/4G/5G libbox получает обновление физического " +
+                "интерфейса. Бесшовность соединения ещё требует испытаний " +
+                "на телефоне; Kill Switch включается в настройках Android.",
             12f, grey), 11)
         val subscriptionButton = action("Управление подпиской")
         add(preferences, subscriptionButton, 14)
