@@ -93,14 +93,14 @@
       " из 2. Осталось: " + remaining + ".\n";
     if (state.discount_checkout_ready === true) {
       return progress + (count === 0
-        ? "RollyPay подтвердил закрытие счёта на 99 ₽.\n"
+        ? "RollyPay подтвердил закрытие исходного пилотного счёта.\n"
         : "Предыдущий тестовый заказ оплачен и выдан либо истёк/отменён.\n") +
         "Можно создать ещё один счёт на 10 ₽ за 1 день.";
     }
     const reasons = {
       DISCOUNT_PILOT_DISABLED: "Тестовый пилот пока отключён.",
-      ORIGINAL_PILOT_UNVERIFIED: "Первый счёт на 99 ₽ ещё не подтверждён как закрытый.",
-      ORIGINAL_PILOT_STILL_ACTIVE: "Счёт на 99 ₽ пока активен у RollyPay.",
+      ORIGINAL_PILOT_UNVERIFIED: "Первый пилотный счёт ещё не подтверждён как закрытый.",
+      ORIGINAL_PILOT_STILL_ACTIVE: "Исходный пилотный счёт пока активен у RollyPay.",
       ORIGINAL_PROVIDER_UNAVAILABLE: "Не удалось проверить первый счёт у RollyPay.",
       ORIGINAL_PROVIDER_MISMATCH: "Данные первого счёта не совпали с RollyPay.",
       DISCOUNT_PILOT_LIMIT_REACHED: "Лимит двух тестовых счетов исчерпан.",
@@ -127,11 +127,11 @@
       "Проверка выполнена.",
       "Обработка подписанного платежа: " +
         (state.pilot_processing_enabled === true ? "доступна" : "заблокирована"),
-      "Создание исходного счёта на 99 ₽: " +
+      "Создание исходного пилотного счёта по серверной цене: " +
         (state.pilot_checkout_ready === true ? "доступно" : "недоступно")
     ];
     if (orderExists) {
-      messages.push("Первый счёт на 99 ₽ уже существует. Тестовые счета на 10 ₽ проверяются ниже.");
+      messages.push("Первый пилотный счёт уже существует. Тестовые счета на 10 ₽ проверяются ниже.");
       if (state.payment_state) messages.push("Состояние оплаты: " + state.payment_state);
       if (state.delivery_state) messages.push("Выдача VPN: " + state.delivery_state);
       if (state.access_email_sent === true) messages.push("Письмо с доступом отправлено.");
@@ -155,7 +155,7 @@
       } else if (checkPassed) {
         setMessage(checkoutEl, "Пилот готов. Первый счёт ещё не создан.");
       } else {
-        setMessage(checkoutEl, "Новый счёт на 99 ₽ создавать нельзя. Проверь статус существующего заказа.");
+        setMessage(checkoutEl, "Новый пилотный счёт создавать нельзя. Проверь статус существующего заказа.");
       }
       try {
         const discount = await fetchDiscountStatus(headers);
@@ -178,7 +178,7 @@
     if (!checkPassed || !accountReady || attempted || busy) return;
     // No checkout POST until this specific user action and explicit confirmation.
     if (!window.confirm(
-      "Создать ОДИН реальный счёт RollyPay на 99 ₽ за 30 дней? " +
+      "Создать ОДИН реальный счёт RollyPay за 30 дней по текущей серверной цене? " +
       "Это НЕ Sandbox. После создания нельзя повторять запрос при ошибке."
     )) return;
 
