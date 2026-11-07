@@ -8,24 +8,25 @@ from fastapi.testclient import TestClient
 
 from vainah.billing import CATALOG, DISCOUNT_PILOT_PLAN, get_plan, price_rub
 from vainah.main import app
-from vainah.tariff_catalog import ORDER, UPCOMING, public_tariff_catalog
+from vainah.tariff_catalog import ORDER, NEW_PLAN_IDS, public_tariff_catalog
 
 ORIGIN = "https://vainahvpn-python-preview.onrender.com"
 SITE = Path(__file__).resolve().parents[2] / "storefront"
 LEGACY = {"30", "60", "90", "180", "365", "365-family"}
-UPCOMING_IDS = {"7", "14", "45", "120", "30-family"}
+NEW_IDS = {"7", "14", "45", "120", "30-family"}
 
 
 def test_twelve_options_have_unique_ids_and_no_payment_secrets():
     data = public_tariff_catalog()
     assert data["total"] == 12
-    assert data["existing_paid_count"] == 6
-    assert data["upcoming_count"] == 5
+    assert data["existing_paid_count"] == 11
+    assert data["upcoming_count"] == 0
+    assert data["newly_launched_count"] == 5
     assert data["trial_count"] == 1
     plans = data["plans"]
     assert len(plans) == len({p["id"] for p in plans}) == 12
     assert tuple(p["id"] for p in plans) == ORDER
-    assert {p["id"] for p in plans} == LEGACY | UPCOMING_IDS | {"trial-free"}
+    assert {p["id"] for p in plans} == LEGACY | NEW_IDS | {"trial-free"}
     assert DISCOUNT_PILOT_PLAN["id"] not in {p["id"] for p in plans}
     assert plans[0]["status"] == "trial"
     assert plans[0]["price_rub"] == "0.00"
@@ -38,7 +39,7 @@ def test_twelve_options_have_unique_ids_and_no_payment_secrets():
 def test_old_tariff_prices_are_untouched_and_paid_links_allowlisted():
     data = public_tariff_catalog()
     actual = {p["id"]: p for p in CATALOG}
-    assert set(actual) == LEGACY
+    assert set(actual) == LEGACY | NEW_IDS
     for plan in data["plans"]:
         if plan["id"] not in LEGACY:
             continue
@@ -50,21 +51,21 @@ def test_old_tariff_prices_are_untouched_and_paid_links_allowlisted():
         assert plan["checkout_path"] == "/checkout.html?plan=" + plan["id"]
 
 
-def test_upcoming_prices_visible_but_not_in_live_or_gift_checkout():
+def test_new_prices_allowed_in_paid_checkout_not_added_to_gift_cards():
     marketing = public_tariff_catalog()
     for plan in marketing["plans"]:
-        if plan["id"] not in UPCOMING_IDS:
+        if plan["id"] not in NEW_IDS:
             continue
-        assert plan["status"] == "upcoming"
-        assert plan["checkout_supported"] is False
-        assert plan["checkout_path"] is None
-        assert get_plan(plan["id"]) is None
+        assert plan["status"] == "existing"
+        assert plan["checkout_supported"] is True
+        assert plan["checkout_path"] == "/checkout.html?plan=" + plan["id"]
+        assert get_plan(plan["id"]) is not None
         assert 1 <= plan["devices"] <= 6
         assert plan["days"] >= 7
         assert plan["price_rub"].endswith(".00")
     from vainah.gift_cards import ALLOWED_GIFT_PLANS
-    assert UPCOMING_IDS.isdisjoint(ALLOWED_GIFT_PLANS)
-    assert {p["id"] for p in UPCOMING} == UPCOMING_IDS
+    assert NEW_IDS.isdisjoint(ALLOWED_GIFT_PLANS)
+    assert NEW_PLAN_IDS == NEW_IDS
 
 
 def test_public_api_returns_catalog_without_authentication():
@@ -94,7 +95,7 @@ def test_plans_page_has_progressive_legacy_fallback():
         assert output.returncode == 0, output.stderr
 
 
-def test_preview_never_gets_a_checkout_link_in_browser():
+def test_new_paid_tariffs_have_browser_checkout_links():
     harness = r"""
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 class El {
@@ -117,11 +118,11 @@ global.document={
 };
 const plans=[
  ['trial-free','trial',1,0,2],
- ['7','upcoming',7,39,3],['14','upcoming',14,65,3],
- ['30','existing',30,99,3],['45','upcoming',45,139,3],
+ ['7','existing',7,39,3],['14','existing',14,65,3],
+ ['30','existing',30,99,3],['45','existing',45,139,3],
  ['60','existing',60,160,3],['90','existing',90,219,3],
- ['120','upcoming',120,279,3],['180','existing',180,339,3],
- ['365','existing',365,700,3],['30-family','upcoming',30,189,6],
+ ['120','existing',120,279,3],['180','existing',180,339,3],
+ ['365','existing',365,700,3],['30-family','existing',30,189,6],
  ['365-family','existing',365,1000,6],
 ].map(([id,mode,days,rub,devices])=>({
  id,title:'Тариф '+id,status:mode,days,devices,
@@ -138,10 +139,10 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  assert.equal(items.length,11);
  const links=all(root).filter(x=>x.tag==='a');
  const upcoming=items.filter(x=>all(x).some(n=>n.textContent==='В подготовке'));
- assert.equal(links.length,6);
- assert.equal(upcoming.length,5);
- assert.ok(links.every(x=>/^\/checkout\.html\?plan=(30|60|90|180|365|365-family)$/.test(x.href)));
- assert.ok(!links.some(x=>x.href.includes('30-family')));
+ assert.equal(links.length,11);
+ assert.equal(upcoming.length,0);
+ assert.ok(links.every(x=>/^\/checkout\.html\?plan=(7|14|30|45|60|90|120|180|365|30-family|365-family)$/.test(x.href)));
+ assert.ok(links.some(x=>x.href.includes('30-family')));
  assert.ok(status.textContent.includes('12 вариантов'));
 })().catch(e=>{console.error(e);process.exitCode=1});
 """
