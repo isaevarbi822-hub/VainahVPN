@@ -1,4 +1,4 @@
-/* Vainah VPN: 21 live paid plans, smart discovery + local plan comparison.
+/* Vainah VPN: 50 live paid plans, smart discovery + local plan comparison.
    The server owns all prices, eligibility, checkout and VPN fulfillment. */
 (() => {
   'use strict';
@@ -9,13 +9,15 @@
     '7','14','30','45','60','90','120','180','365','30-family','365-family',
     'mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d',
     'max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d'
-  ]);
+  ,
+    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d']);
   const order=[
     'trial-free','mini-3d','sprint-5d','7','14','start-plus-21d',
     '30','45','60','balance-75d','90','120','comfort-150d','180',
     'max-270d','365','legend-730d','30-family','family-plus-90d',
     'family-pro-180d','365-family','family-max-730d'
-  ];
+  ,
+    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d'];
   const filters=Array.from(document.querySelectorAll?.('[data-tariff-filter]')||[]);
   const search=document.querySelector('[data-tariff-search]');
   const sort=document.querySelector('[data-tariff-sort]');
@@ -172,9 +174,9 @@
     root.replaceChildren(frag);
     show();
     updateCompare();
-    status.textContent='21 платный тариф с оформлением через RollyPay и один бесплатный пробный день.';
+    status.textContent='50 платных тарифов с оформлением через RollyPay и один бесплатный пробный день.';
     const counter=document.getElementById('tariff-compare-label');
-    if(counter)counter.textContent='Сравнить все 22 варианта ↗';
+    if(counter)counter.textContent='Сравнить все 51 вариант ↗';
   }
   for(const b of filters)b.addEventListener('click',()=>{
     const next=b.dataset.tariffFilter;
@@ -201,9 +203,9 @@
       if(!response.ok)throw Error('CATALOG_UNAVAILABLE');
       const data=await response.json();
       const plans=Array.isArray(data.plans)?data.plans:[];
-      if(data.total!==22||plans.length!==22||
-        new Set(plans.map(p=>p.id)).size!==22||!plans.every(safe)||
-        plans.filter(p=>p.status==='existing').length!==21||
+      if(data.total!==51||plans.length!==51||
+        new Set(plans.map(p=>p.id)).size!==51||!plans.every(safe)||
+        plans.filter(p=>p.status==='existing').length!==50||
         plans.filter(p=>p.status==='trial').length!==1
       )throw Error('CATALOG_INVALID');
       render(plans);
