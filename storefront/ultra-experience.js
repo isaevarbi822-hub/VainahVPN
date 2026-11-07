@@ -139,6 +139,58 @@
     quick.append(a);
   }
   body.append(quick);
+
+  // Explicit read-only diagnostics. Never interpret API health as a live
+  // VPN tunnel or a confirmed customer payment. No automatic polling.
+  const diagnostics = create('section', null, 'vx-ultra-health');
+  diagnostics.append(create('strong', 'Проверка сервисов'),
+    create('p', 'Проверка веб-API не подтверждает работу VPN-туннеля или возможность оплаты.', 'vx-ultra-help'));
+  const check = create('button', 'Проверить сейчас', 'vx-ultra-health-button');
+  check.type = 'button';
+  const results = create('div', '', 'vx-ultra-health-results');
+  results.setAttribute('role', 'status');
+  results.setAttribute('aria-live', 'polite');
+  check.addEventListener('click', async () => {
+    if (check.disabled) return;
+    check.disabled = true;
+    results.replaceChildren(create('p', 'Проверяем API…'));
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch('/api/site/services', {
+        method:'GET',credentials:'omit',cache:'no-store',redirect:'error',
+        headers:{Accept:'application/json'},signal:controller.signal,
+      });
+      if (!response.ok) throw Error('STATUS_UNAVAILABLE');
+      const data = await response.json();
+      const list = data?.services;
+      if (!list || typeof list !== 'object') throw Error('STATUS_INVALID');
+      results.replaceChildren();
+      for (const [key, label] of [
+        ['database','PostgreSQL'],
+        ['h1','H1Cloud API'],
+        ['rollypay','RollyPay API'],
+        ['webhook','Настройка webhook'],
+      ]) {
+        const code = list[key]?.status;
+        const detail = key === 'webhook'
+          ? code === 'configured' ? 'Конфигурация есть; доставку платежей не проверяли' : 'Нет подтверждения'
+          : code === 'ok' ? 'API отвечает; VPN и покупки не проверялись' : 'Нет подтверждения';
+        const line = create('p', label + ': ' + detail);
+        line.dataset.state = code === 'ok' || (key === 'webhook' && code === 'configured')
+          ? 'configured' : 'unknown';
+        results.append(line);
+      }
+    } catch {
+      results.replaceChildren(create('p',
+        'Не удалось получить статус сервисов. Доступность VPN и оплаты неизвестна.'));
+    } finally {
+      clearTimeout(timer);
+      check.disabled = false;
+    }
+  });
+  diagnostics.append(check, results);
+  body.append(diagnostics);
   dialog.append(body);
   document.body.append(dialog);
   function updateButtons() {
