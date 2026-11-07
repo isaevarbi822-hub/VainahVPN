@@ -200,6 +200,7 @@ const plans=[
 ].map(([id,mode,days,rub,devices])=>({
  id,title:'Тариф '+id,status:mode,days,devices,
  price_rub:rub.toFixed(2),traffic_gb:mode==='trial'?10:undefined,
+ segment:mode==='trial'?'trial':devices===6?'family':days<=21?'short':days<=120?'standard':'long',
  checkout_supported:mode==='existing',
  checkout_path:mode==='existing'?'/checkout.html?plan='+id:null
 }));
@@ -221,7 +222,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  assert.ok(links.some(x=>x.href.endsWith('legend-730d')));
  assert.ok(links.some(x=>x.href.endsWith('family-max-730d')));
  assert.ok(links.some(x=>x.href.includes('30-family')));
- assert.ok(status.textContent.includes('22 варианта'));
+ assert.ok(status.textContent.includes('21 платный'));
 })().catch(e=>{console.error(e);process.exitCode=1});
 """
     result = subprocess.run(
