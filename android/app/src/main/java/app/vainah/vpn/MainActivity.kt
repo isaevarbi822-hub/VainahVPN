@@ -42,6 +42,11 @@ class MainActivity : Activity() {
     private var serverProbeGeneration = 0
     private var serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
     private var serverProbes: List<ServerTcpObservation> = emptyList()
+    private var routeScanVersion = 0
+    private var routeScanRunning = false
+    private var routeSnapshot: VpnNetworkFacts? = null
+    private var routeNetworkSnapshot: VpnUnderlayStatus.Snapshot? = null
+    private var routeConnectionSnapshot: VpnConnectionState.Snapshot? = null
     private var stateView: TextView? = null
     private var detailView: TextView? = null
     private var trafficView: TextView? = null
@@ -87,6 +92,13 @@ class MainActivity : Activity() {
     }
     override fun onResume() {
         super.onResume()
+        // A service may have disconnected/reconnected while the activity
+        // was paused. Never present old routes as a fresh VPN observation.
+        routeScanVersion++
+        routeScanRunning = false
+        routeSnapshot = null
+        routeNetworkSnapshot = null
+        routeConnectionSnapshot = null
         main.removeCallbacks(ticker)
         main.post(ticker)
     }
@@ -95,6 +107,7 @@ class MainActivity : Activity() {
         super.onPause()
     }
     override fun onDestroy() {
+        routeScanVersion++
         serverProbeGeneration++
         source.invalidate()
         main.removeCallbacks(ticker)
@@ -405,6 +418,44 @@ class MainActivity : Activity() {
                 "работы VPN, доступа к сайтам или отсутствия DNS-утечек. " +
                 "При смене Wi-Fi/4G libbox получает обновление интерфейса.",
             12f, grey), 8)
+
+        val routes = card()
+        add(body, routes, 16)
+        add(routes, tag("DNS / IPv4 / IPv6"))
+        add(routes, t("Маршруты Android VPN", 18f, white, true), 8)
+        val routeFacts = currentRouteFacts()
+        val routeAssessment = VpnRouteAdvisor.assess(connectionActive, routeFacts)
+        val routeTitle = if (routeScanRunning) "Проверяем Android…" else routeAssessment.title
+        add(routes, t(routeTitle, 14f, white, true), 9)
+        add(routes, t(routeAssessment.explanation, 12f,
+            if (routeAssessment.needsReview) errorColor else grey), 8)
+        if (routeFacts != null) {
+            fun yn(flag: Boolean?): String = when (flag) {
+                true -> "да"
+                false -> "нет"
+                null -> "неизвестно"
+            }
+            add(routes, t(
+                "VPN-сеть: " + yn(routeFacts.visible) +
+                    " · полный IPv4-маршрут: " + yn(routeFacts.ipv4DefaultRoute) +
+                    " · полный IPv6-маршрут: " + yn(routeFacts.ipv6DefaultRoute) +
+                    " · DNS настроен: " + yn(routeFacts.dnsConfigured),
+                12f, teal
+            ), 10)
+        }
+        val inspect = action(if (routeScanRunning) "Проверка…" else
+            "Проверить маршруты и DNS")
+        inspect.isEnabled = !routeScanRunning && connectionActive &&
+            VainahVpnService.runningInProcess
+        add(routes, inspect, 12)
+        inspect.setOnClickListener { inspectVpnRoutes() }
+        add(routes, t(
+            "Это локальная проверка таблицы маршрутов и настройки DNS. " +
+                "Она не отправляет интернет-запросы, не измеряет DNS-утечки " +
+                "и не подтверждает внешний IP. Результат может устареть после смены сети.",
+            12f, grey
+        ), 9)
+
         val report = action("Скопировать безопасный отчёт")
         add(info, report, 12)
         report.setOnClickListener {
@@ -417,6 +468,7 @@ class MainActivity : Activity() {
                 diag.getString("vpn_probe_reason", null),
                 Build.VERSION.SDK_INT,
                 VainahVpnService.runningInProcess,
+                networkFacts = currentRouteFacts(),
                 underlay = VpnUnderlayFacts(
                     transport = underlay.transport,
                     validated = underlay.validated,
@@ -430,6 +482,50 @@ class MainActivity : Activity() {
         val retry = action("Обновить серверы")
         add(info, retry, 12)
         retry.setOnClickListener { page = Page.HOME; render(); refreshServers(true) }
+    }
+
+    private fun currentRouteFacts(): VpnNetworkFacts? {
+        val state = VpnConnectionState.read(this)
+        if (!state.canDisconnect || !VainahVpnService.runningInProcess) return null
+        if (state != routeConnectionSnapshot ||
+            VpnUnderlayStatus.read(this) != routeNetworkSnapshot) return null
+        return routeSnapshot
+    }
+
+    private fun inspectVpnRoutes() {
+        if (routeScanRunning) return
+        val before = VpnConnectionState.read(this)
+        if (!before.canDisconnect || !VainahVpnService.runningInProcess) {
+            popup("Сначала запусти Vainah VPN для проверки маршрутов.")
+            return
+        }
+        val physicalBefore = VpnUnderlayStatus.read(this)
+        val request = ++routeScanVersion
+        routeScanRunning = true
+        routeSnapshot = null
+        render()
+        Thread({
+            val observed = VpnConnectivity.androidVpnFacts(this)
+            main.post {
+                if (request != routeScanVersion || isFinishing || isDestroyed) return@post
+                routeScanRunning = false
+                val now = VpnConnectionState.read(this)
+                val physicalNow = VpnUnderlayStatus.read(this)
+                if (now != before || physicalNow != physicalBefore ||
+                    !VainahVpnService.runningInProcess
+                ) {
+                    routeSnapshot = null
+                    routeNetworkSnapshot = null
+                    routeConnectionSnapshot = null
+                    popup("Состояние VPN или сети изменилось. Повтори проверку маршрутов.")
+                } else {
+                    routeSnapshot = observed
+                    routeConnectionSnapshot = now
+                    routeNetworkSnapshot = physicalNow
+                }
+                if (page == Page.DIAGNOSTICS) render()
+            }
+        }, "vainah-local-vpn-route-inspection").start()
     }
 
 
