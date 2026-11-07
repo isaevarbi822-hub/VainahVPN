@@ -47,8 +47,10 @@ object VpnHandoffJournal {
         }
     }
 
-    fun sanitizedReport(raw: String?): String =
-        parse(raw).joinToString("|") {
+    fun sanitized(events: Collection<VpnHandoffEvent>): String =
+        events.filter(::safe).takeLast(MAX_EVENTS).joinToString("|") {
             "${it.from}>${it.to}:${it.state}:${if (it.validated) "1" else "0"}"
         }.ifEmpty { "none" }
+
+    fun sanitizedReport(raw: String?): String = sanitized(parse(raw))
 }
