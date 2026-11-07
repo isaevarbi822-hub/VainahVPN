@@ -24,6 +24,10 @@ class SubscriptionController(context: Context) {
     fun cachedNodes(): List<VainahNode> =
         vault.load()?.let { vault.cachedServers(it) }.orEmpty()
 
+    fun favoriteNodeIds(): Set<String> = vault.favoriteNodeIds()
+    fun setFavorite(uri: String, listedNodes: List<VainahNode>, enabled: Boolean): Boolean =
+        vault.setFavoriteNode(uri, listedNodes, enabled)
+
     fun sourceLabel(): String =
         SubscriptionOrigin.label(SubscriptionOrigin.fromLink(vault.load()))
 
