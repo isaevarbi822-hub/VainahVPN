@@ -40,7 +40,9 @@ object VpnDiagnosticReport {
         serviceRunning: Boolean,
         networkFacts: VpnNetworkFacts? = null,
         underlay: VpnUnderlayFacts? = null,
-        handoffEvents: List<VpnHandoffEvent> = emptyList()
+        handoffEvents: List<VpnHandoffEvent> = emptyList(),
+        recoveryCode: String? = null,
+        failureCode: String? = null
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
@@ -68,6 +70,18 @@ object VpnDiagnosticReport {
                 it in 0..9999
             }?.toString() ?: "unknown"}",
             "underlay_history=${VpnHandoffJournal.sanitized(handoffEvents)}",
+            "underlay_recovery=${VpnRecoveryAdvisor.advice(
+                VpnRecoveryState(
+                    serviceRunning, underlay?.transport ?: "none",
+                    underlay?.validated ?: false, null, null
+                )
+            ).code.takeIf { recoveryCode == null } ?:
+                recoveryCode?.takeIf { it in setOf(
+                    "vpn_off", "underlay_long_outage", "underlay_brief_outage",
+                    "underlay_unvalidated", "underlay_restored_after_outage",
+                    "underlay_available"
+                ) } ?: "unknown"}",
+            "engine_failure=${VpnFailureAdvisor.sanitizedCode(failureCode)}",
             "vpn_egress=not_verified_on_device"
         ).joinToString("\n")
     }
