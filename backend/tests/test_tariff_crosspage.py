@@ -163,7 +163,7 @@ const tick=()=>new Promise(r=>setImmediate(r));
  assert.ok(name.textContent.includes('30-family'));
  assert.equal(link.href,'checkout.html?plan=30-family');
  pending.checked=false;pending.events.change();
- assert.equal(name.textContent,'Тариф 365-family');
+ assert.equal(name.textContent,'Тариф 30-family');
  assert.equal(link.href,'checkout.html?plan=30-family');
 })().catch(e=>{console.error(e);process.exitCode=1});
 """
