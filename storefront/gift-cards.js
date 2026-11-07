@@ -132,6 +132,10 @@
     const buyerSection=node('div');buyerSection.id='gift-buyer-list';root.append(buyerSection);
     const recipientSection=node('div');recipientSection.id='gift-recipient-list';
     root.append(recipientSection);
+    root.append(action('Обновить статусы подарков',async()=>{
+      await refreshLists();
+      say('Статусы купленных и полученных подарков обновлены.');
+    },true));
   }
   async function refreshLists(){
     const buyer=document.getElementById('gift-buyer-list');
@@ -140,12 +144,19 @@
     buyer.replaceChildren(node('h2','Мои купленные подарки'));
     recipient.replaceChildren(node('h2','Полученные подарки'));
     try{
-      const [purchases,received]=await Promise.all([
+      const [purchaseResult,receivedResult]=await Promise.allSettled([
         api('/api/account/gift-cards/mine'),
         api('/api/account/gift-cards/received'),
       ]);
-      const cards=Array.isArray(purchases.items)?purchases.items:[];
-      if(!cards.length)buyer.append(node('p','Оплаченных подарков пока нет.','note'));
+      const purchases=purchaseResult.status==='fulfilled'?purchaseResult.value:null;
+      const received=receivedResult.status==='fulfilled'?receivedResult.value:null;
+      const cards=Array.isArray(purchases?.items)?purchases.items:[];
+      if(purchaseResult.status==='rejected'){
+        buyer.append(node('p',purchaseResult.reason?.message||
+          'Не удалось получить список купленных подарков.','warning'));
+      }else if(!cards.length){
+        buyer.append(node('p','Оплаченных подарков пока нет.','note'));
+      }
       for(const record of cards){
         if(!record||typeof record!=='object')continue;
         const card=item('Тариф '+String(record.plan_id||''),
@@ -164,8 +175,13 @@
         }
         buyer.append(card);
       }
-      const receivedItems=Array.isArray(received.items)?received.items:[];
-      if(!receivedItems.length)recipient.append(node('p','Полученных подарков ещё нет.','note'));
+      const receivedItems=Array.isArray(received?.items)?received.items:[];
+      if(receivedResult.status==='rejected'){
+        recipient.append(node('p',receivedResult.reason?.message||
+          'Не удалось загрузить полученные подарки.','warning'));
+      }else if(!receivedItems.length){
+        recipient.append(node('p','Полученных подарков ещё нет.','note'));
+      }
       for(const record of receivedItems){
         const card=item('Полученный тариф '+String(record.plan_id||''),
           'Выдача: '+String(record.delivery_state||'проверяется')+'.');
