@@ -98,7 +98,21 @@ global.fetch=async path=>{
       webhook:{status:'configured'}}
   })};
   if(path==='/api/shop/plans')return {ok:true,json:async()=>({
-    items:[{title:'1 месяц',days:30,devices:3,kopeks:9900}]
+    items:[
+      ['mini-3d',3,3,2900],['30',30,3,14900],
+      ['90',90,3,32900],['365',365,3,105000],
+      ['family-plus-90d',90,6,59900],['family-max-730d',730,6,269000],
+      ['7',7,3,5900],['14',14,3,9900],
+      ['45',45,3,20900],['60',60,3,23900],
+      ['120',120,3,41900],['180',180,3,50900],
+      ['30-family',30,6,28900],['365-family',365,6,149900],
+      ['sprint-5d',5,3,4500],['start-plus-21d',21,3,11900],
+      ['balance-75d',75,3,28900],['comfort-150d',150,3,46900],
+      ['max-270d',270,3,74900],['legend-730d',730,3,179000],
+      ['family-pro-180d',180,6,97900],
+    ].map(([id,days,devices,kopeks])=>({
+      id,title:id==='30'?'1 месяц':'Тариф '+id,days,devices,kopeks
+    }))
   })};
   throw Error('Unexpected path '+path);
 };
@@ -110,7 +124,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(get('[data-hub-devices]').textContent,'3');
   assert.equal(get('[data-hub-orders]').textContent,'1');
   assert.equal(get('[data-hub-expires]').textContent,'Не указана');
-  assert.equal(get('[data-hub-plans]').children.length,1);
+  assert.equal(get('[data-hub-plans]').children.length,6);
   const visible=[...values.values()].map(n=>n.textContent).join(' ');
   assert.ok(!visible.includes('SECRET_ORDER'));
   assert.ok(!visible.includes('TOKEN'));
