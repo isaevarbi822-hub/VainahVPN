@@ -61,7 +61,8 @@ class VainahVpnService : VpnService() {
             .putBoolean("startup_pending", true)
         if (stage == "service_received_connect") {
             // Old DNS/HTTPS errors must not look like results from this run.
-            editor.remove("vpn_probe_reason").remove("last_failure")
+            editor.remove("vpn_probe_reason")
+                .remove("last_failure").remove("last_failure_code")
         }
         editor.commit()
     }
@@ -73,17 +74,25 @@ class VainahVpnService : VpnService() {
         getSharedPreferences("vpn_diagnostics", MODE_PRIVATE).edit()
             .putString("last_stage", "vpn_https_probe_success")
             .putString("vpn_probe_reason", code)
+            .remove("last_failure_code")
             .putBoolean("startup_pending", false)
             .commit()
     }
 
+    @Suppress("UNUSED_PARAMETER")
     private fun failure(stage: String, error: Throwable) {
-        // Never log the throwable message: a native exception could contain a node credential.
-        Log.e("VainahVpn", "VPN failed at $stage: ${error.javaClass.simpleName}")
+        // Never log messages, endpoints or exception values. The only persisted
+        // diagnostic is a fixed code derived from our own internal stage.
+        val at = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+            .getString("last_stage", null)
+        val code = if (stage == "native_engine_stopped") {
+            VpnFailureAdvisor.fromStage("native_engine_stopped").code
+        } else VpnFailureAdvisor.fromStage(at).code
+        Log.e("VainahVpn", "VPN stage failure: $code")
         getSharedPreferences("vpn_diagnostics", MODE_PRIVATE).edit()
-            .putString("last_failure", "$stage: ${error.javaClass.simpleName}")
+            .putString("last_failure_code", code)
             .putBoolean("startup_pending", false)
-            .apply()
+            .commit()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
