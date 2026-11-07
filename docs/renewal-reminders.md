@@ -1,7 +1,9 @@
 # Vainah VPN — renewal reminders
 
 The customer UI stores a verified-email opt-in. The protected runner can
-send renewal reminders only after explicit server-side activation.
+send renewal reminders only after explicit server-side activation. On-site
+account alerts for 7, 3 and 1 days before H1Cloud expiry are independent
+of scheduled email delivery and do not require email opt-in.
 
 ## Safety gates
 
@@ -9,6 +11,10 @@ send renewal reminders only after explicit server-side activation.
 - `VAINAH_REMINDER_RUNNER_KEY` in Render: a separate, random secret of at
   least 40 characters (never reuse `SESSION_SIGNING_KEY`)
 - GitHub Actions secret `VAINAH_REMINDER_RUNNER_KEY`: same private value
+- `VAINAH_REMINDER_SCHEDULE_CONFIRMED=confirmed` in Render **only after**
+  the scheduled workflow is registered on the repository default branch,
+  checked, and a controlled send has succeeded; otherwise the UI correctly
+  reports email delivery as not scheduled
 - `DATABASE_URL`, `RESEND_API_KEY`, `VAINAH_EMAIL_FROM`,
   `SESSION_SIGNING_KEY` and H1Cloud HTTPS settings must already work
 - Email reminders are **not active** until the above are deliberately set
