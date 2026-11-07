@@ -446,6 +446,7 @@ class MainActivity : Activity() {
 
     private fun invalidateServerProbes() {
         serverProbeGeneration++
+        serverProbeRunning = false
         serverProbes = emptyList()
         serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
     }
