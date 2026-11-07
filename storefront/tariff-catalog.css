@@ -44,3 +44,23 @@
 @media(max-width:960px){.tariff-mega-tools{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.tariff-mega-tools{grid-template-columns:1fr;padding:15px}.tariff-mega-compare-grid{grid-template-columns:1fr}.tariff-card .tariff-compare-toggle{width:auto;min-width:140px}.tariff-mega-compare-head h2{font-size:20px}}
 @media(prefers-reduced-motion:reduce){.tariff-filters button{transition:none}}
+
+/* 50-plan Ultra Mega Super Plus browsing — responsive, fast and readable. */
+.tariff-mega-tools{grid-template-columns:minmax(195px,1.75fr) repeat(3,minmax(135px,1fr)) auto}
+.tariff-mega-checkout{border:1px solid #6579a4;background:linear-gradient(110deg,#202b49,#142338);
+  color:#d4edff;border-radius:14px;margin:7px 0 16px;padding:13px 16px;
+  font-size:13px;line-height:1.55}
+.tariff-mega-more-wrap{display:flex;justify-content:center;padding:20px 10px 9px}
+.tariff-mega-more-wrap button{padding:13px 25px;min-height:48px;
+  border-color:#9182df;background:linear-gradient(115deg,#302b54,#1a2447);
+  font-weight:850;min-width:min(100%,280px)}
+.tariff-mega-more-wrap button:hover{border-color:#c9baff}
+.tariff-card{overflow:hidden;isolation:isolate}
+.tariff-card:before{content:"";position:absolute;right:-60px;top:-65px;width:145px;height:145px;
+  border-radius:50%;background:radial-gradient(circle,#8e83ff26,transparent 70%);pointer-events:none}
+.tariff-card .tariff-label{z-index:1;position:relative}
+.tariff-card h3{overflow-wrap:anywhere}
+.tariff-card .btn{position:relative;z-index:1}
+@media(max-width:1120px){.tariff-mega-tools{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){.tariff-mega-tools{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.tariff-mega-tools{grid-template-columns:1fr}}
