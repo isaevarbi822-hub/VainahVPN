@@ -1,4 +1,4 @@
-"""Public catalog of 21 priced paid plans and one free trial.
+"""Public catalog of 50 priced paid plans and one free trial.
 
 All paid plans share the server billing catalog, signed RollyPay webhook
 validation, durable order ledger, and H1Cloud post-write verification.
@@ -9,6 +9,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from .billing import CATALOG, price_rub
+from .expanded_tariffs import EXTRA_CATALOG, EXTRA_PLAN_IDS
 
 router = APIRouter(prefix="/api/site", tags=["Public tariff catalog"])
 
@@ -21,6 +22,7 @@ ADDED_PLAN_IDS = frozenset({
     "comfort-150d", "max-270d", "legend-730d", "family-plus-90d",
     "family-pro-180d", "family-max-730d",
 })
+ULTRA_PLAN_IDS = EXTRA_PLAN_IDS
 UPCOMING_IDS = frozenset()
 UPCOMING = ()
 
@@ -53,7 +55,7 @@ ORDER = (
     "180", "max-270d", "365", "legend-730d", "30-family",
     "family-plus-90d", "family-pro-180d", "365-family",
     "family-max-730d",
-)
+) + tuple(plan["id"] for plan in EXTRA_CATALOG)
 
 
 def _segment(days: int, category: str) -> str:
@@ -75,7 +77,9 @@ def public_tariff_catalog() -> dict:
             "days": plan["days"], "devices": plan["devices"],
             "price_rub": price_rub(plan), "category": category,
             "segment": _segment(plan["days"], category),
-            "tag": LIVE_TAGS.get(plan["id"], ""),
+            "tag": LIVE_TAGS.get(plan["id"], (
+                "Семейный доступ" if category == "family"
+                else "Новый тариф")), 
             "status": "existing", "checkout_supported": True,
             "checkout_path": "/checkout.html?plan=" + plan["id"],
         })
@@ -92,10 +96,10 @@ def public_tariff_catalog() -> dict:
         "total": len(all_plans),
         "existing_paid_count": len(CATALOG),
         "upcoming_count": 0,
-        "newly_launched_count": len(NEW_PLAN_IDS | ADDED_PLAN_IDS),
+        "newly_launched_count": len(NEW_PLAN_IDS | ADDED_PLAN_IDS | ULTRA_PLAN_IDS),
         "trial_count": 1,
         "note": (
-            "21 платный тариф доступен для оформления при готовности кассы "
+            "50 платных тарифов доступны для оформления при готовности кассы "
             "RollyPay и H1Cloud. VPN выдаётся только после подтверждённого "
             "платежа. Бесплатный пробный день без оплаты."
         ),
