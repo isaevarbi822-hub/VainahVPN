@@ -252,60 +252,202 @@ class MainActivity : Activity() {
         updateConnection()
     }
 
+    private fun lightAction(label: String): Button = action(label).apply {
+        background = shape(
+            ServerListVisual.backgroundColor(),
+            ServerListVisual.backgroundColor(), 13
+        )
+        setTextColor(ServerListVisual.textColor())
+        minHeight = dp(43)
+    }
+
+    private fun putServerRows(
+        sheet: LinearLayout,
+        limit: Int,
+        returnHomeAfterSelection: Boolean
+    ) {
+        val rows = ServerRowPresentation.describeList(nodes)
+        for (index in 0 until minOf(limit, rows.size)) {
+            val node = nodes[index]
+            val observation = serverProbes.firstOrNull { it.index == index }
+            val latency = ServerRowPresentation.latency(observation)
+            val server = ServerListVisual.row(
+                this, rows[index], latency, node.uri == selected?.uri
+            ) {
+                // Selection changes the NEXT connection only. Never switch a
+                // running VPN tunnel implicitly.
+                selected = node
+                if (returnHomeAfterSelection) page = Page.HOME
+                render()
+            }
+            sheet.addView(server, LinearLayout.LayoutParams(-1, -2))
+            if (index + 1 < minOf(limit, rows.size)) {
+                sheet.addView(ServerListVisual.separator(this),
+                    LinearLayout.LayoutParams(-1, dp(1)))
+            }
+        }
+    }
+
     private fun home(body: LinearLayout) {
-        val connection = card()
-        add(body, connection, 21)
-        add(connection, tag("Соединение"))
-        val status = t("Не подключено", 23f, white, true)
+        val ink = ServerListVisual.textColor()
+        val muted = ServerListVisual.mutedColor()
+        val accent = ServerListVisual.accentColor()
+
+        val upper = horizontal()
+        val brand = t("VAINAH  /  VPN", 18f, ink, true)
+        upper.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
+        val settingsButton = lightAction("⚙").apply {
+            contentDescription = "Настройки Vainah VPN"
+            textSize = 22f
+        }
+        upper.addView(settingsButton, LinearLayout.LayoutParams(dp(52), dp(52)))
+        settingsButton.setOnClickListener { page = Page.SETTINGS; render() }
+        val addProfile = lightAction("+").apply {
+            contentDescription = "Добавить VPN-подписку"
+            textSize = 28f
+        }
+        upper.addView(addProfile, LinearLayout.LayoutParams(dp(52), dp(52)).apply {
+            marginStart = dp(8)
+        })
+        addProfile.setOnClickListener { page = Page.ACCOUNT; render() }
+        add(body, upper, 18)
+
+        val hero = column().apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(6), dp(22), dp(6), dp(14))
+        }
+        add(body, hero, 14)
+        val ring = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.rgb(245, 247, 251))
+                setStroke(dp(2), Color.rgb(215, 224, 238))
+            }
+        }
+        val power = Button(this).apply {
+            text = "⏻"
+            textSize = 60f
+            isAllCaps = false
+            setTextColor(accent)
+            contentDescription = "Включить или отключить VPN"
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.WHITE)
+                setStroke(dp(3), Color.rgb(232, 235, 242))
+            }
+            elevation = dp(9).toFloat()
+            setOnClickListener {
+                if (VpnConnectionState.read(this@MainActivity).canDisconnect) disconnect()
+                else connect()
+            }
+        }
+        ring.addView(power, FrameLayout.LayoutParams(
+            dp(165), dp(165), Gravity.CENTER
+        ))
+        hero.addView(ring, LinearLayout.LayoutParams(dp(229), dp(229)))
+        val status = t("Не подключено", 21f, ink, true).apply {
+            gravity = Gravity.CENTER
+        }
         stateView = status
-        add(connection, status, 10)
-        val detail = t("Выбери сервер и проверь свой IP в браузере.", 13f, grey)
+        add(hero, status, 18)
+        val nextNode = selected?.let { ServerRowPresentation.describe(it, 0) }
+        val selectedName = if (nextNode == null) "Выбери сервер из списка ниже"
+        else nextNode.flag + "  " + nextNode.title
+        add(hero, t(selectedName, 14f, ink, true).apply {
+            gravity = Gravity.CENTER
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }, 8)
+        val detail = t(
+            "Туннель ещё не проверен. После подключения проверь внешний IP.",
+            11.5f, muted
+        ).apply { gravity = Gravity.CENTER }
         detailView = detail
-        add(connection, detail, 9)
-        add(connection, t(
-            selected?.label ?: "Сервер не выбран",
-            14f, if (selected == null) grey else teal, true
-        ), 13)
-        val connect = action("Подключиться", true)
+        add(hero, detail, 7)
+        val connect = action("Подключиться", true).apply {
+            setTextColor(Color.WHITE)
+            background = shape(accent, accent, 14)
+        }
         connectView = connect
-        add(connection, connect, 17)
+        add(hero, connect, 17)
         connect.setOnClickListener {
             if (VpnConnectionState.read(this).canDisconnect) disconnect()
             else connect()
         }
 
-        val metrics = card()
-        add(body, metrics, 16)
-        add(metrics, tag("Скорость и трафик"))
-        val traffic = t("Статистика появится после подключения.", 13f, grey)
-        trafficView = traffic
-        add(metrics, traffic, 11)
-
-        val list = card()
-        add(body, list, 16)
-        add(list, tag("Серверы и конфигурации"))
-        add(list, t("Твои локации", 21f, white, true), 8)
-        add(list, t(source.sourceLabel(), 12f, grey), 9)
-        add(list, t(if (source.busy) "Обновляем серверы…" else cacheMessage, 12f, grey), 7)
-        lastError?.let { add(list, t(it, 12f, errorColor), 10) }
+        val sheet = ServerListVisual.sheet(this)
+        add(body, sheet, 12)
+        val heading = horizontal().apply {
+            setPadding(dp(10), 0, dp(10), dp(8))
+        }
+        val title = column()
+        title.addView(t("Серверы", 21f, ink, true))
+        title.addView(t(
+            if (nodes.isEmpty()) "Нет серверов в подписке"
+            else "${nodes.size} конфигураций · выбор для следующего подключения",
+            11f, muted
+        ), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(3) })
+        heading.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
+        val refresh = lightAction("⟳").apply {
+            contentDescription = "Обновить серверы из подписки"
+            textSize = 22f
+            isEnabled = !source.busy
+        }
+        heading.addView(refresh, LinearLayout.LayoutParams(dp(46), dp(46)))
+        refresh.setOnClickListener { refreshServers(true) }
+        add(sheet, heading)
+        val infoText = if (source.busy) "Обновляем подписку…"
+        else cacheMessage
+        add(sheet, t(infoText, 11f, muted).apply {
+            setPadding(dp(13), 0, dp(13), dp(11))
+        })
+        lastError?.let { safeError ->
+            add(sheet, t(safeError, 11.5f, Color.rgb(172, 78, 82)).apply {
+                setPadding(dp(13), 0, dp(13), dp(12))
+            })
+        }
         if (nodes.isEmpty()) {
-            add(list, t("Список пока пуст. Добавь подписку или обнови серверы.",
-                13f, grey), 12)
+            add(sheet, t(
+                "Добавь профиль и обнови серверы. Демонстрационные узлы не показываются.",
+                13f, muted
+            ).apply { setPadding(dp(13), dp(12), dp(13), dp(15)) })
         } else {
-            nodes.forEach { node ->
-                val prefix = if (node.uri == selected?.uri) "✓  " else ""
-                val select = action(prefix + node.label)
-                add(list, select, 8)
-                select.setOnClickListener { selected = node; render() }
+            val selectedIndex = nodes.indexOfFirst { it.uri == selected?.uri }
+            val visible = if (serverListExpanded || selectedIndex >= 8)
+                nodes.size else minOf(8, nodes.size)
+            putServerRows(sheet, visible, false)
+            if (nodes.size > 8) {
+                val expand = lightAction(if (visible == nodes.size)
+                    "Свернуть список" else "Показать все ${nodes.size} серверов")
+                add(sheet, expand, 8)
+                expand.setOnClickListener {
+                    serverListExpanded = visible != nodes.size
+                    render()
+                }
             }
         }
-        val refresh = action(if (source.busy) "Обновление…" else "Обновить серверы")
-        refresh.isEnabled = !source.busy
-        add(list, refresh, 17)
-        refresh.setOnClickListener { refreshServers(true) }
-        val manage = action("Добавить или изменить подписку")
-        add(list, manage, 8)
-        manage.setOnClickListener { page = Page.ACCOUNT; render() }
+        val footer = horizontal().apply {
+            setPadding(dp(8), dp(10), dp(8), 0)
+        }
+        val more = lightAction("Все локации и TCP-замеры")
+        footer.addView(more, LinearLayout.LayoutParams(0, dp(48), 1f))
+        more.setOnClickListener { page = Page.LOCATIONS; render() }
+        add(sheet, footer)
+        add(body, t(
+            "Задержка «н/д» означает, что измерений нет. " +
+                "TCP-замер не подтверждает работу VPN-сервера.",
+            11f, muted
+        ), 12)
+
+        val trafficPanel = column().apply {
+            background = shape(Color.WHITE, Color.WHITE, 17)
+            setPadding(dp(18), dp(12), dp(18), dp(17))
+        }
+        add(body, trafficPanel, 15)
+        add(trafficPanel, t("Трафик текущего сеанса", 13f, ink, true))
+        val traffic = t("Статистика появится после подключения.", 12f, muted)
+        trafficView = traffic
+        add(trafficPanel, traffic, 6)
     }
 
     private fun account(body: LinearLayout) {
@@ -1050,7 +1192,9 @@ class MainActivity : Activity() {
             VpnConnectionState.FAILED -> "Ошибка подключения"
             else -> "Не подключено"
         }
-        stateView?.setTextColor(if (connected) green else white)
+        stateView?.setTextColor(if (page == Page.HOME) {
+            if (connected) Color.rgb(30, 145, 104) else ServerListVisual.textColor()
+        } else if (connected) green else white)
         detailView?.text = if (snapshot.phase == VpnConnectionState.OFF)
             "Выбери локацию и проверь IP в браузере после подключения."
         else snapshot.detail.ifBlank { "Данные службы пока недоступны." }
