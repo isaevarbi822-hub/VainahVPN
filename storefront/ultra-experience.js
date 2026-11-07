@@ -7,6 +7,8 @@
     aurora: ['Северное сияние', 'Фиолетовый и бирюзовый'],
     ocean: ['Океан', 'Синий и бирюзовый'],
     graphite: ['Графит', 'Строгий тёмный'],
+    sunset: ['Закат', 'Тёплый коралловый'],
+    midnight: ['Полночь', 'Глубокий индиго'],
   });
   const storageKey = 'vainah-ultra-appearance-v1';
   const safePages = Object.freeze([
@@ -18,6 +20,10 @@
     ['support-center.html', 'Поддержка'],
     ['servers.html', 'Серверы'],
     ['hub.html', 'Центр управления'],
+    ['compare.html', 'Сравнение'],
+    ['assistant.html', 'Подбор тарифа'],
+    ['device-center.html', 'Подключение'],
+    ['whats-new.html', 'Что нового'],
     ['checkout.html', 'Оформление'],
     ['diagnostics.html', 'Диагностика'],
     ['referrals.html', 'Приглашения'],
@@ -30,7 +36,7 @@
     if (klass) node.className = klass;
     return node;
   };
-  let settings = { theme: 'aurora', density: 'normal' };
+  let settings = { theme: 'aurora', density: 'normal', textSize: 'standard', motion: 'system' };
   try {
     const raw = localStorage.getItem(storageKey);
     if (raw && raw.length < 200) {
@@ -38,14 +44,22 @@
       if (Object.hasOwn(THEMES, parsed.theme)) settings.theme = parsed.theme;
       if (parsed.density === 'normal' || parsed.density === 'compact')
         settings.density = parsed.density;
+      if (parsed.textSize === 'standard' || parsed.textSize === 'large')
+        settings.textSize = parsed.textSize;
+      if (parsed.motion === 'system' || parsed.motion === 'reduce')
+        settings.motion = parsed.motion;
     }
   } catch { /* private mode / blocked storage: use safe defaults */ }
   function apply() {
     document.documentElement.dataset.vxTheme = settings.theme;
     document.documentElement.dataset.vxDensity = settings.density;
+    document.documentElement.dataset.vxTextSize = settings.textSize;
+    document.documentElement.dataset.vxMotion = settings.motion;
     const themeTag = document.querySelector('meta[name="theme-color"]');
-    if (themeTag) themeTag.setAttribute('content', settings.theme === 'ocean'
-      ? '#081e34' : settings.theme === 'graphite' ? '#0b1520' : '#111027');
+    if (themeTag) themeTag.setAttribute('content', {
+      ocean:'#081e34',graphite:'#0b1520',sunset:'#281b2c',
+      midnight:'#101126',aurora:'#111027'
+    }[settings.theme]);
   }
   function persist() {
     apply();
@@ -66,6 +80,7 @@
     ['account.html', 'Мой VPN'],
     ['notifications.html', 'Уведомления'],
     ['support-center.html', 'Поддержка'],
+    ['whats-new.html', 'Новое'],
   ]) {
     const link = create('a', title, 'vx-ultra-action');
     link.href = path;
@@ -74,7 +89,7 @@
     }
     actions.append(link);
   }
-  const settingsButton = create('button', '⚙ Вид', 'vx-ultra-settings');
+  const settingsButton = create('button', '⚙ Настроить', 'vx-ultra-settings');
   settingsButton.type = 'button';
   settingsButton.setAttribute('aria-haspopup', 'dialog');
   settingsButton.setAttribute('aria-label', 'Настроить оформление Vainah VPN');
@@ -131,6 +146,41 @@
   });
   compact.append(compactInput, create('span', 'Компактное расположение карточек'));
   body.append(compact);
+
+  const accessibility = create('fieldset', null, 'vx-ultra-accessibility');
+  accessibility.append(create('legend', 'Удобство чтения'));
+  const largeText = create('label', null, 'vx-ultra-compact');
+  const largeTextInput = create('input');
+  largeTextInput.type = 'checkbox';
+  largeTextInput.checked = settings.textSize === 'large';
+  largeTextInput.addEventListener('change', () => {
+    settings.textSize = largeTextInput.checked ? 'large' : 'standard';
+    persist();
+  });
+  largeText.append(largeTextInput, create('span', 'Увеличить текст и элементы управления'));
+  accessibility.append(largeText);
+  const reducedMotion = create('label', null, 'vx-ultra-compact');
+  const reducedMotionInput = create('input');
+  reducedMotionInput.type = 'checkbox';
+  reducedMotionInput.checked = settings.motion === 'reduce';
+  reducedMotionInput.addEventListener('change', () => {
+    settings.motion = reducedMotionInput.checked ? 'reduce' : 'system';
+    persist();
+  });
+  reducedMotion.append(reducedMotionInput, create('span', 'Уменьшить анимации и эффекты'));
+  accessibility.append(reducedMotion);
+  const reset = create('button', 'Вернуть настройки по умолчанию', 'vx-ultra-reset');
+  reset.type = 'button';
+  reset.addEventListener('click', () => {
+    settings = {theme:'aurora', density:'normal', textSize:'standard', motion:'system'};
+    compactInput.checked = false;
+    largeTextInput.checked = false;
+    reducedMotionInput.checked = false;
+    persist();
+    updateButtons();
+  });
+  accessibility.append(reset);
+  body.append(accessibility);
   const quick = create('div', null, 'vx-ultra-links');
   quick.append(create('strong', 'Быстрые переходы'));
   for (const [path, title] of safePages) {
@@ -202,12 +252,18 @@
   function openSettings() {
     updateButtons();
     compactInput.checked = settings.density === 'compact';
+    largeTextInput.checked = settings.textSize === 'large';
+    reducedMotionInput.checked = settings.motion === 'reduce';
     if (!dialog.open) {
       if (typeof dialog.showModal === 'function') dialog.showModal();
       else dialog.setAttribute('open', '');
     }
   }
   settingsButton.addEventListener('click', openSettings);
+  // Clicking the native dialog backdrop closes it, without affecting checkout.
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog) dialog.close?.();
+  });
   // Keyboard shortcut only when not typing; Ctrl+K is already site search.
   document.addEventListener('keydown', event => {
     if ((event.ctrlKey || event.metaKey) && event.shiftKey &&

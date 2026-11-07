@@ -193,3 +193,68 @@ body .vx-ultra-ribbon {
 .vx-ultra-account-grid small{color:var(--vx-ultra-muted);line-height:1.55;font-size:12px}
 @media(max-width:790px){.vx-ultra-account-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.vx-ultra-account-grid{grid-template-columns:minmax(0,1fr)}.vx-ultra-account-grid a{min-height:0;padding:15px}}
+
+/* ULTRA MEGA SUPER PLUS — shared design tokens for every website generation.
+   Client-only themes; no account or payment state is stored here. */
+:root[data-vx-theme="sunset"] {
+  --vx-ultra-accent:#ffb6a8;--vx-ultra-secondary:#ffd38e;
+  --vx-ultra-panel:#2b1e34;--vx-ultra-panel2:#3d2843;
+  --vx-ultra-border:#9a6a84;--vx-ultra-glow:#f77b8535;
+}
+:root[data-vx-theme="midnight"] {
+  --vx-ultra-accent:#a4b4ff;--vx-ultra-secondary:#8fddff;
+  --vx-ultra-panel:#141a35;--vx-ultra-panel2:#20294b;
+  --vx-ultra-border:#6677af;--vx-ultra-glow:#617aff3a;
+}
+.vx-ultra-theme-sunset .vx-ultra-swatch{background:linear-gradient(115deg,#ffb1a1,#ffd787)}
+.vx-ultra-theme-midnight .vx-ultra-swatch{background:linear-gradient(115deg,#939dff,#69c9f6)}
+.vx-ultra-options{grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:11px}
+.vx-ultra-accessibility{border:0;padding:0;margin:19px 0 6px;min-width:0}
+.vx-ultra-accessibility legend{font-size:13px;font-weight:800;padding-bottom:1px}
+.vx-ultra-accessibility .vx-ultra-compact{margin:10px 0}
+.vx-ultra-reset{width:100%;margin:10px 0 0;min-height:44px;padding:10px 15px;
+  cursor:pointer;border-radius:12px;border:1px solid var(--vx-ultra-border);
+  color:#f6faff;background:var(--vx-ultra-panel2);font:inherit;font-size:13px;font-weight:700}
+.vx-ultra-reset:hover,.vx-ultra-reset:focus-visible{border-color:var(--vx-ultra-secondary)}
+:root[data-vx-text-size="large"] body{font-size:clamp(16px,1rem,18px)!important}
+:root[data-vx-text-size="large"] body main :is(p,li,label,summary,small){font-size:max(1em,15px)!important;line-height:1.65!important}
+:root[data-vx-text-size="large"] body main :is(a,button,select,input){font-size:max(1em,15px)!important;min-height:44px}
+:root[data-vx-text-size="large"] .vx-ultra-ribbon :is(a,button){font-size:13px!important}
+:root[data-vx-motion="reduce"] *, :root[data-vx-motion="reduce"] *::before,
+:root[data-vx-motion="reduce"] *::after{
+  scroll-behavior:auto!important;animation:none!important;transition:none!important;
+}
+:root[data-vx-motion="reduce"] .vx-ultra-dialog::backdrop{backdrop-filter:none!important}
+.vx-ultra-ribbon{isolation:isolate;backdrop-filter:blur(14px)}
+.vx-ultra-dialog{overscroll-behavior:contain}
+.vx-ultra-settings:focus-visible,.vx-ultra-close:focus-visible,
+.vx-ultra-reset:focus-visible{outline:3px solid var(--vx-ultra-secondary);outline-offset:3px}
+.vx-ultra-action{white-space:nowrap}
+body main :is(.ux-card,.ux-plan,.plan,.cx-plan-card,.ux-step,.ux-guide){
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){
+  body main :is(.ux-card,.ux-plan,.plan,.cx-plan-card,.ux-guide):hover{
+    transform:translateY(-3px);border-color:var(--vx-ultra-accent);
+    box-shadow:0 18px 40px #00000045;
+  }
+}
+@media(max-width:920px){
+  .vx-ultra-actions{grid-template-columns:repeat(6,minmax(0,1fr))}
+}
+@media(max-width:590px){
+  .vx-ultra-actions{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;max-width:100%;
+    padding:2px 2px 7px;scroll-snap-type:x proximity;scrollbar-width:thin}
+  .vx-ultra-actions > *{flex:0 0 auto;scroll-snap-align:start;padding-inline:11px}
+  .vx-ultra-ribbon{max-width:calc(100% - 14px);padding:10px 11px}
+  .vx-ultra-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vx-ultra-theme{min-height:88px;display:flex;flex-direction:column;align-items:start}
+  .vx-ultra-theme small{grid-column:auto}
+  .vx-ultra-swatch{grid-row:auto}
+  .vx-ultra-dialog{max-height:88dvh}
+}
+@media(max-width:345px){.vx-ultra-options{grid-template-columns:1fr}}
+@media(hover:none){body main :is(.ux-card,.ux-plan,.plan,.cx-plan-card,.ux-guide){transform:none!important}}
+@media(prefers-reduced-motion:reduce){
+  body main :is(.ux-card,.ux-plan,.plan,.cx-plan-card,.ux-guide){transition:none!important}
+}
