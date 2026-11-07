@@ -46,8 +46,8 @@
     const explanation=one('[data-advisor-explanation]',root);
     const payment=one('[data-advisor-payment]',root);
     const link=one('[data-advisor-link]',root);
-    const paidIds=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family']);
-    const futureIds=new Set(['mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d']);
+    const paidIds=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d']);
+    const futureIds=new Set([]);
     const catalogIds=new Set(['trial-free',...paidIds,...futureIds]);
     let catalogue=null;
     const currency=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
@@ -81,7 +81,7 @@
       }
       set(info,isFuture?
         'Предварительный подбор из каталога тарифов.':
-        'Самый доступный подходящий тариф из 11 платных вариантов.');
+        'Самый доступный подходящий тариф из 21 платного варианта.');
       if(output)output.hidden=false;
     }
     days?.addEventListener('input',render);
@@ -115,8 +115,8 @@
           p.checkout_path===null)
       );
       if(!valid||new Set(data.plans.map(p=>p.id)).size!==22||
-        data.plans.filter(p=>p.status==='existing').length!==11||
-        data.plans.filter(p=>p.status==='upcoming').length!==10||
+        data.plans.filter(p=>p.status==='existing').length!==21||
+        data.plans.filter(p=>p.status==='upcoming').length!==0||
         data.plans.filter(p=>p.status==='trial').length!==1
       )throw Error('INVALID_CATALOG');
       catalogue=data.plans.filter(p=>p.status!=='trial').map(p=>({
