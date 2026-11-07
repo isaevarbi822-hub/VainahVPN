@@ -42,6 +42,9 @@
   const priceValue=plan=>Number(plan.price_rub);
   const daily=plan=>priceValue(plan)/plan.days;
   const money=amount=>fmt.format(amount)+' ₽';
+  const moneyDaily=amount=>new Intl.NumberFormat('ru-RU',{
+    minimumFractionDigits:2,maximumFractionDigits:2
+  }).format(amount)+' ₽';
   const label=plan=>plan.devices===6?'семейный':'личный';
   function safe(plan){
     if(!plan||typeof plan!=='object'||!order.includes(plan.id)||
@@ -102,7 +105,7 @@
       insight.textContent=cheapest&&bestDaily?
         'Самый доступный в выборке: '+cheapest.plan.title+' · '+money(priceValue(cheapest.plan))+
         '. Минимальная цена за день: '+bestDaily.plan.title+' · ≈'+
-        money(Math.round(daily(bestDaily.plan)*100)/100)+
+        moneyDaily(daily(bestDaily.plan))+' за день'+
         '. Сравнение стоимости не означает сравнение скорости серверов.':
         'Ничего не найдено. Измени запрос или сбрось фильтры.';
     }
@@ -117,7 +120,7 @@
       card.append(elem('strong',p.title));
       card.append(elem('span',money(priceValue(p))));
       card.append(elem('small',p.days+' дней · '+p.devices+
-        ' устройства · ≈'+money(Math.round(daily(p)*100)/100)+'/день'));
+        ' устройства · ≈'+moneyDaily(daily(p))+'/день'));
       const link=elem('a','Оформить ↗','btn btn-primary');
       link.href='/checkout.html?plan='+p.id;
       card.append(link);
@@ -147,7 +150,7 @@
       card.append(elem('h3',p.title));
       const amount=elem('div','','price');
       amount.append(elem('span',money(priceValue(p))));
-      amount.append(elem('small','≈'+money(Math.round(daily(p)*100)/100)+
+      amount.append(elem('small','≈'+moneyDaily(daily(p))+
         ' за день · ≈'+money(Math.round(priceValue(p)*30/p.days))+' за 30 дней'));
       card.append(amount);
       card.append(elem('p','До '+p.devices+' устройств · VPN-доступ','plan-desc'));
