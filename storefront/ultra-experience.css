@@ -181,3 +181,15 @@ body .vx-ultra-ribbon {
 .vx-ultra-health-results{font-size:12px;line-height:1.65;color:#dce6f6}
 .vx-ultra-health-results p{margin:6px 0}
 .vx-ultra-health-results [data-state="configured"]{color:#d7f6e8}
+
+/* Owner-facing navigation; hyperlinks only, account facts remain server-origin. */
+.vx-ultra-account-actions{margin:13px 0 30px;padding:clamp(18px,3vw,28px);border:1px solid var(--vx-ultra-border);border-radius:23px;background:linear-gradient(130deg,var(--vx-ultra-panel2),var(--vx-ultra-panel))}
+.vx-ultra-account-intro h2{font-size:clamp(21px,3vw,28px);letter-spacing:-.025em;margin:9px 0}
+.vx-ultra-account-intro p{color:var(--vx-ultra-muted);font-size:13px;line-height:1.6;max-width:690px}
+.vx-ultra-account-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:17px}
+.vx-ultra-account-grid a{border:1px solid var(--vx-ultra-border);border-radius:16px;background:#121b32;text-decoration:none!important;padding:18px;display:flex;flex-direction:column;gap:8px;min-width:0;min-height:94px}
+.vx-ultra-account-grid a:hover,.vx-ultra-account-grid a:focus-visible{border-color:var(--vx-ultra-accent);background:var(--vx-ultra-panel2)}
+.vx-ultra-account-grid strong{color:#f6faff;font-size:14px}
+.vx-ultra-account-grid small{color:var(--vx-ultra-muted);line-height:1.55;font-size:12px}
+@media(max-width:790px){.vx-ultra-account-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.vx-ultra-account-grid{grid-template-columns:minmax(0,1fr)}.vx-ultra-account-grid a{min-height:0;padding:15px}}
