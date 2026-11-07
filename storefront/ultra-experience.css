@@ -172,3 +172,12 @@ body .vx-ultra-ribbon {
 @media(forced-colors:active) {
   .vx-ultra-ribbon,.vx-ultra-dialog,.vx-ultra-action,.vx-ultra-theme { border:1px solid CanvasText }
 }
+
+.vx-ultra-health{margin-top:19px;padding-top:16px;border-top:1px solid var(--vx-ultra-border)}
+.vx-ultra-health>strong{font-size:13px}
+.vx-ultra-health .vx-ultra-help{margin:8px 0}
+.vx-ultra-health-button{padding:11px 16px;min-height:44px;border:1px solid var(--vx-ultra-accent);background:var(--vx-ultra-panel2);border-radius:12px;font:inherit;font-size:12px;font-weight:800;color:#f7faff;cursor:pointer}
+.vx-ultra-health-button[disabled]{opacity:.6;cursor:progress}
+.vx-ultra-health-results{font-size:12px;line-height:1.65;color:#dce6f6}
+.vx-ultra-health-results p{margin:6px 0}
+.vx-ultra-health-results [data-state="configured"]{color:#d7f6e8}
