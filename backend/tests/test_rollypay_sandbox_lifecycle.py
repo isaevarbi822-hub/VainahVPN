@@ -39,7 +39,7 @@ class FakeRollyPay:
             data = json.loads(request.content)
             assert data["test"] is True
             assert data["payment_currency"] == "RUB"
-            assert data["amount"] == "99.00"
+            assert data["amount"] == "149.00"
             order_id = data["order_id"]
             payment_id = "pay_test_" + uuid4().hex
             payment = {
@@ -104,14 +104,14 @@ def create_test_order(client, fake):
     assert order["real_charge"] is False
     assert order["vpn_delivered"] is False
     assert order["mode"] == "provider"
-    assert order["amount_rub"] == "99.00"
+    assert order["amount_rub"] == "149.00"
     assert order["pay_url"].startswith("https://pay.rollypay.io/pay/")
     payment_id = next(iter(fake.orders))
     assert fake.orders[payment_id]["order_id"] == order["order_id"]
     return order, payment_id
 
 
-def event(order, payment_id, event_type, status, *, test=True, amount="99.00"):
+def event(order, payment_id, event_type, status, *, test=True, amount="149.00"):
     return {
         "event_type": event_type, "status": status,
         "test": test, "order_id": order["order_id"],
@@ -723,7 +723,7 @@ def test_operator_only_payment_diagnostics_locates_exact_amount_mismatch(sandbox
         "amount": "different", "currency": "match",
         "payment_status": "recognized",
     }
-    assert report["expected_amount_rub"] == "99.00"
+    assert report["expected_amount_rub"] == "149.00"
     assert report["observed_amount_rub"] == "98.00"
     assert report["new_payment_created"] is False
     assert report["signed_paid_webhook_received"] is False
@@ -749,7 +749,7 @@ def test_payment_diagnostics_classifies_missing_or_malformed_fields(sandbox):
     assert result["fields"]["amount"] == "invalid_format"
     assert "provider-specific" not in str(result)
     assert result["reason"] == "PROVIDER_AMOUNT_MISMATCH"
-    fake.orders[payment_id]["amount"] = "99.000000000000"
+    fake.orders[payment_id]["amount"] = "149.000000000000"
     result = client.get(path, headers=HEADERS).json()
     assert result["fields"]["amount"] == "match"
     assert result["reason"] == "OK"
@@ -784,7 +784,7 @@ def test_postgres_other_worker_finds_paid_order_for_signed_callback(monkeypatch)
     oid = "vainah_test_" + "c" * 32
     pid = "pay_test_cross_worker_123456"
     saved = {
-        "order_id": oid, "plan_id": "30", "amount": "99.00",
+        "order_id": oid, "plan_id": "30", "amount": "149.00",
         "payment_id": pid, "status": "created", "mode": "provider",
         "webhook_received": False, "owner_ref": "v1_" + "d" * 64,
         "receipt_emailed": False, "receipt_recipient": None,
@@ -809,7 +809,7 @@ def test_postgres_other_worker_finds_paid_order_for_signed_callback(monkeypatch)
     assert store.orders == {}
     event_data = {
         "event_type": "payment.paid", "order_id": oid,
-        "payment_id": pid, "amount": "99.00", "currency": "RUB",
+        "payment_id": pid, "amount": "149.00", "currency": "RUB",
         "test": True, "status": "paid",
     }
     result = store.process_webhook(event_data)
@@ -855,7 +855,7 @@ def test_postgres_order_save_preserves_other_workers_signed_proof(monkeypatch):
     )
     record = SimpleNamespace(
         order_id="vainah_test_" + "e" * 32, plan_id="30",
-        amount="99.00", payment_id="pay_test_123456",
+        amount="149.00", payment_id="pay_test_123456",
         status="created", mode="provider", webhook_received=False,
         owner_ref=None, receipt_emailed=False, receipt_recipient=None,
     )
