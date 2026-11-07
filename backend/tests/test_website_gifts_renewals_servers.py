@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from vainah import account_feed, email_auth, gift_cards, reminder_preferences
+from vainah import account_feed, email_auth, reminder_preferences
 from vainah.billing import get_plan
 from vainah.main import app
 
