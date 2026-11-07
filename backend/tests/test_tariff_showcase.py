@@ -34,7 +34,7 @@ def test_twenty_two_options_have_unique_ids_and_no_payment_secrets():
     plans = data["plans"]
     assert len(plans) == len({p["id"] for p in plans}) == 51
     assert tuple(p["id"] for p in plans) == ORDER
-    assert {p["id"] for p in plans} == LEGACY | NEW_IDS | ADDED_IDS | EXTRA_PLAN_IDS | EXTRA_PLAN_IDS | {"trial-free"}
+    assert {p["id"] for p in plans} == LEGACY | NEW_IDS | ADDED_IDS | EXTRA_PLAN_IDS | {"trial-free"}
     assert DISCOUNT_PILOT_PLAN["id"] not in {p["id"] for p in plans}
     assert plans[0]["status"] == "trial"
     assert plans[0]["price_rub"] == "0.00"
@@ -47,7 +47,7 @@ def test_twenty_two_options_have_unique_ids_and_no_payment_secrets():
 def test_existing_tariffs_repriced_and_paid_links_allowlisted():
     data = public_tariff_catalog()
     actual = {p["id"]: p for p in CATALOG}
-    assert set(actual) == LEGACY | NEW_IDS | ADDED_IDS
+    assert set(actual) == LEGACY | NEW_IDS | ADDED_IDS | EXTRA_PLAN_IDS
     expected_prices = {
         "7": "59.00", "14": "99.00", "30": "149.00",
         "45": "209.00", "60": "239.00", "90": "329.00",
