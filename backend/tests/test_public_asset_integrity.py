@@ -93,7 +93,9 @@ def test_new_calculator_is_local_and_protects_results():
 def test_recovered_modules_only_use_safe_read_only_api_endpoints():
     toolkit = (SITE / "toolkit-ui.mjs").read_text(encoding="utf-8")
     command = (SITE / "command-center.mjs").read_text(encoding="utf-8")
-    assert "/api/shop/plans" in toolkit
+    assert "/api/site/tariffs" in toolkit
+    assert "checkout_supported===false" in toolkit
+    assert "checkout_path===null" in toolkit
     assert "/api/account/overview" in command
     assert "/api/site/services" in command
     assert "method:'POST'" not in toolkit
