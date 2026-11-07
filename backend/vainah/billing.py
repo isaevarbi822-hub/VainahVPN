@@ -83,7 +83,7 @@ CATALOG = (
      "kopeks": 97900, "devices": 6},
     {"id": "family-max-730d", "title": "Vainah Family Max", "days": 730,
      "kopeks": 269000, "devices": 6},
-+ EXTRA_CATALOG
+) + EXTRA_CATALOG
 
 
 def get_plan(plan_id: str) -> dict | None:
