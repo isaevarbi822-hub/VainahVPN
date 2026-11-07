@@ -39,3 +39,17 @@
 #shop-test-link[hidden],#shop-test-simulate[hidden]{display:none}
 @media(max-width:900px){.checkout-columns{grid-template-columns:1fr}.checkout-intro{padding-top:40px}}
 @media(max-width:520px){.checkout-intro{padding-top:28px}.shop-panel{padding:18px}.shop-plans{gap:8px}.shop-plan{padding:13px}.shop-plan .price{font-size:18px}.shop-plan strong{font-size:13px}.shop-operator details{padding:15px}}
+
+/* ULTRA checkout: scale the full 21-tariff selector without modifying payments. */
+.shop-filter-controls{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(150px,1fr);align-items:end;gap:13px;margin:17px 0 10px}
+.shop-filter-controls label{display:grid;gap:8px;font-size:12px;font-weight:750;color:#c9d8ec}
+.shop-filter-controls :is(input,select){width:100%;min-width:0;min-height:46px;border-radius:13px;border:1px solid #586893;background:#0c1629;color:#f0f7ff;padding:10px 12px;font:inherit;font-size:13px}
+.shop-filter-controls :is(input,select):focus-visible{outline:3px solid #83dbec;outline-offset:3px}
+.shop-filter-results{font-size:12px;color:#c8d4ec;line-height:1.6;min-height:18px;margin:2px 0 15px}
+.shop-plans .shop-plan[hidden]{display:none!important}
+.shop-panel .shop-plan{transition:background .15s ease,border-color .15s ease;min-width:0}
+.shop-panel .shop-plan:focus-visible{outline:3px solid #9beaf5;outline-offset:2px}
+.checkout-columns .shop-summary{position:sticky;top:18px}
+@media(max-width:900px){.checkout-columns .shop-summary{position:static}}
+@media(max-width:520px){.shop-filter-controls{grid-template-columns:1fr;gap:11px}.shop-filter-controls :is(input,select){min-height:44px}.shop-plan{overflow-wrap:anywhere}}
+@media(prefers-reduced-motion:reduce){.shop-panel .shop-plan{transition:none}}
