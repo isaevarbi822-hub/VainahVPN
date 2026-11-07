@@ -20,7 +20,7 @@ from vainah.postgres_ledger import LedgerUnavailable, PostgresSandboxLedger
 
 def provider_order(**changes):
     order = SandboxOrder(
-        "vainah_test_" + uuid4().hex, "30", "99.00",
+        "vainah_test_" + uuid4().hex, "30", "149.00",
         "pay_test_" + uuid4().hex, "created", "provider",
         owner_ref="v1_" + "a" * 64, receipt_recipient="encrypted-test-recipient",
     )
@@ -31,7 +31,7 @@ def paid_event(order):
     return {
         "event_type": "payment.paid", "status": "paid", "test": True,
         "order_id": order.order_id, "payment_id": order.payment_id,
-        "currency": "RUB", "amount": "99.00",
+        "currency": "RUB", "amount": "149.00",
     }
 
 
@@ -332,7 +332,7 @@ def test_signed_callback_recovers_pending_invoice_after_attach_outage(postgres_u
     raw = json.dumps({
         "event_type": "payment.paid", "status": "paid", "test": True,
         "order_id": order_id, "payment_id": payment["payment_id"],
-        "currency": "RUB", "amount": "99.00",
+        "currency": "RUB", "amount": "149.00",
     }).encode()
     timestamp = str(int(time.time()))
     headers = {"X-Test-Mode": "true", "X-Timestamp": timestamp}
