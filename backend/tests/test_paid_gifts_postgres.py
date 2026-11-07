@@ -48,7 +48,7 @@ def test_signed_gift_payment_requires_one_redeem_before_h1_claim(postgres_url):
     raw = json.dumps({
         "event_type": "payment.paid", "status": "paid",
         "order_id": order_id, "payment_id": PAYMENT,
-        "amount": "99.00", "currency": "RUB",
+        "amount": "149.00", "currency": "RUB",
     }).encode()
     timestamp = str(int(time.time()))
     signature = hmac.new(
