@@ -26,6 +26,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
 from .email_delivery import send_sandbox_receipt
+from .expanded_tariffs import EXTRA_CATALOG
 from .postgres_ledger import LedgerUnavailable, PostgresSandboxLedger
 from .sandbox_ledger import SandboxLedger
 
@@ -82,7 +83,7 @@ CATALOG = (
      "kopeks": 97900, "devices": 6},
     {"id": "family-max-730d", "title": "Vainah Family Max", "days": 730,
      "kopeks": 269000, "devices": 6},
-)
+) + EXTRA_CATALOG
 
 
 def get_plan(plan_id: str) -> dict | None:

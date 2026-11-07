@@ -16,8 +16,10 @@
     const loading=$('[data-compare-loading]',compare);
     let cards=$$('[data-plan-days][data-plan-kopeks][data-plan-devices]',grid);
     const futureIds=new Set([]);
-    const validIds=new Set(['trial-free','7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d']);
-    const paidIds=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d']);
+    const validIds=new Set(['trial-free','7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d',
+    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d']);
+    const paidIds=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d',
+    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d']);
     const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
     function isSafe(p){
       return p&&validIds.has(p.id)&&
@@ -120,10 +122,10 @@
       headers:{Accept:'application/json'}}).then(async response=>{
       if(!response.ok)throw Error('HTTP '+response.status);
       const data=await response.json();
-      if(data.total!==22||!Array.isArray(data.plans)||data.plans.length!==22||
+      if(data.total!==51||!Array.isArray(data.plans)||data.plans.length!==51||
         !data.plans.every(isSafe)||
-        new Set(data.plans.map(p=>p.id)).size!==22||
-        data.plans.filter(p=>p.status==='existing').length!==21||
+        new Set(data.plans.map(p=>p.id)).size!==51||
+        data.plans.filter(p=>p.status==='existing').length!==50||
         data.plans.filter(p=>p.status==='upcoming').length!==0||
         data.plans.filter(p=>p.status==='trial').length!==1
       )throw Error('CATALOG_MISMATCH');
@@ -133,7 +135,7 @@
       cards=newCards;
       update();
       if(loading)loading.textContent=
-        'Все 22 варианта: 21 платный тариф и 1 бесплатный пробный день. Оплата проверяется при заказе.';
+        'Все 51 предложение: 50 платных тарифов и 1 бесплатный пробный день. Оплата проверяется при заказе.';
     }).catch(()=>{
       // Keep the 6 original verified cards AND table if API is down.
       if(loading)loading.textContent=

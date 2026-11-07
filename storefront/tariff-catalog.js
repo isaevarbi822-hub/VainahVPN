@@ -1,4 +1,4 @@
-/* Vainah VPN: 21 live paid plans, smart discovery + local plan comparison.
+/* Vainah VPN: 50 live paid plans, smart discovery + local plan comparison.
    The server owns all prices, eligibility, checkout and VPN fulfillment. */
 (() => {
   'use strict';
@@ -9,18 +9,23 @@
     '7','14','30','45','60','90','120','180','365','30-family','365-family',
     'mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d',
     'max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d'
-  ]);
+  ,
+    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d']);
   const order=[
     'trial-free','mini-3d','sprint-5d','7','14','start-plus-21d',
     '30','45','60','balance-75d','90','120','comfort-150d','180',
     'max-270d','365','legend-730d','30-family','family-plus-90d',
     'family-pro-180d','365-family','family-max-730d'
-  ];
+  ,
+    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d'];
   const filters=Array.from(document.querySelectorAll?.('[data-tariff-filter]')||[]);
   const search=document.querySelector('[data-tariff-search]');
   const sort=document.querySelector('[data-tariff-sort]');
   const device=document.querySelector('[data-tariff-devices]');
   const clear=document.querySelector('[data-tariff-reset]');
+  const budget=document.querySelector('[data-tariff-budget]');
+  const more=document.querySelector('[data-tariff-more]');
+  const checkoutReadiness=document.querySelector('[data-checkout-readiness]');
   const count=document.getElementById('tariff-filter-count');
   const empty=document.querySelector('[data-tariff-empty]');
   const insight=document.querySelector('[data-tariff-insight]');
@@ -29,6 +34,7 @@
   const compareMessage=document.querySelector('[data-tariff-compare-message]');
   const compareClear=document.querySelector('[data-tariff-compare-clear]');
   let selectedFilter='all';
+  let displayLimit=12;
   let paid=[];
   let cards=[];
   const selected=new Set();
@@ -65,10 +71,12 @@
     const q=String(search?.value||'').toLocaleLowerCase('ru').trim();
     const terms=q.split(/\s+/).filter(Boolean).slice(0,7);
     const byDevices=device?.value||'all';
+    const maxBudget=Number(budget?.value)||Infinity;
     const result=cards.filter(({plan})=>{
       if(selectedFilter!=='all'&&plan.segment!==selectedFilter)return false;
       if(byDevices==='3'&&plan.devices!==3)return false;
       if(byDevices==='6'&&plan.devices!==6)return false;
+      if(priceValue(plan)>maxBudget)return false;
       const haystack=(plan.title+' '+plan.days+' дней '+plan.devices+
         ' устройств '+label(plan)+' '+plan.price_rub+' ₽').toLocaleLowerCase('ru');
       return terms.every(t=>haystack.includes(t));
@@ -87,9 +95,10 @@
     if(!cards.length)return;
     const matching=filtered();
     const shown=new Set(matching.map(c=>c.plan.id));
+    const visibleIds=new Set(matching.slice(0,displayLimit).map(c=>c.plan.id));
     const fragment=document.createDocumentFragment();
     // Reorder only DOM elements constructed from validated API data.
-    for(const c of matching){c.card.hidden=false;fragment.append(c.card);}
+    for(const c of matching){c.card.hidden=!visibleIds.has(c.plan.id);fragment.append(c.card);}
     for(const c of cards){
       if(!shown.has(c.plan.id)){c.card.hidden=true;fragment.append(c.card);}
     }
@@ -97,7 +106,10 @@
     for(const b of filters){
       b.setAttribute('aria-pressed',String(b.dataset.tariffFilter===selectedFilter));
     }
-    if(count)count.textContent=matching.length+' из '+cards.length+' платных тарифов';
+    if(count)count.textContent='Найдено '+matching.length+' из '+cards.length+
+      ' · показано '+Math.min(displayLimit,matching.length); 
+    if(more){more.hidden=matching.length<=displayLimit;
+      more.textContent='Показать ещё '+Math.min(12,matching.length-displayLimit)+' тарифов ↓';}
     if(empty)empty.hidden=matching.length!==0;
     if(insight){
       const cheapest=matching.slice().sort((a,b)=>priceValue(a.plan)-priceValue(b.plan))[0];
@@ -172,23 +184,27 @@
     root.replaceChildren(frag);
     show();
     updateCompare();
-    status.textContent='21 платный тариф с оформлением через RollyPay и один бесплатный пробный день.';
+    status.textContent='50 платных тарифов с оформлением через RollyPay и один бесплатный пробный день.';
     const counter=document.getElementById('tariff-compare-label');
-    if(counter)counter.textContent='Сравнить все 22 варианта ↗';
+    if(counter)counter.textContent='Сравнить все 51 вариант ↗';
   }
+  const update=()=>{displayLimit=12;show();};
   for(const b of filters)b.addEventListener('click',()=>{
     const next=b.dataset.tariffFilter;
     if(['all','short','standard','long','family'].includes(next)){
-      selectedFilter=next;show();
+      selectedFilter=next;update();
     }
   });
-  search?.addEventListener('input',show);
-  sort?.addEventListener('change',show);
-  device?.addEventListener('change',show);
+  search?.addEventListener('input',update);
+  sort?.addEventListener('change',update);
+  device?.addEventListener('change',update);
+  budget?.addEventListener('change',update);
+  more?.addEventListener('click',()=>{displayLimit+=12;show();});
   clear?.addEventListener('click',()=>{
     selectedFilter='all';if(search)search.value='';
     if(sort)sort.value='days';if(device)device.value='all';
-    show();search?.focus?.();
+    if(budget)budget.value='all';
+    update();search?.focus?.();
   });
   compareClear?.addEventListener('click',()=>{selected.clear();updateCompare();});
   async function load(){
@@ -201,9 +217,9 @@
       if(!response.ok)throw Error('CATALOG_UNAVAILABLE');
       const data=await response.json();
       const plans=Array.isArray(data.plans)?data.plans:[];
-      if(data.total!==22||plans.length!==22||
-        new Set(plans.map(p=>p.id)).size!==22||!plans.every(safe)||
-        plans.filter(p=>p.status==='existing').length!==21||
+      if(data.total!==51||plans.length!==51||
+        new Set(plans.map(p=>p.id)).size!==51||!plans.every(safe)||
+        plans.filter(p=>p.status==='existing').length!==50||
         plans.filter(p=>p.status==='trial').length!==1
       )throw Error('CATALOG_INVALID');
       render(plans);
@@ -213,6 +229,20 @@
       if(insight)insight.textContent='Поиск и сравнение доступны после обновления каталога.';
       if(compareBox)compareBox.hidden=true;
     }
+  }
+  if(checkoutReadiness){
+    checkoutReadiness.textContent='Проверяем доступность оформления…';
+    fetch('/api/shop/config',{method:'GET',cache:'no-store',
+      credentials:'omit',headers:{Accept:'application/json'}})
+      .then(response=>response.ok?response.json():Promise.reject(Error('STATUS')))
+      .then(data=>{
+        checkoutReadiness.textContent=data.checkout_ready===true
+          ?'Сайт сообщает, что касса настроена. Реальная оплата проверяется на странице оформления.'
+          :'Новые счета сейчас могут быть недоступны. Выбор тарифа не списывает деньги.';
+      })
+      .catch(()=>{
+        checkoutReadiness.textContent='Статус кассы неизвестен. Не оплачивай повторно ранее созданный заказ.';
+      });
   }
   void load();
 })();

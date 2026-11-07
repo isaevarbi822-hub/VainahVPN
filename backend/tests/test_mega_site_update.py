@@ -17,8 +17,8 @@ def test_mega_routes_and_catalog_stay_server_authoritative():
     with TestClient(app) as client:
         data = client.get("/api/site/tariffs").json()
         rows = client.get("/api/shop/plans").json()["items"]
-    assert data["total"] == 22
-    assert len(rows) == data["existing_paid_count"] == 21
+    assert data["total"] == 51
+    assert len(rows) == data["existing_paid_count"] == 50
     assert data["upcoming_count"] == 0
     for plan in data["plans"]:
         if plan["status"] == "trial":
@@ -65,7 +65,7 @@ def test_mega_site_has_complete_tools_and_no_fake_purchases():
 
 def test_live_tariff_search_sort_and_compare_in_browser():
     catalog = public_tariff_catalog()
-    assert len(catalog["plans"]) == 22
+    assert len(catalog["plans"]) == 51
     harness = r"""
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 class N {
@@ -89,6 +89,8 @@ const search=create('[data-tariff-search]');
 const sort=create('[data-tariff-sort]');
 const device=create('[data-tariff-devices]');
 const reset=create('[data-tariff-reset]');
+const more=create('[data-tariff-more]');
+const budget=create('[data-tariff-budget]');
 const compare=create('[data-tariff-compare]');
 const compareItems=create('[data-tariff-compare-items]');
 const compareClear=create('[data-tariff-compare-clear]');
@@ -101,7 +103,7 @@ const counter=idNodes['tariff-compare-label']=new N();
 const buttons=['all','short','standard','long','family'].map(id=>{
  const b=new N('button');b.dataset.tariffFilter=id;return b;
 });
-sort.value='days';device.value='all';
+sort.value='days';device.value='all';budget.value='all';
 global.document={
  querySelector:key=>nodes[key]||null,
  querySelectorAll:key=>key==='[data-tariff-filter]'?buttons:[],
@@ -120,16 +122,20 @@ const compareButton=card=>card.children.find(c=>c.className.includes('tariff-com
 (async()=>{
  vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
  await tick();await tick();
- assert.equal(visible().length,21);
- assert.ok(status.textContent.includes('21 платный'));
+ assert.equal(visible().length,12);
+ assert.equal(root.children.length,50);
+ assert.equal(more.hidden,false);
+ more.events.click();
+ assert.equal(visible().length,24);
+ assert.ok(status.textContent.includes('50 платных'));
  // Price sorting never changes the source catalog or checkout URLs.
  sort.value='price';sort.events.change();
- assert.equal(visible()[0].children[2].textContent,'Vainah Mini');
+ assert.equal(visible()[0].children[2].textContent,'Vainah Pulse');
  search.value='730';search.events.input();
  assert.equal(visible().length,2);
  assert.ok(insight.textContent.includes('за день'));
  reset.events.click();
- assert.equal(visible().length,21);
+ assert.equal(visible().length,12);
  assert.equal(search.value,'');
  const first=visible()[0],second=visible()[1];
  compareButton(first).events.click();
@@ -140,12 +146,12 @@ const compareButton=card=>card.children.find(c=>c.className.includes('tariff-com
  compareClear.events.click();
  assert.equal(compare.hidden,true);
  buttons.find(x=>x.dataset.tariffFilter==='family').events.click();
- assert.equal(visible().length,5);
+ assert.equal(visible().length,12);
  device.value='3';device.events.change();
  assert.equal(visible().length,0);
  assert.equal(empty.hidden,false);
  reset.events.click();
- assert.equal(visible().length,21);
+ assert.equal(visible().length,12);
  assert.equal(empty.hidden,true);
 })().catch(e=>{console.error(e);process.exitCode=1});
 """

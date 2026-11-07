@@ -25,13 +25,13 @@ def test_superplus_shared_layers_and_critical_routes():
             assert "Vainah" in response.text or "VAINAH" in response.text
     for filename in files[:9]:
         html = (SITE / filename).read_text(encoding="utf-8")
-        assert "site-shell.js?v=20261107-superplus2" in html
+        assert "site-shell.js?v=20261107-superplus50" in html
     for filename in ("gifts.html", "notifications.html"):
         html = (SITE / filename).read_text(encoding="utf-8")
         assert "ultra-experience.js?v=20261107-superplus2" in html
     home = (SITE / "index.html").read_text(encoding="utf-8")
     assert '<h1 id="home-title">' in home
-    assert "21 тариф + пробник" in home
+    assert "50 тариф + пробник" in home
     assert "6 тарифов + пробник" not in home
     for target in ("plans.html", "account.html", "notifications.html",
                    "gifts.html", "servers.html", "support-center.html"):

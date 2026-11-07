@@ -44,7 +44,7 @@ def test_exact_catalog_and_no_gift_side_effects():
     assert ADDED_PLAN_IDS.isdisjoint(ALLOWED_GIFT_PLANS)
     catalog = {p["id"]: p for p in CATALOG}
     exposed = {p["id"]: p for p in public_tariff_catalog()["plans"]}
-    assert len(catalog) == 21
+    assert len(catalog) == 50
     for plan_id, (days, devices, rub) in EXPECTED.items():
         assert (catalog[plan_id]["days"], catalog[plan_id]["devices"],
                 catalog[plan_id]["kopeks"]) == (days, devices, rub * 100)

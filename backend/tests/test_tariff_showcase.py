@@ -1,4 +1,4 @@
-"""All 21 paid plans must use the verified checkout path and immutable prices."""
+"""All 50 paid plans must use the verified checkout path and immutable prices."""
 from __future__ import annotations
 
 import subprocess
@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from vainah.billing import CATALOG, DISCOUNT_PILOT_PLAN, get_plan, price_rub
+from vainah.expanded_tariffs import EXTRA_CATALOG, EXTRA_PLAN_IDS
 from vainah.main import app
 from vainah.tariff_catalog import (
     ADDED_PLAN_IDS,
@@ -25,15 +26,15 @@ ADDED_IDS = {"mini-3d", "sprint-5d", "start-plus-21d", "balance-75d", "comfort-1
 
 def test_twenty_two_options_have_unique_ids_and_no_payment_secrets():
     data = public_tariff_catalog()
-    assert data["total"] == 22
-    assert data["existing_paid_count"] == 21
+    assert data["total"] == 51
+    assert data["existing_paid_count"] == 50
     assert data["upcoming_count"] == 0
-    assert data["newly_launched_count"] == 15
+    assert data["newly_launched_count"] == 44
     assert data["trial_count"] == 1
     plans = data["plans"]
-    assert len(plans) == len({p["id"] for p in plans}) == 22
+    assert len(plans) == len({p["id"] for p in plans}) == 51
     assert tuple(p["id"] for p in plans) == ORDER
-    assert {p["id"] for p in plans} == LEGACY | NEW_IDS | ADDED_IDS | {"trial-free"}
+    assert {p["id"] for p in plans} == LEGACY | NEW_IDS | ADDED_IDS | EXTRA_PLAN_IDS | {"trial-free"}
     assert DISCOUNT_PILOT_PLAN["id"] not in {p["id"] for p in plans}
     assert plans[0]["status"] == "trial"
     assert plans[0]["price_rub"] == "0.00"
@@ -46,7 +47,7 @@ def test_twenty_two_options_have_unique_ids_and_no_payment_secrets():
 def test_existing_tariffs_repriced_and_paid_links_allowlisted():
     data = public_tariff_catalog()
     actual = {p["id"]: p for p in CATALOG}
-    assert set(actual) == LEGACY | NEW_IDS | ADDED_IDS
+    assert set(actual) == LEGACY | NEW_IDS | ADDED_IDS | EXTRA_PLAN_IDS
     expected_prices = {
         "7": "59.00", "14": "99.00", "30": "149.00",
         "45": "209.00", "60": "239.00", "90": "329.00",
@@ -60,6 +61,7 @@ def test_existing_tariffs_repriced_and_paid_links_allowlisted():
         "legend-730d": "1790.00", "family-plus-90d": "599.00",
         "family-pro-180d": "979.00", "family-max-730d": "2690.00",
     })
+    expected_prices.update({p["id"]: price_rub(p) for p in EXTRA_CATALOG})
     assert {pid: price_rub(plan) for pid, plan in actual.items()} == expected_prices
     for plan in data["plans"]:
         if plan["id"] not in LEGACY:
@@ -139,7 +141,7 @@ def test_landing_fallback_prices_match_repriced_catalog():
         assert f'href="checkout.html?plan={plan_id}"' in html
         assert f'<div class="ux-plan-price">{label}</div>' in html
     assert '<div class="ux-plan-price">99 ₽</div>' not in html
-    assert "21 платный тариф" in html
+    assert "50 платных тарифов" in html
 
 
 def test_plans_page_has_progressive_legacy_fallback():
@@ -197,6 +199,35 @@ const plans=[
  ['120','existing',120,419,3],['180','existing',180,509,3],
  ['365','existing',365,1050,3],['30-family','existing',30,289,6],
  ['365-family','existing',365,1499,6],
+ ['pulse-2d','existing',2,25,3],
+ ['flash-4d','existing',4,39,3],
+ ['weekend-9d','existing',9,69,3],
+ ['jump-10d','existing',10,79,3],
+ ['express-12d','existing',12,89,3],
+ ['boost-17d','existing',17,105,3],
+ ['start-25d','existing',25,129,3],
+ ['flex-35d','existing',35,179,3],
+ ['focus-40d','existing',40,189,3],
+ ['smart-50d','existing',50,229,3],
+ ['steady-55d','existing',55,234,3],
+ ['stream-65d','existing',65,269,3],
+ ['prime-100d','existing',100,365,3],
+ ['flow-135d','existing',135,445,3],
+ ['power-210d','existing',210,609,3],
+ ['advance-240d','existing',240,679,3],
+ ['ultra-300d','existing',300,859,3],
+ ['horizon-540d','existing',540,1390,3],
+ ['family-week-7d','existing',7,99,6],
+ ['family-14d','existing',14,169,6],
+ ['family-21d','existing',21,229,6],
+ ['family-45d','existing',45,369,6],
+ ['family-60d','existing',60,449,6],
+ ['family-75d','existing',75,509,6],
+ ['family-120d','existing',120,729,6],
+ ['family-150d','existing',150,829,6],
+ ['family-240d','existing',240,1129,6],
+ ['family-270d','existing',270,1259,6],
+ ['family-540d','existing',540,2150,6],
 ].map(([id,mode,days,rub,devices])=>({
  id,title:'Тариф '+id,status:mode,days,devices,
  price_rub:rub.toFixed(2),traffic_gb:mode==='trial'?10:undefined,
@@ -204,17 +235,17 @@ const plans=[
  checkout_supported:mode==='existing',
  checkout_path:mode==='existing'?'/checkout.html?plan='+id:null
 }));
-global.fetch=async()=>({ok:true,json:async()=>({total:22,plans})});
+global.fetch=async()=>({ok:true,json:async()=>({total:51,plans})});
 function all(el){return [el,...el.children.flatMap(all)]}
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
  await tick();await tick();
  const items=all(root).filter(x=>x.tag==='article');
- assert.equal(items.length,21);
+ assert.equal(items.length,50);
  const links=all(root).filter(x=>x.tag==='a');
  const upcoming=items.filter(x=>all(x).some(n=>n.textContent==='В подготовке'));
- assert.equal(links.length,21);
+ assert.equal(links.length,50);
  assert.equal(upcoming.length,0);
  assert.equal(all(root).filter(x=>x.tag==='button'&&x.disabled).length,0);
  assert.ok(links.every(x=>x.href.startsWith('/checkout.html?plan=')));
@@ -222,7 +253,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  assert.ok(links.some(x=>x.href.endsWith('legend-730d')));
  assert.ok(links.some(x=>x.href.endsWith('family-max-730d')));
  assert.ok(links.some(x=>x.href.includes('30-family')));
- assert.ok(status.textContent.includes('21 платный'));
+ assert.ok(status.textContent.includes('50 платных'));
 })().catch(e=>{console.error(e);process.exitCode=1});
 """
     result = subprocess.run(
