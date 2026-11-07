@@ -94,7 +94,7 @@ def test_reserve_stores_only_encrypted_verified_email(monkeypatch):
     )
     assert "receipt_email_cipher" in sql
     assert "Owner@example.com" not in str(params)
-    assert params[3] == "1000.00"
+    assert params[3] == "1499.00"
     assert unseal_live_secret(params[4]) == "owner@example.com"
 
 
@@ -102,7 +102,7 @@ def test_delivery_claim_is_atomic_one_time_and_no_automatic_lease_reclaim(monkey
     order_id = "vainah_live_" + uuid4().hex
     owner = "v1_" + "a" * 64
     cursor = FakeCursor([
-        (order_id, owner, "30", "99.00", "pay_payment000", "paid", "claimed"),
+        (order_id, owner, "30", "149.00", "pay_payment000", "paid", "claimed"),
         None,
     ])
     store = setup_connection(monkeypatch, cursor)
@@ -144,12 +144,12 @@ def test_live_paid_event_uses_signed_original_payment_record(monkeypatch):
     order_id = "vainah_live_" + uuid4().hex
     payment_id = "pay_" + uuid4().hex
     owner = "v1_" + "a" * 64
-    cursor = FakeCursor([(owner, "30", payment_id, "99.00", "created")])
+    cursor = FakeCursor([(owner, "30", payment_id, "149.00", "created")])
     store = setup_connection(monkeypatch, cursor)
     body = json.dumps({
         "order_id": order_id, "payment_id": payment_id,
         "status": "paid", "event_type": "payment.paid",
-        "amount": "99.00", "currency": "RUB",
+        "amount": "149.00", "currency": "RUB",
     }).encode()
     signing_secret = "test-only-signing-" + "u" * 30
     timestamp = str(int(time.time()))
