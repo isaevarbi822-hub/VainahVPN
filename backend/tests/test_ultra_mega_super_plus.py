@@ -25,7 +25,7 @@ def test_superplus_shared_layers_and_critical_routes():
             assert "Vainah" in response.text or "VAINAH" in response.text
     for filename in files[:9]:
         html = (SITE / filename).read_text(encoding="utf-8")
-        assert "site-shell.js?v=20261107-superplus2" in html
+        assert "site-shell.js?v=20261107-superplus50" in html
     for filename in ("gifts.html", "notifications.html"):
         html = (SITE / filename).read_text(encoding="utf-8")
         assert "ultra-experience.js?v=20261107-superplus2" in html
