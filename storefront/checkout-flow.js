@@ -142,6 +142,7 @@
     $("shop-selected-devices").textContent = plan.devices + " устройства";
     $("shop-total").textContent = money(plan.priceRub);
     if (history.replaceState) history.replaceState(null, "", "?plan=" + encodeURIComponent(id));
+    filterPlans();
     state.testOrder = null;
     $("shop-test-simulate").hidden = true;
     $("shop-test-refresh").hidden = true;
@@ -151,6 +152,38 @@
     $("shop-test-link").removeAttribute("href");
     testMessage("");
   }
+  // Filtering is display-only. Payment IDs, prices and checkout intents
+  // remain exclusively server controlled and the selected order is unchanged.
+  function filterPlans() {
+    const query = String($("shop-plan-search")?.value || "")
+      .toLocaleLowerCase("ru").trim().slice(0, 80);
+    const kind = $("shop-plan-kind")?.value || "all";
+    let visible = 0;
+    let selectedVisible = false;
+    for (const button of cards.children) {
+      const plan = state.plans.find(p => p.id === button.dataset.plan);
+      if (!plan) continue;
+      const matchesDevice = kind === "all" ||
+        (kind === "family" ? plan.devices === 6 : plan.devices === 3);
+      const matchesText = (plan.title + " " + plan.days + " " +
+        plan.devices + " " + (plan.devices === 6 ? "семейный" : "личный"))
+        .toLocaleLowerCase("ru").includes(query);
+      const match = matchesDevice && matchesText;
+      button.hidden = !match;
+      if (match) visible++;
+      if (match && plan.id === state.selected?.id) selectedVisible = true;
+    }
+    const result = $("shop-plan-results");
+    if (result) {
+      result.textContent = visible + " из " + state.plans.length +
+        " тарифов. " + (visible === 0 ? "Ничего не найдено. Очисти поиск. " : "") +
+        (!selectedVisible && state.selected
+          ? "Ранее выбранный тариф остаётся в итоговом заказе." : "");
+    }
+  }
+  $("shop-plan-search")?.addEventListener("input", filterPlans);
+  $("shop-plan-kind")?.addEventListener("change", filterPlans);
+
   function draw() {
     cards.replaceChildren();
     for (const plan of state.plans) {
@@ -175,6 +208,7 @@
     }
     const requested = new URLSearchParams(location.search).get("plan");
     select(state.plans.some(p => p.id === requested) ? requested : "30");
+    filterPlans();
     $("shop-buy").disabled = !state.config?.checkout_ready;
     $("shop-buy").textContent = state.config?.checkout_ready ? "Перейти к оплате ↗" : "Оплата пока недоступна";
     $("shop-test-create").disabled = !state.config?.sandbox_available;
