@@ -70,7 +70,17 @@ def gift_redemption_ready() -> bool:
 
 @router.get("/status")
 def gift_card_status(request: Request) -> dict:
+    plans = []
+    for plan_id in ("30", "60", "90", "180", "365", "365-family"):
+        plan = get_plan(plan_id)
+        if plan is not None:
+            plans.append({
+                "id": plan_id, "title": plan["title"],
+                "price_rub": f'{plan["kopeks"] / 100:.2f}',
+                "days": plan["days"], "devices": plan["devices"],
+            })
     return {
+        "plans": plans,
         "purchase_enabled": gift_checkout_ready(request),
         "redemption_available": gift_redemption_ready(),
         "funding_source": "rollypay_signed_paid_only",
