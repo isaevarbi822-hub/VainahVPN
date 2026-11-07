@@ -94,6 +94,9 @@ class VainahVpnService : VpnService() {
             }
             ACTION_CONNECT -> {
                 if (started) return START_NOT_STICKY
+                // Reset only local link observations for the new session;
+                // an old Wi-Fi/cellular transition is not a new observation.
+                VpnUnderlayStatus.reset(this)
                 checkpoint("service_received_connect")
                 val rawNode = intent.getStringExtra(EXTRA_SELECTED_VLESS).orEmpty()
                 val configValid = runCatching { VlessRealityConfig.profile(rawNode) }.isSuccess
