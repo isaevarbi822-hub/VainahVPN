@@ -16,3 +16,31 @@
 .tariff-filters button:hover{border-color:#91a8d6}
 .tariff-filters button[aria-pressed="true"]{background:#273f6c;border-color:#93b1f7;color:#fff}
 #tariff-filter-count{margin:0 0 19px;color:#a5b6d3;font-size:12px}
+
+/* MEGA UPDATE: responsive search, transparent price comparison and accessible states. */
+.tariff-mega-tools{display:grid;grid-template-columns:minmax(220px,1.8fr) minmax(150px,1fr) minmax(160px,1fr) auto;gap:13px;align-items:end;padding:18px;margin:14px 0 16px;border-radius:21px;border:1px solid #415879;background:linear-gradient(140deg,#19253f,#111a30)}
+.tariff-mega-tools label{display:grid;gap:7px;color:#d0dcef;font-size:12px;font-weight:750;letter-spacing:.02em}
+.tariff-mega-tools input,.tariff-mega-tools select{min-width:0;width:100%;height:45px;border-radius:12px;border:1px solid #526589;background:#0e172a;color:#f0f5ff;padding:9px 12px;font:inherit;font-size:14px;outline-offset:2px}
+.tariff-mega-tools input:focus-visible,.tariff-mega-tools select:focus-visible{outline:2px solid #98cafa;border-color:#98cafa}
+.tariff-mega-tools button{min-height:45px;white-space:nowrap}
+.tariff-mega-insight{font-size:12px;line-height:1.7;color:#c6d7f1;margin:0 0 18px}
+.tariff-mega-empty{padding:22px;color:#dce6f7;border:1px dashed #7181a3;border-radius:18px;background:#171f33}
+.tariff-card .tariff-compare-toggle{margin-top:9px;width:100%;min-height:43px}
+.tariff-card .tariff-compare-toggle[aria-pressed="true"]{border-color:#a8e6dc;background:#1b3c45;color:#e6fffb}
+.tariff-card .tariff-compare-toggle[disabled]{opacity:.6;cursor:not-allowed}
+.tariff-mega-compare{margin:26px 0;border-radius:22px;padding:20px;border:1px solid #7e8dc3;background:linear-gradient(138deg,#232b49,#151d34)}
+.tariff-mega-compare-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:15px}
+.tariff-mega-compare-head h2{font-size:22px;margin:7px 0}
+.tariff-mega-compare-head p{font-size:13px;color:#c8d4ec;margin:0}
+.tariff-mega-compare-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:18px 0}
+.tariff-compare-card{border:1px solid #4d6290;background:#121b31;padding:17px;border-radius:16px;display:flex;flex-direction:column;gap:9px;min-width:0}
+.tariff-compare-card strong{font-size:17px;color:#eff6ff}
+.tariff-compare-card span{font-size:24px;font-weight:850;color:#bcf1ff}
+.tariff-compare-card small{font-size:12px;line-height:1.6;color:#c5d0e6;min-height:40px}
+.tariff-compare-card a{text-align:center}
+.tariff-compare-remove{cursor:pointer;background:transparent;border:0;color:#c4cfeb;text-align:center;min-height:37px;font:inherit;font-size:12px}
+.tariff-compare-remove:hover{text-decoration:underline}
+[hidden]{display:none!important}
+@media(max-width:960px){.tariff-mega-tools{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.tariff-mega-tools{grid-template-columns:1fr;padding:15px}.tariff-mega-compare-grid{grid-template-columns:1fr}.tariff-card .tariff-compare-toggle{width:auto;min-width:140px}.tariff-mega-compare-head h2{font-size:20px}}
+@media(prefers-reduced-motion:reduce){.tariff-filters button{transition:none}}
