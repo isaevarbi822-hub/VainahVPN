@@ -456,6 +456,43 @@ class MainActivity : Activity() {
             12f, grey
         ), 9)
 
+        val handoffs = VpnUnderlayStatus.history(this)
+        val historyCard = card()
+        add(body, historyCard, 16)
+        add(historyCard, tag("ПЕРЕКЛЮЧЕНИЯ СЕТИ"))
+        add(historyCard, t("История за текущий VPN-сеанс", 18f, white, true), 8)
+        add(historyCard, t(
+            "Только тип сети и состояние проверки Android. " +
+                "Не подтверждает, что сайты открывались через VPN после перехода.",
+            12f, grey), 8)
+        fun transportLabel(code: String): String = when (code) {
+            "wifi" -> "Wi-Fi"
+            "cellular" -> "4G/5G"
+            "ethernet" -> "Ethernet"
+            "none" -> "нет сети"
+            else -> "другая сеть"
+        }
+        if (handoffs.isEmpty()) {
+            add(historyCard, t("Переходы пока не зафиксированы.", 12f, grey), 9)
+        } else {
+            for (event in handoffs.takeLast(6).asReversed()) {
+                val line = transportLabel(event.from) + " → " +
+                    transportLabel(event.to) + " · " +
+                    (if (event.validated) "Android подтвердил сеть"
+                     else "доступ сети не подтверждён")
+                add(historyCard, t(line, 12f, grey), 9)
+            }
+            if (handoffs.size > 6) {
+                add(historyCard, t(
+                    "Остальные события включены в обезличенный отчёт.",
+                    12f, grey
+                ), 8)
+            }
+        }
+        val refreshHistory = action("Обновить историю сети")
+        add(historyCard, refreshHistory, 11)
+        refreshHistory.setOnClickListener { render() }
+
         val report = action("Скопировать безопасный отчёт")
         add(info, report, 12)
         report.setOnClickListener {
@@ -474,6 +511,7 @@ class MainActivity : Activity() {
                     validated = underlay.validated,
                     transitions = underlay.transitions,
                 ),
+                handoffEvents = VpnUnderlayStatus.history(this),
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("Vainah VPN diagnostic", text))
