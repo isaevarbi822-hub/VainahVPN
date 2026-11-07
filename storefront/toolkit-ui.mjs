@@ -37,6 +37,7 @@
     if(!root)return;
     const days=one('[data-wanted-days]',root);
     const devices=one('[data-wanted-devices]',root);
+    const pending=one('[data-show-upcoming]',root);
     const dayLabel=one('[data-wanted-days-label]',root);
     const info=one('[data-advisor-info]',root);
     const output=one('[data-advisor-output]',root);
@@ -44,31 +45,48 @@
     const price=one('[data-advisor-price]',root);
     const explanation=one('[data-advisor-explanation]',root);
     const payment=one('[data-advisor-payment]',root);
+    const link=one('[data-advisor-link]',root);
+    const paidIds=new Set(['30','60','90','180','365','365-family']);
+    const futureIds=new Set(['7','14','45','120','30-family']);
+    const catalogIds=new Set(['trial-free',...paidIds,...futureIds]);
     let catalogue=null;
-    const number=(v)=>Number.isSafeInteger(v)&&v>=0?v:null;
+    const currency=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
     function render(){
-      const wantedDays=Math.max(30,Math.min(365,Number(days?.value)||30));
+      const wantedDays=Math.max(7,Math.min(365,Number(days?.value)||30));
       const wantedDevices=Math.max(1,Math.min(6,Number(devices?.value)||3));
+      const allowUpcoming=pending?.checked===true;
       set(dayLabel,wantedDays+' дн.');
       if(!catalogue)return;
-      const matching=catalogue.filter(p=>p.days>=wantedDays&&p.devices>=wantedDevices);
+      const options=catalogue.filter(p=>p.status==='existing'||
+        (allowUpcoming&&p.status==='upcoming'));
+      const matching=options.filter(p=>p.days>=wantedDays&&p.devices>=wantedDevices);
       matching.sort((a,b)=>a.kopeks-b.kopeks||a.days-b.days);
       const picked=matching[0];
       if(!picked){
         if(output)output.hidden=true;
-        set(info,'Подходящего тарифа в проверенном каталоге сейчас нет.');
+        set(info,'Подходящего тарифа в выбранной категории сейчас нет. Попробуй изменить срок или число устройств.');
         return;
       }
-      set(name,picked.title);
-      set(price,new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2})
-        .format(picked.kopeks/100)+' ₽');
-      set(explanation,picked.days+' дней · до '+picked.devices+' устройств · полная стоимость подписки.');
-      set(payment,'Подбор не создаёт заказ. Стоимость и доступность оплаты окончательно проверяются при оформлении.');
-      set(info,'Выбран самый дешёвый подходящий тариф из '+catalogue.length+' подтверждённых сервером вариантов.');
+      const isFuture=picked.status==='upcoming';
+      set(name,picked.title+(isFuture?' · СКОРО':''));
+      set(price,currency.format(picked.kopeks/100)+' ₽');
+      set(explanation,picked.days+' дней · до '+picked.devices+
+        ' устройств · полная стоимость подписки.');
+      set(payment,isFuture?
+        'Предварительная стоимость. Оплата и выдача через H1Cloud не проверены; этот тариф пока недоступен к покупке.':
+        'Рекомендация из действующих планов. Выбранный тариф и доступность оплаты будут проверены при оформлении.');
+      if(link){
+        link.href=isFuture?'plans.html':'checkout.html?plan='+picked.id;
+        set(link,isFuture?'Посмотреть будущий тариф ↗':'Оформить действующий тариф ↗');
+      }
+      set(info,isFuture?
+        'Предварительный подбор из 11 платных предложений, 5 новых ещё не продаются.':
+        'Самый дешёвый один подходящий действующий тариф из 6 проверенных вариантов.');
       if(output)output.hidden=false;
     }
     days?.addEventListener('input',render);
     devices?.addEventListener('change',render);
+    pending?.addEventListener('change',render);
     for(const button of many('[data-days-preset]',root))
       button.addEventListener('click',()=>{
         if(days)days.value=button.dataset.daysPreset;
@@ -76,20 +94,36 @@
       });
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),9000);
-    fetch('/api/shop/plans',{
+    fetch('/api/site/tariffs',{
       method:'GET',cache:'no-store',credentials:'omit',
       headers:{Accept:'application/json'},signal:controller.signal
     }).then(async response=>{
       if(!response.ok)throw Error('API '+response.status);
       const data=await response.json();
-      if(!Array.isArray(data.items)||data.currency!=='RUB')throw Error('INVALID_CATALOG');
-      const safe=data.items.filter(p=>
-        p&&typeof p.id==='string'&&typeof p.title==='string'&&
-        p.title.length<=100&&number(p.days)>0&&number(p.devices)>0&&
-        number(p.kopeks)!==null&&p.kopeks>0
-      ).map(p=>({id:p.id,title:p.title,days:p.days,devices:p.devices,kopeks:p.kopeks}));
-      if(!safe.length)throw Error('EMPTY_CATALOG');
-      catalogue=safe;render();
+      if(data.total!==12||!Array.isArray(data.plans)||data.plans.length!==12)
+        throw Error('INVALID_CATALOG');
+      const valid=data.plans.every(p=>
+        p&&catalogIds.has(p.id)&&typeof p.title==='string'&&p.title.length<=60&&
+        Number.isInteger(p.days)&&p.days>=1&&p.days<=365&&
+        Number.isInteger(p.devices)&&p.devices>=2&&p.devices<=6&&
+        typeof p.price_rub==='string'&&
+        /^(0|[1-9][0-9]{0,5})\\.[0-9]{2}$/.test(p.price_rub)&&
+        (p.status==='trial'?p.id==='trial-free'&&p.price_rub==='0.00':
+        p.status==='existing'?paidIds.has(p.id)&&p.checkout_supported===true&&
+          p.checkout_path==='/checkout.html?plan='+p.id:
+        p.status==='upcoming'&&futureIds.has(p.id)&&p.checkout_supported===false&&
+          p.checkout_path===null)
+      );
+      if(!valid||new Set(data.plans.map(p=>p.id)).size!==12||
+        data.plans.filter(p=>p.status==='existing').length!==6||
+        data.plans.filter(p=>p.status==='upcoming').length!==5||
+        data.plans.filter(p=>p.status==='trial').length!==1
+      )throw Error('INVALID_CATALOG');
+      catalogue=data.plans.filter(p=>p.status!=='trial').map(p=>({
+        id:p.id,title:p.title,days:p.days,devices:p.devices,
+        status:p.status,kopeks:Math.round(Number(p.price_rub)*100)
+      }));
+      render();
     }).catch(()=>{
       if(output)output.hidden=true;
       set(info,'Не удалось загрузить актуальные тарифы. Посмотри цены на странице «Тарифы» и попробуй позднее.');
