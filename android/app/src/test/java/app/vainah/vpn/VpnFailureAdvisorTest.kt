@@ -17,6 +17,17 @@ class VpnFailureAdvisorTest {
             VpnFailureAdvisor.fromStage("native_engine_stopped").code)
     }
 
+    @Test fun nativeStopIsExplainedByStoredCodeEvenAfterLastStageChanged() {
+        val original = VpnFailureAdvisor.fromStage("native_engine_stopped")
+        val restored = VpnFailureAdvisor.fromCode(original.code)
+        assertEquals("engine_stopped", restored.code)
+        assertTrue(restored.title.contains("остановился"))
+        assertTrue(restored.action.contains("вручную"))
+        assertEquals("engine_error", VpnFailureAdvisor.fromCode(
+            "vless://user@private.example"
+        ).code)
+    }
+
     @Test fun neverIncludesUntrustedNativeExceptionText() {
         val injected = "opening_android_tun vless://uuid@vpn.example.org?pbk=private"
         val warning = VpnFailureAdvisor.fromStage(injected)
