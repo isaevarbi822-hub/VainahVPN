@@ -50,6 +50,8 @@ object ServerListVisual {
         info: ServerRowInfo,
         latency: String,
         isSelected: Boolean,
+        isFavorite: Boolean = false,
+        onFavoriteClick: (() -> Unit)? = null,
         onClick: () -> Unit,
     ): View {
         val full = LinearLayout(context).apply {
@@ -106,6 +108,22 @@ object ServerListVisual {
         horizontal.addView(lag, LinearLayout.LayoutParams(
             dp(context, if (latency == "н/д") 34 else 88), -2
         ).apply { marginStart = dp(context, 4) })
+        if (onFavoriteClick != null) {
+            val star = TextView(context).apply {
+                text = if (isFavorite) "★" else "☆"
+                textSize = 25f
+                setTextColor(if (isFavorite) accent else muted)
+                gravity = Gravity.CENTER
+                contentDescription = if (isFavorite)
+                    "Убрать из избранных" else "Добавить в избранное"
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { onFavoriteClick() }
+            }
+            horizontal.addView(star, LinearLayout.LayoutParams(
+                dp(context, 40), dp(context, 55)
+            ))
+        }
         val arrow = TextView(context).apply {
             text = "›"
             textSize = 29f
@@ -123,6 +141,7 @@ object ServerListVisual {
             append(", ")
             append(if (latency == "н/д") "задержка не измерена" else latency)
             if (isSelected) append(", выбран для следующего подключения")
+            if (isFavorite) append(", избранное")
         }
         full.setOnClickListener { onClick() }
         return full
