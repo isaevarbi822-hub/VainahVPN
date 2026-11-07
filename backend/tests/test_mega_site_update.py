@@ -48,7 +48,7 @@ def test_mega_site_has_complete_tools_and_no_fake_purchases():
     ):
         assert f'href="{target}"' in hub
         assert f"['{target}'" in index or target in ("plans.html", "account.html")
-    assert "Срок от 3 до 730 дней" in hub
+    assert "Срок от 2 до 730 дней" in hub
     assert "Шесть вариантов с фильтрами" not in hub
     assert "/api/site/tariffs" in js
     assert "document.createElement" in js
