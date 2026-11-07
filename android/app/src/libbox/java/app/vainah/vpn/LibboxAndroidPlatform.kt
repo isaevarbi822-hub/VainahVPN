@@ -190,6 +190,7 @@ internal class LibboxAndroidPlatform(
         return fd.fd
     }
 
+    @Synchronized
     override fun startDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
         callback?.let { runCatching { connectivity.unregisterNetworkCallback(it) } }
         callback = null
@@ -283,6 +284,7 @@ internal class LibboxAndroidPlatform(
         listener.updateDefaultInterface(name, index, metered, false)
     }
 
+    @Synchronized
     override fun closeDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
         if (interfaceListener !== listener) return
         interfaceListener = null
@@ -370,6 +372,7 @@ internal class LibboxAndroidPlatform(
 
     fun hasTun(): Boolean = tun != null
 
+    @Synchronized
     fun close() {
         interfaceListener = null
         callback?.let { runCatching { connectivity.unregisterNetworkCallback(it) } }
