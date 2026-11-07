@@ -33,11 +33,16 @@ object VpnUnderlayStatus {
         }
         val transitions = (prefs.getInt("transitions", 0) + if (old != safe && old != "none") 1 else 0)
             .coerceIn(0, 9999)
+        val journal = VpnHandoffJournal.append(
+            prefs.getString("recent_events", null),
+            VpnHandoffEvent(old, safe, event, validated),
+        )
         prefs.edit()
             .putString("transport", safe)
             .putBoolean("validated", validated)
             .putString("event", event)
             .putInt("transitions", transitions)
+            .putString("recent_events", journal)
             .commit()
     }
 
@@ -55,6 +60,18 @@ object VpnUnderlayStatus {
             ) } ?: "not_checked"
         )
     }
+
+    fun history(context: Context): List<VpnHandoffEvent> =
+        VpnHandoffJournal.parse(
+            context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+                .getString("recent_events", null)
+        )
+
+    fun reportHistory(context: Context): String =
+        VpnHandoffJournal.sanitizedReport(
+            context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+                .getString("recent_events", null)
+        )
 
     fun reset(context: Context) {
         context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
