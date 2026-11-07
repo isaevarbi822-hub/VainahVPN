@@ -25,7 +25,7 @@ def test_twelve_options_have_unique_ids_and_no_payment_secrets():
     plans = data["plans"]
     assert len(plans) == len({p["id"] for p in plans}) == 12
     assert tuple(p["id"] for p in plans) == ORDER
-    assert set(p["id"] for p in plans) == LEGACY | UPCOMING_IDS | {"trial-free"}
+    assert {p["id"] for p in plans} == LEGACY | UPCOMING_IDS | {"trial-free"}
     assert DISCOUNT_PILOT_PLAN["id"] not in {p["id"] for p in plans}
     assert plans[0]["status"] == "trial"
     assert plans[0]["price_rub"] == "0.00"
@@ -64,7 +64,7 @@ def test_upcoming_prices_visible_but_not_in_live_or_gift_checkout():
         assert plan["price_rub"].endswith(".00")
     from vainah.gift_cards import ALLOWED_GIFT_PLANS
     assert UPCOMING_IDS.isdisjoint(ALLOWED_GIFT_PLANS)
-    assert set(p["id"] for p in UPCOMING) == UPCOMING_IDS
+    assert {p["id"] for p in UPCOMING} == UPCOMING_IDS
 
 
 def test_public_api_returns_catalog_without_authentication():
