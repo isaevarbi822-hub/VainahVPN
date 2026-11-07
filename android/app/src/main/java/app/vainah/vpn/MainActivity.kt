@@ -277,7 +277,10 @@ class MainActivity : Activity() {
                 // Selection changes the NEXT connection only. Never switch a
                 // running VPN tunnel implicitly.
                 selected = node
-                if (returnHomeAfterSelection) page = Page.HOME
+                if (returnHomeAfterSelection) {
+                    serverListExpanded = index >= 8
+                    page = Page.HOME
+                }
                 render()
             }
             sheet.addView(server, LinearLayout.LayoutParams(-1, -2))
@@ -412,8 +415,7 @@ class MainActivity : Activity() {
                 13f, muted
             ).apply { setPadding(dp(13), dp(12), dp(13), dp(15)) })
         } else {
-            val selectedIndex = nodes.indexOfFirst { it.uri == selected?.uri }
-            val visible = if (serverListExpanded || selectedIndex >= 8)
+            val visible = if (serverListExpanded)
                 nodes.size else minOf(8, nodes.size)
             putServerRows(sheet, visible, false)
             if (nodes.size > 8) {
@@ -773,59 +775,80 @@ class MainActivity : Activity() {
     // Each screen reads actual subscription/service state; no invented ping,
     // traffic numbers, expiry dates or subscription-device limits.
     private fun locations(body: LinearLayout) {
-        val locationCard = card()
-        add(body, locationCard, 21)
-        add(locationCard, tag("Локации из подписки"))
-        add(locationCard, t("Доступные серверы", 20f, white, true), 9)
-        add(locationCard, t(source.sourceLabel(), 12f, grey), 9)
-        add(locationCard, t(if (nodes.isEmpty()) "Нет загруженных серверов." else
-            cacheMessage, 12f, grey), 8)
-        lastError?.let { add(locationCard, t(it, 12f, errorColor), 9) }
-        if (nodes.isEmpty()) {
-            add(locationCard, t(
-                "Добавь HTTPS-подписку или VLESS-ключ. Локации, названия " +
-                    "и доступность не подменяются демоданными.", 13f, grey), 13)
+        val ink = ServerListVisual.textColor()
+        val muted = ServerListVisual.mutedColor()
+        val sheet = ServerListVisual.sheet(this)
+        add(body, sheet, 19)
+        val header = horizontal().apply {
+            setPadding(dp(10), dp(3), dp(10), dp(12))
         }
-        for ((index, node) in nodes.withIndex()) {
-            val observation = serverProbes.firstOrNull { it.index == index }
-            val latency = observation?.takeIf { it.successes >= 2 }?.medianMs
-            val suffix = when {
-                latency != null -> " · TCP " + latency + " мс"
-                observation != null -> " · TCP недоступен/не измерен"
-                else -> ""
-            }
-            val choose = action(
-                (if (node.uri == selected?.uri) "✓  " else "") + node.label + suffix)
-            add(locationCard, choose, 8)
-            choose.setOnClickListener {
-                selected = node
-                page = Page.HOME
-                render()
-            }
+        val text = column()
+        add(text, t("Все серверы", 21f, ink, true))
+        add(text, t(
+            if (nodes.isEmpty()) "Список пока пуст"
+            else "Загружено конфигураций: ${nodes.size}",
+            12f, muted
+        ), 6)
+        header.addView(text, LinearLayout.LayoutParams(0, -2, 1f))
+        val refresh = lightAction("⟳").apply {
+            contentDescription = "Обновить список серверов"
+            textSize = 22f
+            isEnabled = !source.busy
         }
-        val refresh = action(if (source.busy) "Обновление…" else "Обновить локации", true)
-        refresh.isEnabled = !source.busy
-        add(locationCard, refresh, 17)
+        header.addView(refresh, LinearLayout.LayoutParams(dp(48), dp(48)))
         refresh.setOnClickListener { refreshServers(true) }
-        val import = action("Добавить подписку")
-        add(locationCard, import, 9)
-        import.setOnClickListener { page = Page.ACCOUNT; render() }
+        add(sheet, header)
+        add(sheet, t(
+            if (source.busy) "Загружаем подписку…"
+            else cacheMessage, 11.5f, muted
+        ).apply { setPadding(dp(13), 0, dp(13), dp(11)) })
+        lastError?.let { problem ->
+            add(sheet, t(problem, 12f, Color.rgb(172, 78, 82)).apply {
+                setPadding(dp(13), 0, dp(13), dp(12))
+            })
+        }
+        if (nodes.isEmpty()) {
+            add(sheet, t(
+                "Подписка не содержит поддерживаемых серверов или ещё не обновлена. " +
+                    "Добавь профиль VLESS/TCP/REALITY — доступные локации появятся здесь.",
+                13f, muted
+            ).apply { setPadding(dp(13), dp(10), dp(13), dp(18)) })
+        } else {
+            putServerRows(sheet, nodes.size, true)
+        }
+        val actions = horizontal().apply {
+            setPadding(dp(8), dp(12), dp(8), 0)
+        }
+        val addProfile = lightAction("+ Подписка")
+        actions.addView(addProfile, LinearLayout.LayoutParams(0, dp(48), 1f))
+        addProfile.setOnClickListener { page = Page.ACCOUNT; render() }
+        add(sheet, actions)
 
-        val note = card()
-        add(body, note, 15)
-        add(note, tag("TCP-задержка входных серверов"))
-        add(note, t(serverProbeMessage, 15f, white, true), 10)
-        add(note, t(
-            "Измеряется физическое TCP-соединение до узла: не VPN-пинг, " +
-                "не задержка REALITY, не нагрузка сервера и не гарантия подключения. " +
-                "Замеры выполняются без активного VPN после нажатия кнопки. " +
-                "Проверяются первые " + ServerTcpSelector.MAX_PROBED_NODES + " локаций.",
-            12f, grey), 9)
-        val probe = action(if (serverProbeRunning) "Проверяем TCP…" else
-            "Измерить и выбрать самый быстрый по TCP", true)
+        val measurement = column().apply {
+            background = shape(Color.WHITE, Color.WHITE, 21)
+            setPadding(dp(17), dp(18), dp(17), dp(20))
+        }
+        add(body, measurement, 16)
+        add(measurement, t("Измерение задержки", 17f, ink, true))
+        add(measurement, t(serverProbeMessage, 12f, muted), 7)
+        add(measurement, t(
+            "В списке сначала отображается «н/д». При проверке измеряется " +
+                "время установления TCP-соединения, а не пинг VPN-туннеля. " +
+                "Проверяются до ${ServerTcpSelector.MAX_PROBED_NODES} серверов " +
+                "без активного VPN.",
+            12f, muted
+        ), 9)
+        val probe = action(
+            if (serverProbeRunning) "Проверяем серверы…"
+            else "Измерить TCP и выбрать самый быстрый", true
+        ).apply {
+            setTextColor(Color.WHITE)
+            background = shape(ServerListVisual.accentColor(),
+                ServerListVisual.accentColor(), 14)
+        }
         probe.isEnabled = nodes.isNotEmpty() && !serverProbeRunning &&
             !VpnConnectionState.read(this).canDisconnect
-        add(note, probe, 13)
+        add(measurement, probe, 12)
         probe.setOnClickListener { probeServersAndChoose() }
     }
 
