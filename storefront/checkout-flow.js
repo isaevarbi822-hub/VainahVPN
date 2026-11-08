@@ -56,7 +56,7 @@
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
     try {
-      const res = await fetch(path, {cache: "no-store", signal: controller.signal, ...options});
+      const res = await fetch(path, {cache: "no-store", credentials: "same-origin", signal: controller.signal, ...options});
       let json;
       try { json = await res.json(); } catch { throw Error("Сервер вернул некорректный ответ."); }
       if (!res.ok) throw Error(typeof json.detail === "string" ? json.detail : "Ошибка сервера");
@@ -214,10 +214,15 @@
     $("shop-test-create").disabled = !state.config?.sandbox_available;
     if (state.config?.checkout_ready && state.selected) {
       const selectedPlanId = state.selected.id;
-      void checkExistingCheckout(selectedPlanId).catch(() => {
+      void checkExistingCheckout(selectedPlanId).catch(err => {
         if (state.selected?.id === selectedPlanId) {
-          message("Для проверки прежнего счёта войди в личный кабинет. " +
-            "Пока его статус неизвестен, новый счёт не создавай.");
+          if (err.message === "VERIFIED_EMAIL_REQUIRED") {
+            message("Чтобы продолжить оплату, войди по email с подтверждением кода в личном кабинете. " +
+              "После входа вернись к выбранному тарифу. Счёт не создан.");
+          } else {
+            message("Не удалось проверить предыдущий счёт. " +
+              "Пока его статус неизвестен, новый счёт не создавай.");
+          }
         }
       });
     }
@@ -284,7 +289,13 @@
           url.search || url.hash) throw Error("Недопустимый адрес платёжной формы");
       location.assign(url.href);
     } catch (err) {
-      message("Оплата не запущена: " + (err.message || "Неизвестная ошибка"));
+      if (err.message === "VERIFIED_EMAIL_REQUIRED") {
+        message("Оплата не запущена: необходимо войти в личный кабинет по email " +
+          "и подтвердить код. Затем вернись к этому тарифу и повтори переход к RollyPay. " +
+          "Новый счёт не создан.");
+      } else {
+        message("Оплата не запущена: " + (err.message || "Неизвестная ошибка"));
+      }
     } finally {
       state.busy = false;
       $("shop-buy").disabled = !state.config?.checkout_ready;
