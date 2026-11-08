@@ -16,9 +16,9 @@ from uuid import uuid4
 import httpx
 from fastapi import HTTPException, Request
 
-from .email_auth import current_email
+from .email_auth import current_email as current_signed_email
 from .email_auth import ready as email_login_ready
-from .email_delivery import email_service_ready
+from .email_delivery import email_service_ready, verified_email as telegram_verified_email
 from .h1_panel import H1PanelError, panel_settings, panel_tls_verify
 from .live_fulfillment import FulfillmentError, fulfill_paid_order_once
 from .live_ledger import LiveLedgerError, PostgresLiveOrderLedger
@@ -27,11 +27,29 @@ from .production_contracts import (
     LiveContractError,
     create_hosted_live_invoice,
 )
-from .telegram_auth import require_same_origin
+from .telegram_auth import current_user, require_same_origin
 
 IDEMPOTENCY_RE = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 )
+
+
+def current_email(request: Request) -> str | None:
+    """Resolve one verified mailbox for RollyPay/receipts across login methods.
+
+    Email and Google produce the same signed email session. Telegram provides a
+    separately signed session and needs an email link confirmed by an OTP through
+    /api/account/email/request + /api/account/email/confirm. The mapping is read
+    from PostgreSQL, never from a username, a browser field, or a Telegram claim.
+    A Telegram session without that link cannot create or inspect a live invoice.
+    """
+    direct = current_signed_email(request)
+    if direct is not None:
+        return direct
+    telegram = current_user(request)
+    if telegram is None:
+        return None
+    return telegram_verified_email(str(telegram["telegram_id"]))
 
 
 def live_account_ready() -> bool:
