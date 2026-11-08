@@ -31,14 +31,14 @@ def test_superplus_shared_layers_and_critical_routes():
         assert "ultra-experience.js?v=20261107-superplus2" in html
     home = (SITE / "index.html").read_text(encoding="utf-8")
     assert '<h1 id="home-title">' in home
-    assert "50 тарифов + пробник" in home
+    assert "75 тарифов + пробник" in home
     assert "6 тарифов + пробник" not in home
     for target in ("plans.html", "account.html", "notifications.html",
                    "gifts.html", "servers.html", "support-center.html"):
         assert f'href="{target}"' in home
     assert 'href="whats-new.html"' in home
     news = (SITE / "whats-new.html").read_text(encoding="utf-8")
-    assert "ULTRA MEGA SUPER PLUS" in news
+    assert "ОБНОВЛЁННЫЙ VAINAH VPN" in news
     assert "только в твоём браузере" in news
     assert '<main id="main"' in news
 

@@ -27,8 +27,8 @@ def test_ultra_assets_available_and_checkout_contract_unchanged():
             assert len(asset.content) > 2000
         plans = client.get("/api/shop/plans")
         assert plans.status_code == 200
-        assert len(plans.json()["items"]) == 50
-        assert client.get("/api/site/tariffs").json()["total"] == 51
+        assert len(plans.json()["items"]) == 75
+        assert client.get("/api/site/tariffs").json()["total"] == 76
     shell = (SITE / "site-shell.js").read_text("utf-8")
     for asset in ("ultra-experience.js", "ultra-experience.css"):
         assert asset in shell

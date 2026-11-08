@@ -4,10 +4,10 @@
   const pages=[
     ['index.html','Главная','Начало, новости сайта, навигация','главная'],
     ['hub.html','Центр управления','Подписки, подарки, напоминания, поддержка и статус сервисов','аккаунт управление сервисы центр'],
-    ['whats-new.html','Что нового · Ultra Plus','Темы, личный кабинет, тарифы, устройства, подарки и обновления','апдейт обновление ultra mega super plus новые функции'],
-    ['plans.html','50 платных тарифов','Поиск, сортировка и сравнение трёх планов; срок 2–730 дней','цены купить подписка тарифы mini sprint legend family ₽ 149'],
+    ['whats-new.html','Что нового','Темы, личный кабинет, тарифы, устройства, подарки и обновления','обновление новые функции'],
+    ['plans.html','75 платных тарифов','Поиск, сортировка и сравнение трёх планов; срок 2–730 дней','цены купить подписка тарифы mini sprint legend family ₽ 149'],
     ['trial.html','Пробный период · 0 ₽','1 день, 2 устройства и 10 ГБ бесплатно','пробник пробный бесплатно бесплатный тест 24 часа 10 гб'],
-    ['compare.html','Сравнение тарифов','50 платных тарифов, цена за день, срок и число устройств','разница тарифов цена за день семейные'],
+    ['compare.html','Сравнение тарифов','75 платных тарифов, цена за день, срок и число устройств','разница тарифов цена за день семейные'],
     ['assistant.html','Подобрать тариф','Помощник по сроку и количеству устройств','выбрать подобрать'],
     ['account.html','Личный кабинет','VPN, срок, заказы и история после входа по email','мой впн мой vpn продление телеграм'],
     ['checkout.html','Оформление на сайте','Выбор подписки и безопасное оформление через RollyPay','оплата роллипей касса'],
@@ -142,7 +142,7 @@
       desktop.append(a);
     }
   }
-  if(path === 'index.html'){
+  if(path === 'index.html' && !document.body.hasAttribute('data-refresh-home')){
     const mainForTrial=document.querySelector('main');
     if(mainForTrial && !mainForTrial.querySelector('.vx-trial-banner')){
       const banner=el('section','vx-trial-banner');
@@ -160,7 +160,7 @@
   }
   // Product entry points: visible even when an API endpoint is temporarily slow.
   // All links are ordinary first-party page navigations; no payment requests here.
-  if(path === 'index.html'){
+  if(path === 'index.html' && !document.body.hasAttribute('data-refresh-home')){
     const home=document.querySelector('main');
     if(home&&!home.querySelector('.vx-journeys')){
       const journeys=el('section','vx-journeys');
@@ -174,7 +174,7 @@
       const cards=el('div','vx-journeys-grid');
       const options=[
         ['trial.html','01','Попробовать бесплатно','24 часа · 2 устройства · 10 ГБ','Бесплатный доступ','trial'],
-        ['plans.html','02','Выбрать подписку','50 платных тарифов · от 2 до 730 дней','Смотреть тарифы','plans'],
+        ['plans.html','02','Выбрать подписку','75 платных тарифов · от 2 до 730 дней','Смотреть тарифы','plans'],
         ['account.html','03','Открыть мой VPN','Подписка, ключ и история заказов','Личный кабинет','account'],
         ['device-center.html','04','Настроить устройство','Инструкция для телефона или компьютера','Подключение','devices']
       ];

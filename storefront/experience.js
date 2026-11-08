@@ -17,9 +17,9 @@
     let cards=$$('[data-plan-days][data-plan-kopeks][data-plan-devices]',grid);
     const futureIds=new Set([]);
     const validIds=new Set(['trial-free','7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d',
-    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d']);
+    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d','personal-6d','personal-8d','personal-11d','personal-13d','personal-16d','personal-19d','personal-23d','personal-28d','personal-42d','personal-70d','personal-105d','personal-165d','personal-225d','personal-330d','personal-450d','family-3d','family-5d','family-10d','family-28d','family-35d','family-100d','family-135d','family-210d','family-300d','family-450d']);
     const paidIds=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d',
-    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d']);
+    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d','personal-6d','personal-8d','personal-11d','personal-13d','personal-16d','personal-19d','personal-23d','personal-28d','personal-42d','personal-70d','personal-105d','personal-165d','personal-225d','personal-330d','personal-450d','family-3d','family-5d','family-10d','family-28d','family-35d','family-100d','family-135d','family-210d','family-300d','family-450d']);
     const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
     function isSafe(p){
       return p&&validIds.has(p.id)&&
@@ -122,10 +122,10 @@
       headers:{Accept:'application/json'}}).then(async response=>{
       if(!response.ok)throw Error('HTTP '+response.status);
       const data=await response.json();
-      if(data.total!==51||!Array.isArray(data.plans)||data.plans.length!==51||
+      if(data.total!==76||!Array.isArray(data.plans)||data.plans.length!==76||
         !data.plans.every(isSafe)||
-        new Set(data.plans.map(p=>p.id)).size!==51||
-        data.plans.filter(p=>p.status==='existing').length!==50||
+        new Set(data.plans.map(p=>p.id)).size!==76||
+        data.plans.filter(p=>p.status==='existing').length!==75||
         data.plans.filter(p=>p.status==='upcoming').length!==0||
         data.plans.filter(p=>p.status==='trial').length!==1
       )throw Error('CATALOG_MISMATCH');
@@ -135,7 +135,7 @@
       cards=newCards;
       update();
       if(loading)loading.textContent=
-        'Все 51 предложение: 50 платных тарифов и 1 бесплатный пробный день. Оплата проверяется при заказе.';
+        'Все 76 предложений: 75 платных тарифов и 1 бесплатный пробный день. Оплата проверяется при заказе.';
     }).catch(()=>{
       // Keep the 6 original verified cards AND table if API is down.
       if(loading)loading.textContent=

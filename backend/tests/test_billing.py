@@ -27,8 +27,8 @@ def test_catalog_includes_all_fifty_paid_plans():
     r = client.get("/api/shop/plans")
     assert r.status_code == 200
     rows = r.json()["items"]
-    assert len(rows) == 50
-    assert len({x["id"] for x in rows}) == 50
+    assert len(rows) == 75
+    assert len({x["id"] for x in rows}) == 75
     assert [x["id"] for x in rows] == [p["id"] for p in CATALOG]
     assert [x["priceRub"] for x in rows] == [price_rub(p) for p in CATALOG]
     assert [x["priceRub"] for x in rows[:21]] == [
@@ -42,7 +42,7 @@ def test_catalog_includes_all_fifty_paid_plans():
     assert rows[11]["days"] == 3
     assert next(p for p in rows if p["id"] == "30-family")["devices"] == 6
     assert rows[0]["devices"] == 3
-    assert len(EXTRA_CATALOG) == 29
+    assert len(EXTRA_CATALOG) == 54
     assert all(row["devices"] in (3, 6) and row["days"] <= 730
                for row in rows[21:])
 

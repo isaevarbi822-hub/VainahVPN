@@ -17,8 +17,8 @@ def test_mega_routes_and_catalog_stay_server_authoritative():
     with TestClient(app) as client:
         data = client.get("/api/site/tariffs").json()
         rows = client.get("/api/shop/plans").json()["items"]
-    assert data["total"] == 51
-    assert len(rows) == data["existing_paid_count"] == 50
+    assert data["total"] == 76
+    assert len(rows) == data["existing_paid_count"] == 75
     assert data["upcoming_count"] == 0
     for plan in data["plans"]:
         if plan["status"] == "trial":
@@ -65,7 +65,7 @@ def test_mega_site_has_complete_tools_and_no_fake_purchases():
 
 def test_live_tariff_search_sort_and_compare_in_browser():
     catalog = public_tariff_catalog()
-    assert len(catalog["plans"]) == 51
+    assert len(catalog["plans"]) == 76
     harness = r"""
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 class N {
@@ -123,11 +123,11 @@ const compareButton=card=>card.children.find(c=>c.className.includes('tariff-com
  vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
  await tick();await tick();
  assert.equal(visible().length,12);
- assert.equal(root.children.length,50);
+ assert.equal(root.children.length,75);
  assert.equal(more.hidden,false);
  more.events.click();
  assert.equal(visible().length,24);
- assert.ok(status.textContent.includes('50 платных'));
+ assert.ok(status.textContent.includes('75 платных'));
  // Price sorting never changes the source catalog or checkout URLs.
  sort.value='price';sort.events.change();
  assert.equal(visible()[0].children[2].textContent,'Vainah Pulse');

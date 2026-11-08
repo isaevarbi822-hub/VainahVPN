@@ -1,4 +1,4 @@
-"""Additional 29 server-authoritative paid VPN tariffs for a 50-plan catalog.
+"""Server-authoritative additional VPN tariffs for the public catalog.
 
 Immutable plan IDs are order contract identifiers. Prices are exact integer
 kopeks; client submissions can never change amounts, days or device limits.
@@ -66,5 +66,61 @@ EXTRA_CATALOG = (
     {"id": "family-540d", "title": "Vainah Family Horizon", "days": 540,
      "kopeks": 215000, "devices": 6},
 )
+
+
+# 25 additional personal and family subscriptions; prices are integer kopeks.
+REFRESH_CATALOG = (
+    {"id": "personal-6d", "title": "Лёгкий старт", "days": 6,
+     "kopeks": 4900, "devices": 3},
+    {"id": "personal-8d", "title": "Неделя с запасом", "days": 8,
+     "kopeks": 6500, "devices": 3},
+    {"id": "personal-11d", "title": "В дорогу", "days": 11,
+     "kopeks": 8500, "devices": 3},
+    {"id": "personal-13d", "title": "Почти две недели", "days": 13,
+     "kopeks": 9500, "devices": 3},
+    {"id": "personal-16d", "title": "Свободный ритм", "days": 16,
+     "kopeks": 10200, "devices": 3},
+    {"id": "personal-19d", "title": "На каждый день", "days": 19,
+     "kopeks": 11200, "devices": 3},
+    {"id": "personal-23d", "title": "Три недели плюс", "days": 23,
+     "kopeks": 12500, "devices": 3},
+    {"id": "personal-28d", "title": "Четыре недели", "days": 28,
+     "kopeks": 13900, "devices": 3},
+    {"id": "personal-42d", "title": "Шесть недель", "days": 42,
+     "kopeks": 19900, "devices": 3},
+    {"id": "personal-70d", "title": "Десять недель", "days": 70,
+     "kopeks": 27900, "devices": 3},
+    {"id": "personal-105d", "title": "Пятнадцать недель", "days": 105,
+     "kopeks": 38900, "devices": 3},
+    {"id": "personal-165d", "title": "Долгий маршрут", "days": 165,
+     "kopeks": 48900, "devices": 3},
+    {"id": "personal-225d", "title": "Больше полугода", "days": 225,
+     "kopeks": 64900, "devices": 3},
+    {"id": "personal-330d", "title": "Почти год", "days": 330,
+     "kopeks": 93900, "devices": 3},
+    {"id": "personal-450d", "title": "Дальние горизонты", "days": 450,
+     "kopeks": 119900, "devices": 3},
+    {"id": "family-3d", "title": "Семейные выходные", "days": 3,
+     "kopeks": 5900, "devices": 6},
+    {"id": "family-5d", "title": "Семейная поездка", "days": 5,
+     "kopeks": 7900, "devices": 6},
+    {"id": "family-10d", "title": "Семья · десять дней", "days": 10,
+     "kopeks": 13900, "devices": 6},
+    {"id": "family-28d", "title": "Семья · четыре недели", "days": 28,
+     "kopeks": 27900, "devices": 6},
+    {"id": "family-35d", "title": "Семья · пять недель", "days": 35,
+     "kopeks": 31900, "devices": 6},
+    {"id": "family-100d", "title": "Семья · сто дней", "days": 100,
+     "kopeks": 65900, "devices": 6},
+    {"id": "family-135d", "title": "Семейный ритм", "days": 135,
+     "kopeks": 77900, "devices": 6},
+    {"id": "family-210d", "title": "Семейный сезон", "days": 210,
+     "kopeks": 104900, "devices": 6},
+    {"id": "family-300d", "title": "Семья · триста дней", "days": 300,
+     "kopeks": 134900, "devices": 6},
+    {"id": "family-450d", "title": "Семейный горизонт", "days": 450,
+     "kopeks": 189900, "devices": 6},
+)
+EXTRA_CATALOG = EXTRA_CATALOG + REFRESH_CATALOG
 
 EXTRA_PLAN_IDS = frozenset(plan["id"] for plan in EXTRA_CATALOG)

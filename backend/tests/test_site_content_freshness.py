@@ -34,9 +34,9 @@ def test_all_public_pages_remove_outdated_purchase_footer_and_login_label():
 
 def test_public_prices_and_marketing_describe_the_actual_fifty_plan_backend():
     catalog = public_tariff_catalog()
-    assert catalog["existing_paid_count"] == len(CATALOG) == 50
-    assert catalog["total"] == 51
-    assert len({plan["id"] for plan in CATALOG}) == 50
+    assert catalog["existing_paid_count"] == len(CATALOG) == 75
+    assert catalog["total"] == 76
+    assert len({plan["id"] for plan in CATALOG}) == 75
     assert min(plan["days"] for plan in CATALOG) == 2
     assert max(plan["days"] for plan in CATALOG) == 730
     assert min(plan["kopeks"] for plan in CATALOG) == 2500
@@ -45,19 +45,19 @@ def test_public_prices_and_marketing_describe_the_actual_fifty_plan_backend():
     with TestClient(app) as client:
         response = client.get("/api/site/tariffs")
         assert response.status_code == 200
-        assert response.json()["total"] == 51
+        assert response.json()["total"] == 76
         paid = client.get("/api/shop/plans")
         assert paid.status_code == 200
-        assert len(paid.json()["items"]) == 50
+        assert len(paid.json()["items"]) == 75
 
 
 def test_shop_and_help_no_longer_advertise_legacy_rates_or_telegram_checkout():
     expected = {
-        "checkout.html": ("50 платных тарифов", "RollyPay"),
-        "help.html": ("50 платных тарифов", "серверного каталога"),
+        "checkout.html": ("75 платных тарифов", "RollyPay"),
+        "help.html": ("75 платных тарифов", "серверного каталога"),
         "hub.html": ("Срок от 2 до 730 дней", "RollyPay"),
         "trial.html": ("25 ₽ за 2 дня", "10 ГБ"),
-        "terms.html": ("50 платных тарифов", "RollyPay"),
+        "terms.html": ("75 платных тарифов", "RollyPay"),
         "contact.html": ("центр поддержки", "@VainahSupport"),
         "troubleshooting.html": ("личный кабинет", "повторный платёж"),
     }
@@ -78,20 +78,20 @@ def test_final_fifty_plan_copy_and_live_support_are_consistent():
     """A previous content refresh left a few stale footer and fallback labels."""
     expected = {
         "index.html": (
-            "50 тарифов + пробник", "бесплатный пробный день на 10 ГБ",
+            "75 тарифов + пробник", "24 часа · 10 ГБ · 2 устройства · без карты",
         ),
         "features.html": (
-            "50 платных тарифов", "фильтры по бюджету",
+            "75 платных тарифов", "фильтры по бюджету",
         ),
-        "about.html": ("50 платными тарифами", "H1Cloud"),
-        "start.html": ("50 платных тарифов", "10 ГБ"),
+        "about.html": ("75 платными тарифами", "H1Cloud"),
+        "start.html": ("75 платных тарифов", "10 ГБ"),
         "help.html": ("support-center.html", "серверного каталога"),
-        "hub.html": ("50 платных тарифов", "Здесь отображаются заказы"),
+        "hub.html": ("75 платных тарифов", "Здесь отображаются заказы"),
         "compare.html": (
-            "50 платных тарифов доступны к оформлению",
+            "75 платных тарифов доступны к оформлению",
             "Загружаем актуальные тарифы",
         ),
-        "terms.html": ("7 ноября 2026", "50 платных тарифов"),
+        "terms.html": ("8 ноября 2026", "75 платных тарифов"),
     }
     for filename, phrases in expected.items():
         html = (SITE / filename).read_text(encoding="utf-8")

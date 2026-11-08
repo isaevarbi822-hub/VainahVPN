@@ -1,4 +1,4 @@
-"""Public catalog of 50 priced paid plans and one free trial.
+"""Public catalog of 75 priced paid plans and one free trial.
 
 All paid plans share the server billing catalog, signed RollyPay webhook
 validation, durable order ledger, and H1Cloud post-write verification.
@@ -99,7 +99,7 @@ def public_tariff_catalog() -> dict:
         "newly_launched_count": len(NEW_PLAN_IDS | ADDED_PLAN_IDS | ULTRA_PLAN_IDS),
         "trial_count": 1,
         "note": (
-            "50 платных тарифов доступны для оформления при готовности кассы "
+            "75 платных тарифов доступны для оформления при готовности кассы "
             "RollyPay и H1Cloud. VPN выдаётся только после подтверждённого "
             "платежа. Бесплатный пробный день без оплаты."
         ),

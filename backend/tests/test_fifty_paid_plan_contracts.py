@@ -28,14 +28,14 @@ KEY = "superplus50-test-" + "k" * 50
 
 
 def test_full_fifty_plan_catalog_is_a_single_authoritative_source():
-    assert len(EXTRA_CATALOG) == 29
-    assert len(CATALOG) == 50
-    assert len({p["id"] for p in CATALOG}) == 50
-    assert len({(p["days"], p["devices"]) for p in CATALOG}) == 50
+    assert len(EXTRA_CATALOG) == 54
+    assert len(CATALOG) == 75
+    assert len({p["id"] for p in CATALOG}) == 75
+    assert len({(p["days"], p["devices"]) for p in CATALOG}) == 75
     assert EXTRA_PLAN_IDS.isdisjoint(ALLOWED_GIFT_PLANS)
     data = public_tariff_catalog()
-    assert len(data["plans"]) == data["total"] == 51
-    assert data["existing_paid_count"] == 50
+    assert len(data["plans"]) == data["total"] == 76
+    assert data["existing_paid_count"] == 75
     assert data["trial_count"] == 1
     for plan in CATALOG:
         assert plan["kopeks"] > 0 and plan["kopeks"] % 100 == 0

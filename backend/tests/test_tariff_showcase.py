@@ -1,6 +1,7 @@
 """All 50 paid plans must use the verified checkout path and immutable prices."""
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -26,13 +27,13 @@ ADDED_IDS = {"mini-3d", "sprint-5d", "start-plus-21d", "balance-75d", "comfort-1
 
 def test_twenty_two_options_have_unique_ids_and_no_payment_secrets():
     data = public_tariff_catalog()
-    assert data["total"] == 51
-    assert data["existing_paid_count"] == 50
+    assert data["total"] == 76
+    assert data["existing_paid_count"] == 75
     assert data["upcoming_count"] == 0
-    assert data["newly_launched_count"] == 44
+    assert data["newly_launched_count"] == 69
     assert data["trial_count"] == 1
     plans = data["plans"]
-    assert len(plans) == len({p["id"] for p in plans}) == 51
+    assert len(plans) == len({p["id"] for p in plans}) == 76
     assert tuple(p["id"] for p in plans) == ORDER
     assert {p["id"] for p in plans} == LEGACY | NEW_IDS | ADDED_IDS | EXTRA_PLAN_IDS | {"trial-free"}
     assert DISCOUNT_PILOT_PLAN["id"] not in {p["id"] for p in plans}
@@ -128,20 +129,15 @@ def test_public_api_returns_catalog_without_authentication():
     assert "Set-Cookie" not in reply.headers
 
 
-def test_landing_fallback_prices_match_repriced_catalog():
+def test_landing_uses_live_prices_instead_of_stale_static_offers():
     html = (SITE / "index.html").read_text(encoding="utf-8")
-    for plan_id, label in (
-        ("30", "149 ₽"),
-        ("60", "239 ₽"),
-        ("90", "329 ₽"),
-        ("180", "509 ₽"),
-        ("365", "1 050 ₽"),
-        ("365-family", "1 499 ₽"),
-    ):
-        assert f'href="checkout.html?plan={plan_id}"' in html
-        assert f'<div class="ux-plan-price">{label}</div>' in html
-    assert '<div class="ux-plan-price">99 ₽</div>' not in html
-    assert "50 платных тарифов" in html
+    assert 'data-live-plan-picks' in html
+    assert 'data-live-plan-message' in html
+    assert 'href="plans.html"' in html
+    assert "75 тарифов + пробник" in html
+    script = (SITE / "live-plan-picks.js").read_text(encoding="utf-8")
+    assert "/api/site/tariffs" in script
+    assert "root.replaceChildren()" in script  # failed prices cannot remain as current
 
 
 def test_plans_page_has_progressive_legacy_fallback():
@@ -184,68 +180,18 @@ global.document={
  createElement:t=>new El(t),
  createDocumentFragment:()=>new El('fragment')
 };
-const plans=[
- ['trial-free','trial',1,0,2],
-  ['mini-3d','existing',3,29,3],['sprint-5d','existing',5,45,3],
- ['start-plus-21d','existing',21,119,3],['balance-75d','existing',75,289,3],
- ['comfort-150d','existing',150,469,3],['max-270d','existing',270,749,3],
- ['legend-730d','existing',730,1790,3],
- ['family-plus-90d','existing',90,599,6],
- ['family-pro-180d','existing',180,979,6],
- ['family-max-730d','existing',730,2690,6],
- ['7','existing',7,59,3],['14','existing',14,99,3],
- ['30','existing',30,149,3],['45','existing',45,209,3],
- ['60','existing',60,239,3],['90','existing',90,329,3],
- ['120','existing',120,419,3],['180','existing',180,509,3],
- ['365','existing',365,1050,3],['30-family','existing',30,289,6],
- ['365-family','existing',365,1499,6],
- ['pulse-2d','existing',2,25,3],
- ['flash-4d','existing',4,39,3],
- ['weekend-9d','existing',9,69,3],
- ['jump-10d','existing',10,79,3],
- ['express-12d','existing',12,89,3],
- ['boost-17d','existing',17,105,3],
- ['start-25d','existing',25,129,3],
- ['flex-35d','existing',35,179,3],
- ['focus-40d','existing',40,189,3],
- ['smart-50d','existing',50,229,3],
- ['steady-55d','existing',55,234,3],
- ['stream-65d','existing',65,269,3],
- ['prime-100d','existing',100,365,3],
- ['flow-135d','existing',135,445,3],
- ['power-210d','existing',210,609,3],
- ['advance-240d','existing',240,679,3],
- ['ultra-300d','existing',300,859,3],
- ['horizon-540d','existing',540,1390,3],
- ['family-week-7d','existing',7,99,6],
- ['family-14d','existing',14,169,6],
- ['family-21d','existing',21,229,6],
- ['family-45d','existing',45,369,6],
- ['family-60d','existing',60,449,6],
- ['family-75d','existing',75,509,6],
- ['family-120d','existing',120,729,6],
- ['family-150d','existing',150,829,6],
- ['family-240d','existing',240,1129,6],
- ['family-270d','existing',270,1259,6],
- ['family-540d','existing',540,2150,6],
-].map(([id,mode,days,rub,devices])=>({
- id,title:'Тариф '+id,status:mode,days,devices,
- price_rub:rub.toFixed(2),traffic_gb:mode==='trial'?10:undefined,
- segment:mode==='trial'?'trial':devices===6?'family':days<=21?'short':days<=120?'standard':'long',
- checkout_supported:mode==='existing',
- checkout_path:mode==='existing'?'/checkout.html?plan='+id:null
-}));
-global.fetch=async()=>({ok:true,json:async()=>({total:51,plans})});
+const plans=__CATALOG__;
+global.fetch=async()=>({ok:true,json:async()=>({total:76,plans})});
 function all(el){return [el,...el.children.flatMap(all)]}
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
  await tick();await tick();
  const items=all(root).filter(x=>x.tag==='article');
- assert.equal(items.length,50);
+ assert.equal(items.length,75);
  const links=all(root).filter(x=>x.tag==='a');
  const upcoming=items.filter(x=>all(x).some(n=>n.textContent==='В подготовке'));
- assert.equal(links.length,50);
+ assert.equal(links.length,75);
  assert.equal(upcoming.length,0);
  assert.equal(all(root).filter(x=>x.tag==='button'&&x.disabled).length,0);
  assert.ok(links.every(x=>x.href.startsWith('/checkout.html?plan=')));
@@ -253,9 +199,10 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  assert.ok(links.some(x=>x.href.endsWith('legend-730d')));
  assert.ok(links.some(x=>x.href.endsWith('family-max-730d')));
  assert.ok(links.some(x=>x.href.includes('30-family')));
- assert.ok(status.textContent.includes('50 платных'));
+ assert.ok(status.textContent.includes('75 платных'));
 })().catch(e=>{console.error(e);process.exitCode=1});
 """
+    harness = harness.replace("__CATALOG__", json.dumps(public_tariff_catalog()["plans"]))
     result = subprocess.run(
         ["node", "-e", harness, str(SITE / "tariff-catalog.js")],
         capture_output=True, text=True, check=False, timeout=15,

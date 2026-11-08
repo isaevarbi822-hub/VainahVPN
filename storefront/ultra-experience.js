@@ -58,7 +58,7 @@
     const themeTag = document.querySelector('meta[name="theme-color"]');
     if (themeTag) themeTag.setAttribute('content', {
       ocean:'#081e34',graphite:'#0b1520',sunset:'#281b2c',
-      midnight:'#101126',aurora:'#111027'
+      midnight:'#101126',aurora:'#101612'
     }[settings.theme]);
   }
   function persist() {

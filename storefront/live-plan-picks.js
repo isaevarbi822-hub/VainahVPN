@@ -29,10 +29,10 @@
       }finally{clearTimeout(timer);}
       if(!response.ok)throw Error('UNAVAILABLE');
       const result=await response.json();
-      if(result.total!==51||!Array.isArray(result.plans)||result.plans.length!==51)
+      if(result.total!==76||!Array.isArray(result.plans)||result.plans.length!==76)
         throw Error('CATALOG_MISMATCH');
       const byId=new Map(result.plans.map(p=>[p?.id,p]));
-      if(byId.size!==51)throw Error('ID_MISMATCH');
+      if(byId.size!==76)throw Error('ID_MISMATCH');
       const picks=ids.map(id=>{
         const plan=byId.get(id);
         if(!plan||plan.id!==id||plan.status!=='existing'||
