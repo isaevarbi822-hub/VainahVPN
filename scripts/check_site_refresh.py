@@ -84,11 +84,30 @@ def main():
         page.locator('video').evaluate('(v) => {v.playbackRate = 8;}')
         page.wait_for_function("() => document.querySelector('video').ended")
         assert page.locator('video').evaluate('(v) => v.error') is None
+        # Decode the shipped AAC, rather than checking only that an audio stream exists.
+        audio = page.evaluate("""async () => {
+          const response = await fetch(document.querySelector('video').currentSrc);
+          const context = new OfflineAudioContext(2, 48000, 48000);
+          const buffer = await context.decodeAudioData(await response.arrayBuffer());
+          const samples = buffer.getChannelData(0);
+          let peak = 0, energy = 0, lead = 0;
+          for (let i = 0; i < samples.length; i++) {
+            peak = Math.max(peak, Math.abs(samples[i]));
+            energy += samples[i] ** 2;
+            if (i < buffer.sampleRate / 4) lead = Math.max(lead, Math.abs(samples[i]));
+          }
+          return {duration: buffer.duration, channels: buffer.numberOfChannels,
+            peak, rms: Math.sqrt(energy / samples.length), lead};
+        }""")
+        assert abs(audio['duration'] - 30) < .05, audio
+        assert audio['channels'] == 2, audio
+        assert .01 < audio['rms'] and audio['peak'] < .99, audio
+        assert audio['lead'] < .001, audio
         page.emulate_media(reduced_motion="reduce")
         assert page.locator('.refresh-globe').evaluate('(e) => getComputedStyle(e).animationName') == 'none'
         assert not errors, errors
         browser.close()
-    print("PASS: responsive layouts, 75 tariffs, search, comparison, filters, menu, 30s video, reduced motion")
+    print("PASS: responsive layouts, 75 tariffs, search, filters, menu, 30s video, decoded stereo audio, reduced motion")
 
 
 if __name__ == "__main__":

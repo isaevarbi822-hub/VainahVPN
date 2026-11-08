@@ -33,15 +33,15 @@ def test_refresh_adds_twenty_five_distinct_personal_and_family_options():
 
 def test_intro_video_supports_mobile_streaming_and_russian_captions():
     with TestClient(app) as client:
-        clip = client.get("/assets/video/vainah-intro-30.mp4", headers={"Range": "bytes=0-63"})
+        clip = client.get("/assets/video/vainah-orbit-30.mp4", headers={"Range": "bytes=0-63"})
         assert clip.status_code == 206
         assert clip.headers["content-type"] == "video/mp4"
         assert clip.headers["accept-ranges"] == "bytes"
         assert b"ftyp" in clip.content
-        poster = client.get("/assets/video/vainah-intro-30-poster.jpg")
+        poster = client.get("/assets/video/vainah-orbit-30-poster.jpg")
         assert poster.status_code == 200
         assert poster.headers["content-type"] == "image/jpeg"
-        captions = client.get("/assets/video/vainah-intro-30-ru.vtt")
+        captions = client.get("/assets/video/vainah-orbit-30-ru.vtt")
         assert captions.status_code == 200
         assert captions.text.startswith("WEBVTT")
         assert captions.text.count(" --> ") == 6
