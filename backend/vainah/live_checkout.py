@@ -18,7 +18,8 @@ from fastapi import HTTPException, Request
 
 from .email_auth import current_email as current_signed_email
 from .email_auth import ready as email_login_ready
-from .email_delivery import email_service_ready, verified_email as telegram_verified_email
+from .email_delivery import email_service_ready
+from .email_delivery import verified_email as telegram_verified_email
 from .h1_panel import H1PanelError, panel_settings, panel_tls_verify
 from .live_fulfillment import FulfillmentError, fulfill_paid_order_once
 from .live_ledger import LiveLedgerError, PostgresLiveOrderLedger
