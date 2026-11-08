@@ -4,7 +4,7 @@
   'use strict';
   if (!document.body || document.getElementById('vx-ultra-ribbon')) return;
   const THEMES = Object.freeze({
-    aurora: ['Северное сияние', 'Фиолетовый и бирюзовый'],
+    aurora: ['Лесной свет', 'Лайм и глубокий зелёный'],
     ocean: ['Океан', 'Синий и бирюзовый'],
     graphite: ['Графит', 'Строгий тёмный'],
     sunset: ['Закат', 'Тёплый коралловый'],
@@ -95,6 +95,9 @@
   settingsButton.setAttribute('aria-label', 'Настроить оформление Vainah VPN');
   actions.append(settingsButton);
   ribbon.append(identity, actions);
+  // The home page hides the duplicate ribbon; keep its settings reachable.
+  const homeActions = document.querySelector('[data-refresh-home] .refresh-more');
+  if (homeActions) homeActions.append(settingsButton);
 
   const header = document.querySelector('body > header, body > .site-header');
   const rail = document.querySelector('.vx-utility-rail');

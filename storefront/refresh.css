@@ -37,3 +37,13 @@ html[data-vx-theme=ocean]{--fresh-accent:#9edaff}html[data-vx-theme=graphite]{--
 body footer .logo{display:inline-flex!important;flex-direction:row!important;align-items:center!important;gap:12px}
 body .vx-ultra-action[aria-current=page]{background:#d0f78710!important;border-color:var(--fresh-accent)!important;color:var(--fresh-accent)!important}
 body :is(.super-card,.super-hero,.super-notes,.super-steps>div){background:#19211b!important;border-color:var(--fresh-line)!important;color:var(--fresh-ink)}body .super-eyebrow,body .super-card>span,body .super-steps strong{color:var(--fresh-accent)!important}body .super-card p,body .super-section>p{color:var(--fresh-muted)}
+/* Keep account, checkout and preference dialogs consistent with the shared theme. */
+body :is(.shop-panel,.shop-plan,.shop-notice,.account-hero,.account-profile,.account-auth,.account-auth-method,.account-alt-private,.account-metric,.account-summary,.account-quick-nav,.account-qr-panel,.vx-ultra-dialog,.vx-finder){background:#19211b!important;border-color:var(--fresh-line)!important;color:var(--fresh-ink);box-shadow:none!important}
+body .account-hero:after{border-color:#d0f78715;box-shadow:none}
+body .account-avatar,body .account-auth-buttons .auth-primary{background:var(--fresh-accent)!important;color:#192015!important}
+body :is(.account-auth-choice button,.account-auth-buttons button,.account-auth-buttons a,.vx-ultra-theme,.vx-ultra-compact){background:#111a14;border-color:#ffffff29;color:var(--fresh-ink)}
+body .account-auth-choice button[aria-selected=true],body .shop-plan[aria-pressed=true]{background:#d0f78710!important;border-color:var(--fresh-accent)!important;box-shadow:inset 0 0 0 1px var(--fresh-accent)!important}
+body .shop-plan .price,body .tiny-tag{color:var(--fresh-accent)}
+body .refresh-more{align-items:center}.refresh-more .vx-ultra-settings{background:transparent;color:var(--fresh-accent);border:1px solid #ffffff29;min-height:44px;border-radius:9px;padding:10px 14px}
+body .vx-ultra-dialog{max-width:min(680px,calc(100vw - 24px));max-height:85dvh;overflow-y:auto}
+@media(max-width:600px){body :is(input:not([type=checkbox]):not([type=radio]),select,textarea){font-size:16px!important}body .shop-plans{grid-template-columns:1fr}body .shop-plan{padding:18px}body .shop-plan strong{font-size:16px}body .shop-plan .price{font-size:25px}body .vx-ultra-actions{display:flex;flex-wrap:wrap!important;overflow-x:visible;gap:6px}body .vx-ultra-actions>*{flex:1 1 calc(33.333% - 6px);min-height:44px;padding-inline:5px;font-size:10px;white-space:normal}body .account-hero{padding:26px 22px}body .account-auth{padding:22px}body .account-auth-choice{gap:6px}}

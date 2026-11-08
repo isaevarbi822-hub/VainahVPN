@@ -57,11 +57,30 @@ def main():
         menu.click()
         assert menu.get_attribute('aria-expanded') == 'true'
         assert page.locator('[data-mobile-nav]').is_visible()
+        # Rotation / resizing must not leave the mobile navigation open on desktop.
+        page.set_viewport_size({'width': 1024, 'height': 844})
+        assert menu.get_attribute('aria-expanded') == 'false'
+        assert page.locator('[data-mobile-nav]').is_hidden()
+        page.set_viewport_size({'width': 390, 'height': 844})
+        menu.click()
         menu.click()
         assert menu.get_attribute('aria-expanded') == 'false'
+        page.get_by_role('button', name='Настроить оформление Vainah VPN').click()
+        preferences = page.locator('dialog.vx-ultra-dialog')
+        assert preferences.is_visible()
+        preferences.get_by_label('Уменьшить анимации и эффекты').check()
+        assert page.locator('.refresh-globe').evaluate('(e) => getComputedStyle(e).animationName') == 'none'
+        preferences.get_by_role('button', name='Вернуть настройки по умолчанию').click()
+        preferences.get_by_role('button', name='Закрыть настройки').click()
+        page.locator('.refresh-more [data-vx-open-search]').click()
+        finder = page.locator('dialog.vx-finder')
+        assert finder.is_visible()
+        finder.get_by_role('searchbox').fill('тарифы')
+        assert finder.locator('a[href="plans.html"]').is_visible()
+        finder.get_by_role('button', name='Закрыть', exact=True).click()
         page.locator('[data-play-intro]').click()
         page.wait_for_function("() => document.querySelector('video').currentTime > 0.2")
-        assert page.locator('video').evaluate('(v) => v.duration') == 15
+        assert page.locator('video').evaluate('(v) => v.duration') == 30
         page.locator('video').evaluate('(v) => {v.playbackRate = 8;}')
         page.wait_for_function("() => document.querySelector('video').ended")
         assert page.locator('video').evaluate('(v) => v.error') is None
@@ -69,7 +88,7 @@ def main():
         assert page.locator('.refresh-globe').evaluate('(e) => getComputedStyle(e).animationName') == 'none'
         assert not errors, errors
         browser.close()
-    print("PASS: responsive layouts, 75 tariffs, search, comparison, filters, menu, 15s video, reduced motion")
+    print("PASS: responsive layouts, 75 tariffs, search, comparison, filters, menu, 30s video, reduced motion")
 
 
 if __name__ == "__main__":

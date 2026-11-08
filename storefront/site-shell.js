@@ -363,7 +363,7 @@
   }
   if (!document.querySelector('script[data-vx-ultra]')) {
     const script=document.createElement('script');
-    script.src='ultra-experience.js?v=20261107-superplus2';
+    script.src='ultra-experience.js?v=20261108-2';
     script.dataset.vxUltra='script';
     script.defer=true;
     document.head.append(script);

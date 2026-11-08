@@ -20,6 +20,15 @@
       });
   }
   const video = document.querySelector('[data-intro-video]');
+  const desktop = window.matchMedia('(min-width: 901px)');
+  desktop.addEventListener('change', event => {
+    if (!event.matches) return;
+    const menu = document.querySelector('[data-mobile-nav]');
+    const toggle = document.querySelector('[data-menu-button]');
+    menu?.classList.remove('open');
+    toggle?.setAttribute('aria-expanded', 'false');
+    toggle?.setAttribute('aria-label', 'Открыть меню');
+  });
   document.querySelector('[data-play-intro]')?.addEventListener('click', () => {
     if (!video) return;
     // Native controls remain available if loading or playback is refused.
