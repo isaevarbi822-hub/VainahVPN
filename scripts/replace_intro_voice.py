@@ -47,13 +47,12 @@ def main() -> None:
         parser.error(f"Unexpected source video duration: {video_duration:.2f}s")
     if audio_duration <= 0:
         parser.error("Audio has no valid duration")
-    # Small tempo adjustment preserves complete speech without abrupt cuts.
-    # Longer narration needs rewriting/re-generating to match the six scenes.
-    tempo = audio_duration / (video_duration - 0.5)
-    if not 0.85 <= tempo <= 1.15:
+    # Keep the natural ElevenLabs voice pace. For a 25-26 second narration,
+    # pad the remaining seconds with silence instead of stretching the voice.
+    if audio_duration > video_duration - 0.2:
         parser.error(
-            f"Audio is {audio_duration:.1f}s; target ~{video_duration - 0.5:.1f}s. "
-            "Please re-generate a shorter/longer narration instead of clipping words."
+            f"Audio is {audio_duration:.1f}s, longer than the video safe limit "
+            f"({video_duration - 0.2:.1f}s). Regenerate a shorter narration."
         )
     if args.output.exists():
         parser.error(f"Output already exists: {args.output}")
@@ -62,7 +61,7 @@ def main() -> None:
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-n",
          "-i", str(args.video), "-i", str(args.audio),
          "-map", "0:v:0", "-map", "1:a:0",
-         "-c:v", "copy", "-af", f"atempo={tempo:.6f},aresample=48000",
+         "-c:v", "copy", "-af", "aresample=48000,apad",
          "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
          "-ac", "2", "-t", f"{video_duration:.3f}",
          "-movflags", "+faststart", str(args.output)],
