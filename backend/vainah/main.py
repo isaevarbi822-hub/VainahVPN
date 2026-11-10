@@ -201,6 +201,26 @@ async def security_headers(request: Request, call_next):
     return response
 
 
+@app.get("/robots.txt", include_in_schema=False)
+async def public_robots_txt():
+    """Serve crawl rules consistently with a short, explicit cache lifetime."""
+    return FileResponse(
+        STORE_DIR / "robots.txt",
+        media_type="text/plain",
+        headers={"Cache-Control": "public, max-age=300, must-revalidate"},
+    )
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def public_sitemap_xml():
+    """Serve the canonical public sitemap without exposing account endpoints."""
+    return FileResponse(
+        STORE_DIR / "sitemap.xml",
+        media_type="application/xml",
+        headers={"Cache-Control": "public, max-age=300, must-revalidate"},
+    )
+
+
 class ImportRequest(BaseModel):
     content: str = Field(min_length=1, max_length=65536)
 
