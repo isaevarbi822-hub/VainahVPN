@@ -63,6 +63,6 @@ def test_operator_csv_export_is_aggregate_only_and_disabled_until_auth():
     assert 'credentials: "same-origin"' in js
     assert "Number.isInteger(data[field])" in js
     assert "lastReport.counters" in js
-    assert 'link.download="vainahvpn-orders-summary-"+"' in js
+    assert 'link.download="vainahvpn-orders-summary-"+lastReport.checked_at' in js
     assert "localStorage" not in js
     assert "sessionStorage" not in js
