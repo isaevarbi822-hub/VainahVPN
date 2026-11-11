@@ -137,7 +137,8 @@ def test_landing_uses_live_prices_instead_of_stale_static_offers():
     assert "75 тарифов + пробник" in html
     script = (SITE / "live-plan-picks.js").read_text(encoding="utf-8")
     assert "/api/site/tariffs" in script
-    assert "root.replaceChildren()" in script  # failed prices cannot remain as current
+    assert "root.replaceChildren(fallback)" in script  # failed prices are removed
+    assert "link.href='plans.html'" in script  # neutral fallback without prices
 
 
 def test_plans_page_has_progressive_legacy_fallback():

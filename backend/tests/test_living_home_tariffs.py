@@ -67,8 +67,12 @@ const deep=node=>[node,...node.children.flatMap(deep)];
  tamper=true;refresh.events.click();
  await tick();await tick();
  assert.equal(fetches,2);
- assert.equal(root.children.length,0);
- assert.ok(message.textContent.includes('недоступен'));
+ assert.equal(root.children.length,1);
+ const fallbackLinks=deep(root).filter(n=>n.tagName==='A');
+ assert.equal(fallbackLinks.length,1);
+ assert.equal(fallbackLinks[0].href,'plans.html');
+ assert.ok(!deep(root).some(n=>n.className==='vx-pick-price'));
+ assert.ok(message.textContent.includes('недоступна'));
  assert.equal(refresh.disabled,false);
 })().catch(e=>{console.error(e);process.exitCode=1});
 """

@@ -7,7 +7,7 @@
   const refresh=document.querySelector('[data-live-plan-refresh]');
   if(!root||!message)return;
   const ids=['pulse-2d','mini-3d','30','90','family-plus-90d','legend-730d'];
-  const staticSite=location.origin==='https://vainahvpn.onrender.com';
+  const staticSite=typeof location!=='undefined' && location.origin==='https://vainahvpn.onrender.com';
   const publicApi=staticSite?'https://vainahvpn-python-preview.onrender.com':'';
   const checkoutMessage=document.querySelector('[data-checkout-message]');
   if(checkoutMessage)checkoutMessage.textContent=
