@@ -7,6 +7,11 @@
   const refresh=document.querySelector('[data-live-plan-refresh]');
   if(!root||!message)return;
   const ids=['pulse-2d','mini-3d','30','90','family-plus-90d','legend-730d'];
+  const staticSite=location.origin==='https://vainahvpn.onrender.com';
+  const publicApi=staticSite?'https://vainahvpn-python-preview.onrender.com':'';
+  const checkoutMessage=document.querySelector('[data-checkout-message]');
+  if(checkoutMessage)checkoutMessage.textContent=
+    'Статус RollyPay проверяется на странице оформления. До подтверждения заказа деньги не списываются.';
   const escape=(tag,value,cls='')=>{
     const node=document.createElement(tag);node.textContent=String(value);
     if(cls)node.className=cls;return node;
@@ -19,10 +24,10 @@
     message.textContent='Проверяем тарифы в реальном серверном каталоге…';
     try{
       const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),8000);
+      const timer=setTimeout(()=>controller.abort(),18000);
       let response;
       try{
-        response=await fetch('/api/site/tariffs',{
+        response=await fetch(publicApi+'/api/site/tariffs',{
           method:'GET',cache:'no-store',credentials:'omit',redirect:'error',
           headers:{Accept:'application/json'},signal:controller.signal
         });
@@ -64,9 +69,17 @@
       message.textContent='Цены получены из сервера. Выбор тарифа не списывает деньги; готовность RollyPay проверяется при оформлении.';
     }catch{
       if(turn===generation){
-        root.replaceChildren();
-        message.textContent=
-          'Свежий каталог недоступен. Открой страницу тарифов, чтобы проверить цену и доступность оформления.';
+        const fallback=document.createElement('article');
+        fallback.className='vx-pick';
+        const title=escape('h3','Уточнить актуальные тарифы');
+        const details=escape('p',
+          'Серверный каталог временно недоступен. Цена и готовность оплаты уточняются при оформлении.',
+          'vx-pick-details');
+        const link=escape('a','Открыть страницу тарифов ↗','vx-pick-link');
+        link.href='plans.html';
+        fallback.append(title,details,link);
+        root.replaceChildren(fallback);
+        message.textContent='Проверка цен сейчас недоступна. На этой странице цены не подменяются приблизительными.';
       }
     }finally{if(turn===generation&&refresh)refresh.disabled=false;}
   }

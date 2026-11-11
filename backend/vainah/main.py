@@ -155,6 +155,18 @@ async def security_headers(request: Request, call_next):
             "img-src 'self' data:; connect-src 'self'; object-src 'none'; "
             "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )
+    # Public pricing is readable from the static CDN, never authenticated API.
+    # A single origin and a single read-only path are exposed. No cookies,
+    # wildcards, credentials or write methods are permitted cross-origin.
+    if (
+        request.method == "GET"
+        and request.url.path == "/api/site/tariffs"
+        and request.headers.get("origin") == "https://vainahvpn.onrender.com"
+    ):
+        response.headers["Access-Control-Allow-Origin"] = (
+            "https://vainahvpn.onrender.com"
+        )
+        response.headers["Vary"] = "Origin"
     # Browser caches can preserve disabled Telegram Login JavaScript after deploy.
     # Auth pages and scripts always need the currently deployed revision.
     if request.url.path.startswith("/api/"):

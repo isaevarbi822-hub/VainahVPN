@@ -9,6 +9,8 @@
   const recent = el("ops-recent");
   const token = el("ops-sandbox");
   const pilot = el("ops-pilot");
+  const exportButton = el("ops-export");
+  let lastReport = null;
   const safe = value => String(value ?? "—");
   const indicators = [
     ["total_orders", "Заказов всего"],
@@ -23,6 +25,13 @@
     ["expiry_snapshot_past", "Снимок срока уже прошёл"],
   ];
   function draw(data) {
+    lastReport = {
+      checked_at: new Date().toISOString(),
+      counters: indicators.map(([field, label]) => [
+        label, Number.isInteger(data[field]) && data[field]>=0 ? data[field] : ""
+      ])
+    };
+    exportButton.disabled = false;
     metrics.replaceChildren();
     for (const [field, label] of indicators) {
       const cell = document.createElement("div");
@@ -67,6 +76,8 @@
       return;
     }
     button.disabled = true;
+    lastReport = null;
+    exportButton.disabled = true;
     root.hidden = true;
     status.textContent = "Читаем состояния заказов без изменения платежей…";
     try {
@@ -92,8 +103,25 @@
       button.disabled = false;
     }
   });
+  exportButton.addEventListener("click", () => {
+    if (!lastReport || !Array.isArray(lastReport.counters)) return;
+    // Export only approved aggregate metrics, never order IDs or tokens.
+    const rows = [["Показатель", "Количество"], ["Проверено (UTC)", lastReport.checked_at],
+      ...lastReport.counters];
+    const csv = "\uFEFF" + rows.map(row=>row.map(value=>
+      '"' + String(value).replace(/"/g,'""') + '"').join(";")).join("\r\n") + "\r\n";
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+    const link=document.createElement("a");
+    link.href=url;
+    link.download="vainahvpn-orders-summary-"+lastReport.checked_at.slice(0,10)+".csv";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
   el("ops-clear").addEventListener("click", () => {
-    token.value = "";pilot.value = "";metrics.replaceChildren();recent.replaceChildren();
+    token.value = "";pilot.value = "";lastReport = null;
+    exportButton.disabled = true;metrics.replaceChildren();recent.replaceChildren();
     root.hidden = true;status.textContent = "Токены очищены.";
   });
 })();
