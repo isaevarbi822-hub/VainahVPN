@@ -1,6 +1,45 @@
 /* Vainah VPN shared site shell: no account data, no external calls, no payment actions. */
 (function(){
   'use strict';
+  // Public static pages live on the CDN; customer data and payments must stay
+  // on the original same-origin Python backend. Do not proxy session cookies,
+  // OAuth callbacks or payment requests through the static site.
+  const staticOrigin='https://vainahvpn.onrender.com';
+  const accountOrigin='https://vainahvpn-python-preview.onrender.com';
+  if(window.location.origin===staticOrigin){
+    const backendPages=new Set([
+      '/account.html','/checkout.html','/trial.html',
+      '/hub.html','/my-devices.html','/notifications.html',
+      '/gifts.html','/gift-cards.html','/support-center.html',
+      '/support-operator.html','/operator-pilot.html','/operations.html',
+      '/payment-return.html','/checkout-return.html',
+      '/network-check.html','/connection-monitor.html',
+      '/status.html'
+    ]);
+    const toBackend=url=>accountOrigin+url.pathname+url.search+url.hash;
+    const currentUrl=new URL(window.location.href);
+    if(backendPages.has(currentUrl.pathname)||currentUrl.pathname.startsWith('/api/')){
+      window.location.replace(toBackend(currentUrl));
+      return;
+    }
+    document.addEventListener('click',event=>{
+      if(event.defaultPrevented||event.button!==0||
+         event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+      const link=event.target.closest?.('a[href]');
+      if(!link||link.target==='_blank'||link.hasAttribute('download'))return;
+      const destination=new URL(link.href);
+      if(destination.origin!==staticOrigin||
+         !(backendPages.has(destination.pathname)||destination.pathname.startsWith('/api/')))return;
+      event.preventDefault();
+      window.location.assign(toBackend(destination));
+    },true);
+    // Canonical tags are set in HTML for the key landing pages. Update
+    // remaining pages during rendering as a secondary SEO consistency measure.
+    const canonical=document.querySelector('link[rel="canonical"]');
+    if(canonical&&canonical.href.startsWith(accountOrigin+'/')){
+      canonical.href=staticOrigin+new URL(canonical.href).pathname;
+    }
+  }
   const pages=[
     ['index.html','Главная','Начало, новости сайта, навигация','главная'],
     ['hub.html','Центр управления','Подписки, подарки, напоминания, поддержка и статус сервисов','аккаунт управление сервисы центр'],
