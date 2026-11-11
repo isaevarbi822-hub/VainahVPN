@@ -20,7 +20,7 @@ def test_connection_monitor_page_is_available_and_indexable():
         assert js.status_code == 200
         assert 'src="connection-monitor.js"' in page.text
         assert ('<link rel="canonical" href="'
-                'https://vainahvpn-python-preview.onrender.com/connection-monitor.html">'
+                'https://vainahvpn.onrender.com/connection-monitor.html">'
                 ) in page.text
         for element in ("monitor-start", "monitor-stop", "monitor-copy",
                         "monitor-average", "monitor-failures", "monitor-chart"):

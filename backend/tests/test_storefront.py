@@ -65,7 +65,7 @@ def test_public_sitemap_is_valid_and_contains_existing_marketing_pages():
         assert url is not None
         parsed = urlsplit(url)
         assert parsed.scheme == "https"
-        assert parsed.netloc == "vainahvpn-python-preview.onrender.com"
+        assert parsed.netloc == "vainahvpn.onrender.com"
         if parsed.path != "/":
             assert (STORE / parsed.path.lstrip("/")).is_file()
         assert not parsed.path.startswith(("/api/", "/app"))
