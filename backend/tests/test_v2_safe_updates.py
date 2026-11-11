@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 
 from vainah.main import app
 
-
 STORE = Path(__file__).resolve().parents[2] / "storefront"
 STATIC = "https://vainahvpn.onrender.com"
 
@@ -44,7 +43,7 @@ def test_static_featured_catalog_uses_read_only_backend_with_safe_fallback():
 
 def test_homepage_has_valid_public_jsonld_and_video_stays_on_demand():
     html = (STORE / "index.html").read_text(encoding="utf-8")
-    match = re.search(r'<script type="application/ld\+json">(.+?)</script>', html, re.S)
+    match = re.search(r'<script type="application/ld\+json">(.+?)</script>', html, re.DOTALL)
     assert match
     graph = json.loads(match.group(1))
     assert graph["@context"] == "https://schema.org"
