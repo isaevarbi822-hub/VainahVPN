@@ -15,12 +15,12 @@ def test_public_robots_and_sitemap_are_fetchable():
         assert "Allow: /" in rules
         assert "Disallow: /" not in rules
         assert "Disallow: /api/" in rules
-        assert "Sitemap: https://vainahvpn-python-preview.onrender.com/sitemap.xml" in rules
+        assert "Sitemap: https://vainahvpn.onrender.com/sitemap.xml" in rules
 
         sitemap = client.get("/sitemap.xml")
         assert sitemap.status_code == 200
         assert sitemap.headers["content-type"].startswith("application/xml")
-        assert "https://vainahvpn-python-preview.onrender.com/" in sitemap.text
+        assert "https://vainahvpn.onrender.com/" in sitemap.text
         assert "/api/" not in sitemap.text
         assert "account.html" not in sitemap.text
         assert "checkout.html" not in sitemap.text
@@ -31,4 +31,4 @@ def test_homepage_is_not_marked_noindex():
         response = client.get("/")
         assert response.status_code == 200
         assert "noindex" not in response.headers.get("x-robots-tag", "").lower()
-        assert '<link rel="canonical" href="https://vainahvpn-python-preview.onrender.com/">' in response.text
+        assert '<link rel="canonical" href="https://vainahvpn.onrender.com/">' in response.text

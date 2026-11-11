@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from vainah.main import app
 
-BASE = "https://vainahvpn-python-preview.onrender.com"
+BASE = "https://vainahvpn.onrender.com"
 NS = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
 
