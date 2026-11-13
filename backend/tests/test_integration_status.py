@@ -65,12 +65,41 @@ def test_rollypay_probe_uses_only_a_read_only_list(monkeypatch):
     assert "Счёт" not in str(status)
 
 
-def test_webhook_secret_presence_does_not_claim_provider_delivery(monkeypatch):
+def test_webhook_secret_alone_does_not_claim_provider_delivery(monkeypatch):
     monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "private-signature-secret-key")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     status = checks.webhook_status()
     assert status["status"] == "configured"
-    assert "Реальная доставка webhook ещё не подтверждена" in status["message"]
+    assert "PostgreSQL не подключён" in status["message"]
     assert "private-signature-secret-key" not in str(status)
+
+
+def test_webhook_verified_after_signed_payment_and_delivery(monkeypatch):
+    monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "private-signature-secret-key")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://fake-local-db")
+    monkeypatch.setattr(checks, "_live_webhook_evidence", lambda _: (True, True))
+    status = checks.webhook_status()
+    assert status["status"] == "verified"
+    assert "VPN был выдан автоматически" in status["message"]
+    assert "private-signature-secret-key" not in str(status)
+
+
+def test_signed_payment_without_delivery_is_not_fully_verified(monkeypatch):
+    monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "private-signature-secret-key")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://fake-local-db")
+    monkeypatch.setattr(checks, "_live_webhook_evidence", lambda _: (True, False))
+    assert checks.webhook_status()["status"] == "received"
+
+
+def test_missing_live_proof_or_db_outage_is_not_webhook_failure(monkeypatch):
+    monkeypatch.setenv("ROLLYPAY_SIGNING_SECRET", "private-signature-secret-key")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://fake-local-db")
+    monkeypatch.setattr(checks, "_live_webhook_evidence", lambda _: (False, False))
+    assert checks.webhook_status()["status"] == "configured"
+    monkeypatch.setattr(checks, "_live_webhook_evidence", lambda _: None)
+    status = checks.webhook_status()
+    assert status["status"] == "configured"
+    assert "не означает сбой" in status["message"]
 
 
 def test_provider_checks_are_cached_and_invalidate_when_config_changes(monkeypatch):
