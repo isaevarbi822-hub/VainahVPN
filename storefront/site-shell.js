@@ -500,5 +500,21 @@
     script.defer=true;
     document.head.append(script);
   }
+  // Ultra Control: a standalone accessible task hub; only public navigation.
+  // Keeping it isolated prevents UI changes from affecting auth or payments.
+  if (!document.querySelector('link[data-vx-control]')) {
+    const style = document.createElement('link');
+    style.rel = 'stylesheet';
+    style.href = 'ultra-control.css?v=20261113-control1';
+    style.dataset.vxControl = 'style';
+    document.head.append(style);
+  }
+  if (!document.querySelector('script[data-vx-control]')) {
+    const script = document.createElement('script');
+    script.src = 'ultra-control.js?v=20261113-control1';
+    script.defer = true;
+    script.dataset.vxControl = 'script';
+    document.head.append(script);
+  }
   // No timers or background API polling are created by the shared shell.
 })();
