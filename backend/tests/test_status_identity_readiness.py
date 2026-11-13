@@ -65,6 +65,6 @@ def test_universal_responsive_styles_and_asset_cache_versioning():
     assert len(pages) >= 40
     for page in pages:
         html = page.read_text(encoding="utf-8")
-        assert 'refresh.css?v=20261113-universal1' in html
+        assert 'refresh.css?v=20261113-ultra3' in html
         if 'src="experience.js' in html:
             assert 'experience.js?v=20261113-status1' in html
