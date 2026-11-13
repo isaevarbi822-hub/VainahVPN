@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0b1220">
+<title>Vainah Check — диагностика VPN и состояние сервисов</title>
+<meta name="description" content="Безопасная диагностика Vainah VPN: API, подписка, статус H1Cloud и проверка задержки до сайта.">
+<link rel="stylesheet" href="/connection-check.css?v=1">
+<script src="/connection-check.js?v=1" defer></script>
+<script src="/diagnostic-rules.js?v=20261106-1" defer></script>
+<script src="/diagnostic-advisor.js?v=20261106-1" defer></script>
+<link rel="stylesheet" href="refresh.css?v=20261113-ultra3"><script src="refresh.js?v=20261108-2" defer></script><link rel="stylesheet" href="ultra-control.css?v=20261113-control1">
+</head>
+<body>
+<a href="#main" class="skip">Перейти к содержанию</a>
+<header class="top"><a href="/index.html" class="brand">VAINAH <em>VPN</em></a><nav aria-label="Навигация"><a href="/account.html">Кабинет</a><a href="/status.html">Статус</a><a href="/support-center.html">Поддержка</a></nav></header>
+<main id="main" class="wrap">
+<div class="hero">
+  <span class="eyebrow">VAINAH VPN · САМОДИАГНОСТИКА</span>
+  <h1>Vainah <span>Check</span></h1>
+  <p>Проверяем только то, что действительно можно подтвердить: ответ сайта и API, состояние интеграций, а после входа — оплаченный профиль H1Cloud. VPN-ключ, пароль и платёжные данные вводить не нужно.</p>
+  <div class="actions"><button type="button" id="check-run" class="primary">Проверить инфраструктуру</button><button type="button" id="check-account">Проверить мою подписку</button></div>
+  <p id="check-updated" class="meta" role="status" aria-live="polite">Нажми кнопку проверки, чтобы получить текущие данные.</p>
+</div>
+<section class="panel" aria-labelledby="infra-title">
+ <div class="head"><div><span class="eyebrow">01 / СЕРВИСЫ</span><h2 id="infra-title">Состояние системы</h2></div><span id="infra-overall" class="pill">Нет данных</span></div>
+ <p class="small">Успешный ответ API не доказывает, что VPN-туннели, конкретные серверы или платежи проходят без ошибок. Результаты H1Cloud/RollyPay могут кешироваться до 3 минут.</p>
+ <div id="infra-list" class="results" aria-live="polite"><p class="empty">Проверка не запускалась.</p></div>
+</section>
+<section class="panel" aria-labelledby="account-title">
+ <div class="head"><div><span class="eyebrow">02 / МОЯ ПОДПИСКА</span><h2 id="account-title">Диагностика подключения</h2></div><span id="account-state" class="pill">Вход необходим</span></div>
+ <p class="small">Проверка доступна после входа по подтверждённой почте или Telegram. Она не проверяет сам VPN-туннель на твоём телефоне или компьютере.</p>
+ <div id="account-result" class="results" aria-live="polite"><p class="empty">Нажми «Проверить мою подписку».</p></div>
+ <div class="actions"><a href="/account.html">Открыть личный кабинет</a><a href="/support-center.html">Сообщить о проблеме</a></div>
+</section>
+<section class="panel" aria-labelledby="browser-title">
+ <div class="head"><div><span class="eyebrow">03 / МОЯ СЕТЬ</span><h2 id="browser-title">Доступность сайта</h2></div><span id="browser-state" class="pill">Не измерено</span></div>
+ <p class="small">Измеряется время ответа <strong>сайта на Render</strong> из этого браузера. Это не пинг VPN-сервера и не скорость VPN.</p>
+ <button type="button" id="browser-run">Измерить ответ сайта</button>
+ <p id="browser-result" class="meta" role="status" aria-live="polite">Пока нет измерения.</p>
+</section>
+<section class="panel" aria-labelledby="server-title">
+ <div class="head"><div><span class="eyebrow">04 / АВТОВЫБОР</span><h2 id="server-title">Умный сервер</h2></div><span id="server-state" class="pill">Проверяем поддержку</span></div>
+ <p id="server-result" class="small" role="status" aria-live="polite">Пока нет проверенных замеров задержки и нагрузки серверов.</p>
+ <a href="/servers.html">Список локаций</a>
+</section>
+<section id="advisor" class="panel" aria-labelledby="advisor-title">
+  <div class="head">
+    <div><span class="eyebrow">05 / УМНАЯ ДИАГНОСТИКА</span><h2 id="advisor-title">Помощник по подключению</h2></div>
+    <span class="pill">Без VPN-ключей</span>
+  </div>
+  <p class="small">Выбери проблему и устройство. Помощник сверит доступные данные аккаунта и API, измерит время ответа сайта Render и предложит реальные шаги. Сам VPN-туннель из браузера проверить невозможно.</p>
+  <div class="advisor-fields">
+    <label>Что не работает?
+      <select id="advisor-symptom">
+        <option value="cannot_connect">VPN не подключается</option>
+        <option value="slow">Скорость VPN низкая</option>
+        <option value="import">Ошибка импорта подписки</option>
+        <option value="no_internet">Нет интернета</option>
+        <option value="payment">Оплатил, но подписка не появилась</option>
+        <option value="disconnect">VPN отключается сам</option>
+      </select>
+    </label>
+    <label>Моё устройство
+      <select id="advisor-platform">
+        <option value="android">Android</option>
+        <option value="windows">Windows</option>
+        <option value="macos">macOS</option>
+        <option value="ios">iOS / iPadOS</option>
+        <option value="other">Другой клиент</option>
+      </select>
+    </label>
+  </div>
+  <div class="actions">
+    <button type="button" class="primary" id="advisor-run">Найти возможную причину</button>
+    <button type="button" id="advisor-copy" disabled>Скопировать отчёт для поддержки</button>
+    <a href="/support-center.html">Открыть поддержку</a>
+  </div>
+  <p id="advisor-progress" class="meta" role="status" aria-live="polite">Выбери проблему и запусти диагностику.</p>
+  <div id="advisor-result" class="advisor-result" aria-live="polite"><p class="empty">Рекомендации появятся после проверки.</p></div>
+</section>
+<div class="footnote">Результаты показываются только в этой вкладке и не сохраняются в браузере. Если H1Cloud не отвечает, не покупай подписку повторно только из-за ошибки проверки.</div>
+</main>
+<footer>© 2026 Vainah VPN · Твоё соединение. Твои правила.</footer>
+<script src="ultra-control.js?v=20261113-control1" defer></script>
+</body>
+</html>

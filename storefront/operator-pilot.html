@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#0b1020">
+  <title>Закрытый пилот оплаты — Vainah VPN</title>
+  <link rel="stylesheet" href="/operator-pilot.css">
+  <script src="/operator-pilot.js" defer></script>
+<link rel="stylesheet" href="refresh.css?v=20261113-ultra3"><script src="refresh.js?v=20261108-2" defer></script><link rel="stylesheet" href="ultra-control.css?v=20261113-control1">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a href="/" class="logo">Vainah <span>VPN</span></a>
+      <span class="mode">Операторский доступ · до 3 счетов</span>
+    </header>
+    <section class="hero">
+      <p class="eyebrow">РОЛЛYPAY · ЗАКРЫТАЯ ПРОВЕРКА</p>
+      <h1>Контрольная оплата Vainah VPN</h1>
+      <p>Закрытый пилот: один исходный счёт на 99 ₽ и до двух последовательных тестовых счетов на 10 ₽ за 1 день. Каждый следующий счёт — только после подтверждения, что предыдущий завершён. Это не Sandbox. Публичные продажи выключены.</p>
+    </section>
+
+    <section class="card">
+      <h2>1. Подтверждённый вход</h2>
+      <p id="account-status" aria-live="polite">Проверяем вход по электронной почте…</p>
+      <a href="/account.html" class="link">Войти или сменить аккаунт</a>
+    </section>
+
+    <section class="card">
+      <h2>2. Доступ оператора</h2>
+      <p>Введи два разных токена из Render. Значения не сохраняются на сайте или в браузерном хранилище. Не отправляй их в чат.</p>
+      <div class="fields">
+        <label for="operator-token">Операторский токен <small>VAINAH_SANDBOX_TEST_TOKEN</small></label>
+        <input id="operator-token" type="password" autocomplete="off" spellcheck="false" maxlength="256" placeholder="Введите операторский токен">
+        <label for="pilot-token">Токен закрытого пилота <small>VAINAH_LIVE_PILOT_OPERATOR_TOKEN</small></label>
+        <input id="pilot-token" type="password" autocomplete="off" spellcheck="false" maxlength="256" placeholder="Введите токен пилота">
+      </div>
+      <button type="button" id="check-button" class="button">Проверить статус пилота</button>
+      <div class="result" id="pilot-status" role="status" aria-live="polite">Здесь показывается состояние исходного счёта на 99 ₽.</div>
+    </section>
+
+    <section class="card purchase">
+      <h2>3. Контрольный платёж</h2>
+      <div class="price"><strong>99 ₽</strong><span>30 дней · до 3 устройств</span></div>
+      <p>Создание счёта не списывает деньги автоматически, но ведёт к настоящей платёжной странице RollyPay. Не создавай счёт повторно при ошибке: система разрешает только один пилотный заказ.</p>
+      <button type="button" id="create-button" class="button primary" disabled>Создать один реальный счёт — 99 ₽</button>
+      <p id="checkout-result" role="status" aria-live="polite">Сначала проверь вход и состояние пилота.</p>
+    </section>
+
+    <section class="card purchase">
+      <h2>4. Тестовые счета за 10 ₽ · до двух</h2>
+      <div class="price"><strong>10 ₽</strong><span>1 день · до 3 устройств</span></div>
+      <p>Первый тест на 10 ₽ доступен после подтверждённой отмены или истечения счёта на 99 ₽. Второй — когда первый тестовый счёт оплачен и VPN выдан либо RollyPay подтвердил отмену или истечение. Нельзя создать несколько одновременно. Шлюз может не поддерживать сумму 10 ₽. Создание счёта не списывает деньги.</p>
+      <button type="button" id="discount-button" class="button primary" disabled>Создать следующий счёт — 10 ₽</button>
+      <div class="result" id="discount-status" role="status" aria-live="polite">Сначала проверь статус пилота. Доступно до двух счетов за 10 ₽, каждый следующий после завершения предыдущего.</div>
+    </section>
+
+    <p class="footer">Токены передаются только на защищённые API Vainah VPN. Платёж проводится на официальной странице RollyPay. Возникла ошибка? Не повторяй создание счёта и проверь статус заказа.</p>
+  </main>
+<script src="ultra-control.js?v=20261113-control1" defer></script>
+</body>
+</html>

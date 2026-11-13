@@ -1,0 +1,40 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1220">
+<meta name="description" content="Приватные заявки в поддержку Vainah VPN с историей и ответами оператора.">
+<link rel="canonical" href="https://vainahvpn.onrender.com/support-center.html">
+<title>Центр поддержки — Vainah VPN</title>
+<link rel="stylesheet" href="site-shell.css?v=20261107-superplus2"><link rel="stylesheet" href="support-center.css">
+<script src="site-shell.js?v=20261113-ultra4" defer></script><script src="support-center.js?v=20261106-support-bundle-v2" defer></script>
+<link rel="stylesheet" href="refresh.css?v=20261113-ultra3"><script src="refresh.js?v=20261108-2" defer></script></head><body class="vx-support">
+<header class="vs-top"><a class="vs-logo" href="index.html">VAINAH <span>VPN</span></a><nav aria-label="Навигация"><a href="account.html">Мой кабинет</a><a href="tools.html">Инструменты</a><a href="contact.html">Контакты</a></nav></header>
+<main class="vs-layout">
+<span class="vs-eyebrow">VAINAH VPN · ПОДДЕРЖКА</span>
+<h1>Твои обращения</h1>
+<p class="vs-intro">Создай обращение после входа в аккаунт и проверяй его статус здесь. Не нужно указывать email или Telegram ID. Сообщения видит только уполномоченный оператор. Можно включить уведомления на подтверждённую почту, когда оператор ответит. Полный текст ответа остаётся в личном кабинете.</p>
+<div class="vs-note"><strong>Безопасность:</strong> никогда не вставляй VPN-ключ, ссылку подписки, пароль или платёжные данные в обращение. Система не принимает ссылки. Если поддержка не настроена, используй <a href="https://t.me/VainahSupport" target="_blank" rel="noopener noreferrer">Telegram @VainahSupport</a>.</div>
+<p id="vs-status" class="vs-status" role="status" aria-live="polite">Проверяем доступность центра поддержки…</p>
+<section class="vs-panel" aria-labelledby="vs-new-title">
+<h2 id="vs-new-title">Новое обращение</h2>
+<form id="vs-form">
+<label for="vs-category">Тема обращения
+<select id="vs-category" required><option value="connection">Проблема подключения</option><option value="payment">Оплата и подписка</option><option value="account">Вход и аккаунт</option><option value="other">Другое</option></select>
+</label>
+<label for="vs-message">Опиши проблему (от 12 до 1500 символов)
+<textarea id="vs-message" minlength="12" maxlength="1500" rows="5" required placeholder="Например: не получается импортировать подписку на Windows. Ошибка в приложении…"></textarea>
+</label>
+<label class="vs-notify-label" for="vs-notify-email">
+<input id="vs-notify-email" type="checkbox">
+<span>Уведомить меня на подтверждённую почту, когда поддержка ответит. В письме будет только ссылка на кабинет, без VPN-ключей.</span>
+</label>
+<p id="vs-notify-hint" class="vs-muted">Можно включить уведомления и для уже созданных заявок в истории ниже. Для Telegram почту сначала нужно подтвердить в личном кабинете.</p>
+<div class="vs-form-bottom"><span id="vs-counter" aria-live="polite">0 / 1500</span><button type="submit" id="vs-submit" disabled>Отправить обращение</button></div>
+</form>
+<p class="vs-muted">Не более трёх обращений за 24 часа на один подтверждённый аккаунт. Заявки хранятся в PostgreSQL, а не в памяти браузера.</p>
+</section>
+<section class="vs-panel" aria-labelledby="vs-history-title">
+<div class="vs-section-head"><h2 id="vs-history-title">История и ответы</h2><button id="vs-refresh" type="button" disabled>↻ Обновить</button></div>
+<div id="vs-tickets" class="vs-tickets" aria-live="polite"><p>История ещё не загружена.</p></div>
+</section>
+</main><footer class="vs-foot">© 2026 Vainah VPN · Твоё соединение. Твои правила.</footer>
+</body></html>

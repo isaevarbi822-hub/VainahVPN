@@ -1,0 +1,65 @@
+name: Python backend checks
+on:
+  push:
+    branches: [main, feat/python-platform-foundation, feat/unified-android-python, feat/restore-site-rollypay-checkout]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: vainah_test
+          POSTGRES_PASSWORD: test_only_local_password
+          POSTGRES_DB: vainah_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vainah_test -d vainah_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      VAINAH_TEST_DATABASE_URL: postgresql://vainah_test:test_only_local_password@127.0.0.1:5432/vainah_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install and test
+        working-directory: backend
+        run: |
+          python -m pip install -e ".[dev]"
+          python -m pytest -q
+          python -m compileall -q vainah
+          ruff check vainah tests
+      - name: Check web JavaScript syntax
+        run: |
+          node --check web/app.js
+          node --check storefront/checkout-flow.js
+          node --check storefront/site-shell.js
+          node --check storefront/experience.js
+          node --check storefront/account-dashboard.js
+          node --check storefront/speed-test.js
+          node --check storefront/network-check.js
+          node --check storefront/repair-wizard.js
+          node --check storefront/browser-check.js
+          node --check storefront/network-toolkit.js
+          node --check storefront/toolkit-ui.mjs
+          node --check storefront/command-center.mjs
+          node --check storefront/connection-monitor.js
+          node --check storefront/support-center.js
+          node --check storefront/support-operator.js
+          node --check storefront/connect.js
+          node --check storefront/my-devices.js
+          node --check storefront/account-dashboard.js
+          node --check storefront/experience.js

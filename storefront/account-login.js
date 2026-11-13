@@ -1,0 +1,225 @@
+/* Independent passwordless email login and Telegram widget on Render. */
+(() => {
+  'use strict';
+  const root=document.getElementById('account-auth-panel');
+  if(!root)return;
+  const $=selector=>root.querySelector(selector);
+  const tabs=[...root.querySelectorAll('[data-auth-tab]')];
+  const panes=[...root.querySelectorAll('[data-auth-pane]')];
+  const availability=$('[data-auth-availability]');
+  const tgStatus=$('#account-auth-status');
+  const googleLink=$('#account-google-start');
+  const googleStatus=$('#account-google-status');
+  const retry=$('#account-telegram-retry');
+  const emailForm=$('[data-auth-form="email"]');
+  const verifyForm=$('[data-auth-verify="email"]');
+  const emailField=$('#auth-email-input');
+  const codeField=$('#auth-email-code');
+  const emailMsg=$('[data-auth-message="email"]');
+  let requestedEmail='';
+  let ready=false;
+  let telegramLoading=false;
+  let telegramMounted=false;
+  let telegramOidcReady=false;
+  const errorMessages={
+    EMAIL_LOGIN_COOLDOWN:'Повторный запрос возможен позже. Проверь почту.',
+    EMAIL_LOGIN_LIMIT:'Слишком много запросов. Попробуй позже.',
+    EMAIL_LOGIN_INVALID_CODE:'Неверный или просроченный код. Проверь письмо.',
+    EMAIL_LOGIN_NOT_CONFIGURED:'Вход по почте пока не настроен на сервере.',
+    EMAIL_DELIVERY_UNAVAILABLE:'Письмо не отправлено. Проверь настройку отправителя.',
+    EMAIL_LOGIN_DATABASE_UNAVAILABLE:'Временная проблема с базой данных.',
+    INVALID_ORIGIN:'Некорректный адрес сайта. Открой кабинет на Render.'
+  };
+  function say(message){if(emailMsg)emailMsg.textContent=message;}
+  function select(method){
+    for(const tab of tabs){
+      const chosen=tab.dataset.authTab===method;
+      tab.setAttribute('aria-selected',String(chosen));
+      tab.tabIndex=chosen?0:-1;
+    }
+    for(const pane of panes)pane.hidden=pane.dataset.authPane!==method;
+    // The official third-party widget must be mounted only when its tab is visible.
+    if(method==='telegram')void initTelegram();
+  }
+  for(let i=0;i<tabs.length;i++){
+    tabs[i].addEventListener('click',()=>select(tabs[i].dataset.authTab));
+    tabs[i].addEventListener('keydown',event=>{
+      if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;
+      event.preventDefault();
+      const n=(i+(event.key==='ArrowRight'?1:tabs.length-1))%tabs.length;
+      tabs[n].focus();select(tabs[n].dataset.authTab);
+    });
+  }
+  async function api(path,body){
+    const response=await fetch(path,{
+      method:'POST',credentials:'same-origin',cache:'no-store',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw Error(data.detail||'Сервер недоступен');
+    return data;
+  }
+  if(emailForm)emailForm.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(!ready||!emailField?.value)return;
+    const button=emailForm.querySelector('button[type="submit"]');
+    button.disabled=true;
+    try{
+      requestedEmail=emailField.value.trim();
+      await api('/api/email-auth/request',{email:requestedEmail});
+      verifyForm.hidden=false;
+      codeField.hidden=false;
+      codeField.focus();
+      say('Код отправлен. Проверь входящие и спам. Он действует 10 минут.');
+    }catch(error){
+      say(errorMessages[error.message]||'Не удалось отправить код: '+error.message);
+    }finally{button.disabled=false;}
+  });
+  if(verifyForm)verifyForm.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(!ready||!requestedEmail||!codeField?.value)return;
+    const button=verifyForm.querySelector('button[type="submit"]');
+    button.disabled=true;
+    try{
+      const result=await api('/api/email-auth/verify',{
+        email:requestedEmail,code:codeField.value.trim()
+      });
+      if(!result.authenticated||!result.user)throw Error('INVALID_RESPONSE');
+      codeField.value='';
+      say('Адрес подтверждён. Вход выполнен.');
+      if(typeof window.onVainahEmailAuth==='function'){
+        window.onVainahEmailAuth(result.user);
+      }else{
+        window.location.assign('account.html');
+      }
+    }catch(error){
+      say(errorMessages[error.message]||'Не удалось подтвердить код: '+error.message);
+    }finally{button.disabled=false;}
+  });
+  async function initTelegram(){
+    if(telegramOidcReady||telegramMounted||telegramLoading)return;
+    telegramLoading=true;
+    if(retry){
+      retry.disabled=true;
+      retry.textContent='Проверяем Telegram…';
+    }
+    if(tgStatus)tgStatus.textContent='Проверяем новые и резервные способы входа Telegram…';
+    try{
+      let oidc=null;
+      try{
+        const modern=await fetch('/api/telegram-oidc/config',{
+          cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}
+        });
+        if(modern.ok)oidc=await modern.json();
+      }catch{
+        // An unavailable modern endpoint must not break configured legacy users.
+      }
+      if(oidc?.available===true){
+        const link=$('#account-telegram-oidc-start');
+        if(link)link.hidden=false;
+        const legacy=$('#account-telegram-legacy');
+        if(legacy)legacy.hidden=true;
+        telegramOidcReady=true;
+        if(tgStatus)tqMessage('Новый вход через Telegram доступен. Нажми «Продолжить с Telegram».');
+        if(retry)retry.hidden=true;
+        return;
+      }
+      const response=await fetch('/api/telegram/config',{
+        cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}
+      });
+      if(!response.ok)throw Error('Telegram API недоступен (HTTP '+response.status+').');
+      const cfg=await response.json();
+      if(!cfg.available){
+        if(tgStatus)tqMessage('Telegram-вход пока не настроен. Для нового входа нужны '+
+          'TELEGRAM_OIDC_CLIENT_ID и TELEGRAM_OIDC_CLIENT_SECRET из BotFather в Render, '+
+          'а также разрешённый адрес сайта. Пока можно войти через почту.');
+        return;
+      }
+      if(!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(cfg.bot_username||'')){
+        throw Error('Неверное имя бота в настройках сервера.');
+      }
+      if(!window.VainahTelegramWidget)throw Error('Не загрузился модуль старой кнопки Telegram.');
+      const legacy=$('#account-telegram-legacy');
+      if(legacy)legacy.hidden=false;
+      window.VainahTelegramWidget.mount({
+        container:$('#account-widget'),status:tgStatus,retry,
+        callback:'onVainahAccountAuth(user)',botUsername:cfg.bot_username
+      });
+      telegramMounted=true;
+    }catch(error){
+      if(tgStatus)tqMessage((error.message||'Неизвестная ошибка')+
+        ' Проверь сеть и нажми «Повторить», либо войди через почту.');
+    }finally{
+      telegramLoading=false;
+      if(!telegramMounted&&!telegramOidcReady&&retry){
+        retry.disabled=false;
+        retry.textContent='↻ Проверить Telegram ещё раз';
+      }
+    }
+  }
+  function tqMessage(message){
+    if(tgStatus)tgStatus.textContent=message;
+  }
+  if(retry)retry.addEventListener('click',()=>{
+    // When configured, the widget owns retry. Otherwise re-check server settings.
+    if(!telegramMounted)void initTelegram();
+  });
+  async function initGoogle(){
+    if(!googleStatus)return;
+    const params=new URLSearchParams(window.location?.search||'');
+    const errors={
+      not_configured:'Google Login пока не настроен на сервере. Используй вход по почте.',
+      invalid_state:'Сеанс входа Google истёк или был прерван. Попробуй ещё раз.',
+      cancelled:'Вход через Google отменён. Можно попробовать снова.',
+      missing_code:'Google не вернул код подтверждения. Попробуй снова.',
+      verification_failed:'Google не смог подтвердить вход. Проверь аккаунт и повтори попытку.'
+    };
+    try{
+      const response=await fetch('/api/google/config',{
+        cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}
+      });
+      if(!response.ok)throw Error('Google API временно недоступен.');
+      const config=await response.json();
+      const available=config.available===true;
+      if(googleLink)googleLink.hidden=!available;
+      const err=params.get('google_error');
+      googleStatus.textContent=err&&errors[err]
+        ?errors[err]
+        :available
+        ?'Google-вход доступен. Нажми «Продолжить с Google», затем подтверди аккаунт.'
+        :'Google-вход требует GOOGLE_CLIENT_ID и GOOGLE_CLIENT_SECRET в Render и разрешённый Redirect URI в Google Cloud.';
+    }catch(error){
+      if(googleLink)googleLink.hidden=true;
+      googleStatus.textContent=error.message||'Не удалось проверить Google-вход.';
+    }
+  }
+  async function initEmail(){
+    try{
+      const response=await fetch('/api/email-auth/config',{cache:'no-store'});
+      if(!response.ok)throw Error('Сервис входа по почте недоступен');
+      const cfg=await response.json();
+      ready=cfg.available===true;
+      if(emailField)emailField.disabled=!ready;
+      const button=emailForm?.querySelector('button[type="submit"]');
+      if(button)button.disabled=!ready;
+      const missing=Array.isArray(cfg.missing_settings)
+        ?cfg.missing_settings.filter(item=>typeof item==='string').join(', ')
+        :'';
+      say(ready
+        ?'Введи свою почту. Пришлём код для входа, пароль не нужен.'
+        :(missing?'В Render проверь переменные: '+missing:
+          'Вход по email пока не настроен.'));
+      if(availability)availability.textContent=ready
+        ?'Вход через email активен. Telegram тоже можно использовать отдельно.'
+        :'Вход по email требует подтверждённого отправителя и PostgreSQL.';
+    }catch(error){
+      say(error.message);
+      if(availability)availability.textContent='Не удалось проверить почтовую авторизацию.';
+    }
+  }
+  const requestedLogin=new URLSearchParams(window.location?.search||'').get('login');
+  if(tabs.length)select(requestedLogin==='telegram'?'telegram':requestedLogin==='google'?'google':'email');
+  void initEmail();
+  void initGoogle();
+})();

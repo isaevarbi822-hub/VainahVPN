@@ -1,0 +1,49 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1220">
+<meta name="description" content="Vainah Connect — простой интерактивный мастер подключения VPN на Android, iPhone, Windows, macOS и Linux.">
+<link rel="canonical" href="https://vainahvpn.onrender.com/connect.html">
+<title>Vainah Connect — мастер подключения VPN</title>
+<link rel="stylesheet" href="site-shell.css"><link rel="stylesheet" href="connect.css">
+<script src="site-shell.js?v=20261113-ultra4" defer></script><script src="connect.js?v=20261113-device3" defer></script>
+<link rel="stylesheet" href="refresh.css?v=20261113-ultra3"><script src="refresh.js?v=20261108-2" defer></script></head><body class="vc-body">
+<header class="vc-top"><a href="index.html" class="vc-logo">VAINAH <span>CONNECT</span></a><nav aria-label="Навигация">
+<a href="account.html">Мой VPN</a><a href="tools.html">Все инструменты</a><a href="support-center.html">Поддержка</a>
+</nav></header>
+<main class="vc-main">
+<span class="vc-kicker">VAINAH VPN · МАСТЕР ПОДКЛЮЧЕНИЯ</span>
+<h1>Подключиться проще.</h1>
+<p class="vc-intro">Выбери своё устройство, получи личную ссылку или QR-код в кабинете и следуй шагам. Этот мастер не включает системный VPN автоматически — для соединения нужен совместимый VPN-клиент.</p>
+<section class="vc-panel" aria-labelledby="vc-platform-title">
+<h2 id="vc-platform-title">1. На каком устройстве подключаем VPN?</h2>
+<div class="vc-tabs" role="tablist" aria-label="Устройство">
+<button type="button" role="tab" data-vc-platform="android" aria-selected="true">Android</button>
+<button type="button" role="tab" data-vc-platform="ios" aria-selected="false">iPhone / iPad</button>
+<button type="button" role="tab" data-vc-platform="windows" aria-selected="false">Windows</button>
+<button type="button" role="tab" data-vc-platform="macos" aria-selected="false">macOS</button>
+<button type="button" role="tab" data-vc-platform="linux" aria-selected="false">Linux</button>
+</div>
+<h2 id="vc-selected-title">2. Подготовь подключение</h2>
+<p id="vc-selected-note" class="vc-intro">Все шаги выполняются на твоём устройстве.</p>
+<div class="vc-progress" id="vc-progress" role="progressbar" aria-label="Выполненные шаги" aria-valuemin="0" aria-valuemax="4" aria-valuenow="0"><span id="vc-progress-fill"></span></div>
+<p id="vc-progress-text" role="status" aria-live="polite">0 из 4 шагов отмечено</p>
+<div id="vc-steps" class="vc-steps"></div>
+<div class="vc-actions">
+<a class="vc-primary" href="account.html#account-sub-heading">Получить ссылку или QR в кабинете</a>
+<button type="button" id="vc-copy">Копировать шаги</button>
+<button type="button" id="vc-reset">Сбросить отметки</button>
+</div>
+<textarea id="vc-manual" aria-label="Инструкция для ручного копирования" readonly hidden></textarea>
+<p id="vc-action-status" role="status" aria-live="polite" class="vc-hint">Инструкции не содержат и не запрашивают твои VPN-ключи.</p>
+</section>
+<section class="vc-panel" aria-labelledby="vc-next">
+<h2 id="vc-next">3. После подключения</h2>
+<p>Проверь интернет и открытие нужных сайтов. Если соединение не устанавливается, не покупай подписку повторно: сначала проверь статус сервиса и обратись в поддержку.</p>
+<div class="vc-actions">
+<a href="network-check.html">Диагностика веб-сайта</a>
+<a href="repair-wizard.html">Мастер решения проблем</a>
+<a href="status.html">Состояние сервисов</a>
+</div>
+<p class="vc-hint">Диагностика браузера не доказывает работу VPN-туннеля. Проверять подключение нужно в самом VPN-клиенте.</p>
+</section>
+</main><footer class="vc-foot">© 2026 Vainah VPN · Твоё соединение. Твои правила.</footer></body></html>
