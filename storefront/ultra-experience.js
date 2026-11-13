@@ -206,12 +206,24 @@
   check.addEventListener('click', async () => {
     if (check.disabled) return;
     check.disabled = true;
-    results.replaceChildren(create('p', 'Проверяем API…'));
+    results.replaceChildren(create('p', 'Проверяем веб-сервисы…'));
+    // The static site does not host authenticated APIs; never mislabel
+    // an absent static route as a payment or VPN outage.
+    if (location.hostname === 'vainahvpn.onrender.com') {
+      results.replaceChildren(create('p',
+        'Статусы API проверяются на backend-домене, а не на статическом сайте.'));
+      const link = create('a', 'Открыть технический статус ↗');
+      link.href = 'https://vainahvpn-python-preview.onrender.com/status.html';
+      link.rel = 'noopener';
+      results.append(link);
+      check.disabled = false;
+      return;
+    }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), 10000);
     try {
       const response = await fetch('/api/site/services', {
-        method:'GET',credentials:'omit',cache:'no-store',redirect:'error',
+        method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error',
         headers:{Accept:'application/json'},signal:controller.signal,
       });
       if (!response.ok) throw Error('STATUS_UNAVAILABLE');
@@ -223,20 +235,30 @@
         ['database','PostgreSQL'],
         ['h1','H1Cloud API'],
         ['rollypay','RollyPay API'],
-        ['webhook','Настройка webhook'],
+        ['webhook','Подписанные webhook'],
       ]) {
-        const code = list[key]?.status;
-        const detail = key === 'webhook'
-          ? code === 'configured' ? 'Конфигурация есть; доставку платежей не проверяли' : 'Нет подтверждения'
-          : code === 'ok' ? 'API отвечает; VPN и покупки не проверялись' : 'Нет подтверждения';
+        const status = list[key]?.status;
+        let detail = 'Нет подтверждённых данных';
+        if (key === 'webhook') {
+          if (status === 'verified') detail = 'Есть подтверждённая история оплаты и выдачи VPN';
+          else if (status === 'received') detail = 'Webhook об оплате получен; выдача здесь не подтверждена';
+          else if (status === 'configured') detail = 'Подпись настроена; факт доставки не подтверждён этой проверкой';
+          else if (status === 'not_connected') detail = 'Подпись webhook не настроена';
+        } else if (status === 'ok') {
+          detail = 'API отвечает; это не проверка VPN-туннеля или новой покупки';
+        } else if (status === 'unavailable') {
+          detail = 'Связь при проверке не подтверждена';
+        } else if (status === 'not_connected') {
+          detail = 'Не настроено';
+        }
         const line = create('p', label + ': ' + detail);
-        line.dataset.state = code === 'ok' || (key === 'webhook' && code === 'configured')
+        line.dataset.state = status === 'ok' || (key === 'webhook' && status === 'verified')
           ? 'configured' : 'unknown';
         results.append(line);
       }
     } catch {
       results.replaceChildren(create('p',
-        'Не удалось получить статус сервисов. Доступность VPN и оплаты неизвестна.'));
+        'Не удалось получить ответ веб-API. Доступность VPN и оплаты остаётся неизвестной.'));
     } finally {
       clearTimeout(timer);
       check.disabled = false;
