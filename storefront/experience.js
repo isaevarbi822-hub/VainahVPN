@@ -149,35 +149,57 @@
     const button=$('[data-status-refresh]',pageStatus);
     const updated=$('[data-status-updated]',pageStatus);
     async function refreshConfig(){
+      // Each public GET reports only configuration; never claim a real login
+      // or send a code, invoke OAuth or create a support ticket here.
       const providers=[
-        ['email','/api/email-auth/config'],
-        ['google','/api/google/config'],
-        ['telegram','/api/telegram-oidc/config'],
-        ['telegram-classic','/api/telegram/config'],
-        ['support','/api/support/config'],
+        {id:'email',url:'/api/email-auth/config',badge:'Email настроен',
+          ready:'Вход по одноразовому коду настроен. Отправка и доставка писем здесь не проверяются.',
+          missing:'Вход по email пока не настроен. Обратись в поддержку.'},
+        {id:'google',url:'/api/google/config',badge:'OAuth настроен',
+          ready:'Google OAuth настроен на сервере. Успешный вход подтверждается только при авторизации.',
+          missing:'Google OAuth пока не настроен. Можно воспользоваться входом по email.'},
+        {id:'telegram',url:'/api/telegram-oidc/config',badge:'OIDC настроен',
+          ready:'Telegram OIDC настроен. Проверка авторизации через Telegram здесь не выполняется.',
+          missing:'Telegram OIDC пока недоступен. Используй другой способ входа.'},
+        {id:'telegram-classic',url:'/api/telegram/config',badge:'Widget настроен',
+          ready:'Telegram Login Widget настроен. Для реального входа также требуется разрешённый домен бота.',
+          missing:'Классический Telegram Widget не настроен. Доступны другие способы входа.'},
+        {id:'support',url:'/api/support/config',badge:'Поддержка настроена',
+          ready:'Поддержка доступна для вошедших пользователей.',
+          missing:'Сервис обращений пока не настроен. Используй страницу контактов.'},
       ];
-      await Promise.all(providers.map(async ([id,url])=>{
-        const element=$('[data-config-card="'+id+'"]',pageStatus);
+      await Promise.all(providers.map(async item=>{
+        const element=$('[data-config-card="'+item.id+'"]',pageStatus);
         if(!element)return;
         const badge=$('[data-status-label]',element);
         const detail=$('[data-status-detail]',element);
         try{
-          const result=await fetch(url,{
+          const response=await fetch(item.url,{
             method:'GET',cache:'no-store',credentials:'omit',
             headers:{Accept:'application/json'}
           });
-          if(!result.ok)throw Error('API unavailable');
-          const config=await result.json();
-          if(config.available===true){
-            badge.textContent='Настроено';badge.dataset.kind='unknown';
-            detail.textContent='Ключи/настройки обнаружены. Это не проверка реального входа.';
+          if(!response.ok)throw Error('HTTP '+response.status);
+          const config=await response.json();
+          if(!config || typeof config.available!=='boolean')throw Error('Invalid response');
+          if(config.available){
+            badge.textContent=item.badge;
+            badge.dataset.kind='configured';
+            detail.textContent=item.ready + (
+              item.id==='support' ?
+                (config.email_notifications_available===true
+                  ? ' Email-уведомления оператора настроены.'
+                  : ' Email-уведомления оператора не подтверждены.')
+                : ''
+            );
           }else{
-            badge.textContent='Не настроено';badge.dataset.kind='unknown';
-            detail.textContent='Сервис не настроен. Используй другой доступный способ.';
+            badge.textContent='Не настроено';
+            badge.dataset.kind='unknown';
+            detail.textContent=item.missing;
           }
         }catch{
-          badge.textContent='Нет данных';badge.dataset.kind='unknown';
-          detail.textContent='Не удалось проверить конфигурацию. Это не доказательство сбоя.';
+          badge.textContent='Нет данных';
+          badge.dataset.kind='unknown';
+          detail.textContent='Ответ конфигурации временно недоступен. Это не доказывает сбой сервиса.';
         }
       }));
     }
@@ -221,7 +243,7 @@
         updated.textContent='Проверено: '+new Date().toLocaleTimeString('ru-RU',{
           hour:'2-digit',minute:'2-digit'
         })+'. Подтверждённых работающих сервисов: '+okCount+' из '+checks.length+
-        '. Неподключённые сервисы не считаются неисправными.';
+        '. Настройка входа и история платежей не заменяют проверку реальной авторизации.';
       }catch(err){
         for(const id of checks){
           const element=$('[data-status-card="'+id+'"]',pageStatus);

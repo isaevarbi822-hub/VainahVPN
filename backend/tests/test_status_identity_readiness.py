@@ -23,9 +23,11 @@ def test_status_page_surfaces_all_identity_and_support_configs():
     ):
         assert f'data-config-card="{name}"' in page
         assert endpoint in script
-    assert "не означает, что реальный вход" in page
-    assert "Ключи/настройки обнаружены" in script
-    assert "Это не проверка реального входа" in script
+    assert "Настройки проверяются безопасными GET-запросами" in page
+    assert "Отправка и доставка писем здесь не проверяются" in script
+    assert "Успешный вход подтверждается только при авторизации" in script
+    assert "подтверждается только при авторизации" in script
+    assert page.count('class="vx-status-action"') == 5
     assert "void refreshConfig()" in script
 
 
@@ -48,3 +50,21 @@ def test_public_auth_readiness_does_not_disclose_secrets():
                     continue
                 assert fragment not in payload
             assert "no-store" in result.headers["cache-control"]
+
+
+def test_universal_responsive_styles_and_asset_cache_versioning():
+    css = (SITE / "refresh.css").read_text(encoding="utf-8")
+    for breakpoint in ("min-width:1440px", "max-width:1100px",
+                       "max-width:700px", "max-width:480px",
+                       "max-width:365px", "pointer:coarse"):
+        assert breakpoint in css
+    pages = [
+        p for p in SITE.glob("*.html")
+        if "refresh.css" in p.read_text(encoding="utf-8")
+    ]
+    assert len(pages) >= 40
+    for page in pages:
+        html = page.read_text(encoding="utf-8")
+        assert 'refresh.css?v=20261113-universal1' in html
+        if 'src="experience.js' in html:
+            assert 'experience.js?v=20261113-status1' in html
