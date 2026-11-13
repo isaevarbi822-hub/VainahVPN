@@ -88,7 +88,7 @@
     .replace(/айпад/g,'ipad').replace(/айфон/g,'iphone')
     .replace(/андроид/g,'android').replace(/виндовс/g,'windows')
     .replace(/макбук|макос/g,'macos')
-    .replace(/[^\\p{L}\\p{N}]+/gu,' ').replace(/\\s+/g,' ').trim();
+    .replace(/[^\p{L}\p{N}]+/gu,' ').replace(/\s+/g,' ').trim();
   const el=(tag,cls,text)=>{
     const e=document.createElement(tag);
     if(cls)e.className=cls;
@@ -446,7 +446,7 @@
     },{passive:true});
     back.addEventListener('click',()=>{
       const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      window.scrollTo({top:0,behavior:reduce?'instant':'smooth'});
+      window.scrollTo({top:0,behavior:reduce?'auto':'smooth'});
     });
     updateBack();
   }
