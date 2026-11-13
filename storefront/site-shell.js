@@ -104,6 +104,18 @@
   document.querySelectorAll('a.vainah-login').forEach(link=>{
     link.setAttribute('aria-label','Войти в личный кабинет Vainah VPN');
   });
+  // A visible search entry on every page; it opens the same local command finder.
+  const navTools=header?.querySelector('.nav-side,.header-actions');
+  if(navTools&&!navTools.querySelector('.vx-header-search')){
+    const search=el('button','vx-header-search','⌕');
+    search.type='button';
+    search.dataset.vxOpenSearch='';
+    search.setAttribute('aria-label','Искать по сайту');
+    search.title='Поиск по Vainah VPN (Ctrl+K)';
+    const menu=navTools.querySelector('.hamburger,.menu-toggle');
+    if(menu)navTools.insertBefore(search,menu);
+    else navTools.append(search);
+  }
 
   // Keep both generations of navigation usable at laptop and mobile widths.
   const extra=[
@@ -124,6 +136,13 @@
     for(const [href,label] of extra){
       if(nav.querySelector('a[href="'+href+'"]'))continue;
       const a=el('a','',label);a.href=href;nav.append(a);
+    }
+    if(!nav.querySelector('.vx-mobile-search')){
+      const search=el('button','vx-mobile-search','⌕ Поиск по сайту');
+      search.type='button';
+      search.dataset.vxOpenSearch='';
+      search.setAttribute('aria-label','Поиск по разделам сайта');
+      nav.prepend(search);
     }
   }
   // Tell visitors when their browser has lost network connectivity.
