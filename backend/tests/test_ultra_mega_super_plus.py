@@ -28,7 +28,7 @@ def test_superplus_shared_layers_and_critical_routes():
         assert "site-shell.js?v=" in html
     for filename in ("gifts.html", "notifications.html"):
         html = (SITE / filename).read_text(encoding="utf-8")
-        assert "ultra-experience.js?v=20261108-2" in html
+        assert "ultra-experience.js?v=20261113-ultra4" in html
     home = (SITE / "index.html").read_text(encoding="utf-8")
     assert '<h1 id="home-title">' in home
     assert "75 тарифов + пробник" in home
