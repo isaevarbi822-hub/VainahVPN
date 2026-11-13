@@ -86,7 +86,9 @@
     .replace(/ё/g,'е')
     .replace(/телеграмм?/g,'telegram').replace(/роллипей/g,'rollypay')
     .replace(/айпад/g,'ipad').replace(/айфон/g,'iphone')
-    .replace(/андроид/g,'android').replace(/виндовс/g,'windows');
+    .replace(/андроид/g,'android').replace(/виндовс/g,'windows')
+    .replace(/макбук|макос/g,'macos')
+    .replace(/[^\\p{L}\\p{N}]+/gu,' ').replace(/\\s+/g,' ').trim();
   const el=(tag,cls,text)=>{
     const e=document.createElement(tag);
     if(cls)e.className=cls;
@@ -329,29 +331,58 @@
   input.setAttribute('aria-controls',list.id);
   const tip=el('div','vx-finder-tip','Enter — открыть выбранный раздел · Esc — закрыть поиск');
   dialog.append(form,list,tip);document.body.append(dialog);
+  const count=el('div','vx-finder-count');
+  count.setAttribute('role','status');
+  dialog.insertBefore(count,list);
+  let selectedIndex=0;
+  let currentResults=[];
+  function activate(index){
+    const results=[...list.querySelectorAll('a.vx-finder-result')];
+    if(!results.length)return;
+    selectedIndex=(index+results.length)%results.length;
+    results.forEach((node,i)=>{
+      if(i===selectedIndex)node.dataset.current='true';
+      else delete node.dataset.current;
+    });
+    results[selectedIndex].scrollIntoView({block:'nearest'});
+  }
   function render(){
     const q=searchTerms(input.value);
-    const matched=pages.filter(([href,name,description,aliases])=>{
-      if(!q)return true;
-      return searchTerms(name+' '+description+' '+aliases).includes(q);
-    }).slice(0,15);
+    const words=q.split(' ').filter(Boolean);
+    currentResults=pages.map((page,i)=>{
+      const [href,name,description,aliases]=page;
+      const title=searchTerms(name);
+      const combined=searchTerms(name+' '+description+' '+aliases);
+      if(words.length && !words.every(word=>combined.includes(word)))return null;
+      const score=q?(title===q?100:title.startsWith(q)?60:
+        title.includes(q)?35:words.filter(w=>title.includes(w)).length*9+2):pages.length-i;
+      return {page,score,index:i};
+    }).filter(Boolean).sort((a,b)=>b.score-a.score||a.index-b.index).slice(0,18);
+    count.textContent=currentResults.length
+      ?'Найдено разделов: '+currentResults.length+(q?' · запрос: '+q:'')
+      :'Нет совпадений — попробуй другое слово.';
     list.replaceChildren();
-    if(!matched.length){
-      list.append(el('div','vx-finder-empty','Ничего не найдено. Попробуй другое слово.'));
+    if(!currentResults.length){
+      list.append(el('div','vx-finder-empty','Ничего не найдено. Проверь запрос или открой все инструменты.'));
       return;
     }
-    for(const [href,name,description] of matched){
+    selectedIndex=0;
+    for(const {page:[href,name,description]} of currentResults){
       const a=el('a','vx-finder-result');a.href=href;
       const glyph=el('span','vx-explore-icon','↗');glyph.setAttribute('aria-hidden','true');
       const body=el('span');
       body.append(el('b','',name),el('small','',description));
       a.append(glyph,body);list.append(a);
     }
+    // Keyboard focus stays in the search field; Enter opens the highlighted link.
+    const first=list.querySelector('a');
+    if(first)first.dataset.current='true';
   }
   function openFinder(){
     input.value='';render();
-    if(typeof dialog.showModal==='function'){if(!dialog.open)dialog.showModal()}
-    else dialog.setAttribute('open','');
+    if(typeof dialog.showModal==='function'){
+      if(!dialog.open)dialog.showModal();
+    }else dialog.setAttribute('open','');
     input.focus();
   }
   function closeFinder(){
@@ -365,17 +396,60 @@
   });
   input.addEventListener('input',render);
   input.addEventListener('keydown',event=>{
-    if(event.key==='Enter'){
-      const first=list.querySelector('a');
-      if(first){event.preventDefault();window.location.assign(first.href)}
+    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+      if(!currentResults.length)return;
+      event.preventDefault();
+      activate(selectedIndex+(event.key==='ArrowDown'?1:-1));
+    }else if(event.key==='Enter'){
+      const found=list.querySelectorAll('a.vx-finder-result')[selectedIndex];
+      if(found){event.preventDefault();window.location.assign(found.href)}
     }
   });
   document.addEventListener('keydown',event=>{
+    const editable=event.target.closest?.('input,textarea,select,[contenteditable="true"]');
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){
       event.preventDefault();
       if(dialog.open)closeFinder();else openFinder();
+    }else if(event.key==='/'&&!editable&&!event.altKey&&!event.metaKey&&!event.ctrlKey){
+      event.preventDefault();
+      if(!dialog.open)openFinder();
     }
   });
+
+  // Lightweight, discoverable navigation for long pages, without any API calls.
+  const privatePaths=new Set([
+    'account.html','checkout.html','support-operator.html','operator-pilot.html',
+    'operations.html','my-devices.html','notifications.html','gifts.html'
+  ]);
+  if(main&&path!=='index.html'&&!privatePaths.has(path)&&active){
+    const trail=el('nav','vx-breadcrumbs');
+    trail.setAttribute('aria-label','Путь по сайту');
+    const home=el('a','','Главная');home.href='index.html';
+    const divider=el('span','','/');
+    divider.setAttribute('aria-hidden','true');
+    trail.append(home,divider,el('span','vx-breadcrumb-current',active[1]));
+    main.before(trail);
+  }
+  if(main&&document.body.scrollHeight>0){
+    const back=el('button','vx-back-to-top','↑ Наверх');
+    back.type='button';
+    back.hidden=true;
+    back.setAttribute('aria-label','Вернуться к началу страницы');
+    document.body.append(back);
+    let ticking=false;
+    const updateBack=()=>{
+      back.hidden=window.scrollY<640;
+      ticking=false;
+    };
+    window.addEventListener('scroll',()=>{
+      if(!ticking){ticking=true;requestAnimationFrame(updateBack)}
+    },{passive:true});
+    back.addEventListener('click',()=>{
+      const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({top:0,behavior:reduce?'instant':'smooth'});
+    });
+    updateBack();
+  }
 
   // Animate elements once they are on screen: never hide content awaiting JS.
   const prefersReduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -396,13 +470,13 @@
   if (!document.querySelector('link[data-vx-ultra]')) {
     const style=document.createElement('link');
     style.rel='stylesheet';
-    style.href='ultra-experience.css?v=20261107-superplus2';
+    style.href='ultra-experience.css?v=20261113-ultra2';
     style.dataset.vxUltra='style';
     document.head.append(style);
   }
   if (!document.querySelector('script[data-vx-ultra]')) {
     const script=document.createElement('script');
-    script.src='ultra-experience.js?v=20261108-2';
+    script.src='ultra-experience.js?v=20261113-ultra2';
     script.dataset.vxUltra='script';
     script.defer=true;
     document.head.append(script);
