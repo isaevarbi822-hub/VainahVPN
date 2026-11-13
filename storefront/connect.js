@@ -37,7 +37,8 @@
     ]}
   };
   // Shareable device-specific entry point; this is a local choice, not a login.
-  const requested=new URLSearchParams(window.location.search).get('device');
+  const requested=typeof window!=='undefined' && window.location
+    ?new URLSearchParams(window.location.search).get('device'):null;
   let current=requested&&Object.hasOwn(flows,requested)?requested:'android';
   let done=new Set();
   const info=$('vc-selected-note'),heading=$('vc-selected-title');
