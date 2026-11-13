@@ -199,7 +199,11 @@
           const badge=$('[data-status-label]',element);
           const detail=$('[data-status-detail]',element);
           const item=data.services[id];
-          if(item&&item.status==='ok'){
+          if(item&&item.status==='verified'){
+            badge.dataset.kind='ok';badge.textContent='Подтверждено';okCount++;
+          }else if(item&&item.status==='received'){
+            badge.dataset.kind='unknown';badge.textContent='Webhook получен';
+          }else if(item&&item.status==='ok'){
             badge.dataset.kind='ok';badge.textContent='Проверка пройдена';okCount++;
           }else if(item&&item.status==='sandbox'){
             badge.dataset.kind='unknown';badge.textContent='Тестовый режим';
