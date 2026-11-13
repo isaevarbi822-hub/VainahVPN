@@ -47,3 +47,142 @@ body .shop-plan .price,body .tiny-tag{color:var(--fresh-accent)}
 body .refresh-more{align-items:center}.refresh-more .vx-ultra-settings{background:transparent;color:var(--fresh-accent);border:1px solid #ffffff29;min-height:44px;border-radius:9px;padding:10px 14px}
 body .vx-ultra-dialog{max-width:min(680px,calc(100vw - 24px));max-height:85dvh;overflow-y:auto}
 @media(max-width:600px){body :is(input:not([type=checkbox]):not([type=radio]),select,textarea){font-size:16px!important}body .shop-plans{grid-template-columns:1fr}body .shop-plan{padding:18px}body .shop-plan strong{font-size:16px}body .shop-plan .price{font-size:25px}body .vx-ultra-actions{display:flex;flex-wrap:wrap!important;overflow-x:visible;gap:6px}body .vx-ultra-actions>*{flex:1 1 calc(33.333% - 6px);min-height:44px;padding-inline:5px;font-size:10px;white-space:normal}body .account-hero{padding:26px 22px}body .account-auth{padding:22px}body .account-auth-choice{gap:6px}}
+
+
+/* Universal responsive pass, November 2026: narrow phones, tablets and large displays. */
+/* No new trackers, remote assets, device fingerprinting or payment actions. */
+:root{--vx-universal-gutter:clamp(16px,2.8vw,40px);--vx-touch-size:44px}
+body,body main,body section,body article,body .container,body .ux-wide{min-width:0}
+body :is(.container,.ux-wide){padding-inline:var(--vx-universal-gutter)}
+body :is(.ux-grid,.ux-plan-grid,.ux-status-grid,.refresh-feature-grid,.refresh-bottom-grid,
+  .plan-grid,.vx-picks-grid,.refresh-steps,.footer-grid,.tariff-mega-tools) > *{min-width:0}
+body :is(img,video,iframe,canvas){max-inline-size:100%}
+body :is(pre,code){max-width:100%;overflow-wrap:anywhere}
+body :is(.ux-status-card,.account-panel,.shop-panel,.refresh-feature,.vx-pick,.plan,
+  .tariff-card,.tool-card,.paper,.panel){min-width:0;overflow-wrap:break-word}
+body :is(.ux-status-card h2,.refresh-feature h3,.ux-card h3,.vx-pick h3){text-wrap:balance}
+body :is(.ux-status-subtitle,.ux-status-card p,.refresh-feature p,.ux-card p){line-height:1.6}
+body :is(.ux-hero h1,.ux-page-hero h1,.page-head h1){text-wrap:balance}
+body :is(.ux-status-actions,.refresh-actions,.ux-hero-actions,.hero-buttons){max-width:100%}
+body :is(.ux-status-actions,.ux-hero-actions,.refresh-actions) > *{min-width:0}
+body .vx-ultra-dialog{width:min(680px,calc(100vw - 24px));max-height:min(85dvh,900px)}
+body .vx-finder{max-width:min(680px,calc(100vw - 24px))}
+body .vx-offline-notice{max-width:calc(100% - 24px)}
+body .ux-status-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(12px,1.5vw,20px);align-items:stretch}
+body .ux-status-card{display:flex;flex-direction:column;gap:0;padding:clamp(20px,2.2vw,28px);border-radius:18px;background:#19211b!important;border:1px solid #ffffff23!important;box-shadow:none!important}
+body .ux-status-card:focus-within{border-color:#d0f78780!important}
+body .ux-status-top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+body .ux-status-top h2{font-size:clamp(17px,1.7vw,21px);line-height:1.3;margin:0;flex:1 1 160px}
+body .ux-status-label{margin:0;max-width:100%;line-height:1.3;white-space:normal;overflow-wrap:anywhere;
+  flex:0 1 auto;justify-content:center;text-align:center;padding:9px 12px}
+body .ux-status-label[data-kind="configured"]{
+  background:#d0f7870d;color:#d8edb0;border:1px solid #d0f78742}
+body .ux-status-label[data-kind="configured"]:before{background:#d0f787}
+body .ux-status-card .ux-status-subtitle{color:#b7c4b7;font-size:clamp(13px,1.2vw,15px);margin:15px 0 0}
+body .vx-status-action{
+  display:inline-flex;align-self:flex-start;align-items:center;gap:9px;
+  margin-top:auto;padding:14px 4px 1px;min-height:44px;line-height:1.35;
+  color:var(--fresh-accent);font-size:13px;font-weight:700;text-decoration:none}
+body .vx-status-action:hover{text-decoration:underline;text-underline-offset:4px}
+body .vx-status-action span{font-size:16px}
+body [data-service-status] .ux-status-grid + .ux-privacy-note{margin-top:12px}
+body [data-service-status] .ux-status-card{height:100%}
+body [data-service-status] .ux-status-card > p{overflow-wrap:anywhere}
+body :is(.ux-status-label,.vx-status-action,.mobile-nav a){touch-action:manipulation}
+/* Wider computers get more breathing room, without ultra-wide text lines. */
+@media(min-width:1440px){
+  body .container,body .ux-wide{max-width:1360px}
+  body[data-refresh-home] :is(.refresh-wrap,.vx-picks-section){width:min(calc(100% - 80px),1270px)}
+  body .refresh-hero{gap:clamp(36px,5vw,96px)}
+  body .ux-status-card{padding:30px}
+  body .refresh-feature-grid{gap:20px}
+}
+/* Landscape tablets, compact laptops and browser windows. */
+@media(min-width:701px) and (max-width:1100px){
+  body .ux-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body .ux-status-card{padding:20px}
+  body .ux-status-top{align-items:flex-start}
+  body .ux-status-label{font-size:11px}
+  body .refresh-feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body .refresh-feature{min-height:215px}
+  body .refresh-hero{min-height:0}
+  body .refresh-hero h1{font-size:clamp(43px,5.9vw,64px)}
+  body .footer-grid{gap:18px}
+}
+@media(min-width:701px) and (max-width:940px){
+  body .refresh-hero{grid-template-columns:minmax(0,1fr) minmax(235px,.7fr);gap:15px}
+  body .refresh-orbit{max-width:330px}
+  body .refresh-lead{max-width:520px}
+  body .refresh-film-meta{flex-wrap:wrap}
+  body :is(.ux-bottom-cta,.ux-action-strip){gap:18px}
+}
+/* Portrait tablets and large smartphones. */
+@media(max-width:700px){
+  body .ux-status-grid{grid-template-columns:minmax(0,1fr);gap:12px;margin:22px 0}
+  body .ux-status-card{padding:20px;border-radius:15px}
+  body .ux-status-top{align-items:center}
+  body .ux-status-card .ux-status-subtitle{font-size:14px}
+  body .ux-page-hero{padding-top:35px;padding-bottom:25px}
+  body .ux-page-hero h1{font-size:clamp(32px,7.5vw,47px)!important;line-height:1.14}
+  body .ux-heading h2{font-size:clamp(25px,6.5vw,34px)}
+  body .refresh-hero{grid-template-columns:minmax(0,1fr);min-height:0}
+  body .refresh-orbit{max-width:min(82vw,340px);justify-self:center}
+  body .refresh-actions{gap:12px}
+  body .refresh-feature-grid{grid-template-columns:minmax(0,1fr)}
+  body .refresh-feature{min-height:0}
+  body .refresh-film-frame video{height:auto;min-height:0}
+  body :is(.ux-bottom-cta,.ux-action-strip){flex-direction:column;align-items:stretch}
+  body .ux-bottom-cta .btn{max-width:100%}
+  body .refresh-device-strip>.refresh-wrap{justify-content:center}
+  body :is(.refresh-steps,.refresh-bottom-grid){grid-template-columns:minmax(0,1fr)}
+  body .refresh-final .btn{width:100%}
+  body .ux-status-actions{display:flex;flex-wrap:wrap}
+  body .ux-status-actions .btn{flex:1 1 190px}
+}
+@media(max-width:480px){
+  body .container,body .ux-wide{padding-inline:16px}
+  body .ux-status-top{align-items:flex-start;gap:9px}
+  body .ux-status-top h2{font-size:17px;flex-basis:145px}
+  body .ux-status-label{font-size:11px;padding:8px 10px}
+  body .ux-status-card{padding:17px}
+  body .vx-status-action{font-size:13px}
+  body .ux-section{padding-block:clamp(28px,7vw,46px)}
+  body .refresh-hero h1{font-size:clamp(39px,11vw,52px);line-height:1.07}
+  body .refresh-feature{padding:21px}
+  body .refresh-final{padding:22px}
+  body .refresh-orbit-label{font-size:10px}
+  body .tariff-mega-tools{gap:10px}
+  body .refresh-section-heading{gap:14px}
+  body .footer-grid{grid-template-columns:minmax(0,1fr);gap:20px}
+  body .btn,body .refresh-film-link{overflow-wrap:anywhere}
+}
+/* Foldable-cover displays and small SE-sized screens. */
+@media(max-width:365px){
+  body .ux-status-top{flex-direction:column;align-items:flex-start}
+  body .ux-status-top h2{flex:auto}
+  body .ux-status-label{align-self:flex-start;max-width:100%}
+  body .refresh-hero h1{font-size:clamp(33px,10vw,39px)}
+  body .refresh-orbit-label{padding:8px;font-size:9px}
+  body .vx-journey{padding:15px}
+  body .nav-wrap{gap:6px!important}
+  body .vx-ultra-actions>*{flex-basis:calc(50% - 6px)}
+}
+/* iPad/Android landscape with short visible height, including software keyboard. */
+@media(max-height:520px) and (orientation:landscape){
+  body > header .mobile-nav.open,body > .site-header .drawer.open{max-height:calc(100dvh - 76px);overflow-y:auto}
+  body .ux-page-hero{padding-top:22px;padding-bottom:16px}
+  body .refresh-hero{padding-block:20px;min-height:0}
+  body .refresh-orbit{max-height:270px}
+}
+@media(pointer:coarse){
+  body :is(.btn,.hamburger,.menu-toggle,.refresh-film-link,.vx-status-action,
+    .vx-utility-link,.vx-ultra-settings,button,summary){min-height:var(--vx-touch-size)}
+  body input,body select,body textarea{font-size:16px}
+  body :is(.btn,.refresh-feature,.vx-pick){-webkit-tap-highlight-color:transparent}
+}
+@media(hover:none){body :is(.btn,.vx-journey,.refresh-feature,.tariff-card,.vx-pick):hover{transform:none!important}}
+@media(prefers-reduced-motion:reduce){
+  body .refresh-orbit-ring,body .refresh-globe{animation:none!important}
+  body :is(.ux-status-card,.refresh-feature,.vx-status-action){transition:none!important}
+}
+@media(prefers-reduced-data:reduce){body .refresh-orbit-ring{animation:none!important}}
