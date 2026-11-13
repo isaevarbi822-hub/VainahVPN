@@ -37,3 +37,13 @@
 @media(max-height:500px) and (orientation:landscape){.vx-control-dialog{max-height:96dvh}.vx-control-panel{padding:16px}}
 @media(hover:none){.vx-control-card:hover{transform:none}}
 @media(prefers-reduced-motion:reduce){.vx-control-card{transition:none}}
+
+/* The shared theme intentionally hides one legacy rail; never hide the help launcher. */
+body #vx-control-open.vx-control-launch{position:fixed!important;display:inline-flex!important;left:max(14px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));z-index:65;max-width:min(240px,calc(100vw - 28px));box-shadow:0 7px 24px #0009;background:#223926;border-color:#b8ed8b90}
+body #vx-control-open.vx-control-launch:hover{background:#314e33}
+@media(max-width:600px){
+ body #vx-control-open.vx-control-launch{padding:9px 12px;max-width:190px;min-height:44px;font-size:12px;bottom:calc(10px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left))}
+}
+@media(max-height:400px) and (orientation:landscape){
+ body #vx-control-open.vx-control-launch{bottom:6px;left:6px;min-height:39px}
+}
