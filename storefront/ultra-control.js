@@ -64,15 +64,9 @@
   launcher.setAttribute('aria-haspopup', 'dialog');
   launcher.setAttribute('aria-controls', 'vx-control-dialog');
   launcher.setAttribute('aria-label', 'Открыть центр действий Vainah VPN');
-  const rail = document.querySelector('.vx-utility-rail');
-  if (rail) {
-    launcher.classList.add('vx-control-launch-rail');
-    rail.append(launcher);
-  } else {
-    const header = document.querySelector('body > header,body > .site-header');
-    if (header) header.after(launcher);
-    else document.body.prepend(launcher);
-  }
+  // Floating launcher stays available even where a legacy navigation rail
+  // is intentionally hidden on mobile or on the refreshed homepage.
+  document.body.append(launcher);
   const dialog = make('dialog', 'vx-control-dialog');
   dialog.id = 'vx-control-dialog';
   dialog.setAttribute('aria-labelledby', 'vx-control-title');
