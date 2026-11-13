@@ -36,7 +36,10 @@
       'Разреши настройку сетевого интерфейса по инструкции клиента и проверь соединение.'
     ]}
   };
-  let current='android',done=new Set();
+  // Shareable device-specific entry point; this is a local choice, not a login.
+  const requested=new URLSearchParams(window.location.search).get('device');
+  let current=requested&&Object.hasOwn(flows,requested)?requested:'android';
+  let done=new Set();
   const info=$('vc-selected-note'),heading=$('vc-selected-title');
   const bar=$('vc-progress'),fill=$('vc-progress-fill'),count=$('vc-progress-text');
   const copy=$('vc-copy'),reset=$('vc-reset'),status=$('vc-action-status'),manual=$('vc-manual');
@@ -71,13 +74,25 @@
     });
     update();
   }
-  tabs.forEach(button=>button.addEventListener('click',()=>{
-    current=button.dataset.vcPlatform;
+  function choosePlatform(platform){
+    if(!Object.hasOwn(flows,platform))return;
+    current=platform;
     done=new Set();
     manual.hidden=true;
     status.textContent='Отметки хранятся только на открытой странице и не передаются на сервер.';
     render();
-  }));
+  }
+  tabs.forEach((button,index)=>{
+    button.addEventListener('click',()=>choosePlatform(button.dataset.vcPlatform));
+    button.addEventListener('keydown',event=>{
+      if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+      event.preventDefault();
+      const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:
+        (index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+      choosePlatform(tabs[next].dataset.vcPlatform);
+      tabs[next].focus();
+    });
+  });
   reset.addEventListener('click',()=>{
     done.clear();manual.hidden=true;render();
   });
