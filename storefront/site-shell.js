@@ -489,13 +489,13 @@
   if (!document.querySelector('link[data-vx-ultra]')) {
     const style=document.createElement('link');
     style.rel='stylesheet';
-    style.href='ultra-experience.css?v=20261113-ultra2';
+    style.href='ultra-experience.css?v=20261113-ultra4';
     style.dataset.vxUltra='style';
     document.head.append(style);
   }
   if (!document.querySelector('script[data-vx-ultra]')) {
     const script=document.createElement('script');
-    script.src='ultra-experience.js?v=20261113-ultra2';
+    script.src='ultra-experience.js?v=20261113-ultra4';
     script.dataset.vxUltra='script';
     script.defer=true;
     document.head.append(script);
