@@ -11,6 +11,8 @@ import hashlib
 import os
 import time
 
+import psycopg
+
 from .billing import BillingSandbox, ProviderError
 from .h1_direct_health import probe_direct_health
 from .h1_panel import inspect_h1_panel, public_h1_status
@@ -163,13 +165,43 @@ async def probe_rollypay() -> dict:
             "message": messages.get(
                 code,
                 "RollyPay отклонил API-запрос или вернул неожиданный HTTP-код."
-            ) + " Реальные платежи выключены.",
+            ) + " Эта GET-проверка не подтверждает состояние отдельных платежей и выдачи VPN.",
         }
     return {
         "status": "ok",
         "message": "RollyPay API принял ключ кассы при безопасной GET-проверке. "
                    "Баланс скрыт; платежи и выдача VPN не проверены.",
     }
+
+
+def _live_webhook_evidence(database_url: str) -> tuple[bool, bool] | None:
+    """Read only non-identifying proof of previously signed live payments.
+
+    Historical events do not guarantee that any future callback will arrive.
+    The live order ledger only sets webhook_at after signature verification.
+    """
+    try:
+        with psycopg.connect(database_url, connect_timeout=3) as conn:
+            conn.read_only = True
+            with conn.cursor() as cur:
+                cur.execute("SET LOCAL statement_timeout = '1500ms'")
+                cur.execute("""
+                    SELECT
+                        EXISTS (
+                            SELECT 1 FROM vainah_live_orders
+                            WHERE webhook_at IS NOT NULL AND payment_state = 'paid'
+                        ),
+                        EXISTS (
+                            SELECT 1 FROM vainah_live_orders
+                            WHERE webhook_at IS NOT NULL AND payment_state = 'paid'
+                              AND delivery_state = 'delivered'
+                        )
+                """)
+                row = cur.fetchone()
+                return (bool(row[0]), bool(row[1])) if row else None
+    except (psycopg.Error, OSError, ValueError):
+        # Missing database evidence is not proof of webhook failure.
+        return None
 
 
 def webhook_status() -> dict:
@@ -180,10 +212,39 @@ def webhook_status() -> dict:
             "message": "Секрет ROLLYPAY_SIGNING_SECRET не настроен. "
                        "Входящие webhook не будут подтверждены.",
         }
+    database_url = os.environ.get("DATABASE_URL", "")
+    if not database_url.startswith(("postgresql://", "postgres://")):
+        return {
+            "status": "configured",
+            "message": "Подпись webhook настроена. Историю подписанных платежей "
+                       "пока нельзя проверить: PostgreSQL не подключён.",
+        }
+    evidence = _live_webhook_evidence(database_url)
+    if evidence is None:
+        return {
+            "status": "configured",
+            "message": "Подпись webhook настроена. Историческое подтверждение "
+                       "в PostgreSQL сейчас недоступно; это не означает сбой доставки.",
+        }
+    signed_paid, delivered = evidence
+    if delivered:
+        return {
+            "status": "verified",
+            "message": "Подтверждено по истории: RollyPay прислал подписанный "
+                       "webhook об оплате, и VPN был выдан автоматически. "
+                       "Это не проверка доставки новых webhook в реальном времени.",
+        }
+    if signed_paid:
+        return {
+            "status": "received",
+            "message": "В PostgreSQL есть подтверждённый подписанный webhook "
+                       "об оплате. Автоматическая выдача по этой проверке не "
+                       "подтверждена; проверь состояние заказа в кабинете.",
+        }
     return {
         "status": "configured",
-        "message": "Секрет подписи RollyPay есть. HTTPS-обработчик реализован "
-                   "и проверен тестами. Реальная доставка webhook ещё не подтверждена.",
+        "message": "Подпись webhook настроена. Подтверждённых записей об "
+                   "оплаченном live-заказе пока не найдено. Это не означает сбой.",
     }
 
 
@@ -207,14 +268,14 @@ async def integration_status() -> dict:
                 "h1": h1,
                 "h1_direct": direct,
                 "rollypay": rollypay,
-                "webhook": webhook_status(),
+                "webhook": await asyncio.to_thread(webhook_status),
             }
         else:
             h1, rollypay = await asyncio.gather(probe_h1(), probe_rollypay())
             report = {
                 "h1": h1,
                 "rollypay": rollypay,
-                "webhook": webhook_status(),
+                "webhook": await asyncio.to_thread(webhook_status),
             }
         _cached_fingerprint = fingerprint
         _cached_until = time.monotonic() + CACHE_TTL_SECONDS
