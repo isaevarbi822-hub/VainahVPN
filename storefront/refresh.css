@@ -210,7 +210,7 @@ body .vx-mobile-search{
   display:block;width:100%;text-align:center;min-height:45px;
   border:1px solid #d0f78760;border-radius:9px;
   background:#d0f7870d;color:var(--fresh-accent);
-  font:700 14px/1.4 inherit;cursor:pointer;padding:10px 12px}
+  font-family:inherit;font-weight:700;font-size:14px;line-height:1.4;cursor:pointer;padding:10px 12px}
 body .vx-mobile-search:hover{background:#d0f7871c}
 body .vx-breadcrumbs{
   display:flex;flex-wrap:wrap;align-items:center;gap:10px;
