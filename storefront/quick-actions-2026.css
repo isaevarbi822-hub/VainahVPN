@@ -1,0 +1,18 @@
+/* Lightweight, accessible Vainah VPN quick-actions layer; no network requests. */
+.vx26-skip{position:fixed;top:8px;left:8px;z-index:100000;padding:12px 18px;border-radius:12px;background:#f7f4ff;color:#19112d;transform:translateY(-150%);font-weight:700}
+.vx26-skip:focus{transform:translateY(0)}
+.vx26-root{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:9000;font-family:inherit;color:#f8f6ff}
+.vx26-launch{font:600 14px/1.2 inherit;cursor:pointer;border:1px solid #9f8adb;border-radius:999px;padding:13px 18px;background:#292047;color:white;box-shadow:0 8px 32px #0008;min-height:44px}
+.vx26-launch:hover{background:#403264}
+.vx26-panel{position:absolute;bottom:calc(100% + 12px);right:0;width:min(390px,calc(100vw - 32px));max-height:min(70vh,620px);overflow:auto;overscroll-behavior:contain;background:#141a2b;border:1px solid #7a7099;border-radius:20px;padding:20px;box-shadow:0 20px 70px #000a}
+.vx26-panel[hidden]{display:none!important}
+.vx26-panel h2{margin:0 0 8px;font-size:22px;line-height:1.25;color:#fff}
+.vx26-panel p{margin:0 0 16px;font-size:13px;line-height:1.5;color:#c7c9d9}
+.vx26-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.vx26-grid a{display:flex;flex-direction:column;gap:5px;padding:12px;border-radius:12px;border:1px solid #444963;background:#232a40;color:#fff;text-decoration:none;min-width:0}
+.vx26-grid a:hover,.vx26-grid a:focus-visible{border-color:#b7a4ff;background:#303750}
+.vx26-grid strong{font-size:13px}.vx26-grid small{font-size:11px;color:#c4c9dc;line-height:1.4}
+.vx26-close{margin-top:15px;min-height:44px;width:100%;border-radius:11px;border:1px solid #6c7190;background:#303750;color:#fff;cursor:pointer}
+.vx26-root button:focus-visible,.vx26-grid a:focus-visible{outline:3px solid #b9e7f8;outline-offset:2px}
+@media(max-width:480px){.vx26-root{right:12px;bottom:max(12px,env(safe-area-inset-bottom))}.vx26-launch{padding:12px 15px}.vx26-panel{width:calc(100vw - 24px);padding:16px}.vx26-grid{gap:7px}}
+@media(prefers-reduced-motion:reduce){.vx26-root *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
