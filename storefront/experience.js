@@ -6,7 +6,7 @@
   const formatter=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
   // Static Render pages must request read-only data from the Python origin.
   // Cross-origin reads may be denied by CORS; treat that as unknown, not offline.
-  const publicApi=location.origin==='https://vainahvpn.onrender.com'
+  const publicApi=typeof location!=='undefined' && location.origin==='https://vainahvpn.onrender.com'
     ? 'https://vainahvpn-python-preview.onrender.com' : '';
 
   const compare=$('[data-compare]');
