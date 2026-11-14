@@ -42,6 +42,7 @@
   }
   const pages=[
     ['index.html','Главная','Начало, новости сайта, навигация','главная'],
+    ['command-hub.html','Vainah Control','Новый центр: поиск, устройства, подбор тарифов и публичная диагностика','центр главная новое функции dashboard живой'],
     ['hub.html','Центр управления','Подписки, подарки, напоминания, поддержка и статус сервисов','аккаунт управление сервисы центр'],
     ['whats-new.html','Что нового','Темы, личный кабинет, тарифы, устройства, подарки и обновления','обновление новые функции'],
     ['plans.html','75 платных тарифов','Поиск, сортировка и сравнение трёх планов; срок 2–730 дней','цены купить подписка тарифы mini sprint legend family ₽ 149'],
@@ -119,6 +120,7 @@
 
   // Keep both generations of navigation usable at laptop and mobile widths.
   const extra=[
+    ['command-hub.html','✦ Vainah Control'],
     ['hub.html','Центр управления'],
     ['trial.html','Пробный период · 0 ₽'],
     ['diagnostics.html','Диагностика'],
@@ -175,7 +177,7 @@
       ['plans.html','▤ Тарифы'],
       ['account.html','▣ Мой VPN'],
       ['speed.html','↯ Тест скорости'],
-      ['tools.html','⊞ Все функции'],
+      ['command-hub.html','✦ Vainah Control'],
       ['whats-new.html','✧ Новое'],
       ['contact.html','? Поддержка']
     ];
@@ -191,6 +193,13 @@
     searchButton.setAttribute('aria-label','Поиск разделов Vainah VPN');
     rail.append(searchButton);
     header.after(rail);
+  }
+  // Make Vainah Control available alongside existing navigation.
+  const desktopNav=header?.querySelector('.desktop-nav,.header-links');
+  if(desktopNav && !desktopNav.querySelector('a[href="command-hub.html"]')){
+    const center=el('a','vx-control-nav','✦ Центр Vainah');
+    center.href='command-hub.html';
+    desktopNav.prepend(center);
   }
   // Highlight the real trial flow on all public storefront pages.
   // The eligibility, issuance and H1Cloud quotas remain exclusively server-side.
@@ -516,5 +525,7 @@
     script.dataset.vxControl = 'script';
     document.head.append(script);
   }
+  // The old floating quick-actions prototype duplicated Ultra Control.
+  // Vainah Control is now a full page accessible from navigation.
   // No timers or background API polling are created by the shared shell.
 })();

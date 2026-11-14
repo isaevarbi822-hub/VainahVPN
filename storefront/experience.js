@@ -4,6 +4,11 @@
   function $(s,root=document){return root.querySelector(s)}
   function $$(s,root=document){return [...root.querySelectorAll(s)]}
   const formatter=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
+  // Static Render pages must request read-only data from the Python origin.
+  // Cross-origin reads may be denied by CORS; treat that as unknown, not offline.
+  const publicApi=typeof location!=='undefined' && location.origin==='https://vainahvpn.onrender.com'
+    ? 'https://vainahvpn-python-preview.onrender.com' : '';
+
   const compare=$('[data-compare]');
   if(compare){
     const device=$('[data-devices-filter]',compare);
@@ -118,7 +123,7 @@
     }
     for(const control of [device,duration,order])control.addEventListener('change',update);
     update();
-    fetch('/api/site/tariffs',{cache:'no-store',credentials:'omit',
+    fetch(publicApi+'/api/site/tariffs',{cache:'no-store',credentials:'omit',
       headers:{Accept:'application/json'}}).then(async response=>{
       if(!response.ok)throw Error('HTTP '+response.status);
       const data=await response.json();
@@ -139,7 +144,7 @@
     }).catch(()=>{
       // Keep the 6 original verified cards AND table if API is down.
       if(loading)loading.textContent=
-        'Новые предложения не загрузились. Показаны только действующие тарифы.';
+        'Не удалось подтвердить актуальные цены по API. Показаны примеры: проверь стоимость и условия перед оформлением.';
     });
   }
 
@@ -174,7 +179,7 @@
         const badge=$('[data-status-label]',element);
         const detail=$('[data-status-detail]',element);
         try{
-          const response=await fetch(item.url,{
+          const response=await fetch(publicApi+item.url,{
             method:'GET',cache:'no-store',credentials:'omit',
             headers:{Accept:'application/json'}
           });
@@ -208,7 +213,7 @@
       button.textContent='Проверяем сервисы…';
       updated.textContent='Проверяем доступность API H1Cloud/RollyPay в режиме чтения. Подписка не создаётся.';
       try{
-        const response=await fetch('/api/site/services',{
+        const response=await fetch(publicApi+'/api/site/services',{
           method:'GET',cache:'no-store',headers:{Accept:'application/json'}
         });
         if(!response.ok)throw Error('API '+response.status);
@@ -251,9 +256,9 @@
           const badge=$('[data-status-label]',element);
           const detail=$('[data-status-detail]',element);
           badge.dataset.kind='unknown';badge.textContent='Нет данных';
-          detail.textContent='Python API не ответил. Проверь запуск локального сайта.';
+          detail.textContent='Ответ публичного API не подтверждён. Возможны ограничения CORS или задержка Render; это не доказывает сбой backend.';
         }
-        updated.textContent='Не удалось получить данные с Python-сервера: '+err.message;
+        updated.textContent='Публичные статусы временно не удалось прочитать. Данные о работе сервисов не подтверждены.';
       }finally{
         button.disabled=false;button.textContent='↻ Обновить статусы';
         void refreshConfig();
@@ -265,7 +270,7 @@
 
   const launch=$('[data-checkout-message]');
   if(launch){
-    fetch('/api/shop/config',{cache:'no-store',credentials:'omit'})
+    fetch(publicApi+'/api/shop/config',{cache:'no-store',credentials:'omit'})
       .then(r=>r.ok?r.json():Promise.reject(Error('plans')))
       .then(data=>{
         launch.textContent=data.checkout_ready===true?
@@ -273,7 +278,7 @@
           'Сейчас новые платежи временно недоступны. Попробуй позже или обратись в поддержку.';
       })
       .catch(()=>{
-        launch.textContent='Проверить доступность онлайн-оплаты можно на странице тарифов.';
+        launch.textContent='Не удалось проверить доступность кассы из браузера; уточни статус на странице оформления.';
       });
   }
 })();
