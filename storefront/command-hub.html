@@ -2,16 +2,16 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b1022">
+<meta name="theme-color" content="#080b15">
 <meta name="description" content="Центр Vainah VPN: тарифы, мастер подключения, диагностика и безопасные переходы к личному кабинету. Без передачи персональных данных.">
 <link rel="canonical" href="https://vainahvpn.onrender.com/command-hub.html">
 <meta property="og:title" content="Центр Vainah VPN — всё под рукой">
 <meta property="og:type" content="website">
 <title>Центр Vainah VPN — всё под рукой</title>
-<link rel="stylesheet" href="command-hub.css?v=20261114-1">
+<link rel="stylesheet" href="command-hub.css?v=20261114-2">
 <link rel="stylesheet" href="site-shell.css?v=20261114-2">
 <script src="site-shell.js?v=20261114-2" defer></script>
-<script src="command-hub.js?v=20261114-1" defer></script>
+<script src="command-hub.js?v=20261114-2" defer></script>
 </head>
 <body class="vx-hub-body">
 <a class="vx-hub-skip" href="#vx-main-content">Перейти к содержимому</a>
@@ -28,7 +28,7 @@
       <span class="vx-hub-kicker"><span class="vx-hub-dot" aria-hidden="true"></span> VAINAH CONTROL · 2026</span>
       <h1>Всё для VPN.<br><span>На одном экране.</span></h1>
       <p>Удобный центр управления: найди нужную функцию, подбери подходящий тариф и настрой подключение без путаницы. Действия с подпиской происходят только в личном кабинете.</p>
-      <div class="vx-hub-actions"><a class="vx-hub-primary" href="plans.html">Найти тариф <span aria-hidden="true">↗</span></a><a class="vx-hub-secondary" href="connect.html">Подключить VPN</a></div>
+      <div class="vx-hub-actions"><a class="vx-hub-primary" href="plans.html">Найти тариф <span aria-hidden="true">↗</span></a><a class="vx-hub-secondary" href="connect.html">Подключить VPN</a><button type="button" class="vx-hub-secondary" id="vx-hub-open-chat">Чат с Vainah ✦</button></div>
       <p class="vx-hub-trust">Никаких скрытых покупок и запросов VPN-ключей на этой странице.</p>
     </div>
     <div class="vx-hub-orbit" aria-hidden="true"><span class="vx-hub-orbit-ring ring-a"></span><span class="vx-hub-orbit-ring ring-b"></span><span class="vx-hub-orbit-core">V</span><span class="vx-hub-orbit-label top">RELIABILITY</span><span class="vx-hub-orbit-label bottom">YOUR CONTROL</span></div>
@@ -53,6 +53,7 @@
       <a href="https://vainahvpn-python-preview.onrender.com/support-center.html" data-terms="поддержка тикет оператор ответ почта email"><span>✉</span><strong>Поддержка</strong><small>Обращения в авторизованном кабинете</small></a>
       <a href="https://vainahvpn-python-preview.onrender.com/notifications.html" data-terms="уведомления продление напоминание email"><span>◷</span><strong>Напоминания</strong><small>Управление уведомлениями</small></a>
       <a href="https://vainahvpn-python-preview.onrender.com/gifts.html" data-terms="подарочные карты подарок код сертификат"><span>◇</span><strong>Подарки</strong><small>Подарочные подписки в кабинете</small></a>
+      <a href="plans.html#vx-new-offers" data-terms="новые планы 12 тарифов в разработке концепты скоро семейные личные"><span>✧</span><strong>12 новых вариантов</strong><small>Концепции будущих тарифов — пока без оплаты</small></a>
       <a href="network-toolkit.html" data-terms="калькулятор сеть скорость трафик мбит расчет"><span>∑</span><strong>Инструменты</strong><small>Расчёты и помощь с сетью</small></a>
     </div>
     <p class="vx-hub-empty" id="vx-hub-empty" hidden>Ничего не найдено. Попробуй другой запрос или открой <a href="tools.html">все инструменты</a>.</p>
@@ -75,7 +76,7 @@
       <p>Укажи только срок и количество устройств. Цены и реальную доступность проверяй в каталоге.</p>
       <div class="vx-hub-fields"><label>Срок<select id="vx-plan-term"><option value="short">На несколько дней</option><option value="month" selected>На месяц</option><option value="long">На несколько месяцев</option><option value="year">На год</option></select></label><label>Устройства<select id="vx-plan-devices"><option value="3" selected>До 3 устройств</option><option value="6">До 6 устройств</option></select></label></div>
       <div class="vx-hub-recommendation" id="vx-hub-recommendation" role="status" aria-live="polite"></div>
-      <a class="vx-hub-inline-link" href="plans.html" id="vx-hub-plan-link">Смотреть доступные тарифы <span aria-hidden="true">↗</span></a>
+      <a class="vx-hub-inline-link" href="plans.html" id="vx-hub-plan-link">Смотреть действующие тарифы <span aria-hidden="true">↗</span></a>
     </section>
   </div>
   <section class="vx-hub-section" aria-labelledby="vx-hub-status-title">
@@ -89,7 +90,7 @@
     <p class="vx-hub-caveat" id="vx-hub-status-note">Проверка браузера не определяет состояние VPN-туннеля. На публичном статическом сайте чтение API может ограничиваться политикой CORS. В таком случае статус не считается ошибкой сервера.</p>
   </section>
   <section class="vx-hub-section vx-hub-update" aria-labelledby="vx-hub-update-title">
-    <div><span class="vx-hub-label">НОЯБРЬ 2026</span><h2 id="vx-hub-update-title">Что изменилось</h2><p>Новая навигация, быстрый поиск, выбор устройства, подбор тарифов и безопасная диагностика. Платежи и данные учётной записи остаются на backend.</p></div>
+    <div><span class="vx-hub-label">НОЯБРЬ 2026</span><h2 id="vx-hub-update-title">Что изменилось</h2><p>Цвета основного сайта, улучшенные карточки, диалог с помощником Vainah и 12 концепций тарифов в подготовке. Быстрый поиск, выбор устройства и безопасная диагностика. Платежи и данные учётной записи остаются на backend.</p></div>
     <a class="vx-hub-secondary" href="whats-new.html">История обновлений ↗</a>
   </section>
 </main>
