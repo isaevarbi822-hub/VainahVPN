@@ -1,0 +1,23 @@
+/* Preview-only pricing concepts, matching public Vainah dark purple visual identity */
+.vx-new-offers{margin:50px auto 75px;padding:clamp(20px,4vw,38px);border-radius:24px;border:1px solid #64517f;background:radial-gradient(ellipse at 95% 0%,#7b55b33d,transparent 65%),#121626}
+.vx-new-kicker{display:inline-block;font-size:11px;color:#c5aaff;font-weight:850;letter-spacing:.16em}
+.vx-new-offers h2{margin:10px 0 12px;font-size:clamp(26px,4vw,42px);line-height:1.15;letter-spacing:-.04em}
+.vx-new-description{max-width:790px;color:#bdc2d7;font-size:14px;line-height:1.6}
+.vx-new-filters{display:flex;gap:9px;flex-wrap:wrap;margin:22px 0 12px}
+.vx-new-filters button{min-height:44px;border:1px solid #6e618c;background:#262039;color:#eadfff;border-radius:12px;padding:10px 15px;font-weight:700;font-family:inherit;cursor:pointer}
+.vx-new-filters button[aria-pressed=true]{background:#b398fc;color:#100e1b;border-color:#d4bfff}
+.vx-new-count{font-size:12px;color:#c2b7d9;margin:0 0 18px}
+.vx-new-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.vx-new-plan-card{display:flex;flex-direction:column;min-width:0;padding:22px;border:1px solid #594b76;border-radius:19px;background:linear-gradient(145deg,#242039,#171a2b)}
+.vx-new-plan-flag{display:inline-block;align-self:flex-start;color:#e2ceff;border:1px solid #7e659f;background:#3b2a55;border-radius:40px;padding:4px 9px;font-size:10px;font-weight:900}
+.vx-new-plan-duration{margin-top:15px;color:#a9ccef;font-size:12px;font-weight:700}
+.vx-new-plan-card h3{margin:10px 0 3px;font-size:20px;line-height:1.2}
+.vx-new-plan-card p{color:#bfc3d8;font-size:13px;line-height:1.5}
+.vx-new-plan-card .vx-new-plan-price{margin-top:auto;font-size:12px}
+.vx-new-plan-disabled{margin-top:14px;min-height:43px;border:1px solid #786991;border-radius:11px;background:#322e48;color:#d5cee4;opacity:.8;cursor:not-allowed;font-weight:700}
+.vx-new-grid article:hover{border-color:#a28bc9}
+.vx-new-offers :is(a,button):focus-visible{outline:3px solid #badaf6;outline-offset:3px}
+.vx-new-link{display:inline-flex;justify-content:center;align-items:center;margin-top:22px;border:1px solid #9d81d0;border-radius:13px;padding:13px 18px;color:#f1dfff!important;text-decoration:none}
+@media(max-width:900px){.vx-new-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:570px){.vx-new-grid{grid-template-columns:1fr}.vx-new-offers{padding:17px}.vx-new-plan-card{padding:18px}}
+@media(prefers-reduced-motion:reduce){.vx-new-plan-card{transition:none}}
