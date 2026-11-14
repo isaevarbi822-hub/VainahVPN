@@ -2,7 +2,9 @@
 
 **Новый репозиторий для переработанного Vainah VPN.**
 
-> Статус: разработка. Это **не** готовая публичная версия VPN.
+> Публичные страницы сайта размещаются на Render, а подтверждение покупки,
+> выдача VPN, настройки кассы и состояние backend проверяются отдельно.
+> Код сайта нельзя считать доказательством доступности платёжной кассы.
 > Исходный Android-клиент ранее подключался с VLESS + REALITY, однако
 > обновление HTTPS-подписки давало HTTP 403. Новая архитектура должна
 > исправить диагностику и разделить компоненты, не выдавая успешную
@@ -54,6 +56,17 @@ The combined Android libbox client and Python/FastAPI cabinet live on
 - Android libbox adapter is compiled only with `-PvainahEnableLibbox=true`.
 - Python does not execute the Android VPN tunnel. Android VpnService/libbox does.
 - Native Android real-device traffic, DNS, IPv6 and handover are unverified.
-- Clerk/H1Cloud user APIs and RollyPay remain disabled in Python preview.
+- Проверяйте актуальную доступность Clerk/H1Cloud и RollyPay через безопасные диагностические пути. Не публикуйте утверждение об отключённой или работающей кассе только на основании README.
 
 Never publish user subscription URLs, UUIDs, API tokens or live payment keys.
+
+## Текущие адреса и развёртывание (2026-11-14)
+
+- Публичный сайт: https://vainahvpn.onrender.com/
+- Python backend: https://vainahvpn-python-preview.onrender.com/
+- Оба сервиса Render используют ветку `feat/restore-site-rollypay-checkout`; `main` не является источником действующей публикации.
+- Новая интерактивная страница: `/command-hub.html`. Поиск разделов, подбор устройства и тарифа не обрабатывают платежи.
+- Безопасная публичная диагностика: `python scripts/audit_public_site.py`. Инструмент делает только GET-запросы.
+- Прежде чем публиковать обновление, выполняйте регрессионные тесты и проверяйте checkout отдельно без создания реальных счетов.
+
+Клиентская часть никогда не должна утверждать, что VPN подключён, пока реальный системный VPN-клиент не подтвердил туннель. Личные подписки и ключи — только в защищённом кабинете.
