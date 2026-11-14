@@ -357,3 +357,23 @@ body .vx-utility-rail{position:relative;z-index:1}
  line-height:1.5;text-align:center;overflow-wrap:anywhere}
 .vx-offline-notice[hidden]{display:none!important}
 @media(max-width:560px){.vx-offline-notice{font-size:12px;padding:11px}}
+
+
+/* Vainah Control 2026: featured home module and accessible global nav. */
+.vx-control-nav{display:inline-flex;align-items:center;min-height:38px;padding:8px 12px;border:1px solid #806db7;border-radius:11px;background:#332753;color:#f8efff!important;font-size:12px;font-weight:800;text-decoration:none}
+.vx-control-nav:hover,.vx-control-nav:focus-visible{background:#49376f;border-color:#c5adff}
+.vx26-spotlight{position:relative;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:28px;align-items:center;padding:clamp(24px,4vw,45px);margin-top:50px;margin-bottom:45px;border-radius:25px;border:1px solid #695f95;background:radial-gradient(ellipse at 80% 20%,#6654aa69,transparent 70%),linear-gradient(125deg,#192341,#1c1734);box-shadow:0 22px 80px #0003;overflow:hidden}
+.vx26-spotlight-main{position:relative;z-index:1;min-width:0}
+.vx26-spotlight-main h2{font-size:clamp(28px,4.5vw,52px);letter-spacing:-.04em;line-height:1.1;margin:12px 0 15px;color:#fff}
+.vx26-spotlight-main h2 span{color:#9ce7f2}
+.vx26-spotlight-main p{font-size:14px;line-height:1.6;color:#d2d8eb;max-width:470px}
+.vx26-spotlight-main .btn{display:inline-flex;margin-top:13px;min-height:46px;align-items:center;justify-content:center}
+.vx26-spotlight-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}
+.vx26-spotlight-grid a{display:flex;flex-direction:column;gap:6px;padding:20px 16px;min-width:0;background:#202844dc;border:1px solid #66658a;border-radius:16px;text-decoration:none;color:#fff}
+.vx26-spotlight-grid a:hover,.vx26-spotlight-grid a:focus-visible{background:#333657;border-color:#b2acff;transform:translateY(-2px)}
+.vx26-spotlight-grid span{font-size:11px;font-weight:900;color:#a8adf5}
+.vx26-spotlight-grid strong{font-size:15px;line-height:1.2;color:#fff}
+.vx26-spotlight-grid small{font-size:12px;line-height:1.35;color:#c3cbe3}
+@media(max-width:850px){.vx26-spotlight{grid-template-columns:1fr}.vx26-spotlight-grid a{padding:15px}}
+@media(max-width:420px){.vx26-spotlight{padding:19px;border-radius:18px}.vx26-spotlight-grid{gap:7px}.vx26-spotlight-grid a{padding:12px}.vx26-spotlight-grid strong{font-size:13px}.vx26-spotlight-grid small{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.vx26-spotlight-grid a{transition:none!important;transform:none!important}}
