@@ -47,6 +47,7 @@ jobs:
           node --check web/app.js
           node --check storefront/checkout-flow.js
           node --check storefront/site-shell.js
+          node --check storefront/command-hub.js
           node --check storefront/experience.js
           node --check storefront/account-dashboard.js
           node --check storefront/speed-test.js
