@@ -2,6 +2,11 @@
 (() => {
   'use strict';
   const $ = (selector, root = document) => root.querySelector(selector);
+  // Vainah chat is a locally guided help tab provided by the shared site shell.
+  document.querySelector('#vx-hub-open-chat')?.addEventListener('click',()=>{
+    document.querySelector('#vx-control-open')?.click();
+  });
+
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const search = $('#vx-hub-search');
   const featureCards = $$('#vx-hub-features a');

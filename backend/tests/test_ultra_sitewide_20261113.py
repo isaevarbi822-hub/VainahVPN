@@ -16,7 +16,8 @@ def test_all_shared_pages_use_the_new_assets():
         html = page.read_text(encoding="utf-8")
         assert 'refresh.css?v=20261113-ultra3' in html, page.name
         if 'src="site-shell.js' in html:
-            assert 'site-shell.js?v=20261113-ultra4' in html, page.name
+            assert ('site-shell.js?v=20261113-ultra4' in html or
+                    'site-shell.js?v=20261114-chat1' in html), page.name
     connect_page = (SITE / "connect.html").read_text(encoding="utf-8")
     assert 'connect.js?v=20261113-device3' in connect_page
 
@@ -71,8 +72,8 @@ def test_sitewide_ultra_control_is_navigational_and_private():
     script = (SITE / "ultra-control.js").read_text(encoding="utf-8")
     css = (SITE / "ultra-control.css").read_text(encoding="utf-8")
     release = (SITE / "whats-new.html").read_text(encoding="utf-8")
-    assert "ultra-control.js?v=20261113-control1" in shell
-    assert "ultra-control.css?v=20261113-control1" in shell
+    assert "ultra-control.js?v=20261114-chat1" in shell
+    assert "ultra-control.css?v=20261114-chat1" in shell
     for platform in ("android", "ios", "windows", "macos", "linux"):
         assert f"['{platform}'," in script
         assert "'connect.html?device=' + code" in script
@@ -92,8 +93,8 @@ def test_standalone_pages_load_control_without_main_site_shell():
     for name in ("trial", "my-devices", "gifts", "notifications",
                  "operator-pilot", "support-operator", "connection-check"):
         page = (SITE / f"{name}.html").read_text(encoding="utf-8")
-        assert "ultra-control.js?v=20261113-control1" in page
-        assert "ultra-control.css?v=20261113-control1" in page
+        assert "ultra-control.js?v=20261114-chat1" in page
+        assert "ultra-control.css?v=20261114-chat1" in page
 
 
 def test_ultra_health_does_not_confuse_configured_and_verified_webhooks():

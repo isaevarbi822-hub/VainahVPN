@@ -98,3 +98,68 @@ body.vx-hub-body>header.vx-hub-header{position:relative!important;background:#0a
 @media(prefers-reduced-motion:no-preference){.vx-hub-orbit-core{animation:vx-hub-float 8s ease-in-out infinite}.vx-hub-features a,.vx-hub-statbar a{transition:transform .22s ease,border-color .22s ease,background-color .22s ease}}
 @keyframes vx-hub-float{0%,100%{translate:0 0}50%{translate:0 -12px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.vx-hub-orbit-core{animation:none}}
+
+
+/* VISUAL MATCH 2026 — Vainah's real storefront palette (#080b15 / #a98bff). */
+:root {
+ --vh-bg:#080b15;--vh-bg2:#131626;--vh-card:#171a2d;
+ --vh-card-hover:#25213f;--vh-border:#51416f;
+ --vh-violet:var(--vx-ultra-accent,#a98bff);
+ --vh-cyan:var(--vx-ultra-secondary,#79cde9);
+ --vh-text:#f5f6ff;--vh-muted:#b7bad1;
+}
+body.vx-hub-body{
+ background:radial-gradient(ellipse 70% 650px at 78% 0%,#7554b33d,transparent 88%),
+ linear-gradient(160deg,#080b15 0%,#101326 48%,#080b15 100%)!important;
+ color:#f5f6ff;
+}
+body.vx-hub-body>header.vx-hub-header{
+ background:linear-gradient(110deg,#101323f5,#11172cf5)!important;
+ border-bottom-color:#524d793e!important;
+}
+.vx-hub-brand em{color:#bba6ff}
+.vx-hub-mark{background:linear-gradient(125deg,#bd9fff,#653ce0);color:#fff;box-shadow:0 9px 30px #a17bff55}
+.vx-hub-account{background:#2b204c;border-color:#765ea8}
+.vx-hub-account:hover{background:#4b3971}
+.vx-hub-kicker,.vx-hub-label,.vx-hub-section-title span{color:#c5abff}
+.vx-hub-hero h1 span{background:linear-gradient(100deg,#d1b1ff,#a98bff,#7fd0ec);background-clip:text;-webkit-background-clip:text}
+.vx-hub-primary{background:linear-gradient(130deg,#c7adff,#9d7af0);color:#10111c!important}
+.vx-hub-secondary,.vx-hub-status-actions button{background:#241f3f;border-color:#715b9a;color:#f1e8ff}
+.vx-hub-secondary:hover{background:#382b5b}
+.vx-hub-orbit:before{background:#7555c255}
+.vx-hub-orbit-ring{border-color:#ae84f777}
+.vx-hub-orbit-core{background:linear-gradient(145deg,#835de5,#311c65 70%);border-color:#dec6ff;text-shadow:0 8px 25px #301b63;box-shadow:0 18px 95px #7b4ce984,inset 0 0 50px #ffffff23}
+.vx-hub-orbit-label{background:#211638df;border-color:#865fbd99;color:#e4d8ff}
+.vx-hub-statbar a{background:#16182d;border-color:#51436f}
+.vx-hub-statbar a:hover{background:#27213e;border-color:#b79dfd}
+.vx-hub-statbar span{color:#c0a7f5}
+.vx-hub-search{background:#1d1b32;border-color:#6e5c8e}
+.vx-hub-search>span{color:#c5abff}
+.vx-hub-search input::placeholder{color:#b6abc7}
+.vx-hub-search button{background:#322849;border-color:#6f5c91}
+.vx-hub-search:focus-within{border-color:#c1a3ff;box-shadow:0 0 0 2px #b09bff22}
+.vx-hub-features a{background:linear-gradient(150deg,#1c1a31,#121526);border-color:#4c406c}
+.vx-hub-features a:hover,.vx-hub-features a:focus-visible{background:#28203f;border-color:#bba2ff}
+.vx-hub-features a>span{color:#bda3ff}
+.vx-hub-mini{background:#17182b;border-color:#55416f}
+.vx-hub-segments button{background:#29233d;border-color:#705a91}
+.vx-hub-segments button[aria-pressed=true]{background:#ad8cf5;color:#140d25}
+.vx-hub-fields select{background:#262039;border-color:#685583}
+.vx-hub-recommendation{background:#261d42;border-color:#735d9b}
+.vx-hub-inline-link{color:#c0aaff!important}
+.vx-hub-status-list>div{background:#171a2f;border-color:#55466d}
+.vx-hub-update{background:linear-gradient(120deg,#382357,#1b213b);border-color:#7761a1}
+.vx-hub-footer{border-top-color:#484060}
+.vx-hub-body main :is(h1,h2,h3){text-wrap:balance}
+.vx-hub-body :is(.vx-hub-features a,.vx-hub-statbar a,.vx-hub-mini,.vx-hub-update){
+ box-shadow:0 14px 38px #00000022;
+}
+.vx-hub-body :is(button,a):focus-visible{outline-color:#d2baff}
+@media(max-width:550px){
+ .vx-hub-hero h1{font-size:clamp(36px,10vw,56px)}
+ .vx-hub-nav{justify-content:center}
+ .vx-hub-brand{margin-right:auto}
+ .vx-hub-account{margin-left:auto}
+ .vx-hub-orbit{min-height:195px}
+ .vx-hub-features a{min-height:135px}
+}
