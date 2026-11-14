@@ -516,5 +516,16 @@
     script.dataset.vxControl = 'script';
     document.head.append(script);
   }
+  // Accessible site-wide quick navigation; never invokes checkout or account APIs.
+  if (!document.querySelector('link[data-vx26-quick]')) {
+    const css=document.createElement('link');
+    css.rel='stylesheet';css.href='quick-actions-2026.css?v=1';css.dataset.vx26Quick='style';
+    document.head.append(css);
+  }
+  if (!document.querySelector('script[data-vx26-quick]')) {
+    const js=document.createElement('script');
+    js.src='quick-actions-2026.js?v=1';js.defer=true;js.dataset.vx26Quick='script';
+    document.head.append(js);
+  }
   // No timers or background API polling are created by the shared shell.
 })();
