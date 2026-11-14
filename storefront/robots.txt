@@ -2,6 +2,13 @@
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /account.html
+Disallow: /checkout.html
+Disallow: /support-center.html
+Disallow: /support-operator.html
+Disallow: /operator-pilot.html
+Disallow: /operations.html
+Disallow: /payment-return.html
 Disallow: /app
 Disallow: /docs
 Disallow: /openapi.json
