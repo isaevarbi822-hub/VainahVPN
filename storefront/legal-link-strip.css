@@ -1,0 +1,14 @@
+/* Customer-visible legal destinations, shared by checkout and policy pages. */
+.shop-legal-links,.site-legal-links{border:1px solid #6b5790;background:linear-gradient(145deg,#292039,#191b2d);border-radius:15px;padding:16px 18px;margin:17px 0 19px;box-shadow:0 9px 24px #0002;color:#f5f1ff}
+.shop-legal-links strong,.site-legal-links strong{display:block;font-size:13px;line-height:1.5;margin-bottom:10px;color:#f3e8ff}
+.shop-legal-links p,.site-legal-links p{color:#c7c1dc;font-size:12px;line-height:1.55;margin:0 0 10px}
+.shop-legal-links ul,.site-legal-links ul{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.shop-legal-links li,.site-legal-links li{list-style:none;min-width:0;margin:0}
+.shop-legal-links a,.site-legal-links a{display:flex;align-items:center;min-height:44px;padding:9px 11px;border:1px solid #745f9c;border-radius:10px;background:#33264b;color:#f2e8ff!important;text-decoration:none!important;font-size:12px;font-weight:750;line-height:1.4}
+.shop-legal-links a:hover,.site-legal-links a:hover{background:#493267;border-color:#b49cfa}
+.shop-legal-links a:focus-visible,.site-legal-links a:focus-visible{outline:3px solid #a6dff2;outline-offset:2px}
+.shop-provider-pending{display:flex;gap:10px;align-items:flex-start;padding:13px;margin-top:10px;border:1px dashed #646080;border-radius:12px;color:#bfc1d5;background:#1a1d2e}
+.shop-provider-pending strong{color:#e0d7f4;display:block;font-size:12px}
+.shop-provider-pending small{display:block;color:#aeb6cd;font-size:11px;line-height:1.5}
+.shop-provider-pending .payment-symbol{filter:grayscale(1);opacity:.65}
+@media(max-width:640px){.shop-legal-links ul,.site-legal-links ul{grid-template-columns:1fr}.shop-legal-links,.site-legal-links{padding:14px}}
