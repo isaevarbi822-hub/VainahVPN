@@ -1,4 +1,4 @@
-/* RollyPay checkout: public live charge remains disabled until secure fulfillment. */
+/* RollyPay checkout: server-side checkout_ready controls readiness; never assume payment status from client UI. */
 (() => {
   "use strict";
   const $ = id => document.getElementById(id);
@@ -238,7 +238,7 @@
       draw();
       message(config.checkout_ready
         ? "Оплата включена для авторизованных покупателей."
-        : "Реальные платежи временно отключены. Сайт и цены доступны, интеграция тестируется без списаний.");
+        : "Оформление новых платежей сейчас не разрешено сервером (checkout_ready=false). Это не означает, что сайт или backend недоступен.");
       if (!config.sandbox_available) {
         testMessage("Sandbox отключён на сервере. Для теста требуется включить режим и задать секретный токен.");
       }
