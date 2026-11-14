@@ -47,3 +47,55 @@ body #vx-control-open.vx-control-launch:hover{background:#314e33}
 @media(max-height:400px) and (orientation:landscape){
  body #vx-control-open.vx-control-launch{bottom:6px;left:6px;min-height:39px}
 }
+
+
+/* 2026 Vainah violet redesign: matches the shared dark/purple storefront. */
+.vx-control-launch,
+body #vx-control-open.vx-control-launch {
+  background:linear-gradient(120deg,#2c2148,#392459)!important;
+  border:1px solid #a98bff!important;color:#f8f5ff!important;
+  border-radius:999px;box-shadow:0 10px 35px #13072ecc,0 0 0 1px #e2d3ff18;
+}
+.vx-control-launch:hover,body #vx-control-open.vx-control-launch:hover{background:#4a3178!important}
+.vx-control-dialog{background:#101426!important;border-color:#695689!important;color:#f5f6ff!important;max-width:750px}
+.vx-control-dialog::backdrop{background:#030612cf}
+.vx-control-panel{background:radial-gradient(ellipse at 90% 0%,#65439635,transparent 52%),#101426}
+.vx-control-kicker{color:#bca8ff}.vx-control-head h2{color:#f9f6ff}
+.vx-control-intro,.vx-control-description{color:#bbc0da}
+.vx-control-tabs{grid-template-columns:repeat(5,minmax(0,1fr));border-color:#4b446d}
+.vx-control-tab{background:#20243b!important;border-color:#464060!important;color:#e0d8f7!important;font-size:12px;min-width:0}
+.vx-control-tab[aria-selected="true"]{background:linear-gradient(130deg,#bd9fff,#a98bff)!important;color:#181122!important;border-color:#dfcdff!important}
+.vx-control-close{background:#2b2342;color:#fff;border-color:#695d83}
+.vx-control-close:hover{background:#40345d}
+.vx-control-card{background:#1b2037!important;border-color:#4c4567!important;color:#f5f3ff!important}
+.vx-control-card:hover,.vx-control-card:focus-visible{background:#292e4d!important;border-color:#ae9bff!important}
+.vx-control-card strong{color:#f5f3ff}.vx-control-card small{color:#bec1d9}
+.vx-control-arrow{color:#c4abff}
+.vx-control-steps li{background:#1b2038;border-color:#48405e}
+.vx-control-steps li strong{color:#d2baff}.vx-control-steps li span{color:#c3bdd7}
+.vx-control-foot{border-top-color:#45405d;color:#bbb3ce}
+.vx-control-dialog :is(button,a,input):focus-visible,.vx-control-launch:focus-visible{outline:3px solid #a2dfee!important}
+.vx-chat-log{height:min(34vh,330px);min-height:170px;overflow-y:auto;overscroll-behavior:contain;padding:12px;border:1px solid #4c436b;border-radius:15px;background:#0b1020;display:flex;flex-direction:column;gap:12px}
+.vx-chat-message{max-width:90%;padding:12px 15px;background:#212944;border:1px solid #4d4b70;border-radius:15px;overflow-wrap:anywhere}
+.vx-chat-message.vx-chat-user{align-self:flex-end;background:#463371;border-color:#826bbd}
+.vx-chat-message.vx-chat-bot{align-self:flex-start}
+.vx-chat-message strong{display:block;color:#d7c5ff;font-size:11px;letter-spacing:.06em}
+.vx-chat-message p{color:#f0ebff;line-height:1.55;font-size:13px;margin:6px 0}
+.vx-chat-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.vx-chat-actions .vx-control-card{width:auto;min-height:40px;padding:8px 31px 8px 11px;border-radius:9px}
+.vx-chat-actions .vx-control-card small{display:none}
+.vx-chat-actions .vx-control-card strong{font-size:12px}
+.vx-chat-actions .vx-control-arrow{top:8px;right:10px}
+.vx-chat-suggestions{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+.vx-chat-suggestions button{min-height:37px;padding:8px 11px;border-radius:20px;background:#262040;border:1px solid #6e5b96;color:#e0d2ff;font-size:12px;font-family:inherit;cursor:pointer}
+.vx-chat-suggestions button:hover{background:#382c5a}
+.vx-chat-form{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px}
+.vx-chat-form label{font-size:12px;color:#d0c1f4;font-weight:700;grid-column:1/-1}
+.vx-chat-form input{min-width:0;min-height:45px;border:1px solid #625779;background:#1b2136;color:#fff;padding:10px 13px;border-radius:10px;font:inherit;font-size:13px}
+.vx-chat-form input::placeholder{color:#a9a8c2}
+.vx-chat-form button{padding:10px 13px;min-height:45px;border:1px solid #beacff;background:#5a4388;color:white;border-radius:10px;font:700 12px inherit;cursor:pointer}
+.vx-chat-form button.vx-chat-clear{background:#24233b;border-color:#5b5471}
+.vx-chat-form button:hover{filter:brightness(1.15)}
+@media(max-width:650px){.vx-control-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.vx-chat-form{grid-template-columns:1fr auto}.vx-chat-form .vx-chat-clear{grid-column:1/-1;justify-self:start}.vx-chat-log{min-height:150px;max-height:260px}.vx-chat-message{max-width:96%}}
+@media(max-width:370px){.vx-control-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.vx-chat-log{scroll-behavior:auto}}
