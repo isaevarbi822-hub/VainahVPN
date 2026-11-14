@@ -2,6 +2,7 @@
 
 These tests never contact external services or execute checkout operations.
 """
+
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
