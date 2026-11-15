@@ -461,9 +461,22 @@ class MainActivity : Activity() {
         val footer = horizontal().apply {
             setPadding(dp(8), dp(10), dp(8), 0)
         }
-        val more = lightAction("Все локации и TCP-замеры")
+        val more = lightAction("Все серверы")
         footer.addView(more, LinearLayout.LayoutParams(0, dp(48), 1f))
-        more.setOnClickListener { page = Page.LOCATIONS; render() }
+        more.setOnClickListener {
+            serverCollection = ServerCollection.ALL
+            page = Page.LOCATIONS
+            render()
+        }
+        val whiteList = lightAction("Белые списки")
+        footer.addView(whiteList, LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+            marginStart = dp(8)
+        })
+        whiteList.setOnClickListener {
+            serverCollection = ServerCollection.WHITELIST
+            page = Page.LOCATIONS
+            render()
+        }
         add(sheet, footer)
         add(body, t(
             "Задержка «н/д» означает, что измерений нет. " +
@@ -1141,8 +1154,8 @@ class MainActivity : Activity() {
 
         val split = card()
         add(body, split, 16)
-        add(split, tag("SPLIT TUNNELING / ANDROID"))
-        add(split, t("Приложения вне VPN", 18f, white, true), 9)
+        add(split, tag("БЕЛЫЙ СПИСОК / ANDROID"))
+        add(split, t("Белый список приложений", 18f, white, true), 9)
         val excluded = SplitTunnelPreferences.read(this)
         add(split, t(
             if (excluded.isEmpty()) "Исключений нет: приложения работают через VPN."
@@ -1164,6 +1177,20 @@ class MainActivity : Activity() {
         manageSplit.isEnabled = BuildConfig.VAINAH_LIBBOX_ENABLED
         add(split, manageSplit, 12)
         manageSplit.setOnClickListener { editSplitTunnelApps() }
+        add(split, t(
+            "Белый список приложений — это обход VPN для выбранных программ. " +
+                "Это не список серверов и не настройка сайтов по доменам. " +
+                "Исключения применяются только при новом подключении, " +
+                "если Android не включил системную блокировку обхода.",
+            12f, grey
+        ), 10)
+        val whitelistServers = action("Серверы «Белые списки»")
+        add(split, whitelistServers, 10)
+        whitelistServers.setOnClickListener {
+            serverCollection = ServerCollection.WHITELIST
+            page = Page.LOCATIONS
+            render()
+        }
 
         val diag = action("Открыть диагностику")
         add(protection, diag, 17)
