@@ -413,47 +413,49 @@ class MainActivity : Activity() {
         val accent = ServerListVisual.accentColor()
 
         val upper = horizontal()
-        val brand = column().apply {
-            add(this, t("VainahVPN", 22f, ink, true))
-            add(this, t("Твоё соединение · Твои правила", 11f, muted), 3)
-        }
-        upper.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
         val settingsButton = lightAction("⚙").apply {
             contentDescription = "Настройки VainahVPN"
             textSize = 22f
         }
-        upper.addView(settingsButton, LinearLayout.LayoutParams(dp(44), dp(44)))
+        upper.addView(settingsButton, LinearLayout.LayoutParams(dp(45), dp(45)))
         settingsButton.setOnClickListener { page = Page.SETTINGS; render() }
+        val brand = column().apply {
+            gravity = Gravity.CENTER
+            add(this, t("VainahVPN", 19f, ink, true).apply {
+                gravity = Gravity.CENTER
+            })
+            add(this, t("Твоё соединение · Твои правила", 10.5f, muted).apply {
+                gravity = Gravity.CENTER
+            }, 3)
+        }
+        upper.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
         val addProfile = lightAction("+").apply {
             contentDescription = "Добавить VPN-подписку"
-            textSize = 28f
+            textSize = 25f
         }
-        upper.addView(addProfile, LinearLayout.LayoutParams(dp(44), dp(44)).apply {
-            marginStart = dp(8)
-        })
+        upper.addView(addProfile, LinearLayout.LayoutParams(dp(45), dp(45)))
         addProfile.setOnClickListener { page = Page.ACCOUNT; render() }
-        add(body, upper, 18)
+        add(body, upper, 4)
 
         val hero = column().apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(34, 30, 65), VainahDesign.surface)
-            ).apply {
-                cornerRadius = dp(25).toFloat()
-                setStroke(dp(1), VainahDesign.border)
-            }
-            setPadding(dp(15), dp(18), dp(15), dp(18))
+            // The connection control floats on the page rather than living
+            // inside a second giant card.
+            setPadding(dp(9), dp(14), dp(9), dp(12))
         }
-        add(body, hero, 14)
+        add(body, hero, 13)
         val ring = FrameLayout(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(86, 63, 155), Color.rgb(35, 30, 66))
+                intArrayOf(
+                    Color.rgb(236, 241, 249),
+                    Color.rgb(251, 247, 248)
+                )
             ).apply {
                 shape = GradientDrawable.OVAL
-                setStroke(dp(2), VainahDesign.purple)
+                setStroke(dp(1), VainahDesign.softPurple)
             }
+            elevation = dp(3).toFloat()
         }
         val power = PowerOrbView(this).apply {
             contentDescription = "Включить или отключить VPN"
@@ -461,16 +463,16 @@ class MainActivity : Activity() {
             isFocusable = true
             val circle = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(48, 40, 89), VainahDesign.surface)
+                intArrayOf(Color.WHITE, Color.rgb(248, 249, 252))
             ).apply {
                 shape = GradientDrawable.OVAL
-                setStroke(dp(2), VainahDesign.softPurple)
+                setStroke(dp(2), VainahDesign.border)
             }
             background = RippleDrawable(
-                ColorStateList.valueOf(Color.argb(80, 190, 164, 255)),
+                ColorStateList.valueOf(Color.argb(48, 111, 111, 177)),
                 circle, null
             )
-            elevation = dp(7).toFloat()
+            elevation = dp(5).toFloat()
             setOnClickListener {
                 if (VpnConnectionState.read(this@MainActivity).canDisconnect) disconnect()
                 else connect()
@@ -478,14 +480,14 @@ class MainActivity : Activity() {
         }
         powerOrb = power
         ring.addView(power, FrameLayout.LayoutParams(
-            dp(130), dp(130), Gravity.CENTER
+            dp(172), dp(172), Gravity.CENTER
         ))
-        hero.addView(ring, LinearLayout.LayoutParams(dp(177), dp(177)))
+        hero.addView(ring, LinearLayout.LayoutParams(dp(223), dp(223)))
         val status = t("Не подключено", 19f, ink, true).apply {
             gravity = Gravity.CENTER
         }
         stateView = status
-        add(hero, status, 12)
+        add(hero, status, 17)
         val nextNode = selected?.let { ServerRowPresentation.describe(it, 0) }
         val selectedName = if (nextNode == null) "Выбери сервер из списка ниже"
         else nextNode.flag + "  " + nextNode.title
@@ -501,18 +503,18 @@ class MainActivity : Activity() {
         detailView = detail
         add(hero, detail, 7)
         val connect = action("Подключиться", true).apply {
-            setTextColor(bg)
+            setTextColor(Color.WHITE)
             background = RippleDrawable(
-                ColorStateList.valueOf(Color.argb(70, 255, 255, 255)),
+                ColorStateList.valueOf(Color.argb(55, 255, 255, 255)),
                 GradientDrawable(
                     GradientDrawable.Orientation.LEFT_RIGHT,
-                    intArrayOf(VainahDesign.purple, VainahDesign.softPurple)
-                ).apply { cornerRadius = dp(15).toFloat() },
+                    intArrayOf(VainahDesign.purple, VainahDesign.accentDark)
+                ).apply { cornerRadius = dp(16).toFloat() },
                 null
             )
         }
         connectView = connect
-        add(hero, connect, 12)
+        add(hero, connect, 16)
         connect.setOnClickListener {
             if (VpnConnectionState.read(this).canDisconnect) disconnect()
             else connect()
@@ -524,20 +526,42 @@ class MainActivity : Activity() {
             setPadding(dp(10), 0, dp(10), dp(8))
         }
         val title = column()
-        title.addView(t("Серверы", 21f, ink, true))
+        title.addView(t("VainahVPN · Серверы", 17.5f, ink, true))
         title.addView(t(
-            if (nodes.isEmpty()) "Нет серверов в подписке"
-            else "${nodes.size} конфигураций · выбор для следующего подключения",
+            if (nodes.isEmpty()) "Подписка пока не загружена"
+            else "${nodes.size} серверов · твоя подписка",
             11f, muted
-        ), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(3) })
+        ), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
         heading.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
         val refresh = lightAction("⟳").apply {
             contentDescription = "Обновить серверы из подписки"
             textSize = 22f
             isEnabled = !source.busy
         }
-        heading.addView(refresh, LinearLayout.LayoutParams(dp(46), dp(46)))
+        heading.addView(refresh, LinearLayout.LayoutParams(dp(42), dp(42)))
         refresh.setOnClickListener { refreshServers(true) }
+        val measure = lightAction("мс").apply {
+            textSize = 12f
+            contentDescription = "Измерить TCP-задержку всех серверов"
+            isEnabled = nodes.isNotEmpty() && !serverProbeRunning &&
+                !VpnConnectionState.read(this@MainActivity).canDisconnect
+        }
+        heading.addView(measure, LinearLayout.LayoutParams(dp(42), dp(42)).apply {
+            marginStart = dp(6)
+        })
+        measure.setOnClickListener { probeServersAndChoose(selectBest = false) }
+        val allList = lightAction("⋯").apply {
+            textSize = 21f
+            contentDescription = "Показать все серверы"
+        }
+        heading.addView(allList, LinearLayout.LayoutParams(dp(42), dp(42)).apply {
+            marginStart = dp(6)
+        })
+        allList.setOnClickListener {
+            serverCollection = ServerCollection.ALL
+            page = Page.LOCATIONS
+            render()
+        }
         add(sheet, heading)
         val infoText = if (source.busy) "Обновляем подписку…"
         else cacheMessage
