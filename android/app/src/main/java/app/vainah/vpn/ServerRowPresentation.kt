@@ -103,11 +103,13 @@ object ServerRowPresentation {
 
     /** Only previously measured entry-point TCP delays may appear as numbers. */
     fun latency(observation: ServerTcpObservation?): String {
-        if (observation == null) return "н/д"
-        val ms = observation.takeIf {
-            it.attempts == ServerTcpSelector.ATTEMPTS_PER_NODE &&
-                it.successes >= 2
-        }?.medianMs ?: return "н/д"
-        return "TCP $ms мс"
+        if (observation == null ||
+            observation.attempts != ServerTcpSelector.ATTEMPTS_PER_NODE) return "—"
+        val ms = observation.takeIf { it.successes >= 2 }?.medianMs
+        return when {
+            ms != null -> "TCP $ms мс"
+            observation.successes > 0 -> "нестабильно"
+            else -> "нет ответа"
+        }
     }
 }
