@@ -109,7 +109,7 @@ const root={
  querySelectorAll:k=>k==='[data-vx-next-choice]'?choices:[]
 };
 global.document={querySelector:k=>k==='[data-vx-next-journey]'?root:null,createElement:k=>new El(k)};
-global.window={location:{origin:'https://vainahvpn.onrender.com',href:'https://vainahvpn.onrender.com/index.html'}};
+global.window={location:{origin:'https://vainahvpn.onrender.com',href:'https://vainahvpn.onrender.com/index.html'},setTimeout,clearTimeout};
 const plans=Array.from({length:75},(_,i)=>({
  id:'plan-'+i,title:'Тариф '+i,days:7,devices:3,price_rub:'100.00',
  category:'personal',status:'existing',checkout_supported:true,
