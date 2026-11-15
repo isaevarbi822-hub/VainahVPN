@@ -20,7 +20,7 @@ def test_new_hero_journey_is_accessible_and_on_homepage():
     assert html.count('data-vx-next-choice="platform"') == 5
     assert html.count('data-vx-next-choice="devices"') == 2
     assert html.count('data-vx-next-choice="days"') == 3
-    assert 'vainah-next.js?v=20261115-next1' in html
+    assert 'vainah-next.js?v=20261115-reliable2' in html
     assert 'vainah-next.css?v=20261115-next1' in html
 
 
