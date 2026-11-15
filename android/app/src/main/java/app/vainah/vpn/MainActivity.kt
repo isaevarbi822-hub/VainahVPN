@@ -577,7 +577,7 @@ class MainActivity : Activity() {
         add(options, hwid, 11)
         hwid.setOnClickListener {
             AlertDialog.Builder(this).setTitle("Передача HWID")
-                .setMessage("Сервер получит отдельный ID Vainah VPN, модель " +
+                .setMessage("Сервер получит отдельный ID VainahVPN, модель " +
                     "и версию Android. Может использоваться дополнительный слот устройства.")
                 .setNegativeButton("Отмена", null)
                 .setPositiveButton("Изменить") { _, _ ->
@@ -802,7 +802,7 @@ class MainActivity : Activity() {
                     diag.getString("last_failure_code", null) else null,
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Vainah VPN diagnostic", text))
+            clipboard.setPrimaryClip(ClipData.newPlainText("VainahVPN", text))
             popup("Обезличенный отчёт скопирован. В нём нет VPN-ключей или адресов серверов.")
         }
         val retry = action("Обновить серверы")
@@ -822,7 +822,7 @@ class MainActivity : Activity() {
         if (routeScanRunning) return
         val before = VpnConnectionState.read(this)
         if (!before.canDisconnect || !VainahVpnService.runningInProcess) {
-            popup("Сначала запусти Vainah VPN для проверки маршрутов.")
+            popup("Сначала запусти VainahVPN для проверки маршрутов.")
             return
         }
         val physicalBefore = VpnUnderlayStatus.read(this)
