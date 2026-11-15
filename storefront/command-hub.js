@@ -95,6 +95,8 @@
   const note = $('#vx-hub-status-note');
   const button = $('#vx-hub-check');
   const backendOrigin = 'https://vainahvpn-python-preview.onrender.com';
+  const publicOrigin = 'https://vainahvpn.onrender.com';
+  const isPublicSite=window.location.origin===publicOrigin;
   const setStatus = (node, message, state) => {
     if (!node) return;
     node.textContent = message; node.dataset.state = state;
@@ -139,9 +141,27 @@
         setStatus(checkoutStatus, 'Не проверено', 'unknown');
         return;
       }
-      // Browsers may block cross-origin reads even when the backend works.
-      const health = await safeGet('/api/health');
-      setStatus(apiStatus, health ? 'Ответ получен: HTTP 200' : 'Не удалось подтвердить', health ? 'ok' : 'unknown');
+      // Only the public tariff GET route is CORS-readable by the marketing
+      // origin. /api/health and /api/shop/config are deliberately same-origin.
+      // Never report a CORS denial as a service outage.
+      const health = await safeGet(isPublicSite?'/api/site/tariffs':'/api/health');
+      let apiConfirmed=false;
+      if(health){
+        try{
+          const data=await health.json();
+          apiConfirmed=isPublicSite
+            ? data.total===76&&Array.isArray(data.plans)&&data.plans.length===76
+            : data&&typeof data==='object'&&!Array.isArray(data);
+        }catch(_){apiConfirmed=false;}
+      }
+      setStatus(apiStatus,apiConfirmed
+        ?(isPublicSite?'Публичный каталог API отвечает':'Служебное API отвечает')
+        :'Не удалось подтвердить ответ API',apiConfirmed?'ok':'unknown');
+      if(isPublicSite){
+        setStatus(checkoutStatus,'Проверка доступна на странице оформления','unknown');
+        if(note)note.textContent='Каталог API проверен отдельно от оплаты. Статус кассы нельзя прочитать с публичного домена из-за защиты браузера. Это не означает сбой оплаты. Проверь доступность оформления на защищённой странице.';
+        return;
+      }
       const configResponse = await safeGet('/api/shop/config');
       let ready = null;
       if (configResponse) {
@@ -158,7 +178,7 @@
         setStatus(checkoutStatus, 'Статус не подтверждён', 'unknown');
       }
       if (note) {
-        note.textContent = 'HTTP 200 означает ответ API, но не доказывает, что VPN-туннель работает. checkout_ready=false — состояние оформления, а не ошибка сервера. Если чтение заблокировано CORS, открывай статус на backend.';
+        note.textContent = 'Ответ служебного API не доказывает, что VPN-туннель работает. checkout_ready — разрешение на создание счёта, но не подтверждение проведённой оплаты.';
       }
     } finally {
       button.disabled = false;

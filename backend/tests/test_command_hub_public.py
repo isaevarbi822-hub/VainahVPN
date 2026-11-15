@@ -18,7 +18,7 @@ def test_command_hub_assets_and_navigation_exist():
     assert 'href="command-hub.html"' in homepage
     assert "command-hub.html" in shell
     assert 'href="command-hub.css?v=20261114-2"' in hub
-    assert 'src="command-hub.js?v=20261114-2"' in hub
+    assert 'src="command-hub.js?v=20261115-reliable2"' in hub
     for element_id in (
         "vx-hub-search",
         "vx-hub-features",
