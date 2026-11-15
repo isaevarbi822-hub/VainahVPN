@@ -23,7 +23,7 @@ data class ServerTcpObservation(
 }
 
 object ServerTcpSelector {
-    const val MAX_PROBED_NODES = 8
+    const val MAX_PROBED_NODES = 50
     const val ATTEMPTS_PER_NODE = 3
     const val CONNECT_TIMEOUT_MS = 1200
 
@@ -64,6 +64,7 @@ object ServerTcpMeasurement {
             ?: return ServerTcpObservation(-1, ServerTcpSelector.ATTEMPTS_PER_NODE, emptyList())
         val results = ArrayList<Int>(ServerTcpSelector.ATTEMPTS_PER_NODE)
         repeat(ServerTcpSelector.ATTEMPTS_PER_NODE) {
+            if (Thread.currentThread().isInterrupted) return@repeat
             try {
                 Socket().use { socket ->
                     val started = System.nanoTime()
