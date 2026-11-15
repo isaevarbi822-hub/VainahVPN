@@ -51,7 +51,10 @@ object VlessRealityConfig {
         val serviceName = (params["serviceName"] ?: params["service_name"]).orEmpty()
         require(serviceName.length <= 256 && !serviceName.contains('\n') &&
             !serviceName.contains('\r')) { "Invalid gRPC service name" }
-        val xhttpPath = params["path"].orEmpty().ifBlank { "/" }
+        // Only a missing/empty path gets the protocol default. A decoded
+        // whitespace/control-only path must fail validation, not be hidden
+        // by an ifBlank("/") fallback.
+        val xhttpPath = params["path"]?.takeIf { it.isNotEmpty() } ?: "/"
         val xhttpHost = params["host"].orEmpty()
         val xhttpMode = params["mode"].orEmpty().ifBlank { "auto" }
         val padding = params["x_padding_bytes"].orEmpty()
