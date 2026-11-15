@@ -13,8 +13,8 @@ def test_eco_speed_mode_limits_usage_without_changing_backend_limits():
     js = (SITE / "speed-test.js").read_text(encoding="utf-8")
     assert 'name="speed-mode" value="eco" checked' in html
     assert 'name="speed-mode" value="normal"' in html
-    assert "pings:3,downloads:1,uploads:1,uploadBytes:128*1024" in js
-    assert "pings:5,downloads:3,uploads:2,uploadBytes:256*1024" in js
+    assert "pings:3,downloads:2,uploads:2,uploadBytes:128*1024" in js
+    assert "pings:5,downloads:3,uploads:3,uploadBytes:256*1024" in js
     assert "config.downloads,512*1024" in js
     assert "config.uploads,config.uploadBytes" in js
     assert "options.disabled=true" in js
