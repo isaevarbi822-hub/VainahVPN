@@ -106,7 +106,7 @@ class MainActivity : Activity() {
             runCatching { Page.valueOf(it) }.getOrNull()
         } ?: Page.HOME
         nodes = source.cachedNodes()
-        selected = nodes.firstOrNull()
+        selected = nodes.firstOrNull { SubscriptionNodeSupport.canConnect(it.uri) }
         if (nodes.isNotEmpty()) cacheMessage =
             "Последний сохранённый список. Актуальность не подтверждена."
         render()
@@ -392,6 +392,34 @@ class MainActivity : Activity() {
         serverProbes, source.whiteListNodeIds()
     )
 
+    private fun isLteGroup(entry: ServerDirectoryEntry): Boolean =
+        ServerCollections.isWhiteListLabel(entry.info.title) ||
+            entry.manualWhitelist
+
+    /** Display actual provider/user-marked LTE entries above ordinary nodes. */
+    private fun putGroupedServerRows(
+        sheet: LinearLayout,
+        entries: List<ServerDirectoryEntry>,
+        returnHomeAfterSelection: Boolean,
+        onFavoriteChanged: (() -> Unit)? = null,
+    ) {
+        val (lte, ordinary) = entries.partition(::isLteGroup)
+        if (lte.isNotEmpty()) {
+            add(sheet, t("📶 LTE-доступ · ${lte.size}", 12.5f,
+                VainahDesign.green, true).apply {
+                setPadding(dp(9), dp(9), dp(9), dp(7))
+            })
+            putServerRows(sheet, lte, returnHomeAfterSelection, onFavoriteChanged)
+        }
+        if (ordinary.isNotEmpty()) {
+            if (lte.isNotEmpty()) add(sheet, t("Обычные серверы", 12.5f,
+                ServerListVisual.mutedColor(), true).apply {
+                setPadding(dp(9), dp(14), dp(9), dp(7))
+            })
+            putServerRows(sheet, ordinary, returnHomeAfterSelection, onFavoriteChanged)
+        }
+    }
+
     private fun putServerRows(
         sheet: LinearLayout,
         entries: List<ServerDirectoryEntry>,
@@ -408,8 +436,8 @@ class MainActivity : Activity() {
                 latency = latency,
                 isSelected = node.uri == selected?.uri,
                 isFavorite = entry.favorite,
-                isWhitelist = ServerCollections.isWhiteListLabel(entry.info.title) ||
-                    entry.manualWhitelist,
+                isWhitelist = isLteGroup(entry),
+                isConnectable = SubscriptionNodeSupport.canConnect(node.uri),
                 onFavoriteClick = {
                     if (source.setFavorite(node.uri, nodes, !entry.favorite)) {
                         if (onFavoriteChanged != null) onFavoriteChanged() else render()
@@ -419,6 +447,12 @@ class MainActivity : Activity() {
                     }
                 },
             ) {
+                if (!SubscriptionNodeSupport.canConnect(node.uri)) {
+                    popup("Конфигурация есть в H1Cloud, но текущий VPN-движок " +
+                        "VainahVPN пока не поддерживает ${entry.info.subtitle}. " +
+                        "Сервер показан без имитации подключения.")
+                    return@row
+                }
                 // Selecting a row never interrupts an existing VPN tunnel.
                 selected = node
                 if (returnHomeAfterSelection) {
@@ -608,9 +642,11 @@ class MainActivity : Activity() {
             ).apply { setPadding(dp(13), dp(12), dp(13), dp(15)) })
         } else {
             val ordered = directory()
+            val prioritized = ordered.filter(::isLteGroup) +
+                ordered.filterNot(::isLteGroup)
             val visible = if (serverListExpanded)
-                ordered.size else minOf(8, ordered.size)
-            putServerRows(sheet, ordered.take(visible), false)
+                prioritized.size else minOf(8, prioritized.size)
+            putGroupedServerRows(sheet, prioritized.take(visible), false)
             if (nodes.size > 8) {
                 val expand = lightAction(if (visible == ordered.size)
                     "Свернуть список" else "Показать все ${nodes.size} серверов")
@@ -700,7 +736,7 @@ class MainActivity : Activity() {
             serverListExpanded = false
             invalidateServerProbes()
             nodes = source.cachedNodes()
-            selected = nodes.firstOrNull()
+            selected = nodes.firstOrNull { SubscriptionNodeSupport.canConnect(it.uri) }
             lastError = null
             nextAutoRefresh = 0L
             cacheMessage = "Профиль сохранён. Обновляем список."
@@ -1155,7 +1191,7 @@ class MainActivity : Activity() {
                         setPadding(dp(13), dp(12), dp(13), dp(18))
                     })
                 } else {
-                    putServerRows(results, matches, true, onFavoriteChanged = {
+                    putGroupedServerRows(results, matches, true, onFavoriteChanged = {
                         invoke()
                     })
                 }
