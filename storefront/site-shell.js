@@ -59,6 +59,7 @@
     ['start.html','Быстрый старт','С чего начать, если подписки нет','новичок'],
     ['status.html','Статус сервисов','H1Cloud, PostgreSQL, RollyPay и webhook','недоступность сбой'],
     ['diagnostics.html','Центр диагностики','Проверки соединения и решения проблем','не работает ошибка'],
+    ['ultra-repair.html','Vainah Repair Ultra','Интерактивные шаги решения проблем для пяти платформ','ремонт восстановить vpn ultra не подключается помощь ошибка wifi мобильная сеть'],
     ['troubleshooting.html','Решение проблем','Диагностика импорта, ошибок и соединения','помощь ошибка'],
     ['help.html','Ответы на вопросы','FAQ про подписку и подключение','частые вопросы'],
     ['library.html','Библиотека знаний','Поиск по материалам проекта','справочник статьи'],
@@ -535,6 +536,44 @@
     script.dataset.vxControl = 'script';
     document.head.append(script);
   }
+  // Ultra 360: fast, accessible mobile navigation only on informational pages.
+  // Never covers a live checkout, account screen or one-time auth controls.
+  const noMobileRail=new Set([
+    'checkout.html','checkout-return.html','payment-return.html',
+    'account.html','account-login.html','operator-pilot.html',
+    'operations.html','support-operator.html','support-center.html',
+    'my-devices.html','gifts.html','gift-cards.html','trial.html'
+  ]);
+  if(!noMobileRail.has(path)&&!document.querySelector('[data-vx-ultra-rail]')){
+    const rail=el('nav','vx-ultra-mobile-rail');
+    rail.dataset.vxUltraRail='true';
+    rail.setAttribute('aria-label','Быстрая навигация на телефоне');
+    const links=[
+      ['⌂','Главная','index.html'],
+      ['◈','Тарифы','plans.html'],
+      ['✦','Помощь','ultra-repair.html'],
+      ['▣','Кабинет','account.html']
+    ];
+    for(const [symbol,name,url] of links){
+      const a=el('a','vx-ultra-mobile-link');
+      a.href=url;
+      if(path===url)a.setAttribute('aria-current','page');
+      a.append(el('span','vx-ultra-mobile-icon',symbol),el('span','',name));
+      rail.append(a);
+    }
+    document.body.append(rail);
+    document.body.classList.add('vx-has-ultra-mobile');
+  }
+  // CSS is loaded after the existing chat styles to keep launcher and
+  // floating accessibility controls above the small-screen navigation.
+  if(!document.querySelector('link[data-vx-ultra-mobile]')){
+    const style=document.createElement('link');
+    style.rel='stylesheet';
+    style.href='ultra-mobile.css?v=20261115-u360';
+    style.dataset.vxUltraMobile='1';
+    document.head.append(style);
+  }
+  // Don't trigger continuous decorative motion on metered/data-saver devices.
   // The old floating quick-actions prototype duplicated Ultra Control.
   // Vainah Control is now a full page accessible from navigation.
   // No timers or background API polling are created by the shared shell.
