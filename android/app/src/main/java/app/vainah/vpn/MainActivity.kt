@@ -8,6 +8,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.net.VpnService
 import android.provider.Settings
 import android.os.Build
@@ -23,6 +24,7 @@ import android.widget.FrameLayout
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.InputType
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -49,6 +51,7 @@ class MainActivity : Activity() {
     private var serverListExpanded = false
     private var serverSearchQuery = ""
     private var showFavoriteServers = false
+    private var serverCollection = ServerCollection.ALL
     private var serverSort = ServerSort.SUBSCRIPTION
     private var routeScanVersion = 0
     private var routeScanRunning = false
@@ -62,14 +65,14 @@ class MainActivity : Activity() {
     private val main = Handler(Looper.getMainLooper())
     private val vpnConsentCode = 7041
 
-    private val bg = Color.rgb(10, 14, 27)
-    private val card = Color.rgb(23, 29, 48)
-    private val border = Color.rgb(59, 66, 90)
-    private val violet = Color.rgb(165, 138, 249)
-    private val white = Color.rgb(244, 244, 255)
-    private val grey = Color.rgb(169, 178, 202)
-    private val teal = Color.rgb(107, 219, 230)
-    private val green = Color.rgb(111, 221, 176)
+    private val bg = VainahDesign.background
+    private val card = VainahDesign.surface2
+    private val border = VainahDesign.border
+    private val violet = VainahDesign.purple
+    private val white = VainahDesign.ink
+    private val grey = VainahDesign.muted
+    private val teal = VainahDesign.sky
+    private val green = VainahDesign.green
     private val errorColor = Color.rgb(249, 173, 164)
 
     private val ticker = object : Runnable {
@@ -177,8 +180,26 @@ class MainActivity : Activity() {
         importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
     }
     private fun popup(message: String) {
-        AlertDialog.Builder(this).setTitle("Vainah VPN").setMessage(message)
+        AlertDialog.Builder(this).setTitle("VainahVPN").setMessage(message)
             .setPositiveButton("Понятно", null).show()
+    }
+
+    /**
+     * Account, payments, and support are opened on the live backend.
+     * Do not handle card details or pass VPN bearer links in an Android Intent.
+     */
+    private fun openOfficialPage(page: String) {
+        val supported = setOf(
+            "account.html", "plans.html", "my-devices.html",
+            "support-center.html", "notifications.html", "gifts.html"
+        )
+        if (page !in supported) return
+        val uri = Uri.parse("https://vainahvpn-python-preview.onrender.com/" + page)
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (_: android.content.ActivityNotFoundException) {
+            popup("Не удалось открыть официальный сайт. Проверь браузер на устройстве.")
+        }
     }
 
     private fun render() {
@@ -197,16 +218,16 @@ class MainActivity : Activity() {
         }
         scroll.addView(body)
         frame.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        add(body, tag("VAINAH VPN / NEXT"))
+        add(body, tag("VAINAHVPN"))
         add(body, t(when (page) {
             Page.HOME -> "Твоё соединение. Твои правила."
             Page.LOCATIONS -> "Серверы и локации"
-            Page.ACCOUNT -> "Мой VPN"
+            Page.ACCOUNT -> "Подписка"
             Page.DEVICES -> "Мои устройства"
             Page.DIAGNOSTICS -> "Диагностика"
             Page.SECURITY -> "Безопасность"
             Page.SETTINGS -> "Настройки"
-            Page.MORE -> "Больше возможностей"
+            Page.MORE -> "Профиль"
         }, if (light) 22f else 25f,
             if (light) ServerListVisual.textColor() else white, true), 8)
         add(body, t("Android · " + BuildConfig.VERSION_NAME, 12f,
@@ -226,14 +247,15 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(9), dp(12), dp(9))
         }
         val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
-                Page.SECURITY, Page.SETTINGS)) Page.MORE else page
+                Page.SETTINGS)) Page.MORE else page
         for ((target, label) in listOf(
             Page.HOME to "Главная", Page.LOCATIONS to "Серверы",
-            Page.ACCOUNT to "Мой VPN", Page.MORE to "Ещё"
+            Page.SECURITY to "Защита", Page.ACCOUNT to "Подписка",
+            Page.MORE to "Профиль"
         )) {
             val button = action(label, target == selectedTab).apply {
                 minHeight = dp(44)
-                textSize = 12f
+                textSize = 11f
                 if (light && target != selectedTab) {
                     setTextColor(ServerListVisual.textColor())
                     background = shape(
@@ -249,8 +271,8 @@ class MainActivity : Activity() {
                 }
             }
             nav.addView(button, LinearLayout.LayoutParams(0, dp(48), 1f).apply {
-                marginStart = dp(3)
-                marginEnd = dp(3)
+                marginStart = dp(1)
+                marginEnd = dp(1)
             })
         }
         frame.addView(nav)
@@ -322,10 +344,10 @@ class MainActivity : Activity() {
         val accent = ServerListVisual.accentColor()
 
         val upper = horizontal()
-        val brand = t("VAINAH  /  VPN", 18f, ink, true)
+        val brand = t("VainahVPN", 20f, ink, true)
         upper.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
         val settingsButton = lightAction("⚙").apply {
-            contentDescription = "Настройки Vainah VPN"
+            contentDescription = "Настройки VainahVPN"
             textSize = 22f
         }
         upper.addView(settingsButton, LinearLayout.LayoutParams(dp(52), dp(52)))
@@ -348,8 +370,8 @@ class MainActivity : Activity() {
         val ring = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.rgb(245, 247, 251))
-                setStroke(dp(2), Color.rgb(215, 224, 238))
+                setColor(VainahDesign.previewTop)
+                setStroke(dp(2), VainahDesign.purple)
             }
         }
         val power = Button(this).apply {
@@ -360,8 +382,8 @@ class MainActivity : Activity() {
             contentDescription = "Включить или отключить VPN"
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.WHITE)
-                setStroke(dp(3), Color.rgb(232, 235, 242))
+                setColor(VainahDesign.surface2)
+                setStroke(dp(3), VainahDesign.softPurple)
             }
             elevation = dp(9).toFloat()
             setOnClickListener {
@@ -457,9 +479,22 @@ class MainActivity : Activity() {
         val footer = horizontal().apply {
             setPadding(dp(8), dp(10), dp(8), 0)
         }
-        val more = lightAction("Все локации и TCP-замеры")
+        val more = lightAction("Все серверы")
         footer.addView(more, LinearLayout.LayoutParams(0, dp(48), 1f))
-        more.setOnClickListener { page = Page.LOCATIONS; render() }
+        more.setOnClickListener {
+            serverCollection = ServerCollection.ALL
+            page = Page.LOCATIONS
+            render()
+        }
+        val whiteList = lightAction("Белые списки")
+        footer.addView(whiteList, LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+            marginStart = dp(8)
+        })
+        whiteList.setOnClickListener {
+            serverCollection = ServerCollection.WHITELIST
+            page = Page.LOCATIONS
+            render()
+        }
         add(sheet, footer)
         add(body, t(
             "Задержка «н/д» означает, что измерений нет. " +
@@ -468,7 +503,7 @@ class MainActivity : Activity() {
         ), 12)
 
         val trafficPanel = column().apply {
-            background = shape(Color.WHITE, Color.WHITE, 17)
+            background = shape(ServerListVisual.cardColor(), VainahDesign.border, 17)
             setPadding(dp(18), dp(12), dp(18), dp(17))
         }
         add(body, trafficPanel, 15)
@@ -479,6 +514,23 @@ class MainActivity : Activity() {
     }
 
     private fun account(body: LinearLayout) {
+        val live = card()
+        add(body, live, 16)
+        add(live, tag("МОЯ ПОДПИСКА"))
+        add(live, t("Подписка VainahVPN", 20f, white, true), 9)
+        add(live, t(
+            "Цена, срок действия, число устройств и история покупок " +
+                "показываются в личном кабинете после входа. " +
+                "Приложение не рисует выдуманный баланс и не принимает данные карты.",
+            12f, grey
+        ), 10)
+        val onlineAccount = action("Открыть мою подписку", true)
+        add(live, onlineAccount, 12)
+        onlineAccount.setOnClickListener { openOfficialPage("account.html") }
+        val onlinePlans = action("Все тарифы и продление")
+        add(live, onlinePlans, 9)
+        onlinePlans.setOnClickListener { openOfficialPage("plans.html") }
+
         val profile = card()
         add(body, profile, 21)
         add(profile, tag("VPN-профиль"))
@@ -552,8 +604,9 @@ class MainActivity : Activity() {
         add(body, identity, 15)
         add(identity, tag("Учётная запись"))
         add(identity, t(
-            "Clerk используется только для входа. Покупки в новой версии " +
-                "пока выключены до полноценного переноса Python API.",
+            "Локальный импорт VPN-подписки работает отдельно от входа в веб-кабинет. " +
+                "Покупки оформляются на официальном сайте с серверной проверкой " +
+                "суммы и подтверждением платежа, не внутри APK.",
             12f, grey), 8)
         val login = action("Войти через Clerk")
         add(identity, login, 10)
@@ -847,12 +900,37 @@ class MainActivity : Activity() {
             setTextColor(ink)
             setHintTextColor(muted)
             setPadding(dp(14), dp(12), dp(14), dp(12))
-            background = shape(Color.rgb(248, 250, 254),
-                Color.rgb(224, 231, 242), 13)
+            background = shape(VainahDesign.surface, VainahDesign.border, 13)
             setText(serverSearchQuery)
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         }
         add(sheet, search, 8)
+        val categoryButtons = mutableListOf<Pair<ServerCollection, Button>>()
+        val categoryRow = horizontal().apply {
+            setPadding(dp(8), dp(5), dp(8), dp(5))
+        }
+        for (category in ServerCollection.values()) {
+            val chip = lightAction(category.title).apply {
+                textSize = 11.5f
+                minHeight = dp(44)
+                contentDescription = "Категория серверов: " + category.title
+            }
+            categoryRow.addView(chip, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)
+            ).apply { marginEnd = dp(7) })
+            categoryButtons.add(category to chip)
+        }
+        val categoryScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            isFillViewport = false
+            addView(categoryRow)
+        }
+        add(sheet, categoryScroll, 10)
+        add(sheet, t(
+            "Категории сформированы только из реальной подписки H1Cloud. " +
+                "«Белые списки» — серверы с такой пометкой; приложение не создаёт новые узлы.",
+            11f, muted
+        ).apply { setPadding(dp(13), dp(3), dp(13), dp(8)) })
         val controls = horizontal().apply {
             setPadding(dp(5), dp(9), dp(5), dp(12))
         }
@@ -879,11 +957,21 @@ class MainActivity : Activity() {
 
         val redrawRows = object : () -> Unit {
             override fun invoke() {
-                val matches = directory(
-                    serverSearchQuery, showFavoriteServers, serverSort
+                val matches = ServerCollections.filter(
+                    directory(serverSearchQuery, false, serverSort),
+                    serverCollection
                 )
-                favoriteButton.text = if (showFavoriteServers)
+                favoriteButton.text = if (serverCollection == ServerCollection.FAVORITES)
                     "★ Только избранные" else "☆ Избранные"
+                for ((category, button) in categoryButtons) {
+                    val active = category == serverCollection
+                    button.background = shape(
+                        if (active) violet else VainahDesign.surface,
+                        if (active) violet else border, 12
+                    )
+                    button.setTextColor(if (active) bg else white)
+                    button.isSelected = active
+                }
                 sortButton.text = when (serverSort) {
                     ServerSort.SUBSCRIPTION -> "По подписке"
                     ServerSort.COUNTRY -> "По стране"
@@ -892,13 +980,9 @@ class MainActivity : Activity() {
                 count.text = "Показано: ${matches.size} из ${nodes.size}"
                 results.removeAllViews()
                 if (matches.isEmpty()) {
-                    val message = if (nodes.isEmpty())
-                        "Подписка пока не содержит поддерживаемых серверов. " +
-                            "Добавь профиль VLESS/TCP/REALITY."
-                    else if (showFavoriteServers)
-                        "В избранном нет серверов по этому запросу. " +
-                            "Добавь звёздочку в общем списке."
-                    else "Нет серверов по запросу. Попробуй название страны."
+                    val message = if (serverSearchQuery.isNotBlank())
+                        "Нет совпадений по запросу в этой категории. Очисти поиск."
+                    else ServerCollections.emptyMessage(serverCollection, nodes.isNotEmpty())
                     add(results, t(message, 13f, muted).apply {
                         setPadding(dp(13), dp(12), dp(13), dp(18))
                     })
@@ -910,8 +994,15 @@ class MainActivity : Activity() {
             }
         }
         favoriteButton.setOnClickListener {
-            showFavoriteServers = !showFavoriteServers
+            serverCollection = if (serverCollection == ServerCollection.FAVORITES)
+                ServerCollection.ALL else ServerCollection.FAVORITES
             redrawRows()
+        }
+        for ((category, button) in categoryButtons) {
+            button.setOnClickListener {
+                serverCollection = category
+                redrawRows()
+            }
         }
         sortButton.setOnClickListener {
             val options = arrayOf("По порядку подписки", "По стране",
@@ -943,7 +1034,7 @@ class MainActivity : Activity() {
         add(sheet, actions)
 
         val measurement = column().apply {
-            background = shape(Color.WHITE, Color.WHITE, 21)
+            background = shape(ServerListVisual.cardColor(), VainahDesign.border, 21)
             setPadding(dp(17), dp(18), dp(17), dp(20))
         }
         add(body, measurement, 16)
@@ -1079,7 +1170,7 @@ class MainActivity : Activity() {
         add(kill, t("Блокировать интернет без VPN", 18f, white, true), 8)
         add(kill, t(
             "Это системная защита Android, а не выключатель на сайте. " +
-                "Открой настройки VPN, выбери Vainah VPN Next, включи " +
+                "Открой настройки VPN, выбери VainahVPN, включи " +
                 "«Всегда включён VPN», затем «Блокировать подключения без VPN». " +
                 "Если VPN отключится, Android будет блокировать подключения без него.",
             12f, grey), 9)
@@ -1099,8 +1190,8 @@ class MainActivity : Activity() {
 
         val split = card()
         add(body, split, 16)
-        add(split, tag("SPLIT TUNNELING / ANDROID"))
-        add(split, t("Приложения вне VPN", 18f, white, true), 9)
+        add(split, tag("БЕЛЫЙ СПИСОК / ANDROID"))
+        add(split, t("Белый список приложений", 18f, white, true), 9)
         val excluded = SplitTunnelPreferences.read(this)
         add(split, t(
             if (excluded.isEmpty()) "Исключений нет: приложения работают через VPN."
@@ -1122,6 +1213,20 @@ class MainActivity : Activity() {
         manageSplit.isEnabled = BuildConfig.VAINAH_LIBBOX_ENABLED
         add(split, manageSplit, 12)
         manageSplit.setOnClickListener { editSplitTunnelApps() }
+        add(split, t(
+            "Белый список приложений — это обход VPN для выбранных программ. " +
+                "Это не список серверов и не настройка сайтов по доменам. " +
+                "Исключения применяются только при новом подключении, " +
+                "если Android не включил системную блокировку обхода.",
+            12f, grey
+        ), 10)
+        val whitelistServers = action("Серверы «Белые списки»")
+        add(split, whitelistServers, 10)
+        whitelistServers.setOnClickListener {
+            serverCollection = ServerCollection.WHITELIST
+            page = Page.LOCATIONS
+            render()
+        }
 
         val diag = action("Открыть диагностику")
         add(protection, diag, 17)
@@ -1160,7 +1265,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("Приложения вне VPN")
             .setMessage("Выбранные программы будут использовать интернет напрямую, " +
-                "не через Vainah VPN. Не совмещай с режимом блокировки без VPN.")
+                "не через VainahVPN. Не совмещай с режимом блокировки без VPN.")
             .setMultiChoiceItems(labels, checked) { _, index, enabled ->
                 val name = applications[index].first
                 if (enabled) {
@@ -1197,7 +1302,7 @@ class MainActivity : Activity() {
         val preferences = card()
         add(body, preferences, 21)
         add(preferences, tag("Настройки подключения"))
-        add(preferences, t("Параметры Vainah Next", 19f, white, true), 8)
+        add(preferences, t("Параметры VainahVPN", 19f, white, true), 8)
         add(preferences, t(
             "При смене Wi-Fi/4G/5G libbox получает обновление физического " +
                 "интерфейса. Бесшовность соединения ещё требует испытаний " +
@@ -1216,17 +1321,37 @@ class MainActivity : Activity() {
         val version = card()
         add(body, version, 15)
         add(version, tag("О приложении"))
-        add(version, t("Vainah VPN Next " + BuildConfig.VERSION_NAME,
+        add(version, t("VainahVPN " + BuildConfig.VERSION_NAME,
             16f, white, true), 9)
-        add(version, t("Тестовая сборка. Приложение не связано с " +
-            "действующей оплатой. Не заменяет проверку реального VPN на Android.",
+        add(version, t("Тестовая сборка с реальным Android VpnService при наличии libbox. " +
+            "Покупки открываются в официальном браузере, без передачи карты приложению.",
             12f, grey), 10)
     }
 
     private fun more(body: LinearLayout) {
+        val profile = card()
+        add(body, profile, 16)
+        add(profile, tag("ПРОФИЛЬ"))
+        add(profile, t("Личный кабинет VainahVPN", 20f, white, true), 8)
+        add(profile, t(
+            "Вход по email, подписки, устройства, обращения и уведомления " +
+                "доступны на защищённом сайте VainahVPN.",
+            12f, grey
+        ), 9)
+        for ((title, target) in listOf(
+            "Мой профиль" to "account.html",
+            "Мои устройства на сайте" to "my-devices.html",
+            "Поддержка" to "support-center.html",
+            "Уведомления" to "notifications.html",
+            "Подарочные карты" to "gifts.html"
+        )) {
+            val option = action(title)
+            add(profile, option, 9)
+            option.setOnClickListener { openOfficialPage(target) }
+        }
         val hub = card()
         add(body, hub, 21)
-        add(hub, tag("VAINAH NEXT / РАЗДЕЛЫ"))
+        add(hub, tag("ЛОКАЛЬНЫЕ НАСТРОЙКИ"))
         add(hub, t("Все инструменты в одном месте", 19f, white, true), 10)
         add(hub, t("Настройки, устройства и информация о безопасности.",
             12f, grey), 8)
@@ -1235,7 +1360,7 @@ class MainActivity : Activity() {
             Page.DIAGNOSTICS to "Диагностика соединения",
             Page.SECURITY to "Безопасность и приватность",
             Page.SETTINGS to "Настройки приложения",
-            Page.ACCOUNT to "Подписка и вход")) {
+            Page.ACCOUNT to "VPN-профиль и локальный вход")) {
             val button = action(label)
             add(hub, button, 10)
             button.setOnClickListener { page = target; render() }
@@ -1334,7 +1459,7 @@ class MainActivity : Activity() {
             else -> "Не подключено"
         }
         stateView?.setTextColor(if (page == Page.HOME) {
-            if (connected) Color.rgb(30, 145, 104) else ServerListVisual.textColor()
+            if (connected) VainahDesign.green else ServerListVisual.textColor()
         } else if (connected) green else white)
         detailView?.text = if (snapshot.phase == VpnConnectionState.OFF)
             "Выбери локацию и проверь IP в браузере после подключения."

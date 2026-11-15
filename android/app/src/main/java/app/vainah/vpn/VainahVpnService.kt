@@ -203,7 +203,7 @@ class VainahVpnService : VpnService() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, CHANNEL)
-            .setContentTitle("Vainah VPN · ${state.server}")
+            .setContentTitle("VainahVPN · ${state.server}")
             .setContentText("$detail$latency")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setContentIntent(openAction)
@@ -221,7 +221,7 @@ class VainahVpnService : VpnService() {
     private fun startVisibleService() {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Vainah VPN · соединение",
+            NotificationChannel(CHANNEL, "VainahVPN · соединение",
                 NotificationManager.IMPORTANCE_LOW)
         )
         val notice = notification()

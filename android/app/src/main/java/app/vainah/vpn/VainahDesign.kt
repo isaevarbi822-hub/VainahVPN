@@ -23,18 +23,18 @@ object VainahDesign {
     val inactive: Int = Color.rgb(15, 21, 39)
 }
 
-/** Tariff preview mirrors the six server-owned plans in backend/vainah/billing.py. */
+/**
+ * Never ship fixed tariff amounts in a mobile APK.
+ *
+ * Purchases and current terms are served by the authenticated Python website;
+ * older APK prototypes used an obsolete six-item hardcoded price list.
+ */
 data class VainahPlan(
     val id: String, val days: Int, val title: String,
-    val priceRub: Int, val deviceLimit: Int, val badge: String
+    val priceRub: Int, val deviceLimit: Int, val badge: String,
 )
+
+@Deprecated("Read current plans from the server-side website, not the APK.")
 object VainahPlans {
-    val all: List<VainahPlan> = listOf(
-        VainahPlan("30", 30, "1 месяц", 99, 3, "НАЧАТЬ С МАЛОГО"),
-        VainahPlan("60", 60, "2 месяца", 160, 3, "60 ДНЕЙ"),
-        VainahPlan("90", 90, "3 месяца", 219, 3, "90 ДНЕЙ"),
-        VainahPlan("180", 180, "6 месяцев", 339, 3, "180 ДНЕЙ"),
-        VainahPlan("365", 365, "1 год", 700, 3, "365 ДНЕЙ"),
-        VainahPlan("365-family", 365, "1 год · семейный", 1000, 6, "СЕМЕЙНЫЙ")
-    )
+    val all: List<VainahPlan> = emptyList()
 }

@@ -15,14 +15,14 @@ import android.widget.TextView
  * never third-party app assets or embedded/private server credentials.
  */
 object ServerListVisual {
-    private val ink = Color.rgb(47, 51, 72)
-    private val muted = Color.rgb(150, 156, 170)
-    private val accent = Color.rgb(88, 124, 232)
-    private val line = Color.rgb(236, 238, 244)
-    private val selectedTint = Color.rgb(241, 245, 255)
-    private val plain = Color.WHITE
+    private val ink = VainahDesign.ink
+    private val muted = VainahDesign.muted
+    private val accent = VainahDesign.purple
+    private val line = VainahDesign.border
+    private val selectedTint = Color.rgb(43, 35, 68)
+    private val plain = VainahDesign.surface2
 
-    fun backgroundColor(): Int = Color.rgb(245, 247, 251)
+    fun backgroundColor(): Int = VainahDesign.background
     fun textColor(): Int = ink
     fun mutedColor(): Int = muted
     fun accentColor(): Int = accent
