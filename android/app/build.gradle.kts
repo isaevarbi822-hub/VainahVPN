@@ -97,14 +97,15 @@ dependencies {
     // One OS-scheduled HTTPS subscription refresh every ~15 minutes while
     // backgrounded, with network constraints and without a persistent timer.
     implementation("androidx.work:work-runtime:2.10.5")
-    // Exactly ONE Go runtime. Never link Xray AAR alongside libbox AAR:
-    // two independent Go runtimes in one Android process can crash.
-    if (xhttpNativeEnabled) {
-        // Fetched by CI from a pinned GitHub release and SHA-256 verified.
-        // Same io.nekohasekai.libbox API as upstream, with native XHTTP.
+    // Exactly ONE Go runtime. The bundled native adapter now targets
+    // sing-box-lx 1.14.4 specifically. A stock libbox native build is
+    // deliberately rejected rather than packaging an incompatible VPN.
+    if (nativeLibboxEnabled) {
+        require(xhttpNativeEnabled) {
+            "Native VainahVPN 1.7 requires -PvainahUseXhttpCore=true " +
+                "and the pinned verified XHTTP AAR under android/app/libs/"
+        }
         implementation(files("libs/libbox-xhttp-lx.aar"))
-    } else if (nativeLibboxEnabled) {
-        implementation("com.github.singbox-android:libbox:1.14.0")
     }
     testImplementation("junit:junit:4.13.2")
     // Real org.json implementation for JVM-only configuration contract tests.
