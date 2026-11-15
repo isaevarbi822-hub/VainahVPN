@@ -2,6 +2,12 @@
    The server owns all prices, eligibility, checkout and VPN fulfillment. */
 (() => {
   'use strict';
+  // The public CDN is a static site. Its catalog lives on the read-only Python API.
+  // That endpoint explicitly allows this origin; checkout config and payment
+  // requests MUST remain same-origin on the backend.
+  const staticOrigin='https://vainahvpn.onrender.com';
+  const apiOrigin=typeof window!=='undefined'&&window.location.origin===staticOrigin
+    ?'https://vainahvpn-python-preview.onrender.com':'';
   const root=document.querySelector('[data-tariff-catalog]');
   const status=document.getElementById('tariff-catalog-status');
   if(!root||!status)return;
@@ -34,6 +40,15 @@
   const compareMessage=document.querySelector('[data-tariff-compare-message]');
   const compareClear=document.querySelector('[data-tariff-compare-clear]');
   let selectedFilter='all';
+  // Allow the homepage's guided flow to open a pre-filtered *public* catalog.
+  // URL params never choose a plan for purchase or set prices.
+  const initial=new URLSearchParams(typeof window!=='undefined'?window.location.search:'');
+  if(device&&['3','6'].includes(initial.get('devices')))
+    device.value=initial.get('devices');
+  if(sort&&['days','price','daily','longest'].includes(initial.get('sort')))
+    sort.value=initial.get('sort');
+  if(['all','short','standard','long','family'].includes(initial.get('segment')))
+    selectedFilter=initial.get('segment');
   let displayLimit=12;
   let paid=[];
   let cards=[];
@@ -210,7 +225,7 @@
   async function load(){
     status.textContent='Загружаем цены с сервера…';
     try{
-      const response=await fetch('/api/site/tariffs',{
+      const response=await fetch(apiOrigin+'/api/site/tariffs',{
         method:'GET',cache:'no-store',credentials:'omit',
         headers:{Accept:'application/json'}
       });
@@ -230,7 +245,11 @@
       if(compareBox)compareBox.hidden=true;
     }
   }
-  if(checkoutReadiness){
+  if(checkoutReadiness&&apiOrigin){
+    // The backend intentionally does not CORS-enable checkout configuration.
+    // Do not misreport a cross-origin browser block as a broken cash desk.
+    checkoutReadiness.textContent='Актуальная доступность оплаты проверяется на защищённой странице оформления. Подбор тарифов не создаёт счёт.';
+  }else if(checkoutReadiness){
     checkoutReadiness.textContent='Проверяем доступность оформления…';
     fetch('/api/shop/config',{method:'GET',cache:'no-store',
       credentials:'omit',headers:{Accept:'application/json'}})

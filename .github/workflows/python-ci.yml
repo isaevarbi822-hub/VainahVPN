@@ -47,6 +47,8 @@ jobs:
           node --check web/app.js
           node --check storefront/checkout-flow.js
           node --check storefront/site-shell.js
+          node --check storefront/vainah-next.js
+          node --check storefront/tariff-catalog.js
           node --check storefront/command-hub.js
           node --check storefront/next-tariffs.js
           node --check storefront/ultra-control.js

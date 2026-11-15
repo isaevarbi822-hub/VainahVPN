@@ -493,6 +493,16 @@
     },{threshold:.06,rootMargin:'0px 0px 40px 0px'});
     for(const target of targets)observer.observe(target);
   }
+  // Consistent purple design tokens and mobile focus styles on every shared
+  // public page. Pure CSS: no checkout requests, auth or tracking.
+  if(!document.querySelector('link[href*="vainah-next.css"]')){
+    const design=document.createElement('link');
+    design.rel='stylesheet';
+    design.href='vainah-next.css?v=20261115-next2';
+    design.dataset.vxNextTheme='1';
+    document.head.append(design);
+  }
+
   // Load the shared ULTRA UI layer without altering authentication or purchase JS.
   // Standalone benefits pages opt in with a static include instead.
   if (!document.querySelector('link[data-vx-ultra]')) {
