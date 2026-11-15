@@ -49,7 +49,8 @@ object ServerCollections {
             ServerCollection.STREAMING -> hasTopic(
                 entry.info.title, listOf("stream", "стрим", "видео", "youtube")
             )
-            ServerCollection.WHITELIST -> isWhiteListLabel(entry.info.title)
+            ServerCollection.WHITELIST ->
+                isWhiteListLabel(entry.info.title) || entry.manualWhitelist
             ServerCollection.FAVORITES -> entry.favorite
         }
     }
@@ -68,9 +69,9 @@ object ServerCollections {
             ServerCollection.STREAMING ->
                 "В подписке нет узлов с отметкой «стриминг». Доступность видеосервисов не проверена."
             ServerCollection.WHITELIST ->
-                "В подписке нет узлов с меткой «Белые списки». " +
-                    "Добавь такую метку к нужным узлам в источнике H1Cloud " +
-                    "и обнови список. Метка сама по себе не меняет VPN-маршруты."
+                "Группа не указана в ответе H1Cloud. Нажми «Выбрать серверы», " +
+                    "чтобы отнести уже загруженные узлы к списку вручную. " +
+                    "Это только группировка, не изменение сетевых правил."
             ServerCollection.FAVORITES ->
                 "Здесь будут серверы, которые ты отметишь звёздочкой ★."
         }
