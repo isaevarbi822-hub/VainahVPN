@@ -89,7 +89,7 @@ global.document={
  createElement:tag=>new El(tag)
 };
 let copied='';
-global.navigator={clipboard:{writeText:async x=>{copied=x}}};
+Object.defineProperty(global,'navigator',{configurable:true,value:{clipboard:{writeText:async x=>{copied=x}}}});
 vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
 const steps=parts['[data-ultra-steps]'];
 const count=parts['[data-ultra-count]'];
