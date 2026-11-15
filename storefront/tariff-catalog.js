@@ -47,6 +47,8 @@
     device.value=initial.get('devices');
   if(sort&&['days','price','daily','longest'].includes(initial.get('sort')))
     sort.value=initial.get('sort');
+  if(budget&&['100','250','500','1000','2000'].includes(initial.get('budget')))
+    budget.value=initial.get('budget');
   if(['all','short','standard','long','family'].includes(initial.get('segment')))
     selectedFilter=initial.get('segment');
   let displayLimit=12;
