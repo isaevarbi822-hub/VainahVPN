@@ -463,21 +463,69 @@ class NativeCabinetActivity : Activity() {
             11f, muted), 8)
     }
 
+    private fun emailFailure(reply: NativeCabinetApi.Reply?): String {
+        val detail = reply?.json?.optString("detail").orEmpty()
+        return when {
+            reply == null -> "Нет связи с сервером. Проверь интернет и адрес сайта."
+            detail == "EMAIL_LOGIN_COOLDOWN" ->
+                "Код уже запрашивали. Подожди 90 секунд перед повтором."
+            detail == "EMAIL_LOGIN_LIMIT" || reply.status == 429 ->
+                "Слишком много запросов. Повтори позже."
+            detail == "EMAIL_LOGIN_NOT_CONFIGURED" ||
+                detail == "EMAIL_DELIVERY_NOT_CONFIGURED" ->
+                "Email-вход пока не настроен на сервере. Проверь Resend и домен отправителя."
+            detail == "EMAIL_DELIVERY_UNAVAILABLE" ->
+                "Почтовый сервис не принял письмо. Проверь API-ключ и " +
+                    "подтверждение адреса отправителя в Resend."
+            detail == "EMAIL_LOGIN_DATABASE_UNAVAILABLE" ->
+                "Почтовая авторизация недоступна: сервер не отвечает базе данных."
+            detail == "INVALID_ORIGIN" || reply.status == 403 ->
+                "Сайт и API не совпадают: проверь PUBLIC_SITE_ORIGIN в Render."
+            reply.status == 422 -> "Адрес email не прошёл проверку."
+            else -> "Код не отправлен. Ошибка сервера: HTTP ${reply.status}."
+        }
+    }
+
     private fun renderAccount(body: LinearLayout) {
         val box = card()
         add(body, box, 13)
         add(box, miniLabel("МОЙ АККАУНТ"))
-        add(box, label(if(signedInEmail != null) "Добро пожаловать"
-            else "Вход в VainahVPN", 19f, ink, true), 6)
-        if (signedInEmail == null) {
-            add(box, label("Войди по коду из письма. Используй ту же почту, " +
-                "что на сайте, чтобы увидеть свои заказы.", 12f, muted), 7)
+        add(box, label(if(signedInEmail != null || telegramIdentity != null)
+            "Добро пожаловать" else "Вход в VainahVPN", 19f, ink, true), 6)
+        if (signedInEmail == null && telegramIdentity == null) {
+            val providers = row()
+            val google = action("Войти с Google", googleAvailable)
+            google.isEnabled = !busy && googleAvailable
+            google.contentDescription = "Войти в VainahVPN с Google"
+            providers.addView(google,
+                LinearLayout.LayoutParams(0, dp(48), 1f))
+            google.setOnClickListener { beginSocialLogin("google") }
+            val telegram = action("Войти с Telegram", telegramAvailable)
+            telegram.isEnabled = !busy && telegramAvailable
+            telegram.contentDescription = "Войти в VainahVPN с Telegram"
+            providers.addView(telegram,
+                LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+                    marginStart = dp(8)
+                })
+            telegram.setOnClickListener { beginSocialLogin("telegram") }
+            add(box, providers, 12)
+            if (!googleAvailable || !telegramAvailable) {
+                add(box, label("Недоступные кнопки требуют настройки " +
+                    "Google или Telegram OIDC на сервере.", 11f, muted), 7)
+            }
+            add(box, label("Или получи код по email. Используй ту же почту, " +
+                "что на сайте, чтобы увидеть свои заказы.", 12f, muted), 13)
+            if (emailConfigKnown && !emailConfigured) {
+                add(box, VainahUi.infoStrip(this,
+                    "Отправка писем не настроена. Проверь RESEND_API_KEY, " +
+                        "VAINAH_EMAIL_FROM и подтверждение домена в Resend."), 9)
+            }
             val email = field("Электронная почта")
             email.setText(pendingEmail)
             add(box, email, 12)
             if (!otpRequested) {
                 val request = action("Получить код", true)
-                request.isEnabled = !busy
+                request.isEnabled = !busy && (!emailConfigKnown || emailConfigured)
                 add(box, request, 10)
                 request.setOnClickListener {
                     pendingEmail = email.text.toString().trim()
@@ -488,10 +536,12 @@ class NativeCabinetActivity : Activity() {
                         api.post("/api/email-auth/request",
                             JSONObject().put("email", pendingEmail))
                     }) { result ->
-                        val ok = result.getOrNull()?.ok == true
-                        otpRequested = ok
-                        message = if(ok) "Код отправлен на почту."
-                            else "Не удалось отправить код. Проверь email или повтори позже."
+                        val reply = result.getOrNull()
+                        otpRequested = reply?.ok == true
+                        message = if (otpRequested)
+                            "Запрос принят. Проверь «Входящие» и «Спам». " +
+                                "Код действует 10 минут; доставку письма проверяет Resend."
+                        else emailFailure(reply)
                         render()
                     }
                 }
@@ -515,7 +565,9 @@ class NativeCabinetActivity : Activity() {
                             message = null
                             refresh()
                         } else {
-                            message = "Код неверный или истёк. Запроси новый."
+                            message = if (result.getOrNull()?.status == 403)
+                                "Ошибка адреса сайта: проверь PUBLIC_SITE_ORIGIN."
+                            else "Код неверный или истёк. Запроси новый."
                             render()
                         }
                     }
@@ -524,14 +576,40 @@ class NativeCabinetActivity : Activity() {
                 add(box, another, 8)
                 another.setOnClickListener {
                     otpRequested = false
+                    message = "Новый код можно запросить после 90 секунд. " +
+                        "Проверь также папку «Спам»."
                     render()
                 }
             }
             return
         }
 
-        add(box, VainahUi.detailRow(this, "Подтверждённая почта",
-            signedInEmail!!.take(42), VainahUi.Tone.SUCCESS), 12)
+        if (signedInEmail != null) {
+            add(box, VainahUi.detailRow(this, "Подтверждённая почта",
+                signedInEmail!!.take(42), VainahUi.Tone.SUCCESS), 12)
+        } else {
+            add(box, VainahUi.detailRow(this, "Telegram",
+                telegramIdentity.orEmpty().take(42), VainahUi.Tone.SUCCESS), 12)
+            add(box, VainahUi.infoStrip(this,
+                "Telegram не подтверждает email. Для пробного периода и " +
+                    "оплаты нужен подтверждённый email-аккаунт."), 9)
+            val emailLogin = action("Войти по email для покупок")
+            add(box, emailLogin, 10)
+            emailLogin.setOnClickListener {
+                AlertDialog.Builder(this)
+                    .setTitle("Войти по email?")
+                    .setMessage("Вход по email заменит текущую сессию Telegram " +
+                        "в приложении. Существующая подписка VPN не изменится.")
+                    .setNegativeButton("Отмена", null)
+                    .setPositiveButton("Продолжить") { _, _ ->
+                        api.forgetSession()
+                        telegramIdentity = null
+                        signedInEmail = null
+                        otpRequested = false
+                        render()
+                    }.show()
+            }
+        }
         val subscribed = account?.optJSONObject("subscription")
         add(box, VainahUi.detailRow(this, "Подписка",
             subscribed?.optString("plan_title")?.takeIf { it.isNotBlank() }
@@ -559,6 +637,7 @@ class NativeCabinetActivity : Activity() {
                 true
             }) {
                 signedInEmail = null
+                telegramIdentity = null
                 account = null
                 trialStatus = null
                 message = "Вход завершён."
