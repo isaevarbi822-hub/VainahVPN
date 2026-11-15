@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         applicationId = "app.vainah.vpn.next"
-        manifestPlaceholders["vainahAppLabel"] = "Vainah VPN Next"
+        manifestPlaceholders["vainahAppLabel"] = "VainahVPN"
         minSdk = 26
         targetSdk = 35
         versionCode = 100
@@ -53,7 +53,7 @@ android {
             if (isolatedPreview) {
                 applicationIdSuffix = ".preview"
                 versionNameSuffix = "-preview"
-                manifestPlaceholders["vainahAppLabel"] = "Vainah VPN Next (Preview)"
+                manifestPlaceholders["vainahAppLabel"] = "VainahVPN"
             }
         }
     }
