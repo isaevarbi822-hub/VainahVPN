@@ -259,7 +259,7 @@ class MainActivity : Activity() {
         if (page != Page.HOME) {
             add(body, t(when (page) {
                 Page.HOME -> "VainahVPN"
-                Page.LOCATIONS -> "Серверы и локации"
+                Page.LOCATIONS -> "Серверы"
                 Page.ACCOUNT -> "Подписка"
                 Page.DEVICES -> "Мои устройства"
                 Page.DIAGNOSTICS -> "Диагностика"
@@ -676,14 +676,13 @@ class MainActivity : Activity() {
         onlinePlans.setOnClickListener { openOfficialPage("plans.html") }
 
         val profile = card()
-        add(body, profile, 21)
+        add(body, profile, 14)
         add(profile, tag("VPN-профиль"))
         add(profile, t(if (source.savedLink() == null)
             "Подписка не добавлена" else "Профиль сохранён", 19f, white, true), 9)
         add(profile, t(source.sourceLabel(), 12f, grey), 8)
         add(profile, t(
-            "HTTPS-подписки и собственные VLESS REALITY-ключи хранятся " +
-                "в Android Keystore. Данные не попадают в отчёты.",
+            "Профиль и ключи защищены Android Keystore.",
             12f, grey), 9)
         val entry = input("https://… или vless://…")
         add(profile, entry, 12)
@@ -1010,7 +1009,7 @@ class MainActivity : Activity() {
             setPadding(dp(10), dp(3), dp(10), dp(12))
         }
         val text = column()
-        add(text, t("Все серверы", 19f, ink, true))
+        add(text, t("Все серверы", 17.5f, ink, true))
         add(text, t(
             if (nodes.isEmpty()) "Список пока пуст"
             else "${nodes.size} серверов из подписки",
@@ -1344,14 +1343,13 @@ class MainActivity : Activity() {
 
     private fun devices(body: LinearLayout) {
         val deviceCard = card()
-        add(body, deviceCard, 21)
+        add(body, deviceCard, 12)
         add(deviceCard, tag("Устройства"))
         add(deviceCard, t("Этот Android", 19f, white, true), 9)
         add(deviceCard, t("Android " + Build.VERSION.RELEASE +
             " · " + android.os.Build.MANUFACTURER, 12f, grey), 10)
-        add(deviceCard, t("Список привязанных устройств и лимиты из H1Cloud " +
-            "появятся только после авторизованной синхронизации. " +
-            "Данные аккаунта здесь не выдумываются.", 12f, grey), 12)
+        add(deviceCard, t("Лимиты и другие устройства смотри в личном кабинете.",
+            12f, grey), 10)
         val details = card()
         add(body, details, 15)
         add(details, tag("Платформы"))
@@ -1367,7 +1365,7 @@ class MainActivity : Activity() {
 
     private fun security(body: LinearLayout) {
         val protection = card()
-        add(body, protection, 21)
+        add(body, protection, 12)
         add(protection, tag("Контроль безопасности"))
         add(protection, t("Только проверенные состояния", 19f, white, true), 9)
         val snapshot = VpnConnectionState.read(this)
@@ -1388,10 +1386,9 @@ class MainActivity : Activity() {
         add(kill, tag("KILL SWITCH / ANDROID"))
         add(kill, t("Блокировать интернет без VPN", 18f, white, true), 8)
         add(kill, t(
-            "Это системная защита Android, а не выключатель на сайте. " +
-                "Открой настройки VPN, выбери VainahVPN, включи " +
-                "«Всегда включён VPN», затем «Блокировать подключения без VPN». " +
-                "Если VPN отключится, Android будет блокировать подключения без него.",
+            "Открой настройки VPN → VainahVPN → «Всегда включён VPN» → " +
+                "«Блокировать подключения без VPN». При отключении VPN " +
+                "Android блокирует интернет.",
             12f, grey), 9)
         add(kill, t(
             "Важно: исключённые приложения при системной блокировке обхода " +
@@ -1418,9 +1415,8 @@ class MainActivity : Activity() {
                 ". Изменения применятся при следующем подключении.",
             12f, if (excluded.isEmpty()) grey else errorColor), 9)
         add(split, t(
-            "Исключённые приложения используют обычный интернет без VPN. " +
-                "Никогда не включай этот режим, если хочешь направить " +
-                "весь трафик через VPN. При системном Kill Switch исключения игнорируются.",
+            "Исключённые приложения работают без VPN. " +
+                "Режим несовместим с системной блокировкой интернета без VPN.",
             12f, grey), 8)
         if (!BuildConfig.VAINAH_LIBBOX_ENABLED) {
             add(split, t(
@@ -1433,10 +1429,8 @@ class MainActivity : Activity() {
         add(split, manageSplit, 12)
         manageSplit.setOnClickListener { editSplitTunnelApps() }
         add(split, t(
-            "Белый список приложений — это обход VPN для выбранных программ. " +
-                "Это не список серверов и не настройка сайтов по доменам. " +
-                "Исключения применяются только при новом подключении, " +
-                "если Android не включил системную блокировку обхода.",
+            "Белый список приложений не связан с серверной категорией " +
+                "«Белые списки». Изменения действуют при новом подключении.",
             12f, grey
         ), 10)
         val whitelistServers = action("Серверы «Белые списки»")
@@ -1519,14 +1513,13 @@ class MainActivity : Activity() {
 
     private fun settings(body: LinearLayout) {
         val preferences = card()
-        add(body, preferences, 21)
+        add(body, preferences, 12)
         add(preferences, tag("Настройки подключения"))
         add(preferences, t("Параметры VainahVPN", 19f, white, true), 8)
         add(preferences, t(
-            "При смене Wi-Fi/4G/5G libbox получает обновление физического " +
-                "интерфейса. Бесшовность соединения ещё требует испытаний " +
-                "на телефоне; Kill Switch включается в настройках Android.",
-            12f, grey), 11)
+            "При переходе между Wi-Fi и мобильной сетью приложение обновляет " +
+                "сетевой интерфейс. Kill Switch настраивается в Android.",
+            12f, grey), 9)
         add(preferences, menuRow("Управление подпиской", "Профиль, продление и тарифы") {
             page = Page.ACCOUNT
             render()
@@ -1573,7 +1566,7 @@ class MainActivity : Activity() {
                 add(profile, ServerListVisual.separator(this), 2)
         }
         val hub = card()
-        add(body, hub, 21)
+        add(body, hub, 14)
         add(hub, tag("ЛОКАЛЬНЫЕ НАСТРОЙКИ"))
         add(hub, t("На устройстве", 19f, white, true), 10)
         add(hub, t("Параметры приложения и диагностика.",
