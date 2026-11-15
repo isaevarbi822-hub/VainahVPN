@@ -14,7 +14,8 @@
       '/support-operator.html','/operator-pilot.html','/operations.html',
       '/payment-return.html','/checkout-return.html',
       '/network-check.html','/connection-monitor.html',
-      '/status.html','/speed.html','/diagnostics.html'
+      '/status.html','/speed.html','/diagnostics.html',
+      '/connection-check.html'
     ]);
     const toBackend=url=>accountOrigin+url.pathname+url.search+url.hash;
     const currentUrl=new URL(window.location.href);
