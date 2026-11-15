@@ -15,7 +15,7 @@ class NavigationGlyphView(
     selected: Boolean
 ) : View(context) {
     private val pen = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (selected) VainahDesign.background else VainahDesign.muted
+        color = if (selected) VainahDesign.purple else VainahDesign.muted
         style = Paint.Style.STROKE
         strokeWidth = 2f
         strokeCap = Paint.Cap.ROUND
