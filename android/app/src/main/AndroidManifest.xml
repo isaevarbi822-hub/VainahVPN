@@ -32,6 +32,11 @@
             </intent-filter>
         </activity>
         <activity android:name=".ClerkLoginActivity" android:exported="false"/>
+        <!-- Full native account, tariff catalog, email OTP and free trial. -->
+        <activity
+            android:name=".NativeCabinetActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"/>
         <service
             android:name=".VainahVpnService"
             android:exported="true"

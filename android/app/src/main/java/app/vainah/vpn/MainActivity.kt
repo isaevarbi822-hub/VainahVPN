@@ -237,41 +237,15 @@ class MainActivity : Activity() {
         dialog.show()
     }
 
-    /**
-     * Account, payments, and support are opened on the live backend.
-     * Do not handle card details or pass VPN bearer links in an Android Intent.
-     */
-    private fun openOfficialPage(page: String) {
-        // Native cabinet navigation never interpolates user data into an URL.
-        // Authentication continues in the real backend's existing browser
-        // session; the APK receives no cookies, passwords or payment data.
-        val official = CabinetNavigation.url(page) ?: return
-        if (!CabinetNavigation.isTrustedUrl(official)) return
-        val uri = Uri.parse(official)
-        try {
-            val tab = androidx.browser.customtabs.CustomTabsIntent.Builder()
-                .setShowTitle(true)
-                .setDefaultColorSchemeParams(
-                    androidx.browser.customtabs.CustomTabColorSchemeParams.Builder()
-                        .setToolbarColor(VainahDesign.purple)
-                        .build()
-                )
-                .build()
-            tab.launchUrl(this, uri)
-        } catch (_: android.content.ActivityNotFoundException) {
-            openOfficialFallback(uri)
-        } catch (_: SecurityException) {
-            openOfficialFallback(uri)
-        }
+    /** Native account and tariffs. Only the selected checkout opens a site. */
+    private fun openNativeCabinet(tab: String = "cabinet") {
+        startActivity(Intent(this, NativeCabinetActivity::class.java)
+            .putExtra("page", if (tab == "plans") "plans" else "cabinet"))
     }
 
-    private fun openOfficialFallback(uri: Uri) {
-        runCatching {
-            startActivity(Intent(Intent.ACTION_VIEW, uri))
-        }.onFailure {
-            popup("Не удалось открыть защищённый кабинет. " +
-                "Проверь доступность официального сайта.")
-        }
+    private fun openOfficialPage(page: String) {
+        // Keep existing internal buttons, but remove external account routing.
+        openNativeCabinet(if (page == "plans.html") "plans" else "cabinet")
     }
 
     private fun render() {
@@ -349,7 +323,7 @@ class MainActivity : Activity() {
         for ((target, label) in listOf(
             Page.HOME to "Главная", Page.LOCATIONS to "Серверы",
             Page.SECURITY to "Защита", Page.ACCOUNT to "Подписка",
-            Page.MORE to "Профиль"
+            Page.MORE to "Кабинет"
         )) {
             val active = target == selectedTab
             val tab = column().apply {
@@ -374,7 +348,9 @@ class MainActivity : Activity() {
                     topMargin = dp(3)
                 })
                 setOnClickListener {
-                    if (target != page) {
+                    if (target == Page.MORE) {
+                        openNativeCabinet()
+                    } else if (target != page) {
                         page = target
                         render()
                     }
@@ -756,8 +732,8 @@ class MainActivity : Activity() {
         add(live, tag("МОЯ ПОДПИСКА"))
         add(live, t("Подписка VainahVPN", 20f, white, true), 9)
         add(live, t(
-            "Тариф, срок и устройства — в личном кабинете. " +
-                "Оплата открывается на официальном сайте.",
+            "Кабинет и актуальные тарифы доступны прямо в приложении. " +
+                "На сайт переходит только оформление выбранного тарифа.",
             12f, grey
         ), 10)
         add(live, VainahUi.detailRow(this, "VPN-профиль",
@@ -769,7 +745,7 @@ class MainActivity : Activity() {
         add(live, VainahUi.infoStrip(this,
             "Тариф, оплаченные заказы и срок подписки доступны после " +
                 "входа в официальный кабинет. Данные не подменяются локальными."), 11)
-        val onlineAccount = action("Мой кабинет и подписка", true)
+        val onlineAccount = action("Личный кабинет в приложении", true)
         add(live, onlineAccount, 12)
         onlineAccount.setOnClickListener { openOfficialPage("account.html") }
         val cabinetShortcuts = horizontal()
@@ -860,7 +836,7 @@ class MainActivity : Activity() {
                 "Google или Telegram. Заказы и обращения останутся привязаны " +
                 "к тому же аккаунту. Платёжные данные приложение не хранит.",
             12f, grey), 8)
-        val login = action("Войти в личный кабинет", true)
+        val login = action("Войти по email в приложении", true)
         add(identity, login, 10)
         login.setOnClickListener { openOfficialPage("account.html") }
         if (BuildConfig.VAINAH_CLERK_ENABLED) {
@@ -1734,9 +1710,8 @@ class MainActivity : Activity() {
             "Загружено серверов",
             nodes.size.toString(), VainahUi.Tone.PURPLE), 6)
         add(profile, VainahUi.infoStrip(this,
-            "Для реального срока, тарифа и заказов войди в тот же аккаунт, " +
-                "который используешь на сайте. Локальный VPN-профиль не " +
-                "означает, что выполнен вход в кабинет."), 11)
+            "Войди по коду из письма, проверь подписку и заказы " +
+                "в Android. VPN-профиль независим от входа в аккаунт."), 11)
         val enter = action("Открыть мой кабинет", true)
         add(profile, enter, 12)
         enter.setOnClickListener { openOfficialPage("account.html") }
@@ -1786,9 +1761,8 @@ class MainActivity : Activity() {
             }
         }
         add(local, t(
-            "Страницы аккаунта открываются в защищённой вкладке " +
-                "официального сайта внутри VainahVPN. Оплата и вход " +
-                "выполняются на сайте, не в VPN-движке.",
+            "Вход, кабинет и каталог тарифов работают нативно. " +
+                "Только выбранная оплата открывает сайт.",
             11f, grey), 12)
     }
 
