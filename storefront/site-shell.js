@@ -14,7 +14,7 @@
       '/support-operator.html','/operator-pilot.html','/operations.html',
       '/payment-return.html','/checkout-return.html',
       '/network-check.html','/connection-monitor.html',
-      '/status.html'
+      '/status.html','/speed.html','/diagnostics.html'
     ]);
     const toBackend=url=>accountOrigin+url.pathname+url.search+url.hash;
     const currentUrl=new URL(window.location.href);
@@ -58,6 +58,7 @@
     ['guide.html','Инструкция','Импорт VPN-конфигурации','настройка ключ'],
     ['start.html','Быстрый старт','С чего начать, если подписки нет','новичок'],
     ['status.html','Статус сервисов','H1Cloud, PostgreSQL, RollyPay и webhook','недоступность сбой'],
+    ['speed.html','Тест HTTP-соединения','Примерная скорость обмена с Python-сервером Render, не скорость VPN-туннеля','speed скорость тест интернет замер загрузка отдача ping'],
     ['diagnostics.html','Центр диагностики','Проверки соединения и решения проблем','не работает ошибка'],
     ['ultra-repair.html','Vainah Repair Ultra','Интерактивные шаги решения проблем для пяти платформ','ремонт восстановить vpn ultra не подключается помощь ошибка wifi мобильная сеть'],
     ['troubleshooting.html','Решение проблем','Диагностика импорта, ошибок и соединения','помощь ошибка'],

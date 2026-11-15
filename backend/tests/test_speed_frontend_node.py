@@ -21,7 +21,7 @@ class Element{
 const $=id=>{if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id)};
 let mode='eco',now=100;
 global.document={getElementById:$,querySelector:()=>({value:mode})};
-global.window={addEventListener(){}};
+global.window={addEventListener(){},location:{origin:'https://vainahvpn-python-preview.onrender.com',search:'',hash:'',assign(){throw Error('Unexpected redirect')}}};
 global.navigator={clipboard:{writeText:async()=>{}}};
 global.performance={now:()=>{now+=15;return now}};
 global.fetch=async (url,opts={})=>{
@@ -29,6 +29,7 @@ global.fetch=async (url,opts={})=>{
   requests.push({path,size:opts.body?.byteLength||0});
   if(path.endsWith('/ping'))return {ok:true,status:204};
   if(path.endsWith('/download'))return {ok:true,status:200,
+    headers:{get:key=>key==='content-type'?'application/octet-stream':null},
     arrayBuffer:async()=>new ArrayBuffer(512*1024)};
   if(path.endsWith('/upload'))return {ok:true,status:200,
     json:async()=>({received_bytes:opts.body.byteLength})};
@@ -38,7 +39,7 @@ let requests=[];
 (async()=>{
   vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
   await $('speed-start').events.click();
-  assert.equal(requests.filter(x=>x.path.endsWith('/ping')).length,3);
+  assert.equal(requests.filter(x=>x.path.endsWith('/ping')).length,4); // includes warm-up
   assert.equal(requests.filter(x=>x.path.endsWith('/download')).length,1);
   assert.equal(requests.filter(x=>x.path.endsWith('/upload')).length,1);
   assert.equal(requests.find(x=>x.path.endsWith('/upload')).size,128*1024);
@@ -49,7 +50,7 @@ let requests=[];
   requests=[];
   mode='normal';
   await $('speed-start').events.click();
-  assert.equal(requests.filter(x=>x.path.endsWith('/ping')).length,5);
+  assert.equal(requests.filter(x=>x.path.endsWith('/ping')).length,6); // includes warm-up
   assert.equal(requests.filter(x=>x.path.endsWith('/download')).length,3);
   assert.equal(requests.filter(x=>x.path.endsWith('/upload')).length,2);
   assert.equal(requests.find(x=>x.path.endsWith('/upload')).size,256*1024);

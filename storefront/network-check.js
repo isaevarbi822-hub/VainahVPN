@@ -90,8 +90,8 @@
       try {
         const shop=await check('/api/shop/config');
         const available=shop.checkout_ready===true;
-        show('shop',available?'Оплата доступна':'Оформление недоступно',
-          available?'Сервер подтвердил готовность оформления.':'Новые заказы сейчас не подтверждены сервером.',
+        show('shop',available?'Создание счёта разрешено':'Новые счета недоступны',
+          available?'API разрешает оформление. Это не проверка успешной оплаты, выдачи VPN или готовности провайдера к списанию.':'Новые заказы сейчас не подтверждены сервером.',
           available?'good':'warn');
       } catch {
         if(controller.signal.aborted)throw Error('CHECK_ABORTED');

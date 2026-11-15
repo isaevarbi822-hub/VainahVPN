@@ -84,14 +84,16 @@
       box?.replaceChildren();
       if(badge){badge.dataset.level='neutral';set(badge,'Проверяем…');}
       const statuses=[];
+      const verdicts=[];
       const add=(name,good,message)=>{
+        verdicts.push(good);
         statuses.push(name+': '+message);
         if(box)row(name,good,message);
       };
       try{
         const data=await get('/api/health',running);
-        add('Python API',data?.ok===true,data?.ok===true?'Доступен':'Нет подтверждения');
-      }catch{add('Python API',false,'Нет ответа');}
+        add('Python API',data?.ok===true,data?.ok===true?'HTTP API отвечает':'Формат ответа API не подтверждён');
+      }catch{add('Python API',null,'Нет подтверждённого ответа (сеть, таймаут или сервер)');}
       if(running.signal.aborted){
         add('Другие сервисы',null,'Не проверены (время ожидания)');
       }else{
@@ -101,21 +103,23 @@
             const code=svc[key]?.status;
             const good=code==='ok';
             add(label,good?true:code==null?null:false,
-              good?'API отвечает':code==null?'Нет подтверждённых данных':'Недоступно или не настроено');
+              good?'Служебный API отвечает (VPN-туннель не проверен)':code==null?'Нет подтверждённых данных':'API недоступен или не настроен');
           }
           const wh=svc.webhook?.status;
           add('Webhook',wh==='configured'?true:null,
             wh==='configured'?'Подпись настроена (это не доставка платежа)':'Состояние не подтверждено');
         }catch{
-          add('Проверка интеграций',false,'API статуса не ответил');
+          add('Проверка интеграций',null,'Не удалось получить статус интеграций');
         }
       }
       report=['VAINAH VPN · Общая диагностика','Отчёт о разовых GET-запросах',...statuses,
         'Результаты не подтверждают подключение VPN или списание денег.'].join('\n');
       if(copy)copy.disabled=false;
       if(badge){
-        badge.dataset.level=statuses.some(s=>s.includes('Нет ответа')||s.includes('Недоступно'))?'warn':'good';
-        set(badge,'Проверка завершена');
+        const allGood=verdicts.length>=5&&verdicts.every(value=>value===true);
+        const hasProblem=verdicts.some(value=>value===false);
+        badge.dataset.level=hasProblem?'warn':allGood?'good':'neutral';
+        set(badge,hasProblem?'Часть проверок не прошла':allGood?'Все служебные API ответили':'Проверка частично без подтверждения');
       }
       button.disabled=false;running=null;
     });

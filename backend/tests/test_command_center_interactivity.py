@@ -57,7 +57,8 @@ assert.equal(get('[data-diag-link]').href,'account.html');
   assert.equal(get('[data-diag-check-results]').children.length,5);
   assert.equal(get('[data-diag-copy]').disabled,false);
   await get('[data-diag-copy]').events.click();
-  assert.ok(global.report.includes('RollyPay API: API отвечает'));
+  assert.ok(global.report.includes('RollyPay API: Служебный API отвечает (VPN-туннель не проверен)'));
+  assert.equal(get('[data-diag-check-badge]').dataset.level,'good');
   assert.ok(!global.report.includes('subscription_url'));
 })().catch(e=>{console.error(e);process.exitCode=1});
 """
