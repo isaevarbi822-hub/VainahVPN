@@ -30,7 +30,7 @@ object CabinetNavigation {
         "Мой кабинет и подписка" to "account.html",
         "Продление и тарифы" to "plans.html",
         "Устройства" to "my-devices.html",
-        "История и поддержка" to "support-center.html",
+        "Поддержка и обращения" to "support-center.html",
         "Напоминания" to "notifications.html",
         "Подарочные карты" to "gifts.html"
     )
