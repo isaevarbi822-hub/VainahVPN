@@ -150,10 +150,10 @@ class NativeCabinetActivity : Activity() {
         // One-use code by itself is never a session. Only the app holds
         // the encrypted S256 verifier needed to exchange it over HTTPS.
         val pending = api.pendingOAuth()
-        if (!NativeOAuthFlow.validPending(pending) ||
+        if (pending == null || !NativeOAuthFlow.validPending(pending) ||
             !NativeOAuthFlow.validFlow(flow) ||
             !NativeOAuthFlow.validCode(code) ||
-            pending?.flow != flow) {
+            pending.flow != flow) {
             message = "Вход не подтверждён. Начни вход через приложение заново."
             render()
             return true
