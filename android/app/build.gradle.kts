@@ -30,8 +30,8 @@ android {
         manifestPlaceholders["vainahAppLabel"] = "VainahVPN"
         minSdk = 26
         targetSdk = 35
-        versionCode = 191
-        versionName = "1.9.1-alpha.1"
+        versionCode = 200
+        versionName = "2.0.0-alpha.1"
         buildConfigField("boolean", "VAINAH_CLERK_ENABLED", if (clerkEnabled) "true" else "false")
         buildConfigField("String", "VAINAH_CLERK_PUBLISHABLE_KEY",
             "\""+clerkPublishableKey.replace("\\","").replace("\"","")+"\"")
@@ -92,7 +92,7 @@ dependencies {
         implementation("androidx.activity:activity-compose:1.10.1")
         implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
     }
-    // Keep a checkout on screen within our app without collecting card details.
+    // Native UI handles accounts and tariffs; ONLY hosted payment is external.
     implementation("androidx.browser:browser:1.8.0")
     // One OS-scheduled HTTPS subscription refresh every ~15 minutes while
     // backgrounded, with network constraints and without a persistent timer.
