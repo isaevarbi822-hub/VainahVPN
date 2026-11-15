@@ -122,9 +122,12 @@ object VainahUi {
             textSize = 12f
             setTextColor(VainahDesign.ink)
             maxLines = 2
-        }, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         addView(statusPill(context, value, tone),
-            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
                 marginStart = dp(context, 6)
             })
     }
