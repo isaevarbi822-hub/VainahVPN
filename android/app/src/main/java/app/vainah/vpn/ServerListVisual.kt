@@ -55,6 +55,7 @@ object ServerListVisual {
         isSelected: Boolean,
         isFavorite: Boolean = false,
         isWhitelist: Boolean = false,
+        isConnectable: Boolean = true,
         onFavoriteClick: (() -> Unit)? = null,
         onClick: () -> Unit,
     ): View {
@@ -108,12 +109,17 @@ object ServerListVisual {
         }, LinearLayout.LayoutParams(-1, -2).apply {
             topMargin = dp(context, 3)
         })
-        if (isWhitelist) {
+        if (isWhitelist || !isConnectable) {
             labels.addView(TextView(context).apply {
-                text = "Белые списки · группа"
+                text = when {
+                    isWhitelist && !isConnectable -> "LTE · подключение пока не поддерживается"
+                    isWhitelist -> "LTE-доступ · группа"
+                    else -> "Просмотр · транспорт не поддерживается"
+                }
                 textSize = 9.5f
-                setTextColor(VainahDesign.green)
+                setTextColor(if (isConnectable) VainahDesign.green else VainahDesign.muted)
                 maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
             }, LinearLayout.LayoutParams(-1, -2).apply {
                 topMargin = dp(context, 2)
             })
@@ -168,7 +174,8 @@ object ServerListVisual {
             append(if (latency == "—") "не измерено" else latency)
             if (isSelected) append(", выбран для следующего подключения")
             if (isFavorite) append(", избранный")
-            if (isWhitelist) append(", группа Белые списки")
+            if (isWhitelist) append(", группа LTE-доступ")
+            if (!isConnectable) append(", текущая сборка не поддерживает подключение")
         }
         content.setOnClickListener { onClick() }
         return content
