@@ -14,7 +14,6 @@ import json
 import os
 import re
 import secrets
-from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 from uuid import UUID, uuid4
 
@@ -23,7 +22,8 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from .email_auth import EMAIL_SESSION_COOKIE, _sign_session
-from .google_auth import _config as google_config, _origin
+from .google_auth import _config as google_config
+from .google_auth import _origin
 from .telegram_auth import SESSION_COOKIE, make_session, require_same_origin
 from .telegram_oidc import _config as telegram_config
 
