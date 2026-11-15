@@ -41,7 +41,7 @@ jobs:
       - name: Store isolated Android preview
         uses: actions/upload-artifact@v4
         with:
-          name: VainahVPN-Android-1.1.0-alpha.1-libbox
+          name: VainahVPN
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
@@ -95,7 +95,7 @@ jobs:
         if: steps.check.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: VainahVPN-Android-1.1.0-alpha.1-libbox-Clerk
+          name: VainahVPN-Clerk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
