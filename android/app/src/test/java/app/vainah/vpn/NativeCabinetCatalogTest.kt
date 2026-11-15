@@ -24,6 +24,15 @@ class NativeCabinetCatalogTest {
         NativeCabinetCatalog.parse(JSONObject()
             .put("plans", JSONArray().apply { plans.forEach { put(it) } }).toString())
 
+    @Test fun accountApiAndOAuthNeverTargetTheStaticCheckoutSite() {
+        assertEquals("https://vainahvpn-python-preview.onrender.com",
+            NativeCabinetCatalog.API_ORIGIN)
+        assertEquals("https://vainahvpn.onrender.com",
+            NativeCabinetCatalog.ORIGIN)
+        assertNotEquals(NativeCabinetCatalog.API_ORIGIN,
+            NativeCabinetCatalog.ORIGIN)
+    }
+
     @Test fun freeTrialIsSeparateAndNotConvertedIntoPaidCheckout() {
         val catalog = parse(trial(), paid())
         assertEquals(2, catalog.count)
