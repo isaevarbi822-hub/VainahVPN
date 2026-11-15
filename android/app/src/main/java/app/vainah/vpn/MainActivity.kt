@@ -856,6 +856,32 @@ class MainActivity : Activity() {
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         }
         add(sheet, search, 8)
+        val categoryButtons = mutableListOf<Pair<ServerCollection, Button>>()
+        val categoryRow = horizontal().apply {
+            setPadding(dp(8), dp(5), dp(8), dp(5))
+        }
+        for (category in ServerCollection.values()) {
+            val chip = lightAction(category.title).apply {
+                textSize = 11.5f
+                minHeight = dp(44)
+                contentDescription = "Категория серверов: " + category.title
+            }
+            categoryRow.addView(chip, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)
+            ).apply { marginEnd = dp(7) })
+            categoryButtons.add(category to chip)
+        }
+        val categoryScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            isFillViewport = false
+            addView(categoryRow)
+        }
+        add(sheet, categoryScroll, 10)
+        add(sheet, t(
+            "Категории сформированы только из реальной подписки H1Cloud. " +
+                "«Белые списки» — серверы с такой пометкой; приложение не создаёт новые узлы.",
+            11f, muted
+        ).apply { setPadding(dp(13), dp(3), dp(13), dp(8)) })
         val controls = horizontal().apply {
             setPadding(dp(5), dp(9), dp(5), dp(12))
         }
@@ -882,11 +908,21 @@ class MainActivity : Activity() {
 
         val redrawRows = object : () -> Unit {
             override fun invoke() {
-                val matches = directory(
-                    serverSearchQuery, showFavoriteServers, serverSort
+                val matches = ServerCollections.filter(
+                    directory(serverSearchQuery, false, serverSort),
+                    serverCollection
                 )
-                favoriteButton.text = if (showFavoriteServers)
+                favoriteButton.text = if (serverCollection == ServerCollection.FAVORITES)
                     "★ Только избранные" else "☆ Избранные"
+                for ((category, button) in categoryButtons) {
+                    val active = category == serverCollection
+                    button.background = shape(
+                        if (active) violet else VainahDesign.surface,
+                        if (active) violet else border, 12
+                    )
+                    button.setTextColor(if (active) bg else white)
+                    button.isSelected = active
+                }
                 sortButton.text = when (serverSort) {
                     ServerSort.SUBSCRIPTION -> "По подписке"
                     ServerSort.COUNTRY -> "По стране"
@@ -895,13 +931,9 @@ class MainActivity : Activity() {
                 count.text = "Показано: ${matches.size} из ${nodes.size}"
                 results.removeAllViews()
                 if (matches.isEmpty()) {
-                    val message = if (nodes.isEmpty())
-                        "Подписка пока не содержит поддерживаемых серверов. " +
-                            "Добавь профиль VLESS/TCP/REALITY."
-                    else if (showFavoriteServers)
-                        "В избранном нет серверов по этому запросу. " +
-                            "Добавь звёздочку в общем списке."
-                    else "Нет серверов по запросу. Попробуй название страны."
+                    val message = if (serverSearchQuery.isNotBlank())
+                        "Нет совпадений по запросу в этой категории. Очисти поиск."
+                    else ServerCollections.emptyMessage(serverCollection, nodes.isNotEmpty())
                     add(results, t(message, 13f, muted).apply {
                         setPadding(dp(13), dp(12), dp(13), dp(18))
                     })
@@ -913,8 +945,15 @@ class MainActivity : Activity() {
             }
         }
         favoriteButton.setOnClickListener {
-            showFavoriteServers = !showFavoriteServers
+            serverCollection = if (serverCollection == ServerCollection.FAVORITES)
+                ServerCollection.ALL else ServerCollection.FAVORITES
             redrawRows()
+        }
+        for ((category, button) in categoryButtons) {
+            button.setOnClickListener {
+                serverCollection = category
+                redrawRows()
+            }
         }
         sortButton.setOnClickListener {
             val options = arrayOf("По порядку подписки", "По стране",
