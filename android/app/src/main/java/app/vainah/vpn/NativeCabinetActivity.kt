@@ -37,6 +37,11 @@ class NativeCabinetActivity : Activity() {
     private var trialStatus: JSONObject? = null
     private var account: JSONObject? = null
     private var signedInEmail: String? = null
+    private var telegramIdentity: String? = null
+    private var googleAvailable = false
+    private var telegramAvailable = false
+    private var emailConfigured = true
+    private var emailConfigKnown = false
     private var message: String? = null
     private var busy = false
     private var otpRequested = false
@@ -64,7 +69,13 @@ class NativeCabinetActivity : Activity() {
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         render()
-        refresh()
+        if (!handleOAuthCallback(intent)) refresh()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (!handleOAuthCallback(intent)) refresh()
     }
 
     override fun onSaveInstanceState(out: Bundle) {
@@ -150,8 +161,11 @@ class NativeCabinetActivity : Activity() {
         val payment: Boolean,
         val trial: JSONObject?,
         val email: String?,
+        val telegram: String?,
         val dashboard: JSONObject?,
-        val trialState: JSONObject?
+        val trialState: JSONObject?,
+        val socialConfig: JSONObject?,
+        val emailConfig: JSONObject?
     )
 
     private fun refresh() {
@@ -169,26 +183,51 @@ class NativeCabinetActivity : Activity() {
             val trial = runCatching {
                 api.get(NativeCabinetCatalog.TRIAL_ENDPOINT).json
             }.getOrNull()
+            val social = runCatching {
+                api.get("/api/mobile-auth/config").takeIf { it.ok }?.json
+            }.getOrNull()
+            val emailConfig = runCatching {
+                api.get("/api/email-auth/config").takeIf { it.ok }?.json
+            }.getOrNull()
             val auth = runCatching {
                 api.get("/api/email-auth/account").json
             }.getOrNull()
             val email = if (auth?.optBoolean("authenticated") == true)
                 auth.optJSONObject("user")?.optString("email")?.take(254) else null
-            val overview = if (email != null) runCatching {
+            val telegram = if (email == null &&
+                api.authCookieName() == "__Host-vainah_session")
+                runCatching {
+                    api.get("/api/telegram/account").takeIf { it.ok }
+                        ?.json?.takeIf { it.optBoolean("authenticated") }
+                        ?.optJSONObject("user")
+                        ?.let {
+                            val username = it.optString("username").take(32)
+                            if (username.isNotBlank()) "@$username" else
+                                "Telegram ID " + it.optString("telegram_id").take(18)
+                        }
+                }.getOrNull()
+            else null
+            val overview = if (email != null || telegram != null) runCatching {
                 api.get("/api/account/overview").takeIf { it.ok }?.json
             }.getOrNull() else null
             val trialStatus = if (email != null) runCatching {
                 api.get("/api/trial/status").takeIf { it.ok }?.json
             }.getOrNull() else null
-            Loaded(plans, checkout, trial, email, overview, trialStatus)
+            Loaded(plans, checkout, trial, email, telegram, overview,
+                trialStatus, social, emailConfig)
         }) { result ->
             result.onSuccess {
                 catalog = it.plans
                 checkoutReady = it.payment
                 trialConfig = it.trial
                 signedInEmail = it.email
+                telegramIdentity = it.telegram
                 account = it.dashboard
                 trialStatus = it.trialState
+                googleAvailable = it.socialConfig?.optBoolean("google") == true
+                telegramAvailable = it.socialConfig?.optBoolean("telegram") == true
+                emailConfigKnown = it.emailConfig != null
+                emailConfigured = it.emailConfig?.optBoolean("available") == true
                 if (it.plans == null) message = "Не удалось загрузить тарифы. Проверь интернет."
             }.onFailure {
                 message = "Нет связи с личным кабинетом. Подключение VPN не затронуто."
