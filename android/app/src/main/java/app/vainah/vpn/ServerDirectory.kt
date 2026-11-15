@@ -11,6 +11,7 @@ data class ServerDirectoryEntry(
     val info: ServerRowInfo,
     val favorite: Boolean,
     val measuredTcpMs: Int?,
+    val manualWhitelist: Boolean = false,
 )
 
 object ServerDirectory {
@@ -34,6 +35,7 @@ object ServerDirectory {
         favoritesOnly: Boolean,
         sort: ServerSort,
         observations: List<ServerTcpObservation> = emptyList(),
+        manualWhiteListIds: Set<String> = emptySet(),
     ): List<ServerDirectoryEntry> {
         val safeQuery = query.trim().take(60).lowercase(Locale.ROOT)
         val infos = ServerRowPresentation.describeList(nodes)
@@ -47,6 +49,7 @@ object ServerDirectory {
                 index = index, info = info,
                 favorite = identity(nodes[index].uri) in favorites,
                 measuredTcpMs = measured,
+                manualWhitelist = identity(nodes[index].uri) in manualWhiteListIds,
             )
         }
         val filtered = items.filter { row ->
