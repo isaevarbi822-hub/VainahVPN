@@ -129,7 +129,8 @@ class SubscriptionPayloadParserTest {
             .put("tag", "Турция")
             .put("lte_access", true)
             .put("transport", JSONObject()
-                .put("type", "xhttp").put("path", "/lte"))
+                .put("type", "xhttp").put("path", "/lte")
+                .put("mode", "packet-up").put("host", "turkey.example.org"))
         val regular = JSONObject(base.toString())
             .put("tag", "Турция обычный")
             .put("uuid", "00000000-0000-4000-8000-000000000011")
@@ -145,10 +146,16 @@ class SubscriptionPayloadParserTest {
         assertEquals(2, loaded.size)
         assertEquals("xhttp", SubscriptionNodeSupport.inspect(loaded[0].uri)?.transport)
         assertEquals("tls", SubscriptionNodeSupport.inspect(loaded[0].uri)?.security)
+        val lteOutbound = VlessRealityConfig.outbound(loaded[0].uri)
+        assertEquals("/lte", lteOutbound.getJSONObject("transport").getString("path"))
+        assertEquals("packet-up", lteOutbound.getJSONObject("transport").getString("mode"))
+        assertEquals("turkey.example.org",
+            lteOutbound.getJSONObject("transport").getString("host"))
         assertTrue(ServerCollections.isWhiteListLabel(loaded[0].label))
         assertEquals("grpc", SubscriptionNodeSupport.inspect(loaded[1].uri)?.transport)
         assertEquals("reality", SubscriptionNodeSupport.inspect(loaded[1].uri)?.security)
-        assertFalse(SubscriptionNodeSupport.canConnect(loaded[0].uri))
+        assertEquals(BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED,
+            SubscriptionNodeSupport.canConnect(loaded[0].uri))
         assertTrue(SubscriptionNodeSupport.canConnect(loaded[1].uri))
         assertEquals("🇹🇷", ServerRowPresentation.describe(loaded[0], 0).flag)
     }
