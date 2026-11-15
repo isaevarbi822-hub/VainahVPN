@@ -255,7 +255,7 @@ class MainActivity : Activity() {
         }
         scroll.addView(body)
         frame.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        if (!light) add(body, tag("VAINAHVPN"))
+        if (page != Page.HOME) add(body, tag("VAINAHVPN"))
         if (page != Page.HOME) {
             add(body, t(when (page) {
                 Page.HOME -> "VainahVPN"
@@ -1673,6 +1673,7 @@ class MainActivity : Activity() {
             VpnConnectionState.FAILED -> "Ошибка подключения"
             else -> "Не подключено"
         }
+        (powerOrb as? PowerOrbView)?.setVpnPhase(snapshot.phase)
         stateView?.setTextColor(if (page == Page.HOME) {
             if (connected) VainahDesign.green else ServerListVisual.textColor()
         } else if (connected) green else white)
