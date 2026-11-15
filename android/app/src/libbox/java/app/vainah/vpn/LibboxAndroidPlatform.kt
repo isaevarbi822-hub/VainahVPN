@@ -59,7 +59,7 @@ internal class LibboxAndroidPlatform(
         onStage("opening_android_tun")
         check(VpnService.prepare(service) == null) { "Android VPN consent revoked" }
         val mtu = options.mtu.takeIf { it in 1280..9000 } ?: 1500
-        val builder = service.Builder().setSession("Vainah VPN")
+        val builder = service.Builder().setSession("VainahVPN")
             .setMtu(mtu)
         // Official sing-box Android (SFA) keeps Android's default
         // non-blocking VPN file descriptor. Forcing blocking I/O can stall

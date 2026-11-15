@@ -55,7 +55,13 @@ object VlessRealityConfig {
         }
     }
 
-    fun profile(node: String, resolvedAddress: String? = null): String = JSONObject().apply {
+    fun profile(
+        node: String,
+        resolvedAddress: String? = null,
+        bypassDomains: Set<String> = emptySet(),
+    ): String = JSONObject().apply {
+        val directDomains = DomainWhitelistPolicy.normalize(bypassDomains)
+        require(directDomains.size == bypassDomains.size) { "Invalid domain whitelist" }
         put("log", JSONObject().put("level", "warn"))
         // Android TUN DNS is hijacked to this resolver. Queries to
         // 1.1.1.1 travel over HTTPS inside the VLESS outbound.
@@ -103,6 +109,25 @@ object VlessRealityConfig {
                 // Intercept all remaining ordinary DNS (TCP and UDP port 53)
                 // to avoid silently proxying plain DNS to physical resolvers.
                 .put(JSONObject().put("port", 53)
-                    .put("action", "hijack-dns"))))
+                    .put("action", "hijack-dns"))
+                .apply {
+                    // Only user-approved and strictly validated domains route
+                    // directly. DNS remains inside the VPN; this is NOT
+                    // proof of complete per-domain bypass or DNS isolation.
+                    if (directDomains.isNotEmpty()) {
+                        put(JSONObject().put("action", "sniff"))
+                        val domains = JSONArray()
+                        val suffixes = JSONArray()
+                        directDomains.forEach {
+                            domains.put(it)
+                            suffixes.put(".$it")
+                        }
+                        put(JSONObject()
+                            .put("domain", domains)
+                            .put("domain_suffix", suffixes)
+                            .put("action", "route")
+                            .put("outbound", "direct"))
+                    }
+                }))
     }.toString()
 }

@@ -108,7 +108,13 @@ class VainahVpnService : VpnService() {
                 VpnUnderlayStatus.reset(this)
                 checkpoint("service_received_connect")
                 val rawNode = intent.getStringExtra(EXTRA_SELECTED_VLESS).orEmpty()
-                val configValid = runCatching { VlessRealityConfig.profile(rawNode) }.isSuccess
+                val lockdown = Build.VERSION.SDK_INT >= 29 && isLockdownEnabled
+                val directDomains = DomainWhitelistPolicy.effective(
+                    DomainWhitelistPreferences.read(this), lockdown,
+                )
+                val configValid = runCatching {
+                    VlessRealityConfig.profile(rawNode, bypassDomains = directDomains)
+                }.isSuccess
                 if (!EngineRegistry.active.ready || !configValid || SecureSubscription(this).load() == null) {
                     VpnConnectionState.failed(this, "Не удалось проверить подписку или сервер")
                     stopSelf()
@@ -140,7 +146,9 @@ class VainahVpnService : VpnService() {
                         checkpoint("starting_libbox_native_engine")
                         // libbox dials a numeric IP so the REALITY endpoint cannot
                         // deadlock on bootstrap DNS after VPN routing starts.
-                        val resolvedConfig = VlessRealityConfig.profile(rawNode, upstream.numericAddress)
+                        val resolvedConfig = VlessRealityConfig.profile(
+                            rawNode, upstream.numericAddress, bypassDomains = directDomains,
+                        )
                         val result = EngineRegistry.connectOwned(this, resolvedConfig) {
                             isCurrentAttempt(generation)
                         }

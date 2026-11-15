@@ -97,6 +97,19 @@ object ServerListVisual {
         details.addView(subtitle, LinearLayout.LayoutParams(-1, -2).apply {
             topMargin = dp(context, 5)
         })
+        val markedWhitelist = ServerCollections.isWhiteListLabel(info.title)
+        if (markedWhitelist) {
+            val providerMark = TextView(context).apply {
+                text = "✦ Белый список · метка подписки"
+                textSize = 10f
+                setTextColor(VainahDesign.softPurple)
+                typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+                contentDescription = "Сервер отмечен поставщиком как белый список"
+            }
+            details.addView(providerMark, LinearLayout.LayoutParams(-1, -2).apply {
+                topMargin = dp(context, 6)
+            })
+        }
         horizontal.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
         val lag = TextView(context).apply {
             text = latency
@@ -142,6 +155,7 @@ object ServerListVisual {
             append(if (latency == "н/д") "задержка не измерена" else latency)
             if (isSelected) append(", выбран для следующего подключения")
             if (isFavorite) append(", избранное")
+            if (markedWhitelist) append(", отмечен как белый список в подписке")
         }
         full.setOnClickListener { onClick() }
         return full

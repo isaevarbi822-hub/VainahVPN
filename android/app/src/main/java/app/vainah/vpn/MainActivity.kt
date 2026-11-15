@@ -30,7 +30,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 
 /**
- * Vainah VPN Next. No fake VPN status, embedded billing, WebView or hard-coded
+ * VainahVPN. No fake VPN status, embedded billing, WebView or hard-coded
  * deprecated hosting dependency. Subscription fetching lives in SubscriptionController;
  * VainahVpnService exclusively owns the real libbox VPN session.
  */
@@ -577,7 +577,7 @@ class MainActivity : Activity() {
         add(options, hwid, 11)
         hwid.setOnClickListener {
             AlertDialog.Builder(this).setTitle("Передача HWID")
-                .setMessage("Сервер получит отдельный ID Vainah VPN, модель " +
+                .setMessage("Сервер получит отдельный ID VainahVPN, модель " +
                     "и версию Android. Может использоваться дополнительный слот устройства.")
                 .setNegativeButton("Отмена", null)
                 .setPositiveButton("Изменить") { _, _ ->
@@ -802,7 +802,7 @@ class MainActivity : Activity() {
                     diag.getString("last_failure_code", null) else null,
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Vainah VPN diagnostic", text))
+            clipboard.setPrimaryClip(ClipData.newPlainText("VainahVPN", text))
             popup("Обезличенный отчёт скопирован. В нём нет VPN-ключей или адресов серверов.")
         }
         val retry = action("Обновить серверы")
@@ -822,7 +822,7 @@ class MainActivity : Activity() {
         if (routeScanRunning) return
         val before = VpnConnectionState.read(this)
         if (!before.canDisconnect || !VainahVpnService.runningInProcess) {
-            popup("Сначала запусти Vainah VPN для проверки маршрутов.")
+            popup("Сначала запусти VainahVPN для проверки маршрутов.")
             return
         }
         val physicalBefore = VpnUnderlayStatus.read(this)
@@ -1228,9 +1228,127 @@ class MainActivity : Activity() {
             render()
         }
 
+        val domains = card()
+        add(body, domains, 16)
+        add(domains, tag("БЕЛЫЙ СПИСОК ДОМЕНОВ / ANDROID"))
+        add(domains, t("Сайты вне VPN", 18f, white, true), 9)
+        val directDomains = DomainWhitelistPreferences.read(this)
+        add(domains, t(
+            if (directDomains.isEmpty()) "Исключений нет: маршруты остаются в VPN."
+            else "Добавлено доменов: " + directDomains.size +
+                " из " + DomainWhitelistPolicy.MAX_DOMAINS +
+                ". Изменения применятся при следующем подключении.",
+            12f, if (directDomains.isEmpty()) grey else errorColor,
+        ), 9)
+        add(domains, t(
+            "По запросу пользователя соединения к указанным доменам " +
+                "могут идти напрямую, БЕЗ защиты VPN. Это не серверы белых списков. " +
+                "DNS-запросы по-прежнему обрабатываются через VPN; приложения с " +
+                "зашифрованным DNS и соединения по IP могут не совпасть с правилами. " +
+                "Не используй для обхода правил управляемых устройств. " +
+                "При системной блокировке интернета без VPN исключения отключаются.",
+            12f, grey,
+        ), 10)
+        if (directDomains.isNotEmpty()) {
+            add(domains, t(
+                directDomains.take(5).joinToString("\\n") +
+                    if (directDomains.size > 5) "\\n…" else "",
+                12f, teal,
+            ), 10)
+        }
+        if (!BuildConfig.VAINAH_LIBBOX_ENABLED) {
+            add(domains, t(
+                "В сборке без libbox доменные исключения не применяются.",
+                12f, errorColor,
+            ), 8)
+        }
+        val addDomain = action("Добавить домен")
+        addDomain.isEnabled = BuildConfig.VAINAH_LIBBOX_ENABLED
+        add(domains, addDomain, 12)
+        addDomain.setOnClickListener { addDomainExclusion() }
+        val removeDomain = action("Удалить домен")
+        removeDomain.isEnabled = BuildConfig.VAINAH_LIBBOX_ENABLED &&
+            directDomains.isNotEmpty()
+        add(domains, removeDomain, 9)
+        removeDomain.setOnClickListener { removeDomainExclusion() }
+
         val diag = action("Открыть диагностику")
         add(protection, diag, 17)
         diag.setOnClickListener { page = Page.DIAGNOSTICS; render() }
+    }
+
+    private fun addDomainExclusion() {
+        if (!BuildConfig.VAINAH_LIBBOX_ENABLED) {
+            popup("Настройка доступна только в сборке с работающим libbox.")
+            return
+        }
+        if (VpnConnectionState.read(this).canDisconnect) {
+            popup("Сначала отключи VPN, чтобы изменить доменные маршруты.")
+            return
+        }
+        val input = input("example.org").apply {
+            contentDescription = "Домен для подключения напрямую, вне VPN"
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Исключить сайт из VPN")
+            .setMessage(
+                "Указывай только домен, например example.org, без https://, " +
+                    "путей и масок. Соединение может пойти без защиты VPN. " +
+                    "DNS всё ещё обрабатывается через VPN.",
+            )
+            .setView(input)
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Добавить") { _, _ ->
+                if (VpnConnectionState.read(this).canDisconnect) {
+                    popup("Сначала отключи VPN.")
+                    return@setPositiveButton
+                }
+                val domain = DomainWhitelistPolicy.canonical(input.text.toString())
+                if (domain == null) {
+                    popup("Некорректный домен. Укажи имя сайта без протокола и путей.")
+                    return@setPositiveButton
+                }
+                val current = DomainWhitelistPreferences.read(this)
+                if (domain in current) {
+                    popup("Этот домен уже добавлен.")
+                } else if (current.size >= DomainWhitelistPolicy.MAX_DOMAINS ||
+                    !DomainWhitelistPreferences.save(this, current + domain)) {
+                    popup("Не удалось сохранить домен. Максимум " +
+                        DomainWhitelistPolicy.MAX_DOMAINS + " записей.")
+                } else {
+                    render()
+                    popup("Исключение сохранено. Оно применяется при новом " +
+                        "подключении и не гарантирует обход VPN для всех приложений.")
+                }
+            }.show()
+    }
+
+    private fun removeDomainExclusion() {
+        if (!BuildConfig.VAINAH_LIBBOX_ENABLED ||
+            VpnConnectionState.read(this).canDisconnect) {
+            popup("Отключи VPN перед изменением списка исключений.")
+            return
+        }
+        val domains = DomainWhitelistPreferences.read(this).sorted()
+        if (domains.isEmpty()) return
+        AlertDialog.Builder(this)
+            .setTitle("Удалить домен из исключений")
+            .setItems(domains.toTypedArray()) { _, position ->
+                if (VpnConnectionState.read(this).canDisconnect) {
+                    popup("Сначала отключи VPN.")
+                    return@setItems
+                }
+                if (DomainWhitelistPreferences.save(
+                        this, domains.filterIndexed { index, _ -> index != position },
+                    )
+                ) {
+                    render()
+                    popup("Исключение удалено. Изменение вступит в силу при " +
+                        "следующем подключении.")
+                } else popup("Не удалось сохранить список доменов.")
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     private fun editSplitTunnelApps() {

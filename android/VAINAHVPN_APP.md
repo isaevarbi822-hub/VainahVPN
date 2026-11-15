@@ -14,7 +14,7 @@ This is the existing native Android VPN client upgraded in place, **not a browse
 
 ## Server categories
 
-`ServerCollections.kt` filters **only nodes actually present in the loaded subscription**. The public UI labels are: Все, Рекомендуемые, Быстрые, Игры, Стриминг, Белые списки, Избранные.
+`ServerCollections.kt` filters **only nodes actually present in the loaded subscription**. Entries explicitly marked as whitelist nodes receive a small original label in the server list; no demo countries or fictional latency values are added. The public UI labels are: Все, Рекомендуемые, Быстрые, Игры, Стриминг, Белые списки, Избранные.
 
 - **Белые списки:** only nodes whose *non-secret subscription label* explicitly includes e.g. `Белые списки` or `Whitelist`. This category **does not** synthesize WhiteList Secure/Fast/Trusted or add servers in H1Cloud. The provider must publish the nodes in the subscription. It makes no claim about bypass capabilities or site compatibility.
 - **Игры / Стриминг:** similarly based only on words in the subscription labels. This is not a guarantee the game/service works.
@@ -28,7 +28,7 @@ The country-name/flag dictionary is **display-only**. Countries appear only for 
 
 **Server whitelist group** is a filter of provider-labelled servers. **Per-app whitelist** (Android split tunneling) exempts chosen apps from the VPN. These apps use the normal device network and are not tunnel protected. By default there are no exceptions. Exclusions require a working libbox build, take effect upon reconnect, and are disabled under Android's lockdown mode.
 
-Domain-based selective routing is **not active** in this revision. Do not tell customers a website-level whitelist is already filtering their traffic.
+**Domain-based selective routing** is now an opt-in Android libbox feature. In the `Защита` tab, the user can add and remove up to 20 strictly validated domain names such as `example.org` (Unicode IDNs are normalized to Punycode). If enabled, the sing-box configuration adds a `sniff` action followed by exact-domain and subdomain `direct` route rules. This routing is **not a separate provider server**, and is not enabled by default. DNS remains handled by VainahVPN's VPN DNS path, and encrypted DNS / IP-only apps might not match the rule. Android lockdown disables the direct-domain exclusions; changes take effect only after reconnecting. On-device validation of the direct routes is still required; compiled JSON alone does not prove the behavior. The feature is not intended to bypass policies imposed on managed devices.
 
 ## Subscription, login and payments
 
@@ -48,4 +48,4 @@ The artifact is an *isolated preview app ID* to avoid silently replacing the exi
 
 Tests cover categories, whitelist-label matching, favorites, real TCP observations and missing-server empty states, plus existing subscription security and libbox integration contracts.
 
-A green CI run verifies compilation and local tests **only**. Real end-to-end VPN connection, Wi-Fi-to-cellular handoff, DNS/IPv6 routing, iOS support and platform-restricted settings still require on-device testing. Do not claim they have been confirmed by a build job. Windows/iOS clients are separate later milestones; this PR does not create them.
+A green CI run verifies compilation and local tests **only**, including the new domain routing contract tests. Real end-to-end VPN connection, Wi-Fi-to-cellular handoff, DNS/IPv6 routing, iOS support and platform-restricted settings still require on-device testing. Do not claim they have been confirmed by a build job. Windows/iOS clients are separate later milestones; this PR does not create them.
