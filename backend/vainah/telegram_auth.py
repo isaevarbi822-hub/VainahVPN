@@ -188,15 +188,23 @@ def require_user(request: Request) -> dict:
 
 def require_same_origin(request: Request) -> None:
     origin = request.headers.get("origin", "")
-    allowed = os.environ.get(
+    storefront = os.environ.get(
         "PUBLIC_SITE_ORIGIN", "https://vainahvpn-python-preview.onrender.com"
     ).rstrip("/")
+    # Both verified Vainah domains are operated by this service. Android
+    # JSON requests target the Python API origin, while browser storefront
+    # POSTs retain the separately configured PUBLIC_SITE_ORIGIN protection.
+    from .google_auth import _origin as oauth_api_origin
+
+    allowed = {storefront, oauth_api_origin()}
     try:
         parsed = urlsplit(origin)
     except ValueError:
         raise HTTPException(403, "INVALID_ORIGIN") from None
     if (not origin or parsed.scheme != "https" or
-            origin.rstrip("/") != allowed):
+            parsed.username is not None or parsed.password is not None
+            or parsed.query or parsed.fragment or parsed.path not in ("", "/")
+            or parsed.port is not None or origin.rstrip("/") not in allowed):
         raise HTTPException(403, "INVALID_ORIGIN")
 
 
