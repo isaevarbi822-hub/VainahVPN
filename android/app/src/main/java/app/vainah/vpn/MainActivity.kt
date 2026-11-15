@@ -184,6 +184,24 @@ class MainActivity : Activity() {
             .setPositiveButton("Понятно", null).show()
     }
 
+    /**
+     * Account, payments, and support are opened on the live backend.
+     * Do not handle card details or pass VPN bearer links in an Android Intent.
+     */
+    private fun openOfficialPage(page: String) {
+        val supported = setOf(
+            "account.html", "plans.html", "my-devices.html",
+            "support-center.html", "notifications.html", "gifts.html"
+        )
+        if (page !in supported) return
+        val uri = Uri.parse("https://vainahvpn-python-preview.onrender.com/" + page)
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (_: android.content.ActivityNotFoundException) {
+            popup("Не удалось открыть официальный сайт. Проверь браузер на устройстве.")
+        }
+    }
+
     private fun render() {
         stateView = null
         detailView = null
@@ -496,6 +514,23 @@ class MainActivity : Activity() {
     }
 
     private fun account(body: LinearLayout) {
+        val live = card()
+        add(body, live, 16)
+        add(live, tag("МОЯ ПОДПИСКА"))
+        add(live, t("Подписка VainahVPN", 20f, white, true), 9)
+        add(live, t(
+            "Цена, срок действия, число устройств и история покупок " +
+                "показываются в личном кабинете после входа. " +
+                "Приложение не рисует выдуманный баланс и не принимает данные карты.",
+            12f, grey
+        ), 10)
+        val onlineAccount = action("Открыть мою подписку", true)
+        add(live, onlineAccount, 12)
+        onlineAccount.setOnClickListener { openOfficialPage("account.html") }
+        val onlinePlans = action("Все тарифы и продление")
+        add(live, onlinePlans, 9)
+        onlinePlans.setOnClickListener { openOfficialPage("plans.html") }
+
         val profile = card()
         add(body, profile, 21)
         add(profile, tag("VPN-профиль"))
@@ -569,8 +604,9 @@ class MainActivity : Activity() {
         add(body, identity, 15)
         add(identity, tag("Учётная запись"))
         add(identity, t(
-            "Clerk используется только для входа. Покупки в новой версии " +
-                "пока выключены до полноценного переноса Python API.",
+            "Локальный импорт VPN-подписки работает отдельно от входа в веб-кабинет. " +
+                "Покупки оформляются на официальном сайте с серверной проверкой " +
+                "суммы и подтверждением платежа, не внутри APK.",
             12f, grey), 8)
         val login = action("Войти через Clerk")
         add(identity, login, 10)
@@ -1287,15 +1323,35 @@ class MainActivity : Activity() {
         add(version, tag("О приложении"))
         add(version, t("VainahVPN " + BuildConfig.VERSION_NAME,
             16f, white, true), 9)
-        add(version, t("Тестовая сборка. Приложение не связано с " +
-            "действующей оплатой. Не заменяет проверку реального VPN на Android.",
+        add(version, t("Тестовая сборка с реальным Android VpnService при наличии libbox. " +
+            "Покупки открываются в официальном браузере, без передачи карты приложению.",
             12f, grey), 10)
     }
 
     private fun more(body: LinearLayout) {
+        val profile = card()
+        add(body, profile, 16)
+        add(profile, tag("ПРОФИЛЬ"))
+        add(profile, t("Личный кабинет VainahVPN", 20f, white, true), 8)
+        add(profile, t(
+            "Вход по email, подписки, устройства, обращения и уведомления " +
+                "доступны на защищённом сайте VainahVPN.",
+            12f, grey
+        ), 9)
+        for ((title, target) in listOf(
+            "Мой профиль" to "account.html",
+            "Мои устройства на сайте" to "my-devices.html",
+            "Поддержка" to "support-center.html",
+            "Уведомления" to "notifications.html",
+            "Подарочные карты" to "gifts.html"
+        )) {
+            val option = action(title)
+            add(profile, option, 9)
+            option.setOnClickListener { openOfficialPage(target) }
+        }
         val hub = card()
         add(body, hub, 21)
-        add(hub, tag("VAINAHVPN / РАЗДЕЛЫ"))
+        add(hub, tag("ЛОКАЛЬНЫЕ НАСТРОЙКИ"))
         add(hub, t("Все инструменты в одном месте", 19f, white, true), 10)
         add(hub, t("Настройки, устройства и информация о безопасности.",
             12f, grey), 8)
@@ -1304,7 +1360,7 @@ class MainActivity : Activity() {
             Page.DIAGNOSTICS to "Диагностика соединения",
             Page.SECURITY to "Безопасность и приватность",
             Page.SETTINGS to "Настройки приложения",
-            Page.ACCOUNT to "Подписка и вход")) {
+            Page.ACCOUNT to "VPN-профиль и локальный вход")) {
             val button = action(label)
             add(hub, button, 10)
             button.setOnClickListener { page = target; render() }
