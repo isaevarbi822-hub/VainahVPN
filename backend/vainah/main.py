@@ -22,6 +22,7 @@ from .device_registry import router as device_registry_router
 from .email_auth import router as email_auth_router
 from .gift_cards import router as gift_cards_router
 from .google_auth import router as google_auth_router
+from .mobile_auth import router as mobile_auth_router
 from .growth import router as growth_router
 from .h1_panel import public_h1_status
 from .h1_panel import router as h1_router
@@ -56,6 +57,7 @@ app.include_router(telegram_router)
 app.include_router(telegram_oidc_router)
 app.include_router(email_auth_router)
 app.include_router(google_auth_router)
+app.include_router(mobile_auth_router)
 app.include_router(customer_router)
 app.include_router(device_registry_router)
 app.include_router(public_trial_router)
