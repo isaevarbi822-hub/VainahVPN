@@ -1,6 +1,21 @@
 /* Vainah Next · November 2026 visual system.
    CSS only across other pages. No account state, keys or payment logic. */
 :root{
+  --fresh-bg:#080b15;
+  --fresh-panel:#151a2d;
+  --fresh-line:#b69aff28;
+  --fresh-ink:#f4f5ff;
+  --fresh-muted:#acb5ce;
+  --fresh-accent:#b69aff;
+  --bg:var(--fresh-bg);
+  --surface:var(--fresh-panel);
+  --ink:var(--fresh-ink);
+  --muted:var(--fresh-muted);
+  --purple:var(--fresh-accent);
+  --vx-violet:var(--fresh-accent);
+  --vx-mint:var(--fresh-accent);
+  --vx-ink:var(--fresh-ink);
+  --vx-line:var(--fresh-line);
   --vx-next-bg:#080b15;
   --vx-next-surface:#141829;
   --vx-next-raised:#1b1c33;
@@ -10,6 +25,17 @@
   --vx-next-purple:#ae91ff;
   --vx-next-sky:#79cde9;
 }
+/* Undo legacy November green overrides without disturbing purchase logic. */
+body:not(.vx-hub-body){background-color:#080b15!important;color:#f4f5ff!important}
+body:not(.vx-hub-body)>header,body:not(.vx-hub-body)>.site-header{
+  background:#0c1020!important;border-bottom-color:#b69aff28!important;
+}
+body:not(.vx-hub-body) .mobile-nav{background:#11172b!important}
+body:not(.vx-hub-body) .mobile-nav a{background:#22213b!important}
+body:not(.vx-hub-body) .hamburger{background:#25223d!important;border-color:#a38deb4d!important}
+body:not(.vx-hub-body) .logo-mark{background:linear-gradient(145deg,#c5a9ff,#7551db)!important}
+body:not(.vx-hub-body) .logo-mark svg path{stroke:#1f1738}
+::selection{background:#ad8af8;color:#0c0b19}
 body:not(.vx-hub-body) .vx-header-search:focus-visible,
 body:not(.vx-hub-body) a:focus-visible,
 body:not(.vx-hub-body) button:focus-visible,
@@ -27,7 +53,7 @@ body[data-refresh-home]{
   --fresh-accent:#bfa6ff;
   --bg:#080b15;
   color:#f5f6ff;
-  background:radial-gradient(ellipse 65vw 45vw at 83% 3%,#40277754,transparent 72%),#080b15;
+  background:radial-gradient(ellipse 65vw 45vw at 83% 3%,#40277754,transparent 72%),#080b15!important;
 }
 body[data-refresh-home] .refresh-hero h1{letter-spacing:-.06em}
 body[data-refresh-home] .refresh-orbit{
