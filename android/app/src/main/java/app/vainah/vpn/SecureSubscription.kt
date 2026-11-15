@@ -194,7 +194,7 @@ class SecureSubscription(private val context: Context) {
                 GCMParameterSpec(128, Base64.decode(pair[0], Base64.NO_WRAP))
             )
             val clear = cipher.doFinal(Base64.decode(pair[1], Base64.NO_WRAP))
-            if (clear.size > 8192) return emptySet()
+            if (clear.size > 16384) return emptySet()
             val payload = org.json.JSONObject(String(clear, Charsets.UTF_8))
             if (payload.optString("link") != currentLink) return emptySet()
             val values = payload.optJSONArray("ids") ?: return emptySet()
@@ -219,7 +219,7 @@ class SecureSubscription(private val context: Context) {
                 .put("link", currentLink)
                 .put("ids", org.json.JSONArray(ids))
                 .toString().toByteArray(Charsets.UTF_8)
-            if (bytes.size > 8192) return false
+            if (bytes.size > 16384) return false
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.ENCRYPT_MODE, key())
             val encrypted = cipher.doFinal(bytes)
