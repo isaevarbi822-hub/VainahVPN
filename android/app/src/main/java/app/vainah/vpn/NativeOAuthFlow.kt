@@ -1,6 +1,6 @@
 package app.vainah.vpn
 
-import android.util.Base64
+import java.util.Base64
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.UUID
@@ -17,16 +17,14 @@ internal object NativeOAuthFlow {
     fun verifier(): String {
         val random = ByteArray(32)
         SecureRandom().nextBytes(random)
-        return Base64.encodeToString(random, Base64.URL_SAFE or
-            Base64.NO_WRAP or Base64.NO_PADDING)
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(random)
     }
 
     fun challenge(verifier: String): String {
         require(verifier.matches(Regex("[A-Za-z0-9_-]{43,128}")))
         val digest = MessageDigest.getInstance("SHA-256")
             .digest(verifier.toByteArray(Charsets.US_ASCII))
-        return Base64.encodeToString(digest, Base64.URL_SAFE or
-            Base64.NO_WRAP or Base64.NO_PADDING)
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
     }
 
     fun validFlow(value: String): Boolean = runCatching {
