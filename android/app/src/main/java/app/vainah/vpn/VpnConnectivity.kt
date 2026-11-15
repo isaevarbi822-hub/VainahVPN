@@ -69,10 +69,26 @@ object VpnConnectivity {
         // A phone can have Wi-Fi and mobile data simultaneously. A DNS or
         // TCP failure on one must not prevent trying the other. Prefer
         // Android-validated physical networks, never a VPN as its upstream.
-        val physicalNetworks = candidates.sortedByDescending { network ->
-            connectivity.getNetworkCapabilities(network)?.hasCapability(
-                NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
-        }
+        // Match the libbox platform's startup preference: validated and
+        // unmetered Wi-Fi before metered cellular. Previously preflight could
+        // resolve/dial on LTE while libbox selected a different Wi-Fi underlay.
+        val physicalNetworks = candidates.sortedWith(
+            compareByDescending<Network> { network ->
+                connectivity.getNetworkCapabilities(network)?.hasCapability(
+                    NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+            }.thenByDescending { network ->
+                connectivity.getNetworkCapabilities(network)?.hasCapability(
+                    NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true
+            }.thenBy { network ->
+                val caps = connectivity.getNetworkCapabilities(network)
+                when {
+                    caps?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true -> 0
+                    caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> 1
+                    caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> 2
+                    else -> 3
+                }
+            }
+        )
         for (physical in physicalNetworks) {
             // The lookup belongs to this specific physical network, not to
             // Android's current default VPN network.
@@ -80,10 +96,12 @@ object VpnConnectivity {
                 .getOrNull()?.sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
                 ?: continue
             for (ip in addresses) {
-                // Real TCP connect measurements, not ICMP ping or a synthetic
-                // timer. Use the median to reduce one-off cellular jitter.
-                val measurements = ArrayList<Int>(3)
-                repeat(3) {
+                // The startup TCP probe is an endpoint reachability check,
+                // not a speed benchmark. Stop after the FIRST success instead
+                // of wasting two extra round-trips on every VPN connection.
+                // Retry a lone DNS address once to tolerate a brief packet loss.
+                val tries = if (addresses.size == 1) 2 else 1
+                repeat(tries) {
                     val latency = runCatching {
                         physical.socketFactory.createSocket().use { socket ->
                             require(service.protect(socket)) {
@@ -95,11 +113,10 @@ object VpnConnectivity {
                                 .coerceIn(0, 60_000).toInt()
                         }
                     }.getOrNull()
-                    if (latency != null) measurements.add(latency)
+                    if (latency != null) return UpstreamProbe(
+                        ip.hostAddress.substringBefore('%'), latency
+                    )
                 }
-                val median = TcpLatency.median(measurements)
-                if (median != null) return UpstreamProbe(
-                    ip.hostAddress.substringBefore('%'), median)
             }
         }
         // No network, server address, UUID or credential in error diagnostics.

@@ -12,7 +12,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * Stale network replies cannot replace a different subscriber's nodes.
  */
 class SubscriptionController(context: Context) {
-    private val vault = SecureSubscription(context.applicationContext)
+    private val appContext = context.applicationContext
+    private val vault = SecureSubscription(appContext)
     private val hwid = SubscriptionHwid(context.applicationContext)
     private val main = Handler(Looper.getMainLooper())
     private val generation = AtomicInteger()
@@ -44,12 +45,17 @@ class SubscriptionController(context: Context) {
     fun saveLink(value: String): Boolean {
         val valid = SubscriptionInput.validate(value) ?: return false
         invalidate()
-        return vault.save(valid)
+        val saved = vault.save(valid)
+        if (saved) runCatching {
+            SubscriptionAutoSyncScheduler.reconcile(appContext)
+        }
+        return saved
     }
 
     fun clear() {
         invalidate()
         vault.delete()
+        runCatching { SubscriptionAutoSyncScheduler.reconcile(appContext) }
     }
 
     fun invalidate() {

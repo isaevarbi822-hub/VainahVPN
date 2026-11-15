@@ -258,12 +258,15 @@ internal class LibboxAndroidPlatform(
         val metered = physical?.metered ?: false
         val validated = physical?.validated ?: false
         val tunReady = hasTun()
-        val unchanged = physical?.key == selectedPhysicalKey &&
-            name == lastAppliedName && index == lastAppliedIndex &&
-            metered == lastAppliedMetered && validated == lastAppliedValidated
-        // On Android the first callback can happen BEFORE TUN establishment.
-        // Force an OS underlay update once TUN is available, even if unchanged.
-        if (unchanged && (!tunReady || underlayAppliedToTun)) return
+        val networkChanged = physical?.key != selectedPhysicalKey ||
+            name != lastAppliedName || index != lastAppliedIndex ||
+            metered != lastAppliedMetered
+        val validationChanged = validated != lastAppliedValidated
+        // Android often toggles VALIDATED repeatedly on one unchanged Wi-Fi
+        // network. Rebinding native sockets for validation-only events can
+        // interrupt otherwise healthy connections. Still record the status.
+        val firstTunUpdate = tunReady && !underlayAppliedToTun
+        if (!networkChanged && !validationChanged && !firstTunUpdate) return
         selectedPhysicalKey = physical?.key
         lastAppliedName = name
         lastAppliedIndex = index
@@ -271,17 +274,21 @@ internal class LibboxAndroidPlatform(
         lastAppliedValidated = validated
 
         if (tunReady) {
-            runCatching {
-                service.setUnderlyingNetworks(
-                    if (physical == null) emptyArray() else arrayOf(physical.network)
-                )
+            if (networkChanged || firstTunUpdate) {
+                runCatching {
+                    service.setUnderlyingNetworks(
+                        if (physical == null) emptyArray() else arrayOf(physical.network)
+                    )
+                }
             }
             VpnUnderlayStatus.record(service, physical?.transport ?: "none", validated)
             underlayAppliedToTun = true
         }
-        // Inform libbox of real underlay changes: it may recover connections.
-        // This does not claim VPN traffic or the exit IP has been verified.
-        listener.updateDefaultInterface(name, index, metered, false)
+        // A real physical-network/interface change must reach libbox so it
+        // can re-dial sockets. A validation toggle alone must not flap them.
+        // Neither operation falsely claims successful VPN egress.
+        if (networkChanged || firstTunUpdate)
+            listener.updateDefaultInterface(name, index, metered, false)
     }
 
     @Synchronized

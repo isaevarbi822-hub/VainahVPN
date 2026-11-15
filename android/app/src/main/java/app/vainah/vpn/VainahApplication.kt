@@ -6,6 +6,10 @@ import android.app.Application
 class VainahApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Keep newly added provider nodes (including labeled LTE profiles)
+        // synchronized even when the UI has been closed. Scheduling failures
+        // must never prevent opening the VPN app.
+        runCatching { SubscriptionAutoSyncScheduler.reconcile(this) }
         if (!BuildConfig.VAINAH_CLERK_ENABLED ||
             !ClerkPublicKey.isConfigured(BuildConfig.VAINAH_CLERK_PUBLISHABLE_KEY)) return
         runCatching {

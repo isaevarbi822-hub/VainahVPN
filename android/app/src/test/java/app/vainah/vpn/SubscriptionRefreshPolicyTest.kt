@@ -26,6 +26,19 @@ class SubscriptionRefreshPolicyTest {
         assertEquals(5 * 60 * 1000L, SubscriptionRefreshPolicy.retryDelay(null))
     }
 
+    @Test fun activeTunnelAllowsNewServersButStartupDoesNot() {
+        assertFalse(SubscriptionRefreshPolicy.shouldRefreshDuringSession(
+            10_000L, 0L, VpnConnectionState.STARTING, false))
+        assertTrue(SubscriptionRefreshPolicy.shouldRefreshDuringSession(
+            10_000L, 0L, VpnConnectionState.TUN_READY, false))
+        assertTrue(SubscriptionRefreshPolicy.shouldRefreshDuringSession(
+            10_000L, 0L, VpnConnectionState.ONLINE, false))
+        assertFalse(SubscriptionRefreshPolicy.shouldRefreshDuringSession(
+            10_000L, 11_000L, VpnConnectionState.TUN_READY, false))
+        assertFalse(SubscriptionRefreshPolicy.shouldRefreshDuringSession(
+            10_000L, 0L, VpnConnectionState.TUN_READY, true))
+    }
+
     @Test fun neverAutoRefreshWhileVpnIsRunningOrKeyIsLocal() {
         assertFalse(SubscriptionRefreshPolicy.shouldAutoRefresh(
             100L, 0L, runningVpn = true, isDirectKey = false))

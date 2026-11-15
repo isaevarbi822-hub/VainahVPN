@@ -31,6 +31,21 @@ object SubscriptionRefreshPolicy {
         isDirectKey: Boolean
     ): Boolean = !runningVpn && !isDirectKey && nowElapsedMs >= nextAllowedElapsedMs
 
+    /** An established VPN should NOT freeze server-list updates. The only
+     * excluded phase is startup, when an extra HTTPS request may interfere
+     * with tunnel initialization. This changes no active server selection.
+     */
+    fun shouldRefreshDuringSession(
+        nowElapsedMs: Long,
+        nextAllowedElapsedMs: Long,
+        vpnPhase: String,
+        isDirectKey: Boolean,
+    ): Boolean = shouldAutoRefresh(
+        nowElapsedMs, nextAllowedElapsedMs,
+        runningVpn = vpnPhase == VpnConnectionState.STARTING,
+        isDirectKey = isDirectKey
+    )
+
     fun nextAllowed(nowElapsedMs: Long, error: Throwable?): Long =
         nowElapsedMs + retryDelay(error)
 }

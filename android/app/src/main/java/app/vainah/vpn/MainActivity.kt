@@ -50,6 +50,7 @@ class MainActivity : Activity() {
     private var lastError: String? = null
     private var cacheMessage = "Серверы ещё не обновлены"
     private var nextAutoRefresh = 0L
+    private var lastCacheCheckElapsedMs = 0L
     private var serverProbeRunning = false
     private var serverProbeAttempted = false
     private var activeProbePool: ExecutorService? = null
@@ -88,6 +89,7 @@ class MainActivity : Activity() {
     private val ticker = object : Runnable {
         override fun run() {
             updateConnection()
+            reloadBackgroundSubscription()
             maybeRefresh()
             main.postDelayed(this, 2300)
         }
@@ -124,6 +126,16 @@ class MainActivity : Activity() {
         routeSnapshot = null
         routeNetworkSnapshot = null
         routeConnectionSnapshot = null
+        lastCacheCheckElapsedMs = 0L
+        reloadBackgroundSubscription()
+        // A killed Android process cannot preserve the old VPN owner. Never
+        // show a stale "active tunnel" after service/process restart.
+        if (VpnConnectionState.read(this).phase in setOf(
+                VpnConnectionState.TUN_READY, VpnConnectionState.ONLINE
+            ) && !VainahVpnService.runningInProcess) {
+            VpnConnectionState.failed(this,
+                "VPN-служба не запущена; проверь подключение перед использованием.")
+        }
         main.removeCallbacks(ticker)
         main.post(ticker)
     }
@@ -1114,8 +1126,10 @@ class MainActivity : Activity() {
         }
         add(sheet, categoryScroll, 8)
         val whiteInfo = t(
-            "H1Cloud может подключать LTE-доступ к обычному серверу без " +
-                "метки в подписке. Отметь такие узлы вручную; это не включает LTE.",
+            "Новые серверы появляются после синхронизации подписки. " +
+                "В фоне Android проверяет обновления примерно раз в 15 минут. " +
+                "LTE определяется по метке H1Cloud или твоему выбору; " +
+                "само добавление узла не включает LTE-доступ.",
             10.5f, muted
         ).apply { setPadding(dp(12), dp(3), dp(12), dp(6)) }
         add(sheet, whiteInfo)
@@ -1637,16 +1651,22 @@ class MainActivity : Activity() {
             if (manual) popup("Сначала сохрани VPN-профиль.")
             return
         }
-        if (!manual && VpnConnectionState.read(this).canDisconnect) return
+        // A running tunnel must never prevent new LTE nodes from appearing.
+        // The current tunnel remains untouched; changes affect the NEXT connect.
+        if (!manual && VpnConnectionState.read(this).phase == VpnConnectionState.STARTING)
+            return
         nextAutoRefresh = SystemClock.elapsedRealtime() +
             SubscriptionRefreshPolicy.NORMAL_MS
         val started = source.refresh { result ->
             result.onSuccess { fresh ->
-                invalidateServerProbes()
-                nodes = ServerListReconciler.unique(fresh)
-                selected = ServerListReconciler.preserve(selected, nodes)
-                    ?.takeIf { SubscriptionNodeSupport.canConnect(it.uri) }
-                    ?: nodes.firstOrNull { SubscriptionNodeSupport.canConnect(it.uri) }
+                val updated = ServerListReconciler.unique(fresh)
+                if (updated != nodes) {
+                    invalidateServerProbes()
+                    nodes = updated
+                    selected = ServerListReconciler.preserve(selected, nodes)
+                        ?.takeIf { SubscriptionNodeSupport.canConnect(it.uri) }
+                        ?: nodes.firstOrNull { SubscriptionNodeSupport.canConnect(it.uri) }
+                }
                 lastError = null
                 cacheMessage = "Загружено серверов: " + nodes.size
                 nextAutoRefresh = SystemClock.elapsedRealtime() +
@@ -1664,13 +1684,33 @@ class MainActivity : Activity() {
         if (started && page == Page.HOME) render()
     }
 
+    /** The background WorkManager worker refreshes the encrypted cache.
+     * Bring any new entries into the UI without reopening the app or altering
+     * the active VPN tunnel. Avoid rebuilding an EditText while user types.
+     */
+    private fun reloadBackgroundSubscription() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastCacheCheckElapsedMs < 15_000L || source.busy ||
+            currentFocus is EditText) return
+        lastCacheCheckElapsedMs = now
+        val latest = source.cachedNodes()
+        if (latest.isEmpty() || latest == nodes) return
+        invalidateServerProbes()
+        nodes = latest
+        selected = ServerListReconciler.preserve(selected, nodes)
+            ?.takeIf { SubscriptionNodeSupport.canConnect(it.uri) }
+            ?: nodes.firstOrNull { SubscriptionNodeSupport.canConnect(it.uri) }
+        cacheMessage = "Подписка обновлена автоматически: ${nodes.size} серверов"
+        render()
+    }
+
     private fun maybeRefresh() {
-        if (page != Page.HOME || source.busy) return
+        if (source.busy) return
         val link = source.savedLink() ?: return
-        if (SubscriptionRefreshPolicy.shouldAutoRefresh(
+        val phase = VpnConnectionState.read(this).phase
+        if (SubscriptionRefreshPolicy.shouldRefreshDuringSession(
                 SystemClock.elapsedRealtime(), nextAutoRefresh,
-                VpnConnectionState.read(this).canDisconnect,
-                SubscriptionInput.isDirectKey(link)))
+                phase, SubscriptionInput.isDirectKey(link)))
             refreshServers(false)
     }
 
