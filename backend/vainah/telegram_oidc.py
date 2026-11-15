@@ -57,11 +57,16 @@ def _sign(value: str) -> str:
     ).hexdigest()
 
 
-def _make_flow(state: str, verifier: str, nonce: str) -> str:
-    raw = json.dumps({
+def _make_flow(
+    state: str, verifier: str, nonce: str, mobile_flow: str = "",
+) -> str:
+    data = {
         "state": state, "verifier": verifier, "nonce": nonce,
         "expires": int(time.time()) + FLOW_LIFETIME,
-    }, separators=(",", ":"))
+    }
+    if mobile_flow:
+        data["mobile_flow"] = mobile_flow
+    raw = json.dumps(data, separators=(",", ":"))
     encoded = base64.urlsafe_b64encode(raw.encode()).rstrip(b"=").decode()
     return encoded + "." + _sign(encoded)
 
@@ -86,6 +91,10 @@ def _read_flow(raw: str | None) -> dict | None:
             for k in ("state", "verifier", "nonce")
         ):
             return None
+        if "mobile_flow" in decoded:
+            from .mobile_auth import _flow
+            if _flow(decoded["mobile_flow"]) is None:
+                return None
         return decoded
     except (ValueError, TypeError, UnicodeDecodeError, KeyError):
         return None
@@ -117,10 +126,14 @@ def config() -> dict:
 
 
 @router.get("/start")
-def start() -> RedirectResponse:
+def start(mobile_flow: str = "") -> RedirectResponse:
     settings = _config()
     if settings is None:
         return _failure("not_configured")
+    if mobile_flow:
+        from .mobile_auth import pending
+        if not pending(mobile_flow, "telegram"):
+            return _failure("invalid_mobile_flow")
     client_id, _client_secret, origin = settings
     state, nonce, verifier = (
         secrets.token_urlsafe(32),
@@ -144,7 +157,7 @@ def start() -> RedirectResponse:
         AUTH_ENDPOINT + "?" + urlencode(params), status_code=302,
     )
     response.set_cookie(
-        FLOW_COOKIE, _make_flow(state, verifier, nonce),
+        FLOW_COOKIE, _make_flow(state, verifier, nonce, mobile_flow),
         max_age=FLOW_LIFETIME, httponly=True, secure=True,
         samesite="lax", path="/",
     )
@@ -239,6 +252,16 @@ async def callback(
     except (httpx.HTTPError, jwt.PyJWTError, ValueError, TypeError,
             AttributeError, KeyError):
         return _failure("verification_failed")
+    mobile_flow = flow.get("mobile_flow", "")
+    if mobile_flow:
+        from .mobile_auth import complete
+        deep_link = complete(mobile_flow, "telegram", telegram_user=user)
+        if deep_link is None:
+            return _failure("mobile_link_failed")
+        result = RedirectResponse(deep_link, status_code=303)
+        result.delete_cookie(FLOW_COOKIE, httponly=True, secure=True, samesite="lax")
+        result.headers["Cache-Control"] = "no-store"
+        return result
     result = RedirectResponse("/account.html?login=telegram&telegram=success", status_code=303)
     result.delete_cookie(FLOW_COOKIE, httponly=True, secure=True, samesite="lax")
     result.delete_cookie(EMAIL_SESSION_COOKIE, httponly=True, secure=True, samesite="lax")
