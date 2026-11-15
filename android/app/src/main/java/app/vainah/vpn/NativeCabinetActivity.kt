@@ -50,6 +50,7 @@ class NativeCabinetActivity : Activity() {
     private var category = "all"
     private var shown = 12
     private var scroll: ScrollView? = null
+    private var queuedOAuthCallback: Intent? = null
 
     private val ink = VainahDesign.ink
     private val muted = VainahDesign.muted
@@ -86,6 +87,102 @@ class NativeCabinetActivity : Activity() {
     override fun onDestroy() {
         executor.shutdownNow()
         super.onDestroy()
+    }
+
+    private fun beginSocialLogin(provider: String) {
+        if (busy || provider !in setOf("google", "telegram")) return
+        val enabled = if (provider == "google") googleAvailable else telegramAvailable
+        if (!enabled) {
+            message = "Этот способ входа пока не настроен на сервере VainahVPN."
+            render()
+            return
+        }
+        val verifier = NativeOAuthFlow.verifier()
+        val challenge = NativeOAuthFlow.challenge(verifier)
+        perform({
+            api.post("/api/mobile-auth/start", JSONObject()
+                .put("provider", provider).put("code_challenge", challenge))
+        }) { outcome ->
+            val result = outcome.getOrNull()
+            val flow = result?.json?.optString("flow").orEmpty()
+            val offered = result?.json?.optString("authorize_url").orEmpty()
+            val expected = NativeCabinetCatalog.ORIGIN +
+                (if (provider == "google") "/api/google/start?mobile_flow="
+                else "/api/telegram-oidc/start?mobile_flow=") + flow
+            if (result?.ok != true || !NativeOAuthFlow.validFlow(flow)
+                || offered != expected) {
+                message = when(result?.status) {
+                    429 -> "Слишком много попыток входа. Повтори через 10 минут."
+                    503 -> "Этот способ входа ещё не настроен на сервере."
+                    403 -> "Проверь PUBLIC_SITE_ORIGIN в настройках сервера."
+                    else -> "Не удалось открыть безопасный вход. Проверь подключение."
+                }
+                render()
+                return@perform
+            }
+            api.saveOAuthPending(NativeOAuthFlow.Pending(
+                flow, provider, verifier, System.currentTimeMillis()))
+            val customTab = CustomTabsIntent.Builder()
+                .setShowTitle(true)
+                .setDefaultColorSchemeParams(
+                    CustomTabColorSchemeParamsForVainah.params())
+                .build()
+            runCatching {
+                customTab.launchUrl(this, Uri.parse(expected))
+            }.onFailure {
+                runCatching {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(expected)))
+                }.onFailure {
+                    message = "Не удалось открыть окно авторизации."
+                }
+            }
+            render()
+        }
+    }
+
+    private fun handleOAuthCallback(incoming: Intent): Boolean {
+        val uri = incoming.data ?: return false
+        if (uri.scheme != "vainahvpn" || uri.host != "oauth"
+            || uri.path.orEmpty() !in setOf("", "/")
+            || uri.fragment != null) return false
+        val flow = uri.getQueryParameter("flow").orEmpty()
+        val code = uri.getQueryParameter("code").orEmpty()
+        // One-use code by itself is never a session. Only the app holds
+        // the encrypted S256 verifier needed to exchange it over HTTPS.
+        val pending = api.pendingOAuth()
+        if (!NativeOAuthFlow.validPending(pending) ||
+            !NativeOAuthFlow.validFlow(flow) ||
+            !NativeOAuthFlow.validCode(code) ||
+            pending?.flow != flow) {
+            message = "Вход не подтверждён. Начни вход через приложение заново."
+            render()
+            return true
+        }
+        if (busy) {
+            queuedOAuthCallback = incoming
+            return true
+        }
+        perform({
+            api.post("/api/mobile-auth/exchange", JSONObject()
+                .put("flow", flow)
+                .put("code", code)
+                .put("verifier", pending.verifier))
+        }) { result ->
+            if (result.getOrNull()?.ok == true && api.hasSession()) {
+                api.clearOAuthPending()
+                otpRequested = false
+                message = null
+                refresh()
+            } else {
+                val status = result.getOrNull()?.status
+                if (status == 400 || status == 401) api.clearOAuthPending()
+                message = if (status == 400 || status == 401)
+                    "Код входа уже использован или истёк. Повтори вход."
+                else "Не удалось завершить вход. Проверь соединение и повтори."
+                render()
+            }
+        }
+        return true
     }
 
     private fun dp(x: Int) = VainahUi.dp(this, x)
@@ -152,6 +249,11 @@ class NativeCabinetActivity : Activity() {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 busy = false
                 after(result)
+                val queued = queuedOAuthCallback
+                if (!busy && queued != null) {
+                    queuedOAuthCallback = null
+                    handleOAuthCallback(queued)
+                }
             }
         }
     }
