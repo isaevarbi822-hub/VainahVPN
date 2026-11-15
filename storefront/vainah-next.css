@@ -57,10 +57,10 @@ body[data-refresh-home]{
 }
 body[data-refresh-home] .refresh-hero h1{letter-spacing:-.06em}
 body[data-refresh-home] .refresh-orbit{
-  filter:hue-rotate(95deg) saturate(1.1);
+  filter:none;
 }
 body[data-refresh-home] .refresh-orbit-label{
-  filter:hue-rotate(-95deg);
+  filter:none;
 }
 body[data-refresh-home] .refresh-device-strip{
   border-block-color:#ad92ff36;
