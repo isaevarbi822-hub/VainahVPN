@@ -106,6 +106,48 @@ class VlessRealityConfigTest {
         assertEquals("example.org", tlsProfile.getJSONObject("tls").getString("server_name"))
     }
 
+    @Test fun nativeXhttpTlsAndRealityProfilesPreserveWireParameters() {
+        val tls = safeNode.replace("security=reality", "security=tls")
+            .replace("type=tcp", "type=xhttp")
+            .replace("&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
+            .plus("&path=%2Ftr%2Flte&host=turkey.example.org&mode=packet-up")
+        val tlsOutbound = VlessRealityConfig.outbound(tls)
+        assertFalse(tlsOutbound.getJSONObject("tls").has("reality"))
+        val xhttp = tlsOutbound.getJSONObject("transport")
+        assertEquals("xhttp", xhttp.getString("type"))
+        assertEquals("/tr/lte", xhttp.getString("path"))
+        assertEquals("packet-up", xhttp.getString("mode"))
+        assertEquals("turkey.example.org", xhttp.getString("host"))
+        assertEquals("example.org", tlsOutbound.getJSONObject("tls").getString("server_name"))
+
+        val reality = safeNode.replace("type=tcp", "type=xhttp") +
+            "&path=%2Fhidden&mode=auto&x_padding_bytes=100-1000"
+        val realityOutbound = VlessRealityConfig.outbound(reality)
+        assertEquals("xhttp", realityOutbound.getJSONObject("transport").getString("type"))
+        assertEquals("auto", realityOutbound.getJSONObject("transport").getString("mode"))
+        assertEquals("100-1000", realityOutbound.getJSONObject("transport")
+            .getString("x_padding_bytes"))
+        assertTrue(realityOutbound.getJSONObject("tls").getJSONObject("reality")
+            .getBoolean("enabled"))
+        assertEquals("xhttp", VlessRealityConfig.outbound(
+            reality.replace("type=xhttp", "type=splithttp")
+        ).getJSONObject("transport").getString("type"))
+    }
+
+    @Test fun invalidXhttpModesAndFlowCannotStartTunnel() {
+        val xhttp = safeNode.replace("type=tcp", "type=xhttp")
+        for (bad in listOf(
+            xhttp + "&mode=invalid",
+            xhttp + "&path=%0A",
+            xhttp + "&x_padding_bytes=not-number",
+            xhttp + "&flow=xtls-rprx-vision"
+        )) {
+            assertThrows(IllegalArgumentException::class.java) {
+                VlessRealityConfig.outbound(bad)
+            }
+        }
+    }
+
     @Test fun missingRealityParametersCannotStartTunnel() {
         for (bad in listOf(
             "vless://00000000-0000-4000-8000-000000000001@example.org:443",
