@@ -65,7 +65,9 @@ object VpnConnectivity {
             caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
                 caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
         }
-        if (candidates.isEmpty()) error("No underlying Android network")
+        if (candidates.isEmpty()) throw VpnStartupNetworkException(
+            VpnStartupNetworkException.Reason.NO_UNDERLAY
+        )
         // A phone can have Wi-Fi and mobile data simultaneously. A DNS or
         // TCP failure on one must not prevent trying the other. Prefer
         // Android-validated physical networks, never a VPN as its upstream.
@@ -120,7 +122,9 @@ object VpnConnectivity {
             }
         }
         // No network, server address, UUID or credential in error diagnostics.
-        throw IllegalStateException("H1Cloud TCP endpoint unreachable on physical networks")
+        throw VpnStartupNetworkException(
+            VpnStartupNetworkException.Reason.ENDPOINT_UNREACHABLE
+        )
     }
 
     /**
