@@ -14,6 +14,10 @@ if (clerkEnabled) {
 }
 val isolatedPreview = providers.gradleProperty("vainahIsolatedPreview").orNull == "true"
 val nativeLibboxEnabled = providers.gradleProperty("vainahEnableLibbox").orNull == "true"
+// Production APK can opt in to the separately reviewed XHTTP-enabled sing-box-lx
+// Android artifact. This must never be true when only stock libbox is bundled.
+val xhttpNativeEnabled = nativeLibboxEnabled &&
+    providers.gradleProperty("vainahUseXhttpCore").orNull == "true"
 val standaloneCheckout = providers.gradleProperty("vainahStandaloneCheckout")
     .orNull == "true"
 
@@ -32,6 +36,8 @@ android {
         buildConfigField("String", "VAINAH_CLERK_PUBLISHABLE_KEY",
             "\""+clerkPublishableKey.replace("\\","").replace("\"","")+"\"")
         buildConfigField("boolean", "VAINAH_LIBBOX_ENABLED", if (nativeLibboxEnabled) "true" else "false")
+        buildConfigField("boolean", "VAINAH_XHTTP_ENGINE_ENABLED",
+            if (xhttpNativeEnabled) "true" else "false")
         buildConfigField("boolean", "VAINAH_DIRECT_CHECKOUT_ENABLED",
             "false")
     }
@@ -91,10 +97,13 @@ dependencies {
     // One OS-scheduled HTTPS subscription refresh every ~15 minutes while
     // backgrounded, with network constraints and without a persistent timer.
     implementation("androidx.work:work-runtime:2.10.5")
-    // Experimental binary dependency. NOT enabled in public APK previews.
-    // Review binary provenance/license and Android VpnService PlatformInterface
-    // before enabling runtime connections.
-    if (nativeLibboxEnabled) {
+    // Exactly ONE Go runtime. Never link Xray AAR alongside libbox AAR:
+    // two independent Go runtimes in one Android process can crash.
+    if (xhttpNativeEnabled) {
+        // Fetched by CI from a pinned GitHub release and SHA-256 verified.
+        // Same io.nekohasekai.libbox API as upstream, with native XHTTP.
+        implementation(files("libs/libbox-xhttp-lx.aar"))
+    } else if (nativeLibboxEnabled) {
         implementation("com.github.singbox-android:libbox:1.14.0")
     }
     testImplementation("junit:junit:4.13.2")
