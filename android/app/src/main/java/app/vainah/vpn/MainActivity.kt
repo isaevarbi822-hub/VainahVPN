@@ -83,7 +83,7 @@ class MainActivity : Activity() {
     private val grey = VainahDesign.muted
     private val teal = VainahDesign.sky
     private val green = VainahDesign.green
-    private val errorColor = Color.rgb(249, 173, 164)
+    private val errorColor = VainahDesign.error
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -97,6 +97,10 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         window.statusBarColor = bg
         window.navigationBarColor = bg
+        // The new light theme needs dark system bar icons on Android 8+.
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
+                View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         source = SubscriptionController(this)
         page = savedInstanceState?.getString("page")?.let {
             runCatching { Page.valueOf(it) }.getOrNull()
@@ -165,8 +169,9 @@ class MainActivity : Activity() {
         setLineSpacing(dp(2).toFloat(), 1.05f)
     }
     private fun card() = column().apply {
-        background = shape(card)
-        setPadding(dp(19), dp(20), dp(19), dp(22))
+        background = shape(VainahDesign.surface, border, 21)
+        setPadding(dp(16), dp(17), dp(16), dp(18))
+        elevation = dp(1).toFloat()
     }
     private fun tag(value: String) = t(value.uppercase(), 11f, violet, true).apply {
         letterSpacing = 0.1f
@@ -174,12 +179,18 @@ class MainActivity : Activity() {
     private fun action(value: String, mainButton: Boolean = false) = Button(this).apply {
         text = value
         isAllCaps = false
-        textSize = 14f
-        minHeight = dp(52)
+        textSize = 13f
+        minHeight = dp(46)
+        setPadding(dp(10), 0, dp(10), 0)
         typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-        setTextColor(if (mainButton) bg else white)
-        background = shape(if (mainButton) violet else card,
-            if (mainButton) violet else border, 14)
+        setTextColor(if (mainButton) Color.WHITE else white)
+        background = RippleDrawable(
+            ColorStateList.valueOf(Color.argb(35, 110, 111, 177)),
+            shape(
+                if (mainButton) violet else VainahDesign.surface,
+                if (mainButton) violet else border, 14
+            ), null
+        )
     }
     private fun input(hintValue: String) = EditText(this).apply {
         hint = hintValue
@@ -188,7 +199,7 @@ class MainActivity : Activity() {
         setTextColor(white)
         setHintTextColor(grey)
         setPadding(dp(13), dp(14), dp(13), dp(14))
-        background = shape(bg, border, 12)
+        background = shape(VainahDesign.surface, border, 12)
         importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
     }
     private fun popup(message: String) {
@@ -222,7 +233,8 @@ class MainActivity : Activity() {
         detailView = null
         trafficView = null
         connectView = null
-        val light = page == Page.HOME || page == Page.LOCATIONS
+        // Every page shares the same clean light surface and typography.
+        val light = true
         val frame = column().apply {
             setBackgroundColor(if (light) ServerListVisual.backgroundColor() else bg)
             // Android 15+ draws behind system bars. Keep the top brand and
@@ -239,8 +251,7 @@ class MainActivity : Activity() {
         }
         val scroll = ScrollView(this).apply { isFillViewport = true }
         val body = column().apply {
-            setPadding(dp(if (light) 14 else 20), dp(if (light) 8 else 18),
-                dp(if (light) 14 else 20), dp(18))
+            setPadding(dp(14), dp(12), dp(14), dp(20))
         }
         scroll.addView(body)
         frame.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -271,10 +282,8 @@ class MainActivity : Activity() {
             Page.MORE -> more(body)
         }
         val nav = horizontal().apply {
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(VainahDesign.surface, bg)
-            )
+            background = shape(VainahDesign.surface, VainahDesign.border, 0)
+            elevation = dp(7).toFloat()
             setPadding(dp(7), dp(7), dp(7), dp(6))
         }
         val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
@@ -291,7 +300,7 @@ class MainActivity : Activity() {
                 isFocusable = true
                 contentDescription = label
                 val fill = GradientDrawable().apply {
-                    setColor(if (active) violet else VainahDesign.surface)
+                    setColor(if (active) VainahDesign.inactive else VainahDesign.surface)
                     cornerRadius = dp(15).toFloat()
                 }
                 background = RippleDrawable(
@@ -300,7 +309,7 @@ class MainActivity : Activity() {
                 )
                 val glyph = NavigationGlyphView(this@MainActivity, target.name, active)
                 addView(glyph, LinearLayout.LayoutParams(dp(22), dp(22)))
-                addView(t(label, 9.5f, if (active) bg else grey, active).apply {
+                addView(t(label, 9.5f, if (active) violet else grey, active).apply {
                     gravity = Gravity.CENTER
                     maxLines = 1
                 }, LinearLayout.LayoutParams(-1, -2).apply {
@@ -338,12 +347,12 @@ class MainActivity : Activity() {
     }
 
     private fun lightAction(label: String): Button = action(label).apply {
-        background = shape(
-            ServerListVisual.backgroundColor(),
-            ServerListVisual.backgroundColor(), 13
+        background = RippleDrawable(
+            ColorStateList.valueOf(Color.argb(35, 111, 111, 177)),
+            shape(VainahDesign.surface, VainahDesign.border, 13), null
         )
         setTextColor(ServerListVisual.textColor())
-        minHeight = dp(43)
+        minHeight = dp(42)
     }
 
     private fun directory(
