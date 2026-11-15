@@ -67,17 +67,17 @@ class ServerRowPresentationTest {
     }
 
     @Test fun onlySufficientRealTcpProbesYieldNumbers() {
-        assertEquals("н/д", ServerRowPresentation.latency(null))
-        assertEquals("н/д", ServerRowPresentation.latency(
+        assertEquals("—", ServerRowPresentation.latency(null))
+        assertEquals("нестабильно", ServerRowPresentation.latency(
             ServerTcpObservation(0, 3, listOf(30))
         ))
-        assertEquals("н/д", ServerRowPresentation.latency(
+        assertEquals("нет ответа", ServerRowPresentation.latency(
             ServerTcpObservation(0, 3, emptyList())
         ))
         assertEquals("TCP 52 мс", ServerRowPresentation.latency(
             ServerTcpObservation(0, 3, listOf(51, 52, 100))
         ))
-        assertEquals("н/д", ServerRowPresentation.latency(
+        assertEquals("—", ServerRowPresentation.latency(
             ServerTcpObservation(0, 1, listOf(20, 20, 20))
         ))
     }
