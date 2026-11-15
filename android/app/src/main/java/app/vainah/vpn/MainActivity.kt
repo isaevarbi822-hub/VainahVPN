@@ -1370,9 +1370,8 @@ class MainActivity : Activity() {
         val options = visible.map { it.flag + "  " + it.title }.toTypedArray()
         AlertDialog.Builder(this)
             .setTitle("LTE-доступ · серверы H1Cloud")
-            .setMessage("Турция · 1 и Турция · IP добавляются сюда " +
-                "автоматически из реальной подписки. Остальные узлы можно " +
-                "отметить вручную. Это не меняет настройки доступа H1Cloud.")
+            // Android cannot reliably show setMessage and multi-choice rows
+            // together in the same AlertDialog. Explanation is on the page.
             .setMultiChoiceItems(options, checked) { _, index, value ->
                 checked[index] = value
             }
