@@ -128,6 +128,13 @@ class MainActivity : Activity() {
         routeConnectionSnapshot = null
         lastCacheCheckElapsedMs = 0L
         reloadBackgroundSubscription()
+        // A killed Android process cannot preserve the old VPN owner. Never
+        // show a stale "active tunnel" after service/process restart.
+        if (VpnConnectionState.read(this).canDisconnect &&
+            !VainahVpnService.runningInProcess) {
+            VpnConnectionState.failed(this,
+                "VPN-служба не запущена; проверь подключение перед использованием.")
+        }
         main.removeCallbacks(ticker)
         main.post(ticker)
     }
