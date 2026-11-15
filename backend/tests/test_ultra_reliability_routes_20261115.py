@@ -3,10 +3,11 @@
 Only browser mocks and read-only local TestClient requests are used here.
 No payments, auth tokens, subscriptions, or VPN keys are touched.
 """
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 from fastapi.testclient import TestClient
+
 from vainah.main import app
 
 SITE = Path(__file__).resolve().parents[2] / "storefront"
