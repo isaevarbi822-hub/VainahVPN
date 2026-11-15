@@ -14,6 +14,10 @@ if (clerkEnabled) {
 }
 val isolatedPreview = providers.gradleProperty("vainahIsolatedPreview").orNull == "true"
 val nativeLibboxEnabled = providers.gradleProperty("vainahEnableLibbox").orNull == "true"
+// Production APK can opt in to the separately reviewed XHTTP-enabled sing-box-lx
+// Android artifact. This must never be true when only stock libbox is bundled.
+val xhttpNativeEnabled = nativeLibboxEnabled &&
+    providers.gradleProperty("vainahUseXhttpCore").orNull == "true"
 val standaloneCheckout = providers.gradleProperty("vainahStandaloneCheckout")
     .orNull == "true"
 
@@ -26,12 +30,14 @@ android {
         manifestPlaceholders["vainahAppLabel"] = "VainahVPN"
         minSdk = 26
         targetSdk = 35
-        versionCode = 160
-        versionName = "1.6.0-alpha.1"
+        versionCode = 170
+        versionName = "1.7.0-alpha.1"
         buildConfigField("boolean", "VAINAH_CLERK_ENABLED", if (clerkEnabled) "true" else "false")
         buildConfigField("String", "VAINAH_CLERK_PUBLISHABLE_KEY",
             "\""+clerkPublishableKey.replace("\\","").replace("\"","")+"\"")
         buildConfigField("boolean", "VAINAH_LIBBOX_ENABLED", if (nativeLibboxEnabled) "true" else "false")
+        buildConfigField("boolean", "VAINAH_XHTTP_ENGINE_ENABLED",
+            if (xhttpNativeEnabled) "true" else "false")
         buildConfigField("boolean", "VAINAH_DIRECT_CHECKOUT_ENABLED",
             "false")
     }
@@ -91,11 +97,15 @@ dependencies {
     // One OS-scheduled HTTPS subscription refresh every ~15 minutes while
     // backgrounded, with network constraints and without a persistent timer.
     implementation("androidx.work:work-runtime:2.10.5")
-    // Experimental binary dependency. NOT enabled in public APK previews.
-    // Review binary provenance/license and Android VpnService PlatformInterface
-    // before enabling runtime connections.
+    // Exactly ONE Go runtime. The bundled native adapter now targets
+    // sing-box-lx 1.14.4 specifically. A stock libbox native build is
+    // deliberately rejected rather than packaging an incompatible VPN.
     if (nativeLibboxEnabled) {
-        implementation("com.github.singbox-android:libbox:1.14.0")
+        require(xhttpNativeEnabled) {
+            "Native VainahVPN 1.7 requires -PvainahUseXhttpCore=true " +
+                "and the pinned verified XHTTP AAR under android/app/libs/"
+        }
+        implementation(files("libs/libbox-xhttp-lx.aar"))
     }
     testImplementation("junit:junit:4.13.2")
     // Real org.json implementation for JVM-only configuration contract tests.

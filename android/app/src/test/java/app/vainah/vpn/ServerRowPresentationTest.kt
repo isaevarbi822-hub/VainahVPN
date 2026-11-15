@@ -58,15 +58,16 @@ class ServerRowPresentationTest {
         assertEquals(3, rows.size)
     }
 
-    @Test fun distinguishesNativeGrpcFromUnsupportedXhttp() {
+    @Test fun distinguishesNativeGrpcFromGatedXhttp() {
         val unsupported = realFormat.replace("type=tcp", "type=grpc")
         val row = ServerRowPresentation.describe(node("Испания", unsupported), 0)
         assertEquals("VLESS / GRPC / REALITY", row.subtitle)
         assertEquals("grpc", row.transport)
         assertTrue(SubscriptionNodeSupport.canConnect(unsupported))
-        assertFalse(SubscriptionNodeSupport.canConnect(
-            unsupported.replace("type=grpc", "type=xhttp")
-        ))
+        assertEquals(BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED,
+            SubscriptionNodeSupport.canConnect(
+                unsupported.replace("type=grpc", "type=xhttp")
+            ))
     }
 
     @Test fun onlySufficientRealTcpProbesYieldNumbers() {

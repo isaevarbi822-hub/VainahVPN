@@ -7,7 +7,9 @@ import java.net.URLDecoder
 import java.util.UUID
 
 /**
- * Build a sing-box VLESS outbound for TCP or gRPC using TLS or REALITY.
+ * Build a sing-box VLESS outbound for TCP, gRPC and opt-in XHTTP using TLS
+ * or REALITY. XHTTP requires a verified sing-box-lx native AAR and must never
+ * be silently downgraded into HTTPUpgrade, WebSocket, or plain TCP.
  * Contains credentials: never log or display the returned JSON.
  * Not itself a VPN engine; libbox still needs to own the Android VPN TUN.
  */
@@ -29,7 +31,7 @@ object VlessRealityConfig {
         val security = params["security"] ?: ""
         require(security in listOf("reality", "tls")) { "TLS or REALITY required" }
         val transport = params["type"] ?: "tcp"
-        require(transport in listOf("tcp", "raw", "grpc")) {
+        require(transport in listOf("tcp", "raw", "grpc", "xhttp", "splithttp")) {
             "Unsupported transport"
         }
         val sni = params["sni"]?.takeIf { it.isNotBlank() }
@@ -40,8 +42,8 @@ object VlessRealityConfig {
             "Missing REALITY key"
         }
         val flow = params["flow"]?.takeIf { it.isNotBlank() }
-        require(flow == null || transport != "grpc") {
-            "gRPC cannot use VLESS Vision flow"
+        require(flow == null || transport in listOf("tcp", "raw")) {
+            "VLESS Vision flow requires raw TCP"
         }
         require(flow == null || flow == "xtls-rprx-vision") {
             "Unsupported VLESS flow"
@@ -49,6 +51,26 @@ object VlessRealityConfig {
         val serviceName = (params["serviceName"] ?: params["service_name"]).orEmpty()
         require(serviceName.length <= 256 && !serviceName.contains('\n') &&
             !serviceName.contains('\r')) { "Invalid gRPC service name" }
+        // Only a missing/empty path gets the protocol default. A decoded
+        // whitespace/control-only path must fail validation, not be hidden
+        // by an ifBlank("/") fallback.
+        val xhttpPath = params["path"]?.takeIf { it.isNotEmpty() } ?: "/"
+        val xhttpHost = params["host"].orEmpty()
+        val xhttpMode = params["mode"].orEmpty().ifBlank { "auto" }
+        val padding = params["x_padding_bytes"].orEmpty()
+        require(xhttpPath.length in 1..512 && xhttpPath.startsWith('/') &&
+            !xhttpPath.contains('\n') && !xhttpPath.contains('\r')) {
+            "Invalid XHTTP path"
+        }
+        require(xhttpHost.length <= 253 && !xhttpHost.contains('\n') &&
+            !xhttpHost.contains('\r')) { "Invalid XHTTP host" }
+        require(xhttpMode in listOf("auto", "packet-up", "stream-up", "stream-one")) {
+            "Invalid XHTTP mode"
+        }
+        require(padding.isBlank() ||
+            padding.matches(Regex("[0-9]{1,5}(-[0-9]{1,5})?"))) {
+            "Invalid XHTTP padding"
+        }
         return JSONObject().apply {
             put("type", "vless")
             put("tag", "vainah-selected")
@@ -62,6 +84,15 @@ object VlessRealityConfig {
                 put("type", "grpc")
                 put("service_name", serviceName)
             })
+            if (transport == "xhttp" || transport == "splithttp") {
+                put("transport", JSONObject().apply {
+                    put("type", "xhttp")
+                    put("mode", xhttpMode)
+                    put("path", xhttpPath)
+                    if (xhttpHost.isNotBlank()) put("host", xhttpHost)
+                    if (padding.isNotBlank()) put("x_padding_bytes", padding)
+                })
+            }
             put("tls", JSONObject().apply {
                 put("enabled", true)
                 put("server_name", sni)

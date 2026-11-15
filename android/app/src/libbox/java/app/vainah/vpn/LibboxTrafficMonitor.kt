@@ -5,6 +5,7 @@ import io.nekohasekai.libbox.CommandClient
 import io.nekohasekai.libbox.CommandClientHandler
 import io.nekohasekai.libbox.CommandClientOptions
 import io.nekohasekai.libbox.ConnectionEvents
+import io.nekohasekai.libbox.DnsQuery
 import io.nekohasekai.libbox.Libbox
 import io.nekohasekai.libbox.LogIterator
 import io.nekohasekai.libbox.OutboundGroupItemIterator
@@ -64,6 +65,9 @@ internal class LibboxTrafficMonitor(private val service: VpnService) : CommandCl
     override fun initializeClashMode(modeList: StringIterator?, currentMode: String?) = Unit
     override fun updateClashMode(newMode: String?) = Unit
     override fun writeConnectionEvents(events: ConnectionEvents?) = Unit
+    // Required by sing-box-lx CommandClientHandler; intentionally no DNS
+    // query bodies or hostnames are logged or sent to the app.
+    override fun writeDNSQuery(query: DnsQuery?) = Unit
 
     override fun writeStatus(message: StatusMessage) {
         // Serialize with stop(): old status callbacks must not repopulate

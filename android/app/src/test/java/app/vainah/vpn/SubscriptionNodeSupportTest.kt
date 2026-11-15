@@ -23,7 +23,8 @@ class SubscriptionNodeSupportTest {
         assertTrue(SubscriptionNodeSupport.canConnect(grpc))
         assertEquals("VLESS / XHTTP / TLS",
             SubscriptionNodeSupport.inspect(xhttpTls)?.subtitle)
-        assertFalse(SubscriptionNodeSupport.canConnect(xhttpTls))
+        assertEquals(BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED,
+            SubscriptionNodeSupport.canConnect(xhttpTls))
     }
 
     @Test fun invalidAndUnrelatedEndpointsNeverGetImported() {
@@ -39,7 +40,8 @@ class SubscriptionNodeSupportTest {
         val parsed = SubscriptionPayloadParser.nodes(uri)
         assertEquals(1, parsed.size)
         assertTrue(ServerCollections.isWhiteListLabel(parsed[0].label))
-        assertFalse(SubscriptionNodeSupport.canConnect(parsed[0].uri))
+        assertEquals(BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED,
+            SubscriptionNodeSupport.canConnect(parsed[0].uri))
         assertEquals("xhttp",
             SubscriptionNodeSupport.inspect(parsed[0].uri)?.transport)
     }

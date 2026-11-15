@@ -188,6 +188,9 @@ object SubscriptionPayloadParser {
             stream.optJSONObject("xhttpSettings") ?: stream.optJSONObject("splithttpSettings")
         else null
         val path = transportSettings?.optString("path").orEmpty()
+        val mode = transportSettings?.optString("mode").orEmpty()
+        val host = transportSettings?.optString("host").orEmpty()
+        val padding = transportSettings?.optString("x_padding_bytes").orEmpty()
         val serviceName = stream.optJSONObject("grpcSettings")?.optString("serviceName").orEmpty()
         val servers = item.optJSONObject("settings")?.optJSONArray("vnext")
             ?: return emptyList()
@@ -205,7 +208,7 @@ object SubscriptionPayloadParser {
                     reality?.optString("fingerprint", "chrome")
                         ?: tls?.optString("fingerprint", "chrome") ?: "chrome",
                     user.optString("flow"), item.optString("tag"),
-                    security, network, path, serviceName
+                    security, network, path, serviceName, mode, host, padding
                 )?.let { result.add(it) }
                 if (result.size > MAX_NODES) return emptyList()
             }
@@ -230,21 +233,26 @@ object SubscriptionPayloadParser {
             tls.optJSONObject("utls")?.optString("fingerprint", "chrome") ?: "chrome",
             item.optString("flow"), item.optString("tag"),
             security, network, transport?.optString("path").orEmpty(),
-            transport?.optString("service_name").orEmpty()
+            transport?.optString("service_name").orEmpty(),
+            transport?.optString("mode").orEmpty(),
+            transport?.optString("host").orEmpty(),
+            transport?.optString("x_padding_bytes").orEmpty()
         )
     }
 
     private fun link(
         uuid: String, host: String, port: Int, sni: String, pbk: String,
         sid: String, fp: String, flow: String, label: String,
-        security: String, network: String, path: String, serviceName: String
+        security: String, network: String, path: String, serviceName: String,
+        mode: String, httpHost: String, padding: String
     ): String? {
         if (uuid.length > 64 || runCatching { UUID.fromString(uuid) }.isFailure ||
             host.isBlank() || host.length > 253 || port !in 1..65535 ||
             sni.length > 253 || pbk.length > 256 ||
             (security == "reality" && (sni.isBlank() || pbk.isBlank())) ||
             fp.length > 80 || sid.length > 128 || flow.length > 128 ||
-            path.length > 512 || serviceName.length > 256) return null
+            path.length > 512 || serviceName.length > 256 ||
+            mode.length > 24 || httpHost.length > 253 || padding.length > 30) return null
         val authority = if (host.contains(':') && !host.startsWith("[")) "[" + host + "]" else host
         fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
         val query = buildList {
@@ -257,6 +265,9 @@ object SubscriptionPayloadParser {
             if (flow.isNotBlank()) add("flow=" + enc(flow))
             if (path.isNotBlank()) add("path=" + enc(path))
             if (serviceName.isNotBlank()) add("serviceName=" + enc(serviceName))
+            if (mode.isNotBlank()) add("mode=" + enc(mode))
+            if (httpHost.isNotBlank()) add("host=" + enc(httpHost))
+            if (padding.isNotBlank()) add("x_padding_bytes=" + enc(padding))
         }.joinToString("&")
         val safeLabel = if (label.length in 1..80 &&
             !label.contains("://") && !label.contains('@') &&
