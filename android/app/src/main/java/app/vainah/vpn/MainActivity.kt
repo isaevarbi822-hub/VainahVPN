@@ -8,6 +8,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.net.VpnService
 import android.provider.Settings
 import android.os.Build
@@ -23,6 +24,7 @@ import android.widget.FrameLayout
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.InputType
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -49,6 +51,7 @@ class MainActivity : Activity() {
     private var serverListExpanded = false
     private var serverSearchQuery = ""
     private var showFavoriteServers = false
+    private var serverCollection = ServerCollection.ALL
     private var serverSort = ServerSort.SUBSCRIPTION
     private var routeScanVersion = 0
     private var routeScanRunning = false
@@ -62,14 +65,14 @@ class MainActivity : Activity() {
     private val main = Handler(Looper.getMainLooper())
     private val vpnConsentCode = 7041
 
-    private val bg = Color.rgb(10, 14, 27)
-    private val card = Color.rgb(23, 29, 48)
-    private val border = Color.rgb(59, 66, 90)
-    private val violet = Color.rgb(165, 138, 249)
-    private val white = Color.rgb(244, 244, 255)
-    private val grey = Color.rgb(169, 178, 202)
-    private val teal = Color.rgb(107, 219, 230)
-    private val green = Color.rgb(111, 221, 176)
+    private val bg = VainahDesign.background
+    private val card = VainahDesign.surface2
+    private val border = VainahDesign.border
+    private val violet = VainahDesign.purple
+    private val white = VainahDesign.ink
+    private val grey = VainahDesign.muted
+    private val teal = VainahDesign.sky
+    private val green = VainahDesign.green
     private val errorColor = Color.rgb(249, 173, 164)
 
     private val ticker = object : Runnable {
@@ -177,7 +180,7 @@ class MainActivity : Activity() {
         importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
     }
     private fun popup(message: String) {
-        AlertDialog.Builder(this).setTitle("Vainah VPN").setMessage(message)
+        AlertDialog.Builder(this).setTitle("VainahVPN").setMessage(message)
             .setPositiveButton("Понятно", null).show()
     }
 
@@ -197,16 +200,16 @@ class MainActivity : Activity() {
         }
         scroll.addView(body)
         frame.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        add(body, tag("VAINAH VPN / NEXT"))
+        add(body, tag("VAINAHVPN"))
         add(body, t(when (page) {
             Page.HOME -> "Твоё соединение. Твои правила."
             Page.LOCATIONS -> "Серверы и локации"
-            Page.ACCOUNT -> "Мой VPN"
+            Page.ACCOUNT -> "Подписка"
             Page.DEVICES -> "Мои устройства"
             Page.DIAGNOSTICS -> "Диагностика"
             Page.SECURITY -> "Безопасность"
             Page.SETTINGS -> "Настройки"
-            Page.MORE -> "Больше возможностей"
+            Page.MORE -> "Профиль"
         }, if (light) 22f else 25f,
             if (light) ServerListVisual.textColor() else white, true), 8)
         add(body, t("Android · " + BuildConfig.VERSION_NAME, 12f,
@@ -226,14 +229,15 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(9), dp(12), dp(9))
         }
         val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
-                Page.SECURITY, Page.SETTINGS)) Page.MORE else page
+                Page.SETTINGS)) Page.MORE else page
         for ((target, label) in listOf(
             Page.HOME to "Главная", Page.LOCATIONS to "Серверы",
-            Page.ACCOUNT to "Мой VPN", Page.MORE to "Ещё"
+            Page.SECURITY to "Защита", Page.ACCOUNT to "Подписка",
+            Page.MORE to "Профиль"
         )) {
             val button = action(label, target == selectedTab).apply {
                 minHeight = dp(44)
-                textSize = 12f
+                textSize = 11f
                 if (light && target != selectedTab) {
                     setTextColor(ServerListVisual.textColor())
                     background = shape(
@@ -249,8 +253,8 @@ class MainActivity : Activity() {
                 }
             }
             nav.addView(button, LinearLayout.LayoutParams(0, dp(48), 1f).apply {
-                marginStart = dp(3)
-                marginEnd = dp(3)
+                marginStart = dp(1)
+                marginEnd = dp(1)
             })
         }
         frame.addView(nav)
@@ -322,10 +326,10 @@ class MainActivity : Activity() {
         val accent = ServerListVisual.accentColor()
 
         val upper = horizontal()
-        val brand = t("VAINAH  /  VPN", 18f, ink, true)
+        val brand = t("VainahVPN", 20f, ink, true)
         upper.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
         val settingsButton = lightAction("⚙").apply {
-            contentDescription = "Настройки Vainah VPN"
+            contentDescription = "Настройки VainahVPN"
             textSize = 22f
         }
         upper.addView(settingsButton, LinearLayout.LayoutParams(dp(52), dp(52)))
@@ -1079,7 +1083,7 @@ class MainActivity : Activity() {
         add(kill, t("Блокировать интернет без VPN", 18f, white, true), 8)
         add(kill, t(
             "Это системная защита Android, а не выключатель на сайте. " +
-                "Открой настройки VPN, выбери Vainah VPN Next, включи " +
+                "Открой настройки VPN, выбери VainahVPN, включи " +
                 "«Всегда включён VPN», затем «Блокировать подключения без VPN». " +
                 "Если VPN отключится, Android будет блокировать подключения без него.",
             12f, grey), 9)
@@ -1160,7 +1164,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("Приложения вне VPN")
             .setMessage("Выбранные программы будут использовать интернет напрямую, " +
-                "не через Vainah VPN. Не совмещай с режимом блокировки без VPN.")
+                "не через VainahVPN. Не совмещай с режимом блокировки без VPN.")
             .setMultiChoiceItems(labels, checked) { _, index, enabled ->
                 val name = applications[index].first
                 if (enabled) {
@@ -1197,7 +1201,7 @@ class MainActivity : Activity() {
         val preferences = card()
         add(body, preferences, 21)
         add(preferences, tag("Настройки подключения"))
-        add(preferences, t("Параметры Vainah Next", 19f, white, true), 8)
+        add(preferences, t("Параметры VainahVPN", 19f, white, true), 8)
         add(preferences, t(
             "При смене Wi-Fi/4G/5G libbox получает обновление физического " +
                 "интерфейса. Бесшовность соединения ещё требует испытаний " +
@@ -1216,7 +1220,7 @@ class MainActivity : Activity() {
         val version = card()
         add(body, version, 15)
         add(version, tag("О приложении"))
-        add(version, t("Vainah VPN Next " + BuildConfig.VERSION_NAME,
+        add(version, t("VainahVPN " + BuildConfig.VERSION_NAME,
             16f, white, true), 9)
         add(version, t("Тестовая сборка. Приложение не связано с " +
             "действующей оплатой. Не заменяет проверку реального VPN на Android.",
@@ -1226,7 +1230,7 @@ class MainActivity : Activity() {
     private fun more(body: LinearLayout) {
         val hub = card()
         add(body, hub, 21)
-        add(hub, tag("VAINAH NEXT / РАЗДЕЛЫ"))
+        add(hub, tag("VAINAHVPN / РАЗДЕЛЫ"))
         add(hub, t("Все инструменты в одном месте", 19f, white, true), 10)
         add(hub, t("Настройки, устройства и информация о безопасности.",
             12f, grey), 8)
@@ -1334,7 +1338,7 @@ class MainActivity : Activity() {
             else -> "Не подключено"
         }
         stateView?.setTextColor(if (page == Page.HOME) {
-            if (connected) Color.rgb(30, 145, 104) else ServerListVisual.textColor()
+            if (connected) VainahDesign.green else ServerListVisual.textColor()
         } else if (connected) green else white)
         detailView?.text = if (snapshot.phase == VpnConnectionState.OFF)
             "Выбери локацию и проверь IP в браузере после подключения."
