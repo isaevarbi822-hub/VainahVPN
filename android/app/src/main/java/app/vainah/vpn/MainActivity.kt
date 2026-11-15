@@ -376,10 +376,7 @@ class MainActivity : Activity() {
         val item = horizontal().apply {
             minimumHeight = dp(if (description == null) 54 else 61)
             setPadding(dp(11), dp(8), dp(11), dp(8))
-            background = RippleDrawable(
-                ColorStateList.valueOf(Color.argb(38, 111, 111, 177)),
-                shape(VainahDesign.surface, VainahDesign.surface, 13), null
-            )
+            background = VainahUi.buttonBackground(this@MainActivity, false)
             isClickable = true
             isFocusable = true
             contentDescription = label
@@ -396,10 +393,7 @@ class MainActivity : Activity() {
     }
 
     private fun lightAction(label: String): Button = action(label).apply {
-        background = RippleDrawable(
-            ColorStateList.valueOf(Color.argb(35, 111, 111, 177)),
-            shape(VainahDesign.surface, VainahDesign.border, 13), null
-        )
+        background = VainahUi.buttonBackground(this@MainActivity, false)
         setTextColor(ServerListVisual.textColor())
         minHeight = dp(42)
     }
@@ -722,11 +716,14 @@ class MainActivity : Activity() {
         add(live, tag("МОЯ ПОДПИСКА"))
         add(live, t("Подписка VainahVPN", 20f, white, true), 9)
         add(live, t(
-            "Цена, срок действия, число устройств и история покупок " +
-                "показываются в личном кабинете после входа. " +
-                "Приложение не рисует выдуманный баланс и не принимает данные карты.",
+            "Тариф, срок и устройства — в личном кабинете. " +
+                "Оплата открывается на официальном сайте.",
             12f, grey
         ), 10)
+        add(live, VainahUi.detailRow(this, "VPN-профиль",
+            if (source.savedLink() == null) "Не добавлен" else "Сохранён",
+            if (source.savedLink() == null) VainahUi.Tone.NEUTRAL
+            else VainahUi.Tone.SUCCESS), 12)
         val onlineAccount = action("Открыть мою подписку", true)
         add(live, onlineAccount, 12)
         onlineAccount.setOnClickListener { openOfficialPage("account.html") }
@@ -740,9 +737,8 @@ class MainActivity : Activity() {
         add(profile, t(if (source.savedLink() == null)
             "Подписка не добавлена" else "Профиль сохранён", 19f, white, true), 9)
         add(profile, t(source.sourceLabel(), 12f, grey), 8)
-        add(profile, t(
-            "Профиль и ключи защищены Android Keystore.",
-            12f, grey), 9)
+        add(profile, VainahUi.infoStrip(this,
+            "VPN-ключи хранятся в защищённом Android Keystore."), 9)
         val entry = input("https://… или vless://…")
         add(profile, entry, 12)
         val save = action("Сохранить профиль", true)
@@ -1452,17 +1448,20 @@ class MainActivity : Activity() {
         add(protection, tag("Контроль безопасности"))
         add(protection, t("Только проверенные состояния", 19f, white, true), 9)
         val snapshot = VpnConnectionState.read(this)
-        add(protection, t(
-            if (snapshot.canDisconnect) "Туннель запущен; защита трафика не подтверждена."
-            else "Нет подтверждённого VPN-соединения.", 13f,
-            if (snapshot.canDisconnect) teal else grey), 12)
-        for (note in listOf(
-            "✓  Конфигурации сохраняются в Android Keystore",
-            "✓  TLS-проверка подписки не отключается",
-            "•  DNS/IPv6-утечки не проверены на этом устройстве",
-            "•  Приложение не заявляет об анонимности без тестов")) {
-            add(protection, t(note, 12f, grey), 11)
-        }
+        add(protection, VainahUi.detailRow(this,
+            "Состояние VPN",
+            if (snapshot.canDisconnect && VainahVpnService.runningInProcess)
+                "Туннель создан" else "Не запущен",
+            if (snapshot.canDisconnect && VainahVpnService.runningInProcess)
+                VainahUi.Tone.SUCCESS else VainahUi.Tone.NEUTRAL), 12)
+        add(protection, t("Туннель сам по себе не подтверждает внешний IP " +
+            "или отсутствие утечек.", 11.5f, grey), 9)
+        add(protection, VainahUi.detailRow(this,
+            "VPN-ключи", "Keystore", VainahUi.Tone.SUCCESS), 7)
+        add(protection, VainahUi.detailRow(this,
+            "Проверка HTTPS", "TLS включён", VainahUi.Tone.SUCCESS), 7)
+        add(protection, VainahUi.detailRow(this,
+            "DNS / IPv6", "Не проверены"), 7)
 
         val kill = card()
         add(body, kill, 16)
@@ -1634,9 +1633,13 @@ class MainActivity : Activity() {
         add(profile, tag("ПРОФИЛЬ"))
         add(profile, t("Личный кабинет VainahVPN", 20f, white, true), 8)
         add(profile, t(
-            "Учётная запись и сервисы VainahVPN в одном месте.",
+            "Подписка, устройства и поддержка в одном месте.",
             12f, grey
         ), 9)
+        add(profile, VainahUi.detailRow(this, "VPN-профиль",
+            if (source.savedLink() != null) "Сохранён" else "Не добавлен",
+            if (source.savedLink() != null) VainahUi.Tone.SUCCESS
+            else VainahUi.Tone.NEUTRAL), 11)
         for ((title, target) in listOf(
             "Мой профиль" to "account.html",
             "Мои устройства" to "my-devices.html",
