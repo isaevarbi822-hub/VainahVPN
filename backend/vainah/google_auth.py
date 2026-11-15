@@ -38,12 +38,17 @@ router = APIRouter(prefix="/api/google", tags=["Google Login"])
 
 
 def _origin() -> str:
+    # OAuth start/callback endpoints live on the Python web service, NOT the
+    # static storefront at vainahvpn.onrender.com. PUBLIC_SITE_ORIGIN is the
+    # storefront's CSRF origin, never an OAuth redirect origin.
     origin = os.environ.get(
-        "PUBLIC_SITE_ORIGIN", "https://vainahvpn-python-preview.onrender.com"
+        "PUBLIC_API_ORIGIN", "https://vainahvpn-python-preview.onrender.com"
     ).rstrip("/")
     parsed = urlsplit(origin)
-    if (parsed.scheme != "https" or not parsed.hostname or parsed.path not in ("", "/")
-            or parsed.query or parsed.fragment or parsed.username or parsed.password):
+    if (parsed.scheme != "https" or parsed.hostname !=
+            "vainahvpn-python-preview.onrender.com" or parsed.port is not None
+            or parsed.path not in ("", "/") or parsed.query or parsed.fragment
+            or parsed.username or parsed.password):
         return ""
     return origin
 
