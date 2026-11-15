@@ -45,15 +45,24 @@ def test_terms_matches_ten_bank_sample_sections_and_actual_vpn_service():
     assert "VPN-доступ" in html
     assert "Platega" in html
     assert "не устанавливаются универсальный запрет возврата" in html.lower()
-    assert "не заменяют проверку фактического продавца" in html
+    assert "обязательные сведения о фактическом продавце" in html
 
 
 def test_new_documents_do_not_fabricate_merchant_details_or_enable_payments():
     for name in ("privacy.html", "terms.html"):
         html = _page(name)
-        assert "до использования" in html
+        assert "Администрация сервиса Vainah VPN" in html
+        assert "фактическ" in html
         assert "/api/shop/checkout" not in html
         assert "X-Secret" not in html
     for name in ("oferta.html", "refund.html"):
         html = _page(name)
         assert "Предварительная редакция: 15 ноября 2026 года" in html
+
+
+def test_manager_operator_wording_is_consistent_in_all_four_documents():
+    for filename in ("privacy.html", "terms.html", "oferta.html", "refund.html"):
+        html = _page(filename)
+        assert "Администрация сервиса Vainah VPN" in html
+        assert "/api/shop/checkout" not in html
+        assert "X-Secret" not in html
