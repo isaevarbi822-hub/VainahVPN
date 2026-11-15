@@ -1503,41 +1503,55 @@ class MainActivity : Activity() {
     }
 
     private fun security(body: LinearLayout) {
-        val protection = card()
-        add(body, protection, 12)
-        add(protection, tag("Контроль безопасности"))
-        add(protection, t("Только проверенные состояния", 19f, white, true), 9)
         val snapshot = VpnConnectionState.read(this)
+        val running = snapshot.canDisconnect && VainahVpnService.runningInProcess
+        val excluded = SplitTunnelPreferences.read(this)
+        val protection = card()
+        add(body, protection, 13)
+        add(protection, tag("ЦЕНТР БЕЗОПАСНОСТИ"))
+        add(protection, t("Защита соединения", 20f, white, true), 8)
+        add(protection, t(
+            "Реальные статусы устройства — без имитации проверки внешнего IP.",
+            12f, grey
+        ), 8)
         add(protection, VainahUi.detailRow(this,
-            "Состояние VPN",
-            if (snapshot.canDisconnect && VainahVpnService.runningInProcess)
-                "Туннель создан" else "Не запущен",
-            if (snapshot.canDisconnect && VainahVpnService.runningInProcess)
-                VainahUi.Tone.SUCCESS else VainahUi.Tone.NEUTRAL), 12)
-        add(protection, t("Туннель сам по себе не подтверждает внешний IP " +
-            "или отсутствие утечек.", 11.5f, grey), 9)
+            "VPN-туннель",
+            if (running) "Создан" else "Не запущен",
+            if (running) VainahUi.Tone.SUCCESS else VainahUi.Tone.NEUTRAL), 11)
         add(protection, VainahUi.detailRow(this,
-            "VPN-ключи", "Keystore", VainahUi.Tone.SUCCESS), 7)
+            "VPN-ключи",
+            if (source.savedLink() == null) "Не добавлены" else "Keystore",
+            if (source.savedLink() == null) VainahUi.Tone.NEUTRAL
+            else VainahUi.Tone.SUCCESS), 6)
         add(protection, VainahUi.detailRow(this,
-            "Проверка HTTPS", "TLS включён", VainahUi.Tone.SUCCESS), 7)
+            "HTTPS-подписка",
+            if (source.savedLink()?.startsWith("https://") == true)
+                "TLS" else "Не используется",
+            if (source.savedLink()?.startsWith("https://") == true)
+                VainahUi.Tone.SUCCESS else VainahUi.Tone.NEUTRAL), 6)
         add(protection, VainahUi.detailRow(this,
-            "DNS / IPv6", "Не проверены"), 7)
+            "Внешний IP и DNS-утечки", "Не проверены"), 6)
+        val diagnostics = action("Открыть диагностику", true)
+        add(protection, diagnostics, 12)
+        diagnostics.setOnClickListener {
+            page = Page.DIAGNOSTICS
+            render()
+        }
 
         val kill = card()
-        add(body, kill, 16)
-        add(kill, tag("KILL SWITCH / ANDROID"))
+        add(body, kill, 13)
+        add(kill, tag("KILL SWITCH · ANDROID"))
         add(kill, t("Блокировать интернет без VPN", 18f, white, true), 8)
+        add(kill, VainahUi.infoStrip(this,
+            "Защита от соединения без VPN управляется Android. " +
+                "Наличие работающего туннеля не подтверждает включённый Kill Switch."), 9)
         add(kill, t(
-            "Открой настройки VPN → VainahVPN → «Всегда включён VPN» → " +
-                "«Блокировать подключения без VPN». При отключении VPN " +
-                "Android блокирует интернет.",
-            12f, grey), 9)
-        add(kill, t(
-            "Важно: исключённые приложения при системной блокировке обхода " +
-                "не смогут использовать сеть напрямую. Режимы несовместимы.",
-            12f, errorColor), 12)
-        val openSettings = action("Открыть системные настройки VPN")
-        add(kill, openSettings, 13)
+            "Настройки VPN → VainahVPN → «Всегда включён VPN» → " +
+                "«Блокировать подключения без VPN».",
+            12f, grey
+        ), 9)
+        val openSettings = action("Открыть настройки Android")
+        add(kill, openSettings, 12)
         openSettings.setOnClickListener {
             try {
                 startActivity(Intent(Settings.ACTION_VPN_SETTINGS))
@@ -1547,45 +1561,60 @@ class MainActivity : Activity() {
         }
 
         val split = card()
-        add(body, split, 16)
-        add(split, tag("БЕЛЫЙ СПИСОК / ANDROID"))
-        add(split, t("Белый список приложений", 18f, white, true), 9)
-        val excluded = SplitTunnelPreferences.read(this)
+        add(body, split, 13)
+        add(split, tag("ИСКЛЮЧЕНИЯ ПРИЛОЖЕНИЙ"))
+        add(split, t("Какие приложения не используют VPN", 18f,
+            white, true), 8)
+        add(split, VainahUi.detailRow(this,
+            "Исключено приложений", excluded.size.toString(),
+            if (excluded.isEmpty()) VainahUi.Tone.SUCCESS
+            else VainahUi.Tone.WARNING), 10)
         add(split, t(
-            if (excluded.isEmpty()) "Исключений нет: приложения работают через VPN."
-            else "Исключений выбрано: " + excluded.size +
-                ". Изменения применятся при следующем подключении.",
-            12f, if (excluded.isEmpty()) grey else errorColor), 9)
-        add(split, t(
-            "Исключённые приложения работают без VPN. " +
-                "Режим несовместим с системной блокировкой интернета без VPN.",
-            12f, grey), 8)
-        if (!BuildConfig.VAINAH_LIBBOX_ENABLED) {
-            add(split, t(
-                "В этой preview-сборке libbox-туннель отключён, " +
-                    "поэтому раздел только информационный.",
-                12f, errorColor), 12)
-        }
+            "Исключённые приложения используют обычный интернет. " +
+                "Изменения применятся при следующем подключении. " +
+                "При системной блокировке обхода такие исключения не работают.",
+            11.5f, grey
+        ), 8)
         val manageSplit = action("Выбрать исключённые приложения")
         manageSplit.isEnabled = BuildConfig.VAINAH_LIBBOX_ENABLED
-        add(split, manageSplit, 12)
+        add(split, manageSplit, 11)
         manageSplit.setOnClickListener { editSplitTunnelApps() }
-        add(split, t(
-            "Белый список приложений не связан с серверной категорией " +
-                "«Белые списки». Изменения действуют при новом подключении.",
-            12f, grey
-        ), 10)
-        val whitelistServers = action("Серверы «Белые списки»")
-        add(split, whitelistServers, 10)
+
+        val lte = card()
+        add(body, lte, 13)
+        add(lte, tag("LTE · ГРУППЫ СЕРВЕРОВ"))
+        add(lte, t("Белые списки H1Cloud", 18f, white, true), 8)
+        val matching = directory().count(::isLteGroup)
+        add(lte, VainahUi.detailRow(this,
+            "В группе LTE", matching.toString() + " из " + nodes.size,
+            if (matching > 0) VainahUi.Tone.PURPLE else VainahUi.Tone.NEUTRAL), 9)
+        add(lte, VainahUi.infoStrip(this,
+            "Турция · 1 и Турция · IP попадают в группу автоматически, " +
+                "если они существуют в твоей подписке. Это группировка, " +
+                "а не подтверждение LTE-доступа на стороне H1Cloud."), 10)
+        val whitelistServers = action("Посмотреть LTE-серверы", true)
+        add(lte, whitelistServers, 11)
         whitelistServers.setOnClickListener {
             serverCollection = ServerCollection.WHITELIST
             page = Page.LOCATIONS
             render()
         }
 
-        val diag = action("Открыть диагностику")
-        add(protection, diag, 17)
-        diag.setOnClickListener { page = Page.DIAGNOSTICS; render() }
+        val accountSecurity = card()
+        add(body, accountSecurity, 13)
+        add(accountSecurity, tag("БЕЗОПАСНОСТЬ АККАУНТА"))
+        add(accountSecurity, t("Мой личный кабинет", 18f, white, true), 8)
+        add(accountSecurity, t(
+            "Доступ к заказам и устройствам защищён входом через " +
+                "официальный сайт. VPN-ключи не передаются при входе.",
+            12f, grey
+        ), 9)
+        val account = action("Перейти в личный кабинет")
+        add(accountSecurity, account, 11)
+        account.setOnClickListener {
+            page = Page.MORE
+            render()
+        }
     }
 
     private fun editSplitTunnelApps() {
