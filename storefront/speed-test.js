@@ -17,7 +17,9 @@
   let previous = null;
   let latest = null;
   const copyButton = $('speed-copy');
-  const durationLimit = 12000;
+  const durationLimit = 45000;
+  const staticOrigin='https://vainahvpn.onrender.com';
+  const backendOrigin='https://vainahvpn-python-preview.onrender.com';
   const note = (text, step = '') => {
     status.textContent = text;
     if (step) phase.textContent = step;
@@ -42,7 +44,7 @@
     for (let i=0; i<samples; i++) {
       const began = performance.now();
       const response = await endpoint('ping');
-      check(response);
+      if(response.status!==204)throw Error('Некорректный ответ проверки задержки. Открой тест на Python-сервере.');
       values.push(performance.now()-began);
       bar.style.width = (7 + 23*(i+1)/samples)+'%';
       await pause();
@@ -69,6 +71,8 @@
         });
       check(response);
       if (kind==='download') {
+        if(!response.headers.get('content-type')?.startsWith('application/octet-stream'))
+          throw Error('Сервер вернул не тестовые данные. Повтори на Python-сервере.');
         const body=await response.arrayBuffer();
         if(body.byteLength!==size)throw Error('Сервер вернул неполные данные.');
         bytes+=body.byteLength;
@@ -88,9 +92,17 @@
     bar.style.width='0%';
     latest=null;
     if(copyButton)copyButton.disabled=true;
-    $('speed-explanation').textContent='Тест измеряет обмен данными с веб-сервером Vainah VPN на Render, а не скорость до ближайшего узла Speedtest.';
+    $('speed-explanation').textContent='Только HTTP-обмен с Python-сервером Render, не скорость VPN-туннеля или интернет-провайдера. Результаты приблизительные; маленькие объёмы, загрузка сервера и пробуждение Render искажают показатели.';
   }
   async function run(){
+    if(controller)return;
+    // A static CDN cannot serve the test API. Never report its HTML/404
+    // response as a successful network measurement.
+    if(window.location.origin===staticOrigin){
+      note('Тест переносится на сервер измерений, чтобы получить достоверный ответ API.','Переход на Python API');
+      window.location.assign(backendOrigin+'/speed.html'+window.location.search+window.location.hash);
+      return;
+    }
     controller=new AbortController();
     const mode=document.querySelector('input[name="speed-mode"]:checked')?.value==='normal'?'normal':'eco';
     const options=$('speed-options');
@@ -100,9 +112,13 @@
     stop.disabled=false;
     reset();
     let abortTimer;
+    let timedOut=false;
     try {
-      abortTimer=setTimeout(()=>controller.abort(),durationLimit);
-      note('Измеряем задержку…','Ping и вариация задержки');
+      abortTimer=setTimeout(()=>{timedOut=true;controller.abort();},durationLimit);
+      note('Подготавливаем сервер…','Прогрев соединения');
+      const warmup=await endpoint('ping');
+      if(warmup.status!==204)throw Error('Проверка не получила ожидаемый ответ Python API (204).');
+      note('Измеряем задержку HTTP…','Отклик и разброс задержки');
       const latency = await timePing(config.pings);
       note('Получаем данные с сервера…','Загрузка');
       const download=await throughput('download',config.downloads,512*1024,30,68);
@@ -129,11 +145,14 @@
       }
       previous={...latest};
       if(copyButton)copyButton.disabled=false;
-      note('Готово. Сравни результат с включённым и выключенным VPN.','Тест завершён');
+      note('Измерение HTTP до Render завершено. Это не скорость VPN. Для сравнения выполняй тесты в одинаковых условиях.','Тест завершён');
     } catch (error) {
-      note(controller.signal.aborted?'Проверка остановлена или превысила лимит времени.':
-        error.message||'Проверка не удалась.','Результат неполный');
-      $('speed-explanation').textContent='Показаны только завершённые этапы. Для точного сравнения проверь сеть в одинаковых условиях.';
+      const message=timedOut?'Превышено время ответа Render. Результат не рассчитан.':
+        controller.signal.aborted?'Проверка остановлена. Результат не рассчитан.':
+        error.message||'Проверка не удалась.';
+      reset();
+      note(message,'Тест не завершён');
+      $('speed-explanation').textContent='Неполные измерения сброшены, чтобы не показывать ошибочные цифры. Веб-тест не проверяет скорость VPN-туннеля.';
     } finally {
       clearTimeout(abortTimer);
       controller=null;
@@ -147,10 +166,10 @@
   if(copyButton)copyButton.addEventListener('click',async()=>{
     if(!latest)return;
     const summary='Vainah VPN · Speed Lab\nPing: '+format(latest.ping)+' мс'+
-      '\nJitter: '+format(latest.jitter)+' мс'+
+      '\nРазброс задержки HTTP: '+format(latest.jitter)+' мс'+
       '\nЗагрузка: '+format(latest.download)+' Мбит/с'+
       '\nОтдача: '+format(latest.upload)+' Мбит/с'+
-      '\nПроверка до Render (Франкфурт), не максимальная скорость провайдера.';
+      '\nОценка HTTP-обмена с Render (Франкфурт), не измерение VPN-туннеля и не максимальная скорость провайдера.';
     try{
       await navigator.clipboard.writeText(summary);
       note('Результат скопирован.','Тест завершён');
