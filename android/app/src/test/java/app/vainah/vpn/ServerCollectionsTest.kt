@@ -40,6 +40,9 @@ class ServerCollectionsTest {
         assertTrue(ServerCollections.isWhiteListLabel("БЕЛЫЕ СПИСКИ 01"))
         assertTrue(ServerCollections.isWhiteListLabel("White_List Secure"))
         assertTrue(ServerCollections.isWhiteListLabel("Белые-списки · 01"))
+        assertTrue(ServerCollections.isWhiteListLabel("🇹🇷 Турция · LTE-доступ"))
+        assertTrue(ServerCollections.isWhiteListLabel("Turkey LTE"))
+        assertFalse(ServerCollections.isWhiteListLabel("Satellite relay"))
         assertFalse(ServerCollections.isWhiteListLabel("🇧🇾 Belarus · Minsk"))
         assertFalse(ServerCollections.isWhiteListLabel("Fast VPN"))
         assertTrue(ServerCollections.filter(
