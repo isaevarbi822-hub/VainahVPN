@@ -1067,18 +1067,20 @@ class MainActivity : Activity() {
     private fun locations(body: LinearLayout) {
         val ink = ServerListVisual.textColor()
         val muted = ServerListVisual.mutedColor()
-        val sheet = ServerListVisual.sheet(this)
-        add(body, sheet, 10)
+        val summary = card()
+        add(body, summary, 13)
         val header = horizontal().apply {
-            setPadding(dp(10), dp(3), dp(10), dp(12))
+            setPadding(dp(2), dp(2), dp(2), dp(8))
         }
         val text = column()
-        add(text, t("Все серверы", 17.5f, ink, true))
+        add(text, tag("ВСЕ СЕРВЕРЫ"))
         add(text, t(
             if (nodes.isEmpty()) "Список пока пуст"
             else "${nodes.size} серверов из подписки",
-            12f, muted
+            18f, ink, true
         ), 6)
+        add(text, t("Сохранено конфигураций: ${nodes.size}",
+            11f, muted), 5)
         header.addView(text, LinearLayout.LayoutParams(0, -2, 1f))
         val refresh = lightAction("⟳").apply {
             contentDescription = "Обновить список серверов"
@@ -1087,16 +1089,15 @@ class MainActivity : Activity() {
         }
         header.addView(refresh, LinearLayout.LayoutParams(dp(48), dp(48)))
         refresh.setOnClickListener { refreshServers(true) }
-        add(sheet, header)
-        add(sheet, t(
-            if (source.busy) "Загружаем подписку…"
-            else cacheMessage, 11.5f, muted
-        ).apply { setPadding(dp(13), 0, dp(13), dp(11)) })
+        add(summary, header)
+        add(summary, VainahUi.infoStrip(this,
+            if (source.busy) "Загружаем серверы из подписки…"
+            else cacheMessage), 8)
         lastError?.let { problem ->
-            add(sheet, t(problem, 12f, Color.rgb(172, 78, 82)).apply {
-                setPadding(dp(13), 0, dp(13), dp(12))
-            })
+            add(summary, t(problem, 11.5f, errorColor), 8)
         }
+        val sheet = ServerListVisual.sheet(this)
+        add(body, sheet, 12)
         // Search/filter only updates the row container. Keeping EditText
         // alive preserves keyboard focus while the user is typing.
         val search = EditText(this).apply {
@@ -1140,21 +1141,29 @@ class MainActivity : Activity() {
             addView(categoryRow)
         }
         add(sheet, categoryScroll, 8)
-        val whiteInfo = t(
-            "Новые серверы появляются после синхронизации подписки. " +
-                "В фоне Android проверяет обновления примерно раз в 15 минут. " +
-                "LTE определяется по метке H1Cloud или твоему выбору; " +
-                "само добавление узла не включает LTE-доступ.",
-            10.5f, muted
-        ).apply { setPadding(dp(12), dp(3), dp(12), dp(6)) }
-        add(sheet, whiteInfo)
-        val editWhite = lightAction("✦ Отметить мои LTE-серверы").apply {
+        val whiteInfo = VainahUi.infoStrip(this,
+            "Список H1Cloud обновляется автоматически по расписанию Android. " +
+                "LTE-метка не подтверждает работу конкретного сервера.")
+        add(sheet, whiteInfo, 7)
+        val lteControls = horizontal()
+        val viewLte = action("LTE-серверы", true).apply {
             textSize = 11.5f
-            setTextColor(VainahDesign.green)
-            minHeight = dp(42)
-            background = shape(VainahDesign.surface, VainahDesign.border, 13)
+            contentDescription = "Показать категорию LTE-серверов"
         }
-        add(sheet, editWhite, 4)
+        lteControls.addView(viewLte, LinearLayout.LayoutParams(
+            0, dp(45), 1f))
+        viewLte.setOnClickListener {
+            serverCollection = ServerCollection.WHITELIST
+            render()
+        }
+        val editWhite = lightAction("Отметить мои LTE").apply {
+            textSize = 11f
+            contentDescription = "Выбрать реальные серверы с LTE-доступом"
+        }
+        lteControls.addView(editWhite, LinearLayout.LayoutParams(
+            0, dp(45), 1f
+        ).apply { marginStart = dp(8) })
+        add(sheet, lteControls, 9)
         editWhite.setOnClickListener { chooseWhiteListNodes() }
         val controls = horizontal().apply {
             setPadding(dp(5), dp(9), dp(5), dp(12))
@@ -1187,17 +1196,19 @@ class MainActivity : Activity() {
                     serverCollection
                 )
                 val whiteMode = serverCollection == ServerCollection.WHITELIST
-                whiteInfo.visibility = if (whiteMode) View.VISIBLE else View.GONE
-                editWhite.visibility = if (whiteMode) View.VISIBLE else View.GONE
+                whiteInfo.text = if (whiteMode)
+                    "LTE-группа включает только узлы с меткой в подписке " +
+                        "или отмеченные вручную. Пометка не включает LTE-доступ."
+                else "Новые конфигурации H1Cloud обновляются по расписанию Android. " +
+                    "В списке только реальные узлы подписки."
                 favoriteButton.text = if (serverCollection == ServerCollection.FAVORITES)
                     "★ Только избранные" else "☆ Избранные"
                 for ((category, button) in categoryButtons) {
                     val active = category == serverCollection
-                    button.background = shape(
-                        if (active) violet else VainahDesign.surface,
-                        if (active) violet else border, 12
+                    button.background = VainahUi.buttonBackground(
+                        this@MainActivity, active
                     )
-                    button.setTextColor(if (active) bg else white)
+                    button.setTextColor(if (active) Color.WHITE else white)
                     button.isSelected = active
                 }
                 sortButton.text = when (serverSort) {
@@ -1275,7 +1286,8 @@ class MainActivity : Activity() {
             setPadding(dp(17), dp(18), dp(17), dp(20))
         }
         add(body, measurement, 16)
-        add(measurement, t("TCP-задержка", 16f, ink, true))
+        add(measurement, tag("ИЗМЕРЕНИЕ СЕРВЕРОВ"))
+        add(measurement, t("TCP-задержка", 17f, ink, true), 7)
         add(measurement, t(serverProbeMessage, 12f, muted), 7)
         add(measurement, t(
             "Проверяем входные серверы без VPN. TCP-задержка — " +
@@ -1285,11 +1297,7 @@ class MainActivity : Activity() {
         val probe = action(
             if (serverProbeRunning) "Проверяем серверы…"
             else "Повторить замер и выбрать быстрый", true
-        ).apply {
-            setTextColor(Color.WHITE)
-            background = shape(ServerListVisual.accentColor(),
-                ServerListVisual.accentColor(), 14)
-        }
+        )
         probe.isEnabled = nodes.any { SubscriptionNodeSupport.canConnect(it.uri) } &&
             !serverProbeRunning && !VpnConnectionState.read(this).canDisconnect
         add(measurement, probe, 12)
