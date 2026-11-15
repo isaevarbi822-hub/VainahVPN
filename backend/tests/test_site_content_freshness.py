@@ -91,7 +91,7 @@ def test_final_fifty_plan_copy_and_live_support_are_consistent():
             "75 платных тарифов доступны к оформлению",
             "Загружаем актуальные тарифы",
         ),
-        "terms.html": ("8 ноября 2026", "75 платных тарифов"),
+        "terms.html": ("15 ноября 2026", "75 платных тарифов"),
     }
     for filename, phrases in expected.items():
         html = (SITE / filename).read_text(encoding="utf-8")
