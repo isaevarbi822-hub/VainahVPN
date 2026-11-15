@@ -28,6 +28,19 @@ class SubscriptionPayloadParserTest {
         ))
     }
 
+    @Test fun preservesGroupMarkersWhenNormalizingCountryLabels() {
+        val whitelist = node.replace("Germany",
+            "Germany%20%C2%B7%20WhiteList")
+        val gaming = node.replace("000000000001", "000000000003")
+            .replace("Germany", "Spain%20-%20Gaming")
+        val loaded = SubscriptionPayloadParser.nodes(whitelist + "\n" + gaming)
+        assertEquals(listOf("Germany · WhiteList", "Spain - Gaming"),
+            loaded.map { it.label })
+        assertTrue(ServerCollections.isWhiteListLabel(loaded[0].label))
+        assertEquals("🇩🇪", ServerRowPresentation.describe(loaded[0], 0).flag)
+        assertEquals("🇪🇸", ServerRowPresentation.describe(loaded[1], 1).flag)
+    }
+
     @Test fun parsesXrayRealityTcpJson() {
         val user = JSONObject().put("id", "00000000-0000-4000-8000-000000000001")
             .put("flow", "xtls-rprx-vision")

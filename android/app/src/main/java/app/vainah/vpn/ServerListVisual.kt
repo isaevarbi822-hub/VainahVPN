@@ -40,9 +40,9 @@ object ServerListVisual {
     fun sheet(context: Context): LinearLayout =
         LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            background = block(context, plain, 26)
-            setPadding(dp(context, 8), dp(context, 14), dp(context, 8), dp(context, 18))
-            elevation = dp(context, 3).toFloat()
+            background = block(context, plain, 20)
+            setPadding(dp(context, 9), dp(context, 11), dp(context, 9), dp(context, 14))
+            elevation = dp(context, 2).toFloat()
         }
 
     fun row(
@@ -56,30 +56,30 @@ object ServerListVisual {
     ): View {
         val full = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            background = block(context, if (isSelected) selectedTint else plain, 13)
+            background = block(context, if (isSelected) selectedTint else plain, 11)
         }
         val horizontal = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(context, 74)
+            minimumHeight = dp(context, 64)
         }
         val marker = View(context).apply {
             background = block(context, if (isSelected) accent else plain, 2)
         }
-        horizontal.addView(marker, LinearLayout.LayoutParams(dp(context, 4), dp(context, 63)))
+        horizontal.addView(marker, LinearLayout.LayoutParams(dp(context, 3), dp(context, 52)))
         val flag = TextView(context).apply {
             text = info.flag
-            textSize = 29f
+            textSize = 24f
             gravity = Gravity.CENTER
         }
-        horizontal.addView(flag, LinearLayout.LayoutParams(dp(context, 54), -2).apply {
-            marginStart = dp(context, 7)
-            marginEnd = dp(context, 6)
+        horizontal.addView(flag, LinearLayout.LayoutParams(dp(context, 41), -2).apply {
+            marginStart = dp(context, 5)
+            marginEnd = dp(context, 4)
         })
         val details = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val title = TextView(context).apply {
             text = info.title
-            textSize = 16.5f
+            textSize = 14.5f
             typeface = Typeface.create("sans-serif", Typeface.BOLD)
             setTextColor(ink)
             maxLines = 1
@@ -87,7 +87,7 @@ object ServerListVisual {
         }
         val subtitle = TextView(context).apply {
             text = info.subtitle
-            textSize = 11.2f
+            textSize = 10f
             setTextColor(muted)
             letterSpacing = 0.015f
             maxLines = 1
@@ -95,23 +95,23 @@ object ServerListVisual {
         }
         details.addView(title)
         details.addView(subtitle, LinearLayout.LayoutParams(-1, -2).apply {
-            topMargin = dp(context, 5)
+            topMargin = dp(context, 3)
         })
         horizontal.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
         val lag = TextView(context).apply {
             text = latency
-            textSize = 12f
-            setTextColor(if (latency == "н/д") muted else accent)
+            textSize = 10.5f
+            setTextColor(if (latency.startsWith("TCP ")) accent else muted)
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
             maxLines = 1
         }
         horizontal.addView(lag, LinearLayout.LayoutParams(
-            dp(context, if (latency == "н/д") 34 else 88), -2
-        ).apply { marginStart = dp(context, 4) })
+            dp(context, if (latency == "—") 22 else 81), -2
+        ).apply { marginStart = dp(context, 2) })
         if (onFavoriteClick != null) {
             val star = TextView(context).apply {
                 text = if (isFavorite) "★" else "☆"
-                textSize = 25f
+                textSize = 22f
                 setTextColor(if (isFavorite) accent else muted)
                 gravity = Gravity.CENTER
                 contentDescription = if (isFavorite)
@@ -121,16 +121,16 @@ object ServerListVisual {
                 setOnClickListener { onFavoriteClick() }
             }
             horizontal.addView(star, LinearLayout.LayoutParams(
-                dp(context, 40), dp(context, 55)
+                dp(context, 33), dp(context, 46)
             ))
         }
         val arrow = TextView(context).apply {
             text = "›"
-            textSize = 29f
+            textSize = 24f
             setTextColor(muted)
             gravity = Gravity.CENTER
         }
-        horizontal.addView(arrow, LinearLayout.LayoutParams(dp(context, 24), -2))
+        horizontal.addView(arrow, LinearLayout.LayoutParams(dp(context, 16), -2))
         full.addView(horizontal)
         full.isClickable = true
         full.isFocusable = true
@@ -139,7 +139,7 @@ object ServerListVisual {
             append(", ")
             append(info.subtitle)
             append(", ")
-            append(if (latency == "н/д") "задержка не измерена" else latency)
+            append(if (latency == "—") "задержка ещё не измерена" else latency)
             if (isSelected) append(", выбран для следующего подключения")
             if (isFavorite) append(", избранное")
         }

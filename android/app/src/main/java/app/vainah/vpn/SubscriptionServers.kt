@@ -28,7 +28,15 @@ object SubscriptionServers {
                 "польш" in lower || "🇵🇱" in clean -> "🇵🇱 Польша"
             else -> null
         }
-        return country ?: clean
+        // Normalise only a bare country name. H1Cloud may append meaningful
+        // group markers (WhiteList, Gaming, Streaming) to its node label.
+        // Dropping those suffixes silently empties matching collections.
+        val bareCountryLabels = setOf(
+            "germany", "deutschland", "de", "германия", "🇩🇪 германия",
+            "spain", "espana", "españa", "es", "испания", "🇪🇸 испания",
+            "poland", "polska", "pl", "польша", "🇵🇱 польша"
+        )
+        return if (country != null && lower in bareCountryLabels) country else clean
     }
 
     fun load(raw: String): List<String> = loadNodes(raw).map { it.label }

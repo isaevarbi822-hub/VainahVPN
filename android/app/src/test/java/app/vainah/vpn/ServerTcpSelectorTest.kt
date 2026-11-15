@@ -49,7 +49,7 @@ class ServerTcpSelectorTest {
         assertEquals("vpn.example.org" to 443,
             ServerTcpSelector.endpoint(vless("vpn.example.org", 443)))
         assertNull(ServerTcpSelector.endpoint(vless("vpn.example.org", 65536)))
-        assertEquals(8, ServerTcpSelector.MAX_PROBED_NODES)
+        assertEquals(50, ServerTcpSelector.MAX_PROBED_NODES)
         assertTrue(ServerTcpSelector.CONNECT_TIMEOUT_MS in 500..2000)
     }
 }

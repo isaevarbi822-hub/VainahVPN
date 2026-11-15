@@ -28,6 +28,9 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import java.util.concurrent.Executors
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Callable
 
 /**
  * Vainah VPN Next. No fake VPN status, embedded billing, WebView or hard-coded
@@ -45,6 +48,8 @@ class MainActivity : Activity() {
     private var cacheMessage = "Серверы ещё не обновлены"
     private var nextAutoRefresh = 0L
     private var serverProbeRunning = false
+    private var serverProbeAttempted = false
+    private var activeProbePool: ExecutorService? = null
     private var serverProbeGeneration = 0
     private var serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
     private var serverProbes: List<ServerTcpObservation> = emptyList()
@@ -119,7 +124,7 @@ class MainActivity : Activity() {
     }
     override fun onDestroy() {
         routeScanVersion++
-        serverProbeGeneration++
+        invalidateServerProbes()
         source.invalidate()
         main.removeCallbacks(ticker)
         super.onDestroy()
@@ -210,28 +215,41 @@ class MainActivity : Activity() {
         val light = page == Page.HOME || page == Page.LOCATIONS
         val frame = column().apply {
             setBackgroundColor(if (light) ServerListVisual.backgroundColor() else bg)
+            // Android 15+ draws behind system bars. Keep the top brand and
+            // bottom navigation outside status/gesture areas on every device.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                setOnApplyWindowInsetsListener { view, insets ->
+                    val bars = insets.getInsets(android.view.WindowInsets.Type.systemBars())
+                    view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                    insets
+                }
+            } else {
+                fitsSystemWindows = true
+            }
         }
         val scroll = ScrollView(this).apply { isFillViewport = true }
         val body = column().apply {
-            setPadding(dp(if (light) 14 else 20), dp(if (light) 18 else 28),
-                dp(if (light) 14 else 20), dp(28))
+            setPadding(dp(if (light) 14 else 20), dp(if (light) 8 else 18),
+                dp(if (light) 14 else 20), dp(18))
         }
         scroll.addView(body)
         frame.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        add(body, tag("VAINAHVPN"))
-        add(body, t(when (page) {
-            Page.HOME -> "Твоё соединение. Твои правила."
-            Page.LOCATIONS -> "Серверы и локации"
-            Page.ACCOUNT -> "Подписка"
-            Page.DEVICES -> "Мои устройства"
-            Page.DIAGNOSTICS -> "Диагностика"
-            Page.SECURITY -> "Безопасность"
-            Page.SETTINGS -> "Настройки"
-            Page.MORE -> "Профиль"
-        }, if (light) 22f else 25f,
-            if (light) ServerListVisual.textColor() else white, true), 8)
-        add(body, t("Android · " + BuildConfig.VERSION_NAME, 12f,
-            if (light) ServerListVisual.mutedColor() else grey), 7)
+        if (!light) add(body, tag("VAINAHVPN"))
+        if (page != Page.HOME) {
+            add(body, t(when (page) {
+                Page.HOME -> "VainahVPN"
+                Page.LOCATIONS -> "Серверы и локации"
+                Page.ACCOUNT -> "Подписка"
+                Page.DEVICES -> "Мои устройства"
+                Page.DIAGNOSTICS -> "Диагностика"
+                Page.SECURITY -> "Безопасность"
+                Page.SETTINGS -> "Настройки"
+                Page.MORE -> "Профиль"
+            }, if (light) 20f else 23f,
+                if (light) ServerListVisual.textColor() else white, true), 8)
+        }
+        if (!light) add(body, t("Android · " + BuildConfig.VERSION_NAME, 12f,
+            grey), 7)
         when (page) {
             Page.HOME -> home(body)
             Page.LOCATIONS -> locations(body)
@@ -243,8 +261,8 @@ class MainActivity : Activity() {
             Page.MORE -> more(body)
         }
         val nav = horizontal().apply {
-            setBackgroundColor(if (light) ServerListVisual.cardColor() else card)
-            setPadding(dp(12), dp(9), dp(12), dp(9))
+            setBackgroundColor(ServerListVisual.backgroundColor())
+            setPadding(dp(7), dp(5), dp(7), dp(5))
         }
         val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
                 Page.SETTINGS)) Page.MORE else page
@@ -253,16 +271,18 @@ class MainActivity : Activity() {
             Page.SECURITY to "Защита", Page.ACCOUNT to "Подписка",
             Page.MORE to "Профиль"
         )) {
-            val button = action(label, target == selectedTab).apply {
-                minHeight = dp(44)
-                textSize = 11f
-                if (light && target != selectedTab) {
-                    setTextColor(ServerListVisual.textColor())
-                    background = shape(
-                        ServerListVisual.cardColor(),
-                        ServerListVisual.backgroundColor(), 13
-                    )
-                }
+            val active = target == selectedTab
+            val button = action(label, active).apply {
+                setMinWidth(0)
+                setMinimumWidth(0)
+                setPadding(0, 0, 0, 0)
+                minHeight = dp(40)
+                textSize = 10f
+                setTextColor(if (active) bg else grey)
+                background = shape(
+                    if (active) violet else ServerListVisual.backgroundColor(),
+                    if (active) violet else ServerListVisual.backgroundColor(), 12
+                )
                 setOnClickListener {
                     if (target != page) {
                         page = target
@@ -270,14 +290,28 @@ class MainActivity : Activity() {
                     }
                 }
             }
-            nav.addView(button, LinearLayout.LayoutParams(0, dp(48), 1f).apply {
-                marginStart = dp(1)
-                marginEnd = dp(1)
+            nav.addView(button, LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+                marginStart = dp(2)
+                marginEnd = dp(2)
             })
         }
         frame.addView(nav)
         setContentView(frame)
         updateConnection()
+        // One automatic real TCP scan per loaded list, never a fake ping.
+        // It is not used to replace a manual server selection.
+        if ((page == Page.HOME || page == Page.LOCATIONS) &&
+            !serverProbeAttempted && !serverProbeRunning &&
+            nodes.isNotEmpty() && source.savedLink() != null &&
+            !VpnConnectionState.read(this).canDisconnect) {
+            serverProbeAttempted = true
+            main.post {
+                if (!isFinishing && !isDestroyed && !serverProbeRunning &&
+                    !VpnConnectionState.read(this).canDisconnect) {
+                    probeServersAndChoose(selectBest = false)
+                }
+            }
+        }
     }
 
     private fun lightAction(label: String): Button = action(label).apply {
@@ -350,13 +384,13 @@ class MainActivity : Activity() {
             contentDescription = "Настройки VainahVPN"
             textSize = 22f
         }
-        upper.addView(settingsButton, LinearLayout.LayoutParams(dp(52), dp(52)))
+        upper.addView(settingsButton, LinearLayout.LayoutParams(dp(44), dp(44)))
         settingsButton.setOnClickListener { page = Page.SETTINGS; render() }
         val addProfile = lightAction("+").apply {
             contentDescription = "Добавить VPN-подписку"
             textSize = 28f
         }
-        upper.addView(addProfile, LinearLayout.LayoutParams(dp(52), dp(52)).apply {
+        upper.addView(addProfile, LinearLayout.LayoutParams(dp(44), dp(44)).apply {
             marginStart = dp(8)
         })
         addProfile.setOnClickListener { page = Page.ACCOUNT; render() }
@@ -364,7 +398,7 @@ class MainActivity : Activity() {
 
         val hero = column().apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(6), dp(22), dp(6), dp(14))
+            setPadding(dp(6), dp(12), dp(6), dp(9))
         }
         add(body, hero, 14)
         val ring = FrameLayout(this).apply {
@@ -392,14 +426,14 @@ class MainActivity : Activity() {
             }
         }
         ring.addView(power, FrameLayout.LayoutParams(
-            dp(165), dp(165), Gravity.CENTER
+            dp(136), dp(136), Gravity.CENTER
         ))
-        hero.addView(ring, LinearLayout.LayoutParams(dp(229), dp(229)))
-        val status = t("Не подключено", 21f, ink, true).apply {
+        hero.addView(ring, LinearLayout.LayoutParams(dp(183), dp(183)))
+        val status = t("Не подключено", 19f, ink, true).apply {
             gravity = Gravity.CENTER
         }
         stateView = status
-        add(hero, status, 18)
+        add(hero, status, 12)
         val nextNode = selected?.let { ServerRowPresentation.describe(it, 0) }
         val selectedName = if (nextNode == null) "Выбери сервер из списка ниже"
         else nextNode.flag + "  " + nextNode.title
@@ -419,14 +453,14 @@ class MainActivity : Activity() {
             background = shape(accent, accent, 14)
         }
         connectView = connect
-        add(hero, connect, 17)
+        add(hero, connect, 12)
         connect.setOnClickListener {
             if (VpnConnectionState.read(this).canDisconnect) disconnect()
             else connect()
         }
 
         val sheet = ServerListVisual.sheet(this)
-        add(body, sheet, 12)
+        add(body, sheet, 10)
         val heading = horizontal().apply {
             setPadding(dp(10), 0, dp(10), dp(8))
         }
@@ -861,15 +895,15 @@ class MainActivity : Activity() {
         val ink = ServerListVisual.textColor()
         val muted = ServerListVisual.mutedColor()
         val sheet = ServerListVisual.sheet(this)
-        add(body, sheet, 19)
+        add(body, sheet, 10)
         val header = horizontal().apply {
             setPadding(dp(10), dp(3), dp(10), dp(12))
         }
         val text = column()
-        add(text, t("Все серверы", 21f, ink, true))
+        add(text, t("Все серверы", 19f, ink, true))
         add(text, t(
             if (nodes.isEmpty()) "Список пока пуст"
-            else "Загружено конфигураций: ${nodes.size}",
+            else "${nodes.size} серверов из подписки",
             12f, muted
         ), 6)
         header.addView(text, LinearLayout.LayoutParams(0, -2, 1f))
@@ -899,7 +933,7 @@ class MainActivity : Activity() {
             textSize = 14f
             setTextColor(ink)
             setHintTextColor(muted)
-            setPadding(dp(14), dp(12), dp(14), dp(12))
+            setPadding(dp(12), dp(9), dp(12), dp(9))
             background = shape(VainahDesign.surface, VainahDesign.border, 13)
             setText(serverSearchQuery)
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
@@ -909,15 +943,22 @@ class MainActivity : Activity() {
         val categoryRow = horizontal().apply {
             setPadding(dp(8), dp(5), dp(8), dp(5))
         }
-        for (category in ServerCollection.values()) {
+        for (category in listOf(
+            ServerCollection.ALL, ServerCollection.WHITELIST,
+            ServerCollection.FAST, ServerCollection.GAMES,
+            ServerCollection.STREAMING, ServerCollection.RECOMMENDED
+        )) {
             val chip = lightAction(category.title).apply {
-                textSize = 11.5f
-                minHeight = dp(44)
+                textSize = 10f
+                minHeight = dp(36)
+                setMinWidth(0)
+                setMinimumWidth(0)
+                setPadding(dp(12), 0, dp(12), 0)
                 contentDescription = "Категория серверов: " + category.title
             }
             categoryRow.addView(chip, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)
-            ).apply { marginEnd = dp(7) })
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp(36)
+            ).apply { marginEnd = dp(6) })
             categoryButtons.add(category to chip)
         }
         val categoryScroll = HorizontalScrollView(this).apply {
@@ -927,10 +968,9 @@ class MainActivity : Activity() {
         }
         add(sheet, categoryScroll, 10)
         add(sheet, t(
-            "Категории сформированы только из реальной подписки H1Cloud. " +
-                "«Белые списки» — серверы с такой пометкой; приложение не создаёт новые узлы.",
-            11f, muted
-        ).apply { setPadding(dp(13), dp(3), dp(13), dp(8)) })
+            "Фильтры используют названия реальных узлов H1Cloud.",
+            10.5f, muted
+        ).apply { setPadding(dp(12), dp(2), dp(12), dp(5)) })
         val controls = horizontal().apply {
             setPadding(dp(5), dp(9), dp(5), dp(12))
         }
@@ -938,14 +978,14 @@ class MainActivity : Activity() {
             textSize = 12f
         }
         controls.addView(favoriteButton, LinearLayout.LayoutParams(
-            0, dp(46), 1f
+            0, dp(40), 1f
         ))
         val sortButton = lightAction("Сортировка").apply {
             textSize = 12f
         }
         controls.addView(sortButton, LinearLayout.LayoutParams(
-            0, dp(46), 1f
-        ).apply { marginStart = dp(8) })
+            0, dp(40), 1f
+        ).apply { marginStart = dp(7) })
         add(sheet, controls)
 
         val count = t("", 11.5f, muted).apply {
@@ -977,7 +1017,11 @@ class MainActivity : Activity() {
                     ServerSort.COUNTRY -> "По стране"
                     ServerSort.MEASURED_TCP -> "По TCP"
                 }
-                count.text = "Показано: ${matches.size} из ${nodes.size}"
+                val measured = serverProbes.count {
+                    it.attempts == ServerTcpSelector.ATTEMPTS_PER_NODE &&
+                        it.successes >= 2
+                }
+                count.text = "${matches.size} из ${nodes.size} · TCP: ${measured} измерено"
                 results.removeAllViews()
                 if (matches.isEmpty()) {
                     val message = if (serverSearchQuery.isNotBlank())
@@ -1038,18 +1082,16 @@ class MainActivity : Activity() {
             setPadding(dp(17), dp(18), dp(17), dp(20))
         }
         add(body, measurement, 16)
-        add(measurement, t("Измерение задержки", 17f, ink, true))
+        add(measurement, t("TCP-задержка", 16f, ink, true))
         add(measurement, t(serverProbeMessage, 12f, muted), 7)
         add(measurement, t(
-            "В списке сначала отображается «н/д». При проверке измеряется " +
-                "время установления TCP-соединения, а не пинг VPN-туннеля. " +
-                "Проверяются до ${ServerTcpSelector.MAX_PROBED_NODES} серверов " +
-                "без активного VPN.",
+            "Проверяем входные серверы без VPN. TCP-задержка — " +
+                "время соединения, не пинг внутри туннеля.",
             12f, muted
         ), 9)
         val probe = action(
             if (serverProbeRunning) "Проверяем серверы…"
-            else "Измерить TCP и выбрать самый быстрый", true
+            else "Повторить замер и выбрать быстрый", true
         ).apply {
             setTextColor(Color.WHITE)
             background = shape(ServerListVisual.accentColor(),
@@ -1064,11 +1106,14 @@ class MainActivity : Activity() {
     private fun invalidateServerProbes() {
         serverProbeGeneration++
         serverProbeRunning = false
+        serverProbeAttempted = false
+        activeProbePool?.shutdownNow()
+        activeProbePool = null
         serverProbes = emptyList()
         serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
     }
 
-    private fun probeServersAndChoose() {
+    private fun probeServersAndChoose(selectBest: Boolean = true) {
         if (serverProbeRunning) return
         if (VpnConnectionState.read(this).canDisconnect) {
             popup("Для корректной проверки сначала отключи VPN.")
@@ -1080,18 +1125,34 @@ class MainActivity : Activity() {
             return
         }
         serverProbeRunning = true
+        serverProbeAttempted = true
         val version = ++serverProbeGeneration
         val selectedBefore = selected?.uri
-        serverProbeMessage = "Проверяем TCP-подключение к узлам…"
+        val pool = Executors.newFixedThreadPool(minOf(4, capture.size))
+        activeProbePool = pool
+        serverProbeMessage = "Проверяем TCP-подключение к ${capture.size} серверам…"
         render()
         Thread({
-            val measured = capture.mapIndexed { index, node ->
-                ServerTcpMeasurement.sample(node).copy(index = index)
+            val measured = try {
+                val futures = capture.mapIndexed { index, node ->
+                    pool.submit(Callable {
+                        ServerTcpMeasurement.sample(node).copy(index = index)
+                    })
+                }
+                futures.mapIndexed { index, future ->
+                    runCatching { future.get() }.getOrElse {
+                        ServerTcpObservation(index,
+                            ServerTcpSelector.ATTEMPTS_PER_NODE, emptyList())
+                    }
+                }
+            } finally {
+                pool.shutdownNow()
             }
             main.post {
                 if (version != serverProbeGeneration || isFinishing || isDestroyed)
                     return@post
                 serverProbeRunning = false
+                activeProbePool = null
                 val unchanged = capture == nodes.take(capture.size) &&
                     source.savedLink() != null
                 if (!unchanged) {
@@ -1103,18 +1164,21 @@ class MainActivity : Activity() {
                 } else {
                     serverProbes = measured
                     val best = ServerTcpSelector.best(measured)
+                    val available = measured.count { it.successes >= 2 }
                     if (best == null) {
-                        serverProbeMessage = "Нет двух успешных TCP-замеров для выбора."
+                        serverProbeMessage =
+                            "TCP: нет надёжных замеров. Проверь сеть или настройки узлов."
                     } else {
                         val chosen = capture[best]
                         val latency = measured[best].medianMs
-                        if (selected?.uri == selectedBefore) {
+                        val summary = "TCP: ${available} из ${capture.size} · лучший ${latency} мс."
+                        if (selectBest && selected?.uri == selectedBefore) {
                             selected = nodes.firstOrNull { it.uri == chosen.uri } ?: selected
-                            serverProbeMessage = "Выбран " + chosen.label + " · TCP " +
-                                latency + " мс. Нажми «Подключиться», чтобы проверить VPN."
+                            serverProbeMessage = summary + " Выбран " + chosen.label + "."
                         } else {
-                            serverProbeMessage = "Замер завершён · лучший TCP " +
-                                latency + " мс. Твой ручной выбор сохранён."
+                            serverProbeMessage = summary +
+                                if (selectBest) " Ручной выбор сохранён."
+                                else " Сервер не переключён."
                         }
                     }
                 }
