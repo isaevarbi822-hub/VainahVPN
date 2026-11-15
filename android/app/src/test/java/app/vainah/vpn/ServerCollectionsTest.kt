@@ -48,6 +48,16 @@ class ServerCollectionsTest {
         ).isEmpty())
     }
 
+    @Test fun locallyGroupedNodesAreRealSubscriptionNodesNotInventedEndpoints() {
+        val manuallyGrouped = row(7, "🇷🇺 Россия · TCP")
+            .copy(manualWhitelist = true)
+        val ordinary = row(8, "🇳🇴 Норвегия")
+        assertEquals(listOf(7), ServerCollections.filter(
+            listOf(manuallyGrouped, ordinary), ServerCollection.WHITELIST
+        ).map { it.index })
+        assertFalse(ServerCollections.isWhiteListLabel(ordinary.info.title))
+    }
+
     @Test fun favoriteGamingAndStreamingCategoriesReflectOnlyRealLabels() {
         assertEquals(5, ServerCollections.filter(all, ServerCollection.ALL).size)
         assertEquals(listOf(1), ServerCollections.filter(
