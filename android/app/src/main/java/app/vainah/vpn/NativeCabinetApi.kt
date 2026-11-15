@@ -161,8 +161,9 @@ internal class NativeCabinetApi(context: Context) {
     }
 
     private fun request(path: String, payload: JSONObject?): Reply {
-        val address = URL(NativeCabinetCatalog.ORIGIN + path)
-        require(address.protocol == "https" && address.host == "vainahvpn.onrender.com"
+        val address = URL(NativeCabinetCatalog.API_ORIGIN + path)
+        require(address.protocol == "https" &&
+            address.host == "vainahvpn-python-preview.onrender.com"
             && address.port == -1)
         val conn = address.openConnection() as HttpsURLConnection
         conn.instanceFollowRedirects = false
@@ -178,7 +179,7 @@ internal class NativeCabinetApi(context: Context) {
             if (payload != null) {
                 conn.requestMethod = "POST"
                 conn.doOutput = true
-                conn.setRequestProperty("Origin", NativeCabinetCatalog.ORIGIN)
+                conn.setRequestProperty("Origin", NativeCabinetCatalog.API_ORIGIN)
                 conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 val data = payload.toString().toByteArray(StandardCharsets.UTF_8)
                 require(data.size <= 8_192)
