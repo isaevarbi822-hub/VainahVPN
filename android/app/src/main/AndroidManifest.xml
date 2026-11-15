@@ -19,7 +19,7 @@
         android:name=".VainahApplication"
         android:label="${vainahAppLabel}"
         android:icon="@drawable/ic_vainah"
-        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false"
         android:allowBackup="false"
         android:supportsRtl="true">

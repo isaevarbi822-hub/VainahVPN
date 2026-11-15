@@ -13,16 +13,16 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * An original, accessible Android server-list row. Uses system country emoji,
- * never third-party app assets or embedded/private server credentials.
+ * Unified light server-list design. The country, protocol and TCP observation
+ * come only from the real imported subscription; no invented ping or endpoints.
  */
 object ServerListVisual {
     private val ink = VainahDesign.ink
     private val muted = VainahDesign.muted
     private val accent = VainahDesign.purple
     private val line = VainahDesign.border
-    private val selectedTint = Color.rgb(43, 35, 68)
-    private val plain = VainahDesign.surface2
+    private val plain = VainahDesign.surface
+    private val chosen = Color.rgb(241, 242, 252)
 
     fun backgroundColor(): Int = VainahDesign.background
     fun textColor(): Int = ink
@@ -30,22 +30,23 @@ object ServerListVisual {
     fun accentColor(): Int = accent
     fun cardColor(): Int = plain
 
-    private fun dp(context: Context, value: Int) =
-        (context.resources.displayMetrics.density * value).toInt()
+    private fun dp(context: Context, size: Int): Int =
+        (context.resources.displayMetrics.density * size).toInt()
 
-    private fun block(context: Context, color: Int, radius: Int = 16) =
+    private fun shape(context: Context, color: Int, radius: Int): GradientDrawable =
         GradientDrawable().apply {
             setColor(color)
             cornerRadius = dp(context, radius).toFloat()
         }
 
-    fun sheet(context: Context): LinearLayout =
-        LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            background = block(context, plain, 20)
-            setPadding(dp(context, 9), dp(context, 11), dp(context, 9), dp(context, 14))
-            elevation = dp(context, 2).toFloat()
+    fun sheet(context: Context): LinearLayout = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        background = shape(context, plain, 23).apply {
+            setStroke(dp(context, 1), VainahDesign.border)
         }
+        setPadding(dp(context, 12), dp(context, 13), dp(context, 12), dp(context, 15))
+        elevation = dp(context, 1).toFloat()
+    }
 
     fun row(
         context: Context,
@@ -57,123 +58,120 @@ object ServerListVisual {
         onFavoriteClick: (() -> Unit)? = null,
         onClick: () -> Unit,
     ): View {
-        val full = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            val colors = if (isSelected)
-                intArrayOf(Color.rgb(66, 48, 109), selectedTint)
-            else intArrayOf(plain, plain)
-            val surface = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR, colors
-            ).apply {
-                cornerRadius = dp(context, 14).toFloat()
-                if (isSelected) setStroke(dp(context, 1), accent)
-            }
-            background = RippleDrawable(
-                ColorStateList.valueOf(Color.argb(50, 180, 151, 255)),
-                surface, null
-            )
-        }
-        val horizontal = LinearLayout(context).apply {
+        val color = if (isSelected) chosen else plain
+        val content = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(context, 64)
+            minimumHeight = dp(context, if (isWhitelist) 74 else 69)
+            background = RippleDrawable(
+                ColorStateList.valueOf(Color.argb(35, 111, 111, 177)),
+                shape(context, color, 13).apply {
+                    if (isSelected) setStroke(dp(context, 1), VainahDesign.softPurple)
+                },
+                null
+            )
         }
+
         val marker = View(context).apply {
-            background = block(context, if (isSelected) accent else plain, 2)
+            background = shape(context, if (isSelected) accent else color, 3)
         }
-        horizontal.addView(marker, LinearLayout.LayoutParams(dp(context, 3), dp(context, 52)))
+        content.addView(marker, LinearLayout.LayoutParams(
+            dp(context, 3), dp(context, 54)
+        ))
         val flag = TextView(context).apply {
             text = info.flag
-            textSize = 24f
+            textSize = 25f
             gravity = Gravity.CENTER
         }
-        horizontal.addView(flag, LinearLayout.LayoutParams(dp(context, 41), -2).apply {
-            marginStart = dp(context, 5)
-            marginEnd = dp(context, 4)
-        })
-        val details = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        val title = TextView(context).apply {
+        content.addView(flag, LinearLayout.LayoutParams(
+            dp(context, 44), -2
+        ).apply { marginStart = dp(context, 6); marginEnd = dp(context, 5) })
+
+        val labels = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        labels.addView(TextView(context).apply {
             text = info.title
             textSize = 14.5f
-            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
             setTextColor(ink)
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
-        }
-        val subtitle = TextView(context).apply {
+        })
+        labels.addView(TextView(context).apply {
             text = info.subtitle
-            textSize = 10f
+            textSize = 10.5f
             setTextColor(muted)
-            letterSpacing = 0.015f
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
-        }
-        details.addView(title)
-        details.addView(subtitle, LinearLayout.LayoutParams(-1, -2).apply {
-            topMargin = dp(context, 2)
+        }, LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(context, 3)
         })
         if (isWhitelist) {
-            details.addView(TextView(context).apply {
-                text = "● Белые списки"
+            labels.addView(TextView(context).apply {
+                text = "Белые списки · группа"
                 textSize = 9.5f
                 setTextColor(VainahDesign.green)
                 maxLines = 1
-                ellipsize = TextUtils.TruncateAt.END
             }, LinearLayout.LayoutParams(-1, -2).apply {
                 topMargin = dp(context, 2)
             })
         }
-        horizontal.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
-        val lag = TextView(context).apply {
-            text = latency
+        content.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+
+        val shortLatency = when {
+            latency.startsWith("TCP ") -> latency.removePrefix("TCP ")
+            latency == "—" -> "—"
+            else -> latency
+        }
+        val ping = TextView(context).apply {
+            text = shortLatency
             textSize = 10.5f
             setTextColor(if (latency.startsWith("TCP ")) VainahDesign.green else muted)
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
             maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            contentDescription = "TCP-задержка: " + latency
         }
-        horizontal.addView(lag, LinearLayout.LayoutParams(
-            dp(context, if (latency == "—") 22 else 81), -2
-        ).apply { marginStart = dp(context, 2) })
+        content.addView(ping, LinearLayout.LayoutParams(
+            dp(context, if (shortLatency == "—") 24 else 68), -2
+        ).apply { marginStart = dp(context, 3) })
+
         if (onFavoriteClick != null) {
-            val star = TextView(context).apply {
+            content.addView(TextView(context).apply {
                 text = if (isFavorite) "★" else "☆"
-                textSize = 22f
+                textSize = 21f
                 setTextColor(if (isFavorite) accent else muted)
                 gravity = Gravity.CENTER
                 contentDescription = if (isFavorite)
-                    "Убрать из избранных" else "Добавить в избранное"
-                isClickable = true
+                    "Убрать из избранного" else "Добавить в избранное"
                 isFocusable = true
+                isClickable = true
                 setOnClickListener { onFavoriteClick() }
-            }
-            horizontal.addView(star, LinearLayout.LayoutParams(
-                dp(context, 33), dp(context, 46)
-            ))
+            }, LinearLayout.LayoutParams(dp(context, 34), dp(context, 48)))
         }
-        val arrow = TextView(context).apply {
+        content.addView(TextView(context).apply {
             text = "›"
-            textSize = 24f
+            textSize = 23f
             setTextColor(muted)
             gravity = Gravity.CENTER
-        }
-        horizontal.addView(arrow, LinearLayout.LayoutParams(dp(context, 16), -2))
-        full.addView(horizontal)
-        full.isClickable = true
-        full.isFocusable = true
-        full.contentDescription = buildString {
+        }, LinearLayout.LayoutParams(dp(context, 16), -2))
+
+        content.isClickable = true
+        content.isFocusable = true
+        content.contentDescription = buildString {
             append(info.title)
             append(", ")
             append(info.subtitle)
-            append(", ")
-            append(if (latency == "—") "задержка ещё не измерена" else latency)
+            append(", TCP: ")
+            append(if (latency == "—") "не измерено" else latency)
             if (isSelected) append(", выбран для следующего подключения")
-            if (isFavorite) append(", избранное")
+            if (isFavorite) append(", избранный")
             if (isWhitelist) append(", группа Белые списки")
         }
-        full.setOnClickListener { onClick() }
-        full.alpha = 0f
-        full.animate().alpha(1f).setDuration(180L).start()
-        return full
+        content.setOnClickListener { onClick() }
+        return content
     }
 
     fun separator(context: Context): View = View(context).apply {
