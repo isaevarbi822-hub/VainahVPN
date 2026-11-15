@@ -41,6 +41,37 @@ class SubscriptionPayloadParserTest {
         assertEquals("🇪🇸", ServerRowPresentation.describe(loaded[1], 1).flag)
     }
 
+    @Test fun recoversExplicitH1CloudWhitelistGroupFromJsonMetadata() {
+        val white = JSONObject()
+            .put("uri", node)
+            .put("groups", JSONArray().put("Белые списки"))
+        val ordinary = JSONObject()
+            .put("uri", other)
+            .put("groups", JSONArray().put("Обычные"))
+        val payload = JSONObject().put("profiles", JSONArray()
+            .put(white).put(ordinary)).toString()
+        val parsed = SubscriptionPayloadParser.nodes(payload)
+        assertEquals(2, parsed.size)
+        assertTrue(ServerCollections.isWhiteListLabel(parsed[0].label))
+        assertFalse(ServerCollections.isWhiteListLabel(parsed[1].label))
+        assertEquals(1, parsed.count {
+            ServerCollections.isWhiteListLabel(it.label)
+        })
+        assertEquals("example.org",
+            VlessRealityConfig.outbound(parsed[0].uri).getString("server"))
+    }
+
+    @Test fun booleanWhitelistMarkerIsNotInferredFromCountry() {
+        val payload = JSONObject().put("servers", JSONArray()
+            .put(JSONObject().put("uri", node).put("is_whitelist", true))
+            .put(JSONObject().put("uri", other).put("is_whitelist", false))
+        ).toString()
+        val parsed = SubscriptionPayloadParser.nodes(payload)
+        assertEquals(2, parsed.size)
+        assertTrue(ServerCollections.isWhiteListLabel(parsed[0].label))
+        assertFalse(ServerCollections.isWhiteListLabel(parsed[1].label))
+    }
+
     @Test fun parsesXrayRealityTcpJson() {
         val user = JSONObject().put("id", "00000000-0000-4000-8000-000000000001")
             .put("flow", "xtls-rprx-vision")

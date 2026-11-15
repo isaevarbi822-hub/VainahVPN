@@ -25,6 +25,10 @@ class SubscriptionController(context: Context) {
         vault.load()?.let { vault.cachedServers(it) }.orEmpty()
 
     fun favoriteNodeIds(): Set<String> = vault.favoriteNodeIds()
+    fun whiteListNodeIds(): Set<String> = vault.whiteListNodeIds()
+    fun setWhiteListNodes(
+        listedNodes: List<VainahNode>, selectedUris: Set<String>
+    ): Boolean = vault.setWhiteListNodes(listedNodes, selectedUris)
     fun setFavorite(uri: String, listedNodes: List<VainahNode>, enabled: Boolean): Boolean =
         vault.setFavoriteNode(uri, listedNodes, enabled)
 

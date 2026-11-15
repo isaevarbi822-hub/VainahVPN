@@ -1,9 +1,11 @@
 package app.vainah.vpn
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
@@ -51,12 +53,25 @@ object ServerListVisual {
         latency: String,
         isSelected: Boolean,
         isFavorite: Boolean = false,
+        isWhitelist: Boolean = false,
         onFavoriteClick: (() -> Unit)? = null,
         onClick: () -> Unit,
     ): View {
         val full = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            background = block(context, if (isSelected) selectedTint else plain, 11)
+            val colors = if (isSelected)
+                intArrayOf(Color.rgb(66, 48, 109), selectedTint)
+            else intArrayOf(plain, plain)
+            val surface = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR, colors
+            ).apply {
+                cornerRadius = dp(context, 14).toFloat()
+                if (isSelected) setStroke(dp(context, 1), accent)
+            }
+            background = RippleDrawable(
+                ColorStateList.valueOf(Color.argb(50, 180, 151, 255)),
+                surface, null
+            )
         }
         val horizontal = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -95,13 +110,24 @@ object ServerListVisual {
         }
         details.addView(title)
         details.addView(subtitle, LinearLayout.LayoutParams(-1, -2).apply {
-            topMargin = dp(context, 3)
+            topMargin = dp(context, 2)
         })
+        if (isWhitelist) {
+            details.addView(TextView(context).apply {
+                text = "● Белые списки"
+                textSize = 9.5f
+                setTextColor(VainahDesign.green)
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+            }, LinearLayout.LayoutParams(-1, -2).apply {
+                topMargin = dp(context, 2)
+            })
+        }
         horizontal.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
         val lag = TextView(context).apply {
             text = latency
             textSize = 10.5f
-            setTextColor(if (latency.startsWith("TCP ")) accent else muted)
+            setTextColor(if (latency.startsWith("TCP ")) VainahDesign.green else muted)
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
             maxLines = 1
         }
@@ -142,8 +168,11 @@ object ServerListVisual {
             append(if (latency == "—") "задержка ещё не измерена" else latency)
             if (isSelected) append(", выбран для следующего подключения")
             if (isFavorite) append(", избранное")
+            if (isWhitelist) append(", группа Белые списки")
         }
         full.setOnClickListener { onClick() }
+        full.alpha = 0f
+        full.animate().alpha(1f).setDuration(180L).start()
         return full
     }
 

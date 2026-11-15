@@ -66,6 +66,18 @@ class ServerDirectoryTest {
         ).map { it.index })
     }
 
+    @Test fun localWhitelistIdsAreScopedToActualListEntries() {
+        val key = ServerDirectory.identity(nodes[1].uri)
+        val entries = ServerDirectory.view(
+            nodes, emptySet(), "", false, ServerSort.SUBSCRIPTION,
+            emptyList(), setOf(key)
+        )
+        assertEquals(listOf(1), ServerCollections.filter(
+            entries, ServerCollection.WHITELIST
+        ).map { it.index })
+        assertEquals(nodes.size, entries.size)
+    }
+
     @Test fun idsAreDeterministicHashesNotCredentialsOrHostnames() {
         val id = ServerDirectory.identity(nodes[0].uri)
         assertEquals(64, id.length)

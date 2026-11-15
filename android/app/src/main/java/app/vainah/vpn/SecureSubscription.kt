@@ -47,6 +47,7 @@ class SecureSubscription(private val context: Context) {
         if (previous != url) {
             editor.remove("server_cache_v1")
             editor.remove("favorite_nodes_cipher_v1")
+            editor.remove("whitelist_nodes_cipher_v1")
             // Different subscription host may not authorize the same
             // client identity. Never silently forward a custom UA to it.
             editor.remove("user_agent_ciphertext_v1")
@@ -176,6 +177,59 @@ class SecureSubscription(private val context: Context) {
         }.getOrDefault(false)
     }
 
+    /**
+     * User-confirmed local list for providers that omit grouping metadata.
+     * Contains only hashes of nodes from the currently saved subscription.
+     * Selecting a node does NOT change its routing or network capabilities.
+     */
+    fun whiteListNodeIds(): Set<String> {
+        val currentLink = load() ?: return emptySet()
+        val pair = store.getString("whitelist_nodes_cipher_v1", null)
+            ?.split(':', limit = 2) ?: return emptySet()
+        if (pair.size != 2) return emptySet()
+        return runCatching {
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(
+                Cipher.DECRYPT_MODE, key(),
+                GCMParameterSpec(128, Base64.decode(pair[0], Base64.NO_WRAP))
+            )
+            val clear = cipher.doFinal(Base64.decode(pair[1], Base64.NO_WRAP))
+            if (clear.size > 16384) return emptySet()
+            val payload = org.json.JSONObject(String(clear, Charsets.UTF_8))
+            if (payload.optString("link") != currentLink) return emptySet()
+            val values = payload.optJSONArray("ids") ?: return emptySet()
+            if (values.length() > 50) return emptySet()
+            val ids = (0 until values.length()).map { values.getString(it) }
+            ids.takeIf { it.all(ServerDirectory::validId) }?.toSet()
+                ?: emptySet()
+        }.getOrDefault(emptySet())
+    }
+
+    fun setWhiteListNodes(
+        allowedNodes: List<VainahNode>, selectedUris: Set<String>
+    ): Boolean {
+        val currentLink = load() ?: return false
+        if (allowedNodes.size > 50) return false
+        val allowed = allowedNodes.map { it.uri }.toSet()
+        if (!allowed.containsAll(selectedUris)) return false
+        val ids = selectedUris.map(ServerDirectory::identity).sorted()
+        if (ids.size > 50) return false
+        return runCatching {
+            val bytes = org.json.JSONObject()
+                .put("link", currentLink)
+                .put("ids", org.json.JSONArray(ids))
+                .toString().toByteArray(Charsets.UTF_8)
+            if (bytes.size > 16384) return false
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.ENCRYPT_MODE, key())
+            val encrypted = cipher.doFinal(bytes)
+            val iv = Base64.encodeToString(cipher.iv, Base64.NO_WRAP)
+            val data = Base64.encodeToString(encrypted, Base64.NO_WRAP)
+            if (load() != currentLink) return false
+            store.edit().putString("whitelist_nodes_cipher_v1", "$iv:$data").commit()
+        }.getOrDefault(false)
+    }
+
     /** User-chosen User-Agent can contain a per-client ID: encrypt it as a secret. */
     fun saveUserAgent(raw: String): Boolean {
         val value = SubscriptionUserAgent.validate(raw) ?: return false
@@ -215,6 +269,7 @@ class SecureSubscription(private val context: Context) {
     fun delete() {
         store.edit().remove("ciphertext").remove("server_cache_v1")
             .remove("favorite_nodes_cipher_v1")
+            .remove("whitelist_nodes_cipher_v1")
             .remove("user_agent_ciphertext_v1").apply()
     }
 }

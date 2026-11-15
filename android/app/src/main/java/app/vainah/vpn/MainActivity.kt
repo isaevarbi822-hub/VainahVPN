@@ -1,6 +1,8 @@
 package app.vainah.vpn
 
 import android.app.Activity
+import android.animation.ValueAnimator
+import android.content.res.ColorStateList
 import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -8,6 +10,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.net.Uri
 import android.net.VpnService
 import android.provider.Settings
@@ -67,6 +70,8 @@ class MainActivity : Activity() {
     private var detailView: TextView? = null
     private var trafficView: TextView? = null
     private var connectView: Button? = null
+    private var powerOrb: View? = null
+    private var pulseAnimator: ValueAnimator? = null
     private val main = Handler(Looper.getMainLooper())
     private val vpnConsentCode = 7041
 
@@ -120,6 +125,8 @@ class MainActivity : Activity() {
     }
     override fun onPause() {
         main.removeCallbacks(ticker)
+        pulseAnimator?.cancel()
+        pulseAnimator = null
         super.onPause()
     }
     override fun onDestroy() {
@@ -208,6 +215,9 @@ class MainActivity : Activity() {
     }
 
     private fun render() {
+        pulseAnimator?.cancel()
+        pulseAnimator = null
+        powerOrb = null
         stateView = null
         detailView = null
         trafficView = null
@@ -261,8 +271,11 @@ class MainActivity : Activity() {
             Page.MORE -> more(body)
         }
         val nav = horizontal().apply {
-            setBackgroundColor(ServerListVisual.backgroundColor())
-            setPadding(dp(7), dp(5), dp(7), dp(5))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(VainahDesign.surface, bg)
+            )
+            setPadding(dp(7), dp(7), dp(7), dp(6))
         }
         val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
                 Page.SETTINGS)) Page.MORE else page
@@ -272,17 +285,27 @@ class MainActivity : Activity() {
             Page.MORE to "Профиль"
         )) {
             val active = target == selectedTab
-            val button = action(label, active).apply {
-                setMinWidth(0)
-                setMinimumWidth(0)
-                setPadding(0, 0, 0, 0)
-                minHeight = dp(40)
-                textSize = 10f
-                setTextColor(if (active) bg else grey)
-                background = shape(
-                    if (active) violet else ServerListVisual.backgroundColor(),
-                    if (active) violet else ServerListVisual.backgroundColor(), 12
+            val tab = column().apply {
+                gravity = Gravity.CENTER
+                isClickable = true
+                isFocusable = true
+                contentDescription = label
+                val fill = GradientDrawable().apply {
+                    setColor(if (active) violet else VainahDesign.surface)
+                    cornerRadius = dp(15).toFloat()
+                }
+                background = RippleDrawable(
+                    ColorStateList.valueOf(Color.argb(60, 180, 151, 255)),
+                    fill, null
                 )
+                val glyph = NavigationGlyphView(this@MainActivity, target.name, active)
+                addView(glyph, LinearLayout.LayoutParams(dp(22), dp(22)))
+                addView(t(label, 9.5f, if (active) bg else grey, active).apply {
+                    gravity = Gravity.CENTER
+                    maxLines = 1
+                }, LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(3)
+                })
                 setOnClickListener {
                     if (target != page) {
                         page = target
@@ -290,7 +313,7 @@ class MainActivity : Activity() {
                     }
                 }
             }
-            nav.addView(button, LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+            nav.addView(tab, LinearLayout.LayoutParams(0, dp(55), 1f).apply {
                 marginStart = dp(2)
                 marginEnd = dp(2)
             })
@@ -328,7 +351,8 @@ class MainActivity : Activity() {
         favoriteOnly: Boolean = false,
         sort: ServerSort = ServerSort.SUBSCRIPTION,
     ): List<ServerDirectoryEntry> = ServerDirectory.view(
-        nodes, source.favoriteNodeIds(), query, favoriteOnly, sort, serverProbes
+        nodes, source.favoriteNodeIds(), query, favoriteOnly, sort,
+        serverProbes, source.whiteListNodeIds()
     )
 
     private fun putServerRows(
@@ -347,6 +371,8 @@ class MainActivity : Activity() {
                 latency = latency,
                 isSelected = node.uri == selected?.uri,
                 isFavorite = entry.favorite,
+                isWhitelist = ServerCollections.isWhiteListLabel(entry.info.title) ||
+                    entry.manualWhitelist,
                 onFavoriteClick = {
                     if (source.setFavorite(node.uri, nodes, !entry.favorite)) {
                         if (onFavoriteChanged != null) onFavoriteChanged() else render()
@@ -378,7 +404,10 @@ class MainActivity : Activity() {
         val accent = ServerListVisual.accentColor()
 
         val upper = horizontal()
-        val brand = t("VainahVPN", 20f, ink, true)
+        val brand = column().apply {
+            add(this, t("VainahVPN", 22f, ink, true))
+            add(this, t("Твоё соединение · Твои правила", 11f, muted), 3)
+        }
         upper.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
         val settingsButton = lightAction("⚙").apply {
             contentDescription = "Настройки VainahVPN"
@@ -398,37 +427,51 @@ class MainActivity : Activity() {
 
         val hero = column().apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(6), dp(12), dp(6), dp(9))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(34, 30, 65), VainahDesign.surface)
+            ).apply {
+                cornerRadius = dp(25).toFloat()
+                setStroke(dp(1), VainahDesign.border)
+            }
+            setPadding(dp(15), dp(18), dp(15), dp(18))
         }
         add(body, hero, 14)
         val ring = FrameLayout(this).apply {
-            background = GradientDrawable().apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(86, 63, 155), Color.rgb(35, 30, 66))
+            ).apply {
                 shape = GradientDrawable.OVAL
-                setColor(VainahDesign.previewTop)
                 setStroke(dp(2), VainahDesign.purple)
             }
         }
-        val power = Button(this).apply {
-            text = "⏻"
-            textSize = 60f
-            isAllCaps = false
-            setTextColor(accent)
+        val power = PowerOrbView(this).apply {
             contentDescription = "Включить или отключить VPN"
-            background = GradientDrawable().apply {
+            isClickable = true
+            isFocusable = true
+            val circle = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(48, 40, 89), VainahDesign.surface)
+            ).apply {
                 shape = GradientDrawable.OVAL
-                setColor(VainahDesign.surface2)
-                setStroke(dp(3), VainahDesign.softPurple)
+                setStroke(dp(2), VainahDesign.softPurple)
             }
-            elevation = dp(9).toFloat()
+            background = RippleDrawable(
+                ColorStateList.valueOf(Color.argb(80, 190, 164, 255)),
+                circle, null
+            )
+            elevation = dp(7).toFloat()
             setOnClickListener {
                 if (VpnConnectionState.read(this@MainActivity).canDisconnect) disconnect()
                 else connect()
             }
         }
+        powerOrb = power
         ring.addView(power, FrameLayout.LayoutParams(
-            dp(136), dp(136), Gravity.CENTER
+            dp(130), dp(130), Gravity.CENTER
         ))
-        hero.addView(ring, LinearLayout.LayoutParams(dp(183), dp(183)))
+        hero.addView(ring, LinearLayout.LayoutParams(dp(177), dp(177)))
         val status = t("Не подключено", 19f, ink, true).apply {
             gravity = Gravity.CENTER
         }
@@ -449,8 +492,15 @@ class MainActivity : Activity() {
         detailView = detail
         add(hero, detail, 7)
         val connect = action("Подключиться", true).apply {
-            setTextColor(Color.WHITE)
-            background = shape(accent, accent, 14)
+            setTextColor(bg)
+            background = RippleDrawable(
+                ColorStateList.valueOf(Color.argb(70, 255, 255, 255)),
+                GradientDrawable(
+                    GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(VainahDesign.purple, VainahDesign.softPurple)
+                ).apply { cornerRadius = dp(15).toFloat() },
+                null
+            )
         }
         connectView = connect
         add(hero, connect, 12)
@@ -460,7 +510,7 @@ class MainActivity : Activity() {
         }
 
         val sheet = ServerListVisual.sheet(this)
-        add(body, sheet, 10)
+        add(body, sheet, 12)
         val heading = horizontal().apply {
             setPadding(dp(10), 0, dp(10), dp(8))
         }
@@ -531,8 +581,7 @@ class MainActivity : Activity() {
         }
         add(sheet, footer)
         add(body, t(
-            "Задержка «н/д» означает, что измерений нет. " +
-                "TCP-замер не подтверждает работу VPN-сервера.",
+            "TCP — проверка входного сервера, не скорость VPN.",
             11f, muted
         ), 12)
 
@@ -966,11 +1015,21 @@ class MainActivity : Activity() {
             isFillViewport = false
             addView(categoryRow)
         }
-        add(sheet, categoryScroll, 10)
-        add(sheet, t(
-            "Фильтры используют названия реальных узлов H1Cloud.",
+        add(sheet, categoryScroll, 8)
+        val whiteInfo = t(
+            "H1Cloud может подключать LTE-доступ к обычному серверу без " +
+                "метки в подписке. Отметь такие узлы вручную; это не включает LTE.",
             10.5f, muted
-        ).apply { setPadding(dp(12), dp(2), dp(12), dp(5)) })
+        ).apply { setPadding(dp(12), dp(3), dp(12), dp(6)) }
+        add(sheet, whiteInfo)
+        val editWhite = lightAction("✦ Отметить мои LTE-серверы").apply {
+            textSize = 11.5f
+            setTextColor(VainahDesign.green)
+            minHeight = dp(42)
+            background = shape(VainahDesign.surface, VainahDesign.border, 13)
+        }
+        add(sheet, editWhite, 4)
+        editWhite.setOnClickListener { chooseWhiteListNodes() }
         val controls = horizontal().apply {
             setPadding(dp(5), dp(9), dp(5), dp(12))
         }
@@ -1001,6 +1060,9 @@ class MainActivity : Activity() {
                     directory(serverSearchQuery, false, serverSort),
                     serverCollection
                 )
+                val whiteMode = serverCollection == ServerCollection.WHITELIST
+                whiteInfo.visibility = if (whiteMode) View.VISIBLE else View.GONE
+                editWhite.visibility = if (whiteMode) View.VISIBLE else View.GONE
                 favoriteButton.text = if (serverCollection == ServerCollection.FAVORITES)
                     "★ Только избранные" else "☆ Избранные"
                 for ((category, button) in categoryButtons) {
@@ -1021,7 +1083,9 @@ class MainActivity : Activity() {
                     it.attempts == ServerTcpSelector.ATTEMPTS_PER_NODE &&
                         it.successes >= 2
                 }
-                count.text = "${matches.size} из ${nodes.size} · TCP: ${measured} измерено"
+                count.text = if (whiteMode)
+                    "Белые списки: ${matches.size} из ${nodes.size}"
+                else "${matches.size} из ${nodes.size} · TCP: ${measured} измерено"
                 results.removeAllViews()
                 if (matches.isEmpty()) {
                     val message = if (serverSearchQuery.isNotBlank())
@@ -1101,6 +1165,36 @@ class MainActivity : Activity() {
             !VpnConnectionState.read(this).canDisconnect
         add(measurement, probe, 12)
         probe.setOnClickListener { probeServersAndChoose() }
+    }
+
+    private fun chooseWhiteListNodes() {
+        if (nodes.isEmpty()) {
+            popup("Сначала добавь подписку и обнови серверы.")
+            return
+        }
+        val visible = ServerRowPresentation.describeList(nodes)
+        val current = source.whiteListNodeIds()
+        val checked = BooleanArray(nodes.size) { index ->
+            ServerDirectory.identity(nodes[index].uri) in current
+        }
+        val options = visible.map { it.flag + "  " + it.title }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Белые списки · LTE-доступ")
+            .setMultiChoiceItems(options, checked) { _, index, value ->
+                checked[index] = value
+            }
+            .setPositiveButton("Сохранить") { _, _ ->
+                val selectedUris = nodes.indices.filter { checked[it] }
+                    .map { nodes[it].uri }.toSet()
+                if (source.setWhiteListNodes(nodes, selectedUris)) {
+                    serverCollection = ServerCollection.WHITELIST
+                    render()
+                } else {
+                    popup("Не удалось сохранить группу. Проверь VPN-подписку.")
+                }
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     private fun invalidateServerProbes() {
@@ -1512,8 +1606,32 @@ class MainActivity : Activity() {
         })
         main.postDelayed({ updateConnection() }, 350)
     }
+    private fun updatePowerPulse(phase: String) {
+        val orb = powerOrb
+        if (orb == null || phase != VpnConnectionState.STARTING) {
+            pulseAnimator?.cancel()
+            pulseAnimator = null
+            orb?.scaleX = 1f
+            orb?.scaleY = 1f
+            return
+        }
+        if (pulseAnimator != null) return
+        pulseAnimator = ValueAnimator.ofFloat(1f, 1.065f).apply {
+            duration = 920L
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            addUpdateListener { frame ->
+                val size = frame.animatedValue as Float
+                powerOrb?.scaleX = size
+                powerOrb?.scaleY = size
+            }
+            start()
+        }
+    }
+
     private fun updateConnection() {
         val snapshot = VpnConnectionState.read(this)
+        updatePowerPulse(snapshot.phase)
         val connected = snapshot.canDisconnect
         stateView?.text = when (snapshot.phase) {
             VpnConnectionState.ONLINE -> "Туннель запущен"
