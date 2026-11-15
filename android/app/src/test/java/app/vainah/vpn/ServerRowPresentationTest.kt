@@ -61,9 +61,9 @@ class ServerRowPresentationTest {
     @Test fun doesNotPretendUnsupportedTransportsAreFunctional() {
         val unsupported = realFormat.replace("type=tcp", "type=grpc")
         val row = ServerRowPresentation.describe(node("Испания", unsupported), 0)
-        assertEquals("Формат не подтверждён", row.subtitle)
-        assertEquals("unknown", row.transport)
-        assertTrue(row.subtitle.contains("не подтверждён"))
+        assertEquals("VLESS / GRPC / REALITY", row.subtitle)
+        assertEquals("grpc", row.transport)
+        assertFalse(SubscriptionNodeSupport.canConnect(unsupported))
     }
 
     @Test fun onlySufficientRealTcpProbesYieldNumbers() {

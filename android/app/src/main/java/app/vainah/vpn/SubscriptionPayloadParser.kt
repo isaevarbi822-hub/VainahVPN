@@ -6,8 +6,9 @@ import java.net.URLEncoder
 import java.util.Base64
 import java.util.UUID
 
-/** Credential-safe decoding of SUB and compatible Xray/sing-box JSON documents.
- * All URLs remain in memory. Unsupported REALITY transports are excluded.
+/** Credential-safe decoding of SUB and Xray/sing-box JSON documents.
+ * Keep eligible but unsupported transports visible (never silently drop LTE nodes).
+ * The VPN engine continues to reject connections it cannot actually run.
  */
 object SubscriptionPayloadParser {
     private const val MAX_NODES = 50
@@ -30,17 +31,17 @@ object SubscriptionPayloadParser {
                 }
             }
         }
-        val supported = ArrayList<VainahNode>()
+        val imported = ArrayList<VainahNode>()
         for (url in urls) {
             if (url.length > 8192 || !url.startsWith("vless://")) continue
-            if (runCatching { VlessRealityConfig.outbound(url) }.isFailure) continue
-            supported.add(VainahNode(
-                SubscriptionServers.displayName(url, supported.size + 1), url
+            if (SubscriptionNodeSupport.inspect(url) == null) continue
+            imported.add(VainahNode(
+                SubscriptionServers.displayName(url, imported.size + 1), url
             ))
-            require(supported.size <= MAX_NODES) { "Too many supported servers" }
+            require(imported.size <= MAX_NODES) { "Too many VLESS nodes" }
         }
-        val unique = ServerListReconciler.unique(supported)
-        require(unique.isNotEmpty()) { "No supported VLESS REALITY TCP servers" }
+        val unique = ServerListReconciler.unique(imported)
+        require(unique.isNotEmpty()) { "No recognized VLESS TLS/REALITY nodes" }
         return unique
     }
 
@@ -124,13 +125,14 @@ object SubscriptionPayloadParser {
     private fun hasWhitelistMetadata(item: JSONObject): Boolean {
         for (key in listOf(
             "whitelist", "white_list", "is_whitelist", "isWhitelist",
-            "isWhiteList", "whiteList"
+            "isWhiteList", "whiteList",
+            "lte_access", "lte_enabled", "is_lte", "lteAccess", "lteEnabled"
         )) {
             if (item.opt(key) == true) return true
         }
         val keys = listOf(
             "name", "label", "group", "groups", "category", "categories",
-            "tags", "labels", "profile_group", "service_group"
+            "tags", "labels", "profile_group", "service_group", "features", "service_type"
         )
         for (key in keys) {
             when (val value = item.opt(key)) {
@@ -163,19 +165,30 @@ object SubscriptionPayloadParser {
         if (ServerCollections.isWhiteListLabel(label)) return link
         // URL fragment is display-only. Do not modify REALITY parameters,
         // endpoints, UUID or subscription access tokens.
-        val tagged = (label.take(44) + " · Белые списки")
+        val tagged = (label.take(44) + " · LTE-доступ")
         return link.substringBefore('#') + "#" +
             URLEncoder.encode(tagged, "UTF-8").replace("+", "%20")
     }
 
     private fun xrayLinks(item: JSONObject): List<String> {
         val stream = item.optJSONObject("streamSettings") ?: return emptyList()
-        if (stream.optString("security") != "reality" ||
-            stream.optString("network", "tcp") !in listOf("tcp", "raw")) return emptyList()
-        val reality = stream.optJSONObject("realitySettings") ?: return emptyList()
-        val sni = reality.optString("serverName")
-        val pbk = reality.optString("publicKey")
-        if (sni.isBlank() || pbk.isBlank()) return emptyList()
+        val security = stream.optString("security").lowercase()
+        val network = stream.optString("network", "tcp").lowercase()
+        if (security !in listOf("reality", "tls") ||
+            network !in listOf("tcp", "raw", "grpc", "xhttp", "splithttp")) return emptyList()
+        val reality = stream.optJSONObject("realitySettings")
+        val tls = stream.optJSONObject("tlsSettings")
+        val sni = if (security == "reality")
+            reality?.optString("serverName").orEmpty()
+        else tls?.optString("serverName").orEmpty()
+        val pbk = reality?.optString("publicKey").orEmpty()
+        if (security == "reality" && (sni.isBlank() || pbk.isBlank()))
+            return emptyList()
+        val transportSettings = if (network in listOf("xhttp", "splithttp"))
+            stream.optJSONObject("xhttpSettings") ?: stream.optJSONObject("splithttpSettings")
+        else null
+        val path = transportSettings?.optString("path").orEmpty()
+        val serviceName = stream.optJSONObject("grpcSettings")?.optString("serviceName").orEmpty()
         val servers = item.optJSONObject("settings")?.optJSONArray("vnext")
             ?: return emptyList()
         if (servers.length() > MAX_NODES) return emptyList()
@@ -188,9 +201,11 @@ object SubscriptionPayloadParser {
                 link(
                     user.optString("id"), server.optString("address"),
                     server.optInt("port"), sni, pbk,
-                    reality.optString("shortId"),
-                    reality.optString("fingerprint", "chrome"),
-                    user.optString("flow"), item.optString("tag")
+                    reality?.optString("shortId").orEmpty(),
+                    reality?.optString("fingerprint", "chrome")
+                        ?: tls?.optString("fingerprint", "chrome") ?: "chrome",
+                    user.optString("flow"), item.optString("tag"),
+                    security, network, path, serviceName
                 )?.let { result.add(it) }
                 if (result.size > MAX_NODES) return emptyList()
             }
@@ -199,38 +214,49 @@ object SubscriptionPayloadParser {
     }
 
     private fun singBoxLink(item: JSONObject): String? {
-        val transport = item.optJSONObject("transport")?.optString("type", "tcp")
-        if (transport != null && transport !in listOf("tcp", "raw")) return null
+        val transport = item.optJSONObject("transport")
+        val network = transport?.optString("type", "tcp")?.lowercase() ?: "tcp"
+        if (network !in listOf("tcp", "raw", "grpc", "xhttp", "splithttp"))
+            return null
         val tls = item.optJSONObject("tls") ?: return null
-        val reality = tls.optJSONObject("reality") ?: return null
-        if (!tls.optBoolean("enabled") || !reality.optBoolean("enabled")) return null
+        if (!tls.optBoolean("enabled")) return null
+        val reality = tls.optJSONObject("reality")
+        val security = if (reality?.optBoolean("enabled") == true) "reality" else "tls"
         return link(
             item.optString("uuid"), item.optString("server"),
             item.optInt("server_port"), tls.optString("server_name"),
-            reality.optString("public_key"), reality.optString("short_id"),
+            reality?.optString("public_key").orEmpty(),
+            reality?.optString("short_id").orEmpty(),
             tls.optJSONObject("utls")?.optString("fingerprint", "chrome") ?: "chrome",
-            item.optString("flow"), item.optString("tag")
+            item.optString("flow"), item.optString("tag"),
+            security, network, transport?.optString("path").orEmpty(),
+            transport?.optString("service_name").orEmpty()
         )
     }
 
     private fun link(
         uuid: String, host: String, port: Int, sni: String, pbk: String,
-        sid: String, fp: String, flow: String, label: String
+        sid: String, fp: String, flow: String, label: String,
+        security: String, network: String, path: String, serviceName: String
     ): String? {
         if (uuid.length > 64 || runCatching { UUID.fromString(uuid) }.isFailure ||
             host.isBlank() || host.length > 253 || port !in 1..65535 ||
-            sni.isBlank() || sni.length > 253 || pbk.isBlank() || pbk.length > 256 ||
-            fp.length > 80 || sid.length > 128 || flow.length > 128) return null
+            sni.length > 253 || pbk.length > 256 ||
+            (security == "reality" && (sni.isBlank() || pbk.isBlank())) ||
+            fp.length > 80 || sid.length > 128 || flow.length > 128 ||
+            path.length > 512 || serviceName.length > 256) return null
         val authority = if (host.contains(':') && !host.startsWith("[")) "[" + host + "]" else host
         fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
         val query = buildList {
-            add("security=reality")
-            add("type=tcp")
-            add("sni=" + enc(sni))
-            add("pbk=" + enc(pbk))
+            add("security=" + enc(security))
+            add("type=" + enc(network))
+            if (sni.isNotBlank()) add("sni=" + enc(sni))
+            if (pbk.isNotBlank()) add("pbk=" + enc(pbk))
             add("fp=" + enc(fp.ifBlank { "chrome" }))
             if (sid.isNotBlank()) add("sid=" + enc(sid))
             if (flow.isNotBlank()) add("flow=" + enc(flow))
+            if (path.isNotBlank()) add("path=" + enc(path))
+            if (serviceName.isNotBlank()) add("serviceName=" + enc(serviceName))
         }.joinToString("&")
         val safeLabel = if (label.length in 1..80 &&
             !label.contains("://") && !label.contains('@') &&
@@ -238,6 +264,6 @@ object SubscriptionPayloadParser {
         else "VLESS REALITY"
         val raw = "vless://" + uuid + "@" + authority + ":" + port +
             "?" + query + "#" + enc(safeLabel)
-        return raw.takeIf { runCatching { VlessRealityConfig.outbound(it) }.isSuccess }
+        return raw.takeIf { SubscriptionNodeSupport.inspect(it) != null }
     }
 }

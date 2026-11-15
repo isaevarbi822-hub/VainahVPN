@@ -106,7 +106,7 @@ class MainActivity : Activity() {
             runCatching { Page.valueOf(it) }.getOrNull()
         } ?: Page.HOME
         nodes = source.cachedNodes()
-        selected = nodes.firstOrNull()
+        selected = nodes.firstOrNull { SubscriptionNodeSupport.canConnect(it.uri) }
         if (nodes.isNotEmpty()) cacheMessage =
             "Последний сохранённый список. Актуальность не подтверждена."
         render()
@@ -392,6 +392,34 @@ class MainActivity : Activity() {
         serverProbes, source.whiteListNodeIds()
     )
 
+    private fun isLteGroup(entry: ServerDirectoryEntry): Boolean =
+        ServerCollections.isWhiteListLabel(entry.info.title) ||
+            entry.manualWhitelist
+
+    /** Display actual provider/user-marked LTE entries above ordinary nodes. */
+    private fun putGroupedServerRows(
+        sheet: LinearLayout,
+        entries: List<ServerDirectoryEntry>,
+        returnHomeAfterSelection: Boolean,
+        onFavoriteChanged: (() -> Unit)? = null,
+    ) {
+        val (lte, ordinary) = entries.partition(::isLteGroup)
+        if (lte.isNotEmpty()) {
+            add(sheet, t("📶 LTE-доступ · ${lte.size}", 12.5f,
+                VainahDesign.green, true).apply {
+                setPadding(dp(9), dp(9), dp(9), dp(7))
+            })
+            putServerRows(sheet, lte, returnHomeAfterSelection, onFavoriteChanged)
+        }
+        if (ordinary.isNotEmpty()) {
+            if (lte.isNotEmpty()) add(sheet, t("Обычные серверы", 12.5f,
+                ServerListVisual.mutedColor(), true).apply {
+                setPadding(dp(9), dp(14), dp(9), dp(7))
+            })
+            putServerRows(sheet, ordinary, returnHomeAfterSelection, onFavoriteChanged)
+        }
+    }
+
     private fun putServerRows(
         sheet: LinearLayout,
         entries: List<ServerDirectoryEntry>,
@@ -408,8 +436,8 @@ class MainActivity : Activity() {
                 latency = latency,
                 isSelected = node.uri == selected?.uri,
                 isFavorite = entry.favorite,
-                isWhitelist = ServerCollections.isWhiteListLabel(entry.info.title) ||
-                    entry.manualWhitelist,
+                isWhitelist = isLteGroup(entry),
+                isConnectable = SubscriptionNodeSupport.canConnect(node.uri),
                 onFavoriteClick = {
                     if (source.setFavorite(node.uri, nodes, !entry.favorite)) {
                         if (onFavoriteChanged != null) onFavoriteChanged() else render()
@@ -419,6 +447,12 @@ class MainActivity : Activity() {
                     }
                 },
             ) {
+                if (!SubscriptionNodeSupport.canConnect(node.uri)) {
+                    popup("Конфигурация есть в H1Cloud, но текущий VPN-движок " +
+                        "VainahVPN пока не поддерживает ${entry.info.subtitle}. " +
+                        "Сервер показан без имитации подключения.")
+                    return@row
+                }
                 // Selecting a row never interrupts an existing VPN tunnel.
                 selected = node
                 if (returnHomeAfterSelection) {
@@ -571,7 +605,8 @@ class MainActivity : Activity() {
         val measure = lightAction("мс").apply {
             textSize = 12f
             contentDescription = "Измерить TCP-задержку всех серверов"
-            isEnabled = nodes.isNotEmpty() && !serverProbeRunning &&
+            isEnabled = nodes.any { SubscriptionNodeSupport.canConnect(it.uri) } &&
+                !serverProbeRunning &&
                 !VpnConnectionState.read(this@MainActivity).canDisconnect
         }
         heading.addView(measure, LinearLayout.LayoutParams(dp(42), dp(42)).apply {
@@ -608,9 +643,11 @@ class MainActivity : Activity() {
             ).apply { setPadding(dp(13), dp(12), dp(13), dp(15)) })
         } else {
             val ordered = directory()
+            val prioritized = ordered.filter(::isLteGroup) +
+                ordered.filterNot(::isLteGroup)
             val visible = if (serverListExpanded)
-                ordered.size else minOf(8, ordered.size)
-            putServerRows(sheet, ordered.take(visible), false)
+                prioritized.size else minOf(8, prioritized.size)
+            putGroupedServerRows(sheet, prioritized.take(visible), false)
             if (nodes.size > 8) {
                 val expand = lightAction(if (visible == ordered.size)
                     "Свернуть список" else "Показать все ${nodes.size} серверов")
@@ -700,7 +737,7 @@ class MainActivity : Activity() {
             serverListExpanded = false
             invalidateServerProbes()
             nodes = source.cachedNodes()
-            selected = nodes.firstOrNull()
+            selected = nodes.firstOrNull { SubscriptionNodeSupport.canConnect(it.uri) }
             lastError = null
             nextAutoRefresh = 0L
             cacheMessage = "Профиль сохранён. Обновляем список."
@@ -1143,9 +1180,12 @@ class MainActivity : Activity() {
                     it.attempts == ServerTcpSelector.ATTEMPTS_PER_NODE &&
                         it.successes >= 2
                 }
+                val connectable = nodes.count {
+                    SubscriptionNodeSupport.canConnect(it.uri)
+                }
                 count.text = if (whiteMode)
-                    "Белые списки: ${matches.size} из ${nodes.size}"
-                else "${matches.size} из ${nodes.size} · TCP: ${measured} измерено"
+                    "LTE-группа: ${matches.size} из ${nodes.size}"
+                else "${matches.size} из ${nodes.size} · подключаемых ${connectable} · TCP ${measured}"
                 results.removeAllViews()
                 if (matches.isEmpty()) {
                     val message = if (serverSearchQuery.isNotBlank())
@@ -1155,7 +1195,7 @@ class MainActivity : Activity() {
                         setPadding(dp(13), dp(12), dp(13), dp(18))
                     })
                 } else {
-                    putServerRows(results, matches, true, onFavoriteChanged = {
+                    putGroupedServerRows(results, matches, true, onFavoriteChanged = {
                         invoke()
                     })
                 }
@@ -1221,8 +1261,8 @@ class MainActivity : Activity() {
             background = shape(ServerListVisual.accentColor(),
                 ServerListVisual.accentColor(), 14)
         }
-        probe.isEnabled = nodes.isNotEmpty() && !serverProbeRunning &&
-            !VpnConnectionState.read(this).canDisconnect
+        probe.isEnabled = nodes.any { SubscriptionNodeSupport.canConnect(it.uri) } &&
+            !serverProbeRunning && !VpnConnectionState.read(this).canDisconnect
         add(measurement, probe, 12)
         probe.setOnClickListener { probeServersAndChoose() }
     }
@@ -1273,9 +1313,12 @@ class MainActivity : Activity() {
             popup("Для корректной проверки сначала отключи VPN.")
             return
         }
-        val capture = nodes.take(ServerTcpSelector.MAX_PROBED_NODES).toList()
+        val capture = nodes.mapIndexedNotNull { index, node ->
+            if (SubscriptionNodeSupport.canConnect(node.uri)) index to node
+            else null
+        }.take(ServerTcpSelector.MAX_PROBED_NODES)
         if (capture.isEmpty()) {
-            popup("Сначала добавь и обнови подписку.")
+            popup("В подписке нет узлов, поддерживаемых этим движком для TCP-замеров.")
             return
         }
         serverProbeRunning = true
@@ -1288,12 +1331,12 @@ class MainActivity : Activity() {
         render()
         Thread({
             val measured = try {
-                val futures = capture.mapIndexed { index, node ->
-                    pool.submit(Callable {
+                val futures = capture.map { (index, node) ->
+                    index to pool.submit(Callable {
                         ServerTcpMeasurement.sample(node).copy(index = index)
                     })
                 }
-                futures.mapIndexed { index, future ->
+                futures.map { (index, future) ->
                     runCatching { future.get() }.getOrElse {
                         ServerTcpObservation(index,
                             ServerTcpSelector.ATTEMPTS_PER_NODE, emptyList())
@@ -1307,7 +1350,10 @@ class MainActivity : Activity() {
                     return@post
                 serverProbeRunning = false
                 activeProbePool = null
-                val unchanged = capture == nodes.take(capture.size) &&
+                val unchanged = capture == nodes.mapIndexedNotNull { index, node ->
+                    if (SubscriptionNodeSupport.canConnect(node.uri)) index to node
+                    else null
+                }.take(ServerTcpSelector.MAX_PROBED_NODES) &&
                     source.savedLink() != null
                 if (!unchanged) {
                     serverProbes = emptyList()
@@ -1323,8 +1369,8 @@ class MainActivity : Activity() {
                         serverProbeMessage =
                             "TCP: нет надёжных замеров. Проверь сеть или настройки узлов."
                     } else {
-                        val chosen = capture[best]
-                        val latency = measured[best].medianMs
+                        val chosen = nodes[best]
+                        val latency = measured.firstOrNull { it.index == best }?.medianMs
                         val summary = "TCP: ${available} из ${capture.size} · лучший ${latency} мс."
                         if (selectBest && selected?.uri == selectedBefore) {
                             selected = nodes.firstOrNull { it.uri == chosen.uri } ?: selected
@@ -1599,7 +1645,8 @@ class MainActivity : Activity() {
                 invalidateServerProbes()
                 nodes = ServerListReconciler.unique(fresh)
                 selected = ServerListReconciler.preserve(selected, nodes)
-                    ?: nodes.firstOrNull()
+                    ?.takeIf { SubscriptionNodeSupport.canConnect(it.uri) }
+                    ?: nodes.firstOrNull { SubscriptionNodeSupport.canConnect(it.uri) }
                 lastError = null
                 cacheMessage = "Загружено серверов: " + nodes.size
                 nextAutoRefresh = SystemClock.elapsedRealtime() +
@@ -1633,7 +1680,15 @@ class MainActivity : Activity() {
             popup("VPN-движок libbox не установлен. Трафик не защищён.")
             return
         }
-        val node = selected ?: run { popup("Сначала выбери сервер."); return }
+        val node = selected ?: run {
+            popup("Нет выбранного совместимого сервера. XHTTP, gRPC и TLS-узлы " +
+                "видны в списке, но пока не подключаются текущим движком.")
+            return
+        }
+        if (!SubscriptionNodeSupport.canConnect(node.uri)) {
+            popup("Эта конфигурация пока не поддерживается движком VainahVPN.")
+            return
+        }
         if (source.savedLink() == null) { popup("Добавь подписку."); return }
         pendingNode = node
         val permission = VpnService.prepare(this)
