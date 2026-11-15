@@ -93,7 +93,7 @@ class SubscriptionPayloadParserTest {
         assertEquals("xtls-rprx-vision", converted.getString("flow"))
     }
 
-    @Test fun singBoxRealityJsonSkipsGrpcButKeepsTcp() {
+    @Test fun singBoxRealityJsonKeepsGrpcVisibleWithoutClaimingItConnects() {
         fun item(transport: String?): JSONObject {
             val o = JSONObject().put("type", "vless").put("tag", "Spain")
                 .put("server", "example.org").put("server_port", 443)
@@ -108,8 +108,49 @@ class SubscriptionPayloadParserTest {
         }
         val nodes = SubscriptionPayloadParser.nodes(JSONObject()
             .put("outbounds", JSONArray().put(item("grpc")).put(item(null))).toString())
-        assertEquals(1, nodes.size)
-        assertEquals("🇪🇸 Испания", nodes.first().label)
+        assertEquals(2, nodes.size)
+        assertEquals(listOf("🇪🇸 Испания", "🇪🇸 Испания"), nodes.map { it.label })
+        assertEquals("grpc", SubscriptionNodeSupport.inspect(nodes[0].uri)?.transport)
+        assertFalse(SubscriptionNodeSupport.canConnect(nodes[0].uri))
+        assertTrue(SubscriptionNodeSupport.canConnect(nodes[1].uri))
+    }
+
+    @Test fun importsActualLteXhttpTlsAndGrpcRealityFromJson() {
+        val uuid = "00000000-0000-4000-8000-000000000010"
+        val base = JSONObject()
+            .put("type", "vless")
+            .put("server", "tr.example.org")
+            .put("server_port", 443)
+            .put("uuid", uuid)
+            .put("tls", JSONObject()
+                .put("enabled", true)
+                .put("server_name", "tr.example.org"))
+        val lte = JSONObject(base.toString())
+            .put("tag", "Турция")
+            .put("lte_access", true)
+            .put("transport", JSONObject()
+                .put("type", "xhttp").put("path", "/lte"))
+        val regular = JSONObject(base.toString())
+            .put("tag", "Турция обычный")
+            .put("uuid", "00000000-0000-4000-8000-000000000011")
+            .put("tls", JSONObject(base.getJSONObject("tls").toString())
+                .put("reality", JSONObject()
+                    .put("enabled", true)
+                    .put("public_key", key)))
+            .put("transport", JSONObject()
+                .put("type", "grpc").put("service_name", "test-service"))
+        val json = JSONObject().put("outbounds",
+            JSONArray().put(lte).put(regular)).toString()
+        val loaded = SubscriptionPayloadParser.nodes(json)
+        assertEquals(2, loaded.size)
+        assertEquals("xhttp", SubscriptionNodeSupport.inspect(loaded[0].uri)?.transport)
+        assertEquals("tls", SubscriptionNodeSupport.inspect(loaded[0].uri)?.security)
+        assertTrue(ServerCollections.isWhiteListLabel(loaded[0].label))
+        assertEquals("grpc", SubscriptionNodeSupport.inspect(loaded[1].uri)?.transport)
+        assertEquals("reality", SubscriptionNodeSupport.inspect(loaded[1].uri)?.security)
+        assertFalse(SubscriptionNodeSupport.canConnect(loaded[0].uri))
+        assertFalse(SubscriptionNodeSupport.canConnect(loaded[1].uri))
+        assertEquals("🇹🇷", ServerRowPresentation.describe(loaded[0], 0).flag)
     }
 
     @Test fun acceptsSimpleJsonLinkLists() {
