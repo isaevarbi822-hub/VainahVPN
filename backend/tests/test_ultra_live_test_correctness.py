@@ -30,9 +30,9 @@ def test_speed_test_and_diagnostics_route_to_python_origin():
     assert "window.location.replace(toBackend(currentUrl))" in shell
     assert "site-shell.js?v=20261115-fixspeed1" in html
     assert "site-shell.js?v=20261115-fixspeed1" in diagnostics
-    assert "speed-test.js?v=20261115-fixspeed1" in html
-    assert "<small>Отклик HTTP</small>" in html
-    assert "<small>Разброс задержки</small>" in html
+    assert "speed-test.js?v=20261115-accurate2" in html
+    assert "<small>Ответ HTTP, медиана</small>" in html
+    assert "<small>Разброс HTTP-ответов</small>" in html
     with TestClient(app) as client:
         for page in ("/speed.html", "/diagnostics.html"):
             result = client.get(page)
