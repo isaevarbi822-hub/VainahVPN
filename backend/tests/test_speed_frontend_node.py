@@ -40,8 +40,8 @@ let requests=[];
   vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
   await $('speed-start').events.click();
   assert.equal(requests.filter(x=>x.path.endsWith('/ping')).length,4); // includes warm-up
-  assert.equal(requests.filter(x=>x.path.endsWith('/download')).length,1);
-  assert.equal(requests.filter(x=>x.path.endsWith('/upload')).length,1);
+  assert.equal(requests.filter(x=>x.path.endsWith('/download')).length,2);
+  assert.equal(requests.filter(x=>x.path.endsWith('/upload')).length,2);
   assert.equal(requests.find(x=>x.path.endsWith('/upload')).size,128*1024);
   assert.equal($('speed-options').disabled,false);
   assert.equal($('speed-copy').disabled,false);
@@ -52,7 +52,7 @@ let requests=[];
   await $('speed-start').events.click();
   assert.equal(requests.filter(x=>x.path.endsWith('/ping')).length,6); // includes warm-up
   assert.equal(requests.filter(x=>x.path.endsWith('/download')).length,3);
-  assert.equal(requests.filter(x=>x.path.endsWith('/upload')).length,2);
+  assert.equal(requests.filter(x=>x.path.endsWith('/upload')).length,3);
   assert.equal(requests.find(x=>x.path.endsWith('/upload')).size,256*1024);
   assert.ok($('speed-previous').textContent.includes('Режим проверки изменился'));
   assert.equal($('speed-start').disabled,false);
