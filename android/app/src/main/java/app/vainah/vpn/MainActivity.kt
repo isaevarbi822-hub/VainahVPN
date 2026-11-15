@@ -212,8 +212,29 @@ class MainActivity : Activity() {
         importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
     }
     private fun popup(message: String) {
-        AlertDialog.Builder(this).setTitle("VainahVPN").setMessage(message)
-            .setPositiveButton("Понятно", null).show()
+        // Branded, accessible dialog instead of a wall of system-default text.
+        // The message is already credential-safe before reaching this method.
+        val dialog = AlertDialog.Builder(this).create()
+        val surface = column().apply {
+            background = VainahUi.cardBackground(this@MainActivity)
+            setPadding(dp(20), dp(20), dp(20), dp(17))
+        }
+        add(surface, tag("VAINAHVPN"))
+        add(surface, t(message, 13.5f, white), 11)
+        val close = action("Понятно", true)
+        add(surface, close, 17)
+        close.setOnClickListener { dialog.dismiss() }
+        dialog.setView(surface)
+        dialog.setOnShowListener {
+            dialog.window?.setBackgroundDrawable(
+                android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+            )
+            dialog.window?.setLayout(
+                (resources.displayMetrics.widthPixels * 0.89f).toInt(),
+                android.view.WindowManager.LayoutParams.WRAP_CONTENT
+            )
+        }
+        dialog.show()
     }
 
     /**
