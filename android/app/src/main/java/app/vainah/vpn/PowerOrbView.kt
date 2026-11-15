@@ -14,12 +14,23 @@ import kotlin.math.min
  */
 class PowerOrbView(context: Context) : View(context) {
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = VainahDesign.softPurple
+        color = VainahDesign.muted
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
     private val bounds = RectF()
+
+    /** Real service phase controls the symbol color; never fake VPN success. */
+    fun setVpnPhase(phase: String) {
+        stroke.color = when (phase) {
+            VpnConnectionState.TUN_READY, VpnConnectionState.ONLINE -> VainahDesign.green
+            VpnConnectionState.STARTING -> VainahDesign.purple
+            VpnConnectionState.FAILED -> VainahDesign.error
+            else -> VainahDesign.muted
+        }
+        invalidate()
+    }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
