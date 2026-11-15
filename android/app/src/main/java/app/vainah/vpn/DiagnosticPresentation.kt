@@ -60,10 +60,10 @@ object DiagnosticPresentation {
 
     fun tunnelHeadline(phase: String, serviceRunning: Boolean): String =
         when {
+            phase == VpnConnectionState.FAILED -> "VPN: ошибка соединения"
             !serviceRunning || phase == VpnConnectionState.OFF ->
                 "VPN сейчас не запущен"
             phase == VpnConnectionState.STARTING -> "VPN подключается"
-            phase == VpnConnectionState.FAILED -> "VPN: ошибка соединения"
             phase == VpnConnectionState.ONLINE ||
                 phase == VpnConnectionState.TUN_READY ->
                 "Туннель создан · внешний IP не проверен"
