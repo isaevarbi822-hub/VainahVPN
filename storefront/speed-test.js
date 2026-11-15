@@ -44,6 +44,7 @@
     for (let i=0; i<samples; i++) {
       const began = performance.now();
       const response = await endpoint('ping');
+      check(response);
       if(response.status!==204)throw Error('Некорректный ответ проверки задержки. Открой тест на Python-сервере.');
       values.push(performance.now()-began);
       bar.style.width = (7 + 23*(i+1)/samples)+'%';
@@ -117,6 +118,7 @@
       abortTimer=setTimeout(()=>{timedOut=true;controller.abort();},durationLimit);
       note('Подготавливаем сервер…','Прогрев соединения');
       const warmup=await endpoint('ping');
+      check(warmup);
       if(warmup.status!==204)throw Error('Проверка не получила ожидаемый ответ Python API (204).');
       note('Измеряем задержку HTTP…','Отклик и разброс задержки');
       const latency = await timePing(config.pings);
