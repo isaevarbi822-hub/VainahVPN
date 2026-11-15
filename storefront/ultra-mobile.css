@@ -1,0 +1,98 @@
+/* Vainah Ultra 360: small-screen navigation and accessibility polish.
+   Navigation is only informational: no account/API/payment writes. */
+.vx-ultra-mobile-rail{display:none}
+body :is(a,button,summary):focus-visible{outline:3px solid #a9e0f4!important;outline-offset:3px}
+body .vx-finder,body .vx-control-dialog{overscroll-behavior:contain}
+@media(max-width:700px){
+ body.vx-has-ultra-mobile{padding-bottom:calc(78px + env(safe-area-inset-bottom))!important}
+ body.vx-has-ultra-mobile .vx-ultra-mobile-rail{
+   display:grid!important;
+   grid-template-columns:repeat(4,minmax(0,1fr));
+   gap:5px;
+   position:fixed;
+   z-index:64;
+   left:max(7px,env(safe-area-inset-left));
+   right:max(7px,env(safe-area-inset-right));
+   bottom:max(6px,env(safe-area-inset-bottom));
+   max-width:480px;
+   margin:0 auto;
+   min-height:66px;
+   padding:5px 6px;
+   border:1px solid #a38ad58c;
+   border-radius:19px;
+   background:#13172bf5;
+   box-shadow:0 13px 35px #000b,0 2px 0 #ffffff19 inset;
+   backdrop-filter:blur(16px);
+   -webkit-backdrop-filter:blur(16px);
+ }
+ body.vx-has-ultra-mobile .vx-ultra-mobile-link{
+   display:flex;
+   flex-direction:column;
+   align-items:center;
+   justify-content:center;
+   text-align:center;
+   gap:3px;
+   text-decoration:none!important;
+   border-radius:13px;
+   border:1px solid transparent;
+   color:#d4d0e6!important;
+   padding:7px 2px 5px;
+   font-size:10px!important;
+   font-weight:750;
+   line-height:1.2;
+   min-width:0;
+   min-height:53px;
+   letter-spacing:0!important;
+ }
+ body.vx-has-ultra-mobile .vx-ultra-mobile-link[aria-current=page]{
+   background:linear-gradient(130deg,#564183,#423772);
+   border-color:#a48cde91;
+   color:#fff!important;
+ }
+ body.vx-has-ultra-mobile .vx-ultra-mobile-link:active{background:#3a3158}
+ body.vx-has-ultra-mobile .vx-ultra-mobile-icon{
+   display:block;
+   font-size:19px;
+   font-weight:800;
+   line-height:1;
+ }
+ body.vx-has-ultra-mobile #vx-control-open.vx-control-launch{
+   left:max(12px,env(safe-area-inset-left))!important;
+   bottom:calc(86px + env(safe-area-inset-bottom))!important;
+   max-width:190px!important;
+   border-color:#af92eead!important;
+   background:#2c2446!important;
+   color:#f5ebff!important;
+   box-shadow:0 8px 30px #0008!important;
+ }
+ body.vx-has-ultra-mobile .vx-back-to-top{
+   bottom:calc(91px + env(safe-area-inset-bottom))!important;
+   right:12px!important;
+ }
+ body.vx-has-ultra-mobile .vx-utility-rail{
+   bottom:calc(92px + env(safe-area-inset-bottom))!important;
+ }
+ body.vx-has-ultra-mobile :is(.plan-grid,.vx-picks-grid,.tariff-mega-tools){
+   min-width:0;
+ }
+ body.vx-has-ultra-mobile .vx-control-dialog{
+   max-height:min(78dvh,850px);
+ }
+}
+@media(max-width:380px){
+ body.vx-has-ultra-mobile .vx-ultra-mobile-rail{gap:2px}
+ body.vx-has-ultra-mobile .vx-ultra-mobile-link{font-size:9px!important;padding:5px 0}
+ body.vx-has-ultra-mobile #vx-control-open.vx-control-launch{
+   min-height:40px;
+   font-size:11px;
+ }
+}
+@media(prefers-reduced-motion:reduce){
+ body .vx-ultra-mobile-rail,body .vx-ultra-mobile-link{
+   transition:none!important;animation:none!important
+ }
+}
+@media print{
+ .vx-ultra-mobile-rail,#vx-control-open,.vx-back-to-top,.vx-utility-rail{display:none!important}
+ body.vx-has-ultra-mobile{padding-bottom:0!important}
+}
