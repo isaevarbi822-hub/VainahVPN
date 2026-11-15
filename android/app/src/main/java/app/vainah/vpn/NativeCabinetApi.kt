@@ -137,9 +137,17 @@ internal class NativeCabinetApi(context: Context) {
             val stream = if (status in 200..299) conn.inputStream else conn.errorStream
             val content = stream?.use { input ->
                 // Bound memory and do not show arbitrary server errors to the user.
-                val result = input.readNBytes(262_145)
-                require(result.size <= 262_144) { "Invalid response size" }
-                String(result, StandardCharsets.UTF_8)
+                val result = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    require(result.size() + count <= 262_144) {
+                        "Invalid response size"
+                    }
+                    result.write(buffer, 0, count)
+                }
+                result.toString(StandardCharsets.UTF_8.name())
             }.orEmpty()
             return Reply(status, runCatching {
                 JSONObject(content)
