@@ -271,8 +271,11 @@ class MainActivity : Activity() {
             Page.MORE -> more(body)
         }
         val nav = horizontal().apply {
-            setBackgroundColor(ServerListVisual.backgroundColor())
-            setPadding(dp(7), dp(5), dp(7), dp(5))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(VainahDesign.surface, bg)
+            )
+            setPadding(dp(7), dp(7), dp(7), dp(6))
         }
         val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
                 Page.SETTINGS)) Page.MORE else page
@@ -282,17 +285,27 @@ class MainActivity : Activity() {
             Page.MORE to "Профиль"
         )) {
             val active = target == selectedTab
-            val button = action(label, active).apply {
-                setMinWidth(0)
-                setMinimumWidth(0)
-                setPadding(0, 0, 0, 0)
-                minHeight = dp(40)
-                textSize = 10f
-                setTextColor(if (active) bg else grey)
-                background = shape(
-                    if (active) violet else ServerListVisual.backgroundColor(),
-                    if (active) violet else ServerListVisual.backgroundColor(), 12
+            val tab = column().apply {
+                gravity = Gravity.CENTER
+                isClickable = true
+                isFocusable = true
+                contentDescription = label
+                val fill = GradientDrawable().apply {
+                    setColor(if (active) violet else VainahDesign.surface)
+                    cornerRadius = dp(15).toFloat()
+                }
+                background = RippleDrawable(
+                    ColorStateList.valueOf(Color.argb(60, 180, 151, 255)),
+                    fill, null
                 )
+                val glyph = NavigationGlyphView(this@MainActivity, target.name, active)
+                addView(glyph, LinearLayout.LayoutParams(dp(22), dp(22)))
+                addView(t(label, 9.5f, if (active) bg else grey, active).apply {
+                    gravity = Gravity.CENTER
+                    maxLines = 1
+                }, LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(3)
+                })
                 setOnClickListener {
                     if (target != page) {
                         page = target
@@ -300,7 +313,7 @@ class MainActivity : Activity() {
                     }
                 }
             }
-            nav.addView(button, LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+            nav.addView(tab, LinearLayout.LayoutParams(0, dp(55), 1f).apply {
                 marginStart = dp(2)
                 marginEnd = dp(2)
             })
