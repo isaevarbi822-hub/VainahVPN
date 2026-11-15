@@ -6,7 +6,7 @@
   // That endpoint explicitly allows this origin; checkout config and payment
   // requests MUST remain same-origin on the backend.
   const staticOrigin='https://vainahvpn.onrender.com';
-  const apiOrigin=window.location.origin===staticOrigin
+  const apiOrigin=typeof window!=='undefined'&&window.location.origin===staticOrigin
     ?'https://vainahvpn-python-preview.onrender.com':'';
   const root=document.querySelector('[data-tariff-catalog]');
   const status=document.getElementById('tariff-catalog-status');
@@ -42,7 +42,7 @@
   let selectedFilter='all';
   // Allow the homepage's guided flow to open a pre-filtered *public* catalog.
   // URL params never choose a plan for purchase or set prices.
-  const initial=new URLSearchParams(window.location.search);
+  const initial=new URLSearchParams(typeof window!=='undefined'?window.location.search:'');
   if(device&&['3','6'].includes(initial.get('devices')))
     device.value=initial.get('devices');
   if(sort&&['days','price','daily','longest'].includes(initial.get('sort')))
