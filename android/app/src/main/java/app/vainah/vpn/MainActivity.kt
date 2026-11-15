@@ -346,6 +346,34 @@ class MainActivity : Activity() {
         }
     }
 
+    /** Shared compact settings/profile row instead of stacked giant buttons. */
+    private fun menuRow(
+        label: String,
+        description: String? = null,
+        onOpen: () -> Unit
+    ): View {
+        val item = horizontal().apply {
+            minimumHeight = dp(if (description == null) 54 else 61)
+            setPadding(dp(11), dp(8), dp(11), dp(8))
+            background = RippleDrawable(
+                ColorStateList.valueOf(Color.argb(38, 111, 111, 177)),
+                shape(VainahDesign.surface, VainahDesign.surface, 13), null
+            )
+            isClickable = true
+            isFocusable = true
+            contentDescription = label
+            setOnClickListener { onOpen() }
+        }
+        val labels = column()
+        add(labels, t(label, 13.5f, white, true))
+        if (description != null) add(labels, t(description, 10.5f, grey), 3)
+        item.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+        item.addView(t("›", 22f, grey).apply {
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(dp(20), dp(34)))
+        return item
+    }
+
     private fun lightAction(label: String): Button = action(label).apply {
         background = RippleDrawable(
             ColorStateList.valueOf(Color.argb(35, 111, 111, 177)),
@@ -1499,15 +1527,20 @@ class MainActivity : Activity() {
                 "интерфейса. Бесшовность соединения ещё требует испытаний " +
                 "на телефоне; Kill Switch включается в настройках Android.",
             12f, grey), 11)
-        val subscriptionButton = action("Управление подпиской")
-        add(preferences, subscriptionButton, 14)
-        subscriptionButton.setOnClickListener { page = Page.ACCOUNT; render() }
-        val safe = action("Диагностика DNS, HTTPS и туннеля")
-        add(preferences, safe, 9)
-        safe.setOnClickListener { page = Page.DIAGNOSTICS; render() }
-        val privacy = action("Настройки безопасности")
-        add(preferences, privacy, 9)
-        privacy.setOnClickListener { page = Page.SECURITY; render() }
+        add(preferences, menuRow("Управление подпиской", "Профиль, продление и тарифы") {
+            page = Page.ACCOUNT
+            render()
+        }, 11)
+        add(preferences, ServerListVisual.separator(this), 3)
+        add(preferences, menuRow("Диагностика соединения", "DNS, HTTPS и VPN-туннель") {
+            page = Page.DIAGNOSTICS
+            render()
+        }, 3)
+        add(preferences, ServerListVisual.separator(this), 3)
+        add(preferences, menuRow("Безопасность", "Kill Switch и приложения вне VPN") {
+            page = Page.SECURITY
+            render()
+        }, 3)
 
         val version = card()
         add(body, version, 15)
@@ -1525,36 +1558,38 @@ class MainActivity : Activity() {
         add(profile, tag("ПРОФИЛЬ"))
         add(profile, t("Личный кабинет VainahVPN", 20f, white, true), 8)
         add(profile, t(
-            "Вход по email, подписки, устройства, обращения и уведомления " +
-                "доступны на защищённом сайте VainahVPN.",
+            "Учётная запись и сервисы VainahVPN в одном месте.",
             12f, grey
         ), 9)
         for ((title, target) in listOf(
             "Мой профиль" to "account.html",
-            "Мои устройства на сайте" to "my-devices.html",
+            "Мои устройства" to "my-devices.html",
             "Поддержка" to "support-center.html",
             "Уведомления" to "notifications.html",
             "Подарочные карты" to "gifts.html"
         )) {
-            val option = action(title)
-            add(profile, option, 9)
-            option.setOnClickListener { openOfficialPage(target) }
+            add(profile, menuRow(title) { openOfficialPage(target) }, 3)
+            if (target != "gifts.html")
+                add(profile, ServerListVisual.separator(this), 2)
         }
         val hub = card()
         add(body, hub, 21)
         add(hub, tag("ЛОКАЛЬНЫЕ НАСТРОЙКИ"))
-        add(hub, t("Все инструменты в одном месте", 19f, white, true), 10)
-        add(hub, t("Настройки, устройства и информация о безопасности.",
+        add(hub, t("На устройстве", 19f, white, true), 10)
+        add(hub, t("Параметры приложения и диагностика.",
             12f, grey), 8)
         for ((target, label) in listOf(
-            Page.DEVICES to "Мои устройства",
-            Page.DIAGNOSTICS to "Диагностика соединения",
-            Page.SECURITY to "Безопасность и приватность",
+            Page.DEVICES to "Этот Android",
+            Page.DIAGNOSTICS to "Диагностика",
+            Page.SECURITY to "Безопасность",
             Page.SETTINGS to "Настройки приложения",
-            Page.ACCOUNT to "VPN-профиль и локальный вход")) {
-            val button = action(label)
-            add(hub, button, 10)
-            button.setOnClickListener { page = target; render() }
+            Page.ACCOUNT to "VPN-профиль и подписка")) {
+            add(hub, menuRow(label) {
+                page = target
+                render()
+            }, 3)
+            if (target != Page.ACCOUNT)
+                add(hub, ServerListVisual.separator(this), 2)
         }
     }
 
