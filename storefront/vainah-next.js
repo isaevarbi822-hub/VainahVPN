@@ -11,7 +11,8 @@
   const chooser={
     platform:'android',
     devices:3,
-    days:30
+    days:30,
+    budget:'all'
   };
   let paid=null;
   const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0});
@@ -47,12 +48,14 @@
       const target=new URL('plans.html',window.location.href);
       target.searchParams.set('devices',String(chooser.devices));
       target.searchParams.set('sort','days');
+      if(chooser.budget!=='all')target.searchParams.set('budget',chooser.budget);
       allPlans.href=target.pathname+target.search;
     }
   }
   function recommendations(){
     if(!Array.isArray(paid))return [];
-    const options=paid.filter(p=>p.devices===chooser.devices);
+    const ceiling=chooser.budget==='all'?Infinity:Number(chooser.budget);
+    const options=paid.filter(p=>p.devices===chooser.devices&&Number(p.price_rub)<=ceiling);
     const target=chooser.days;
     const closest=options.slice().sort((a,b)=>
       Math.abs(a.days-target)-Math.abs(b.days-target)||
@@ -83,7 +86,7 @@
     }
     const picks=recommendations();
     if(!picks.length){
-      status.textContent='Для выбранных условий подходящих тарифов в проверенном каталоге нет.';
+      status.textContent='Для выбранного числа устройств и бюджета подходящих тарифов нет. Увеличь бюджет или открой полный каталог.';
       return;
     }
     status.textContent='Найдено '+picks.length+' варианта из действующего каталога. Это подбор по сроку, а не проверка скорости VPN или одобрение платежа.';
@@ -111,6 +114,7 @@
         chooser.platform=value;
       if(key==='devices'&&['3','6'].includes(value))chooser.devices=Number(value);
       if(key==='days'&&['7','30','365'].includes(value))chooser.days=Number(value);
+      if(key==='budget'&&['all','250','500','1000'].includes(value))chooser.budget=value;
       render();
     });
   });
