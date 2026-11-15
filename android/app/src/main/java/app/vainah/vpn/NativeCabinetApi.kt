@@ -123,23 +123,32 @@ internal class NativeCabinetSession(context: Context) {
 /** Same-origin, no-redirect, no-cleartext native JSON requests. */
 internal class NativeCabinetApi(context: Context) {
     private val session = NativeCabinetSession(context)
-    private val cookieName = "__Host-vainah_email_session"
+    private val emailCookie = "__Host-vainah_email_session"
+    private val telegramCookie = "__Host-vainah_session"
     private val accepted = setOf(
         "/api/site/tariffs", "/api/shop/config",
         "/api/trial/config", "/api/trial/status",
-        "/api/email-auth/account", "/api/account/overview"
+        "/api/email-auth/config", "/api/email-auth/account",
+        "/api/google/config", "/api/telegram-oidc/config",
+        "/api/mobile-auth/config", "/api/telegram/account",
+        "/api/account/overview"
     )
     private val writes = setOf(
         "/api/email-auth/request", "/api/email-auth/verify",
-        "/api/email-auth/logout", "/api/trial/claim"
+        "/api/email-auth/logout", "/api/trial/claim",
+        "/api/mobile-auth/start", "/api/mobile-auth/exchange"
     )
 
     data class Reply(val status: Int, val json: JSONObject?) {
         val ok: Boolean get() = status in 200..299
     }
 
-    fun hasSession(): Boolean = session.read() != null
+    fun hasSession(): Boolean = session.readAuth() != null
+    fun authCookieName(): String? = session.readAuth()?.first
     fun forgetSession() = session.clear()
+    fun saveOAuthPending(item: NativeOAuthFlow.Pending) = session.savePending(item)
+    fun pendingOAuth(): NativeOAuthFlow.Pending? = session.pending()
+    fun clearOAuthPending() = session.clearPending()
 
     fun get(path: String): Reply {
         require(path in accepted)
@@ -162,8 +171,8 @@ internal class NativeCabinetApi(context: Context) {
         conn.useCaches = false
         conn.setRequestProperty("Accept", "application/json")
         conn.setRequestProperty("User-Agent", "VainahVPN-Android-NativeCabinet")
-        session.read()?.let {
-            conn.setRequestProperty("Cookie", "$cookieName=$it")
+        session.readAuth()?.let { (name, token) ->
+            conn.setRequestProperty("Cookie", "$name=$token")
         }
         try {
             if (payload != null) {
@@ -180,12 +189,14 @@ internal class NativeCabinetApi(context: Context) {
                 val cookie = conn.headerFields.entries.asSequence()
                     .filter { it.key?.equals("Set-Cookie", ignoreCase = true) == true }
                     .flatMap { it.value.asSequence() }
-                    .firstOrNull { it.startsWith("$cookieName=") }
+                    .firstOrNull { it.startsWith("$emailCookie=") }
                     ?.substringAfter("=")?.substringBefore(";")
                 if (cookie != null) session.save(cookie)
             }
-            if (status == 401 && path != "/api/email-auth/request" &&
-                path != "/api/email-auth/verify") session.clear()
+            // An email-only trial endpoint returns 401 for a valid Telegram
+            // session; that must NOT delete the user's Telegram login.
+            if (status == 401 && path == "/api/account/overview")
+                session.clear()
             val stream = if (status in 200..299) conn.inputStream else conn.errorStream
             val content = stream?.use { input ->
                 // Bound memory and do not show arbitrary server errors to the user.
@@ -201,9 +212,17 @@ internal class NativeCabinetApi(context: Context) {
                 }
                 result.toString(StandardCharsets.UTF_8.name())
             }.orEmpty()
-            return Reply(status, runCatching {
-                JSONObject(content)
-            }.getOrNull())
+            val parsed = runCatching { JSONObject(content) }.getOrNull()
+            if (path == "/api/mobile-auth/exchange" && status == 200 &&
+                parsed?.optBoolean("authenticated") == true) {
+                val name = parsed.optString("cookie_name")
+                val token = parsed.optString("session")
+                // Do not trust arbitrary cookie names in a server response.
+                if (name == emailCookie || name == telegramCookie) {
+                    session.saveSession(name, token)
+                } else error("Unexpected native account session type")
+            }
+            return Reply(status, parsed)
         } finally {
             conn.disconnect()
         }
