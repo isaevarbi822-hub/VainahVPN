@@ -57,13 +57,13 @@
     const ceiling=chooser.budget==='all'?Infinity:Number(chooser.budget);
     const options=paid.filter(p=>p.devices===chooser.devices&&Number(p.price_rub)<=ceiling);
     const target=chooser.days;
-    const closest=options.slice().sort((a,b)=>
+    // A seven-day request must not silently recommend a distant 365-day
+    // plan just because it fits a low budget. If no term is close, say so.
+    const range=options.filter(p=>p.days>=Math.max(2,Math.floor(target*.65))&&
+      p.days<=Math.min(730,Math.ceil(target*1.6)));
+    const closest=range.slice().sort((a,b)=>
       Math.abs(a.days-target)-Math.abs(b.days-target)||
       a.days-b.days||Number(a.price_rub)-Number(b.price_rub));
-    // Keep choices relevant to the requested duration, not only the cheapest
-    // global plan (which could have a drastically different term).
-    const range=options.filter(p=>p.days>=Math.max(2,target*.65)&&
-      p.days<=Math.min(730,target*1.6));
     const affordable=range.slice().sort((a,b)=>Number(a.price_rub)-Number(b.price_rub));
     const daily=range.slice().sort((a,b)=>
       Number(a.price_rub)/a.days-Number(b.price_rub)/b.days);
@@ -86,10 +86,10 @@
     }
     const picks=recommendations();
     if(!picks.length){
-      status.textContent='Для выбранного числа устройств и бюджета подходящих тарифов нет. Увеличь бюджет или открой полный каталог.';
+      status.textContent='Для выбранного срока, числа устройств и бюджета подходящих тарифов нет. Измени срок или бюджет либо открой полный каталог.';
       return;
     }
-    status.textContent='Найдено '+picks.length+' варианта из действующего каталога. Это подбор по сроку, а не проверка скорости VPN или одобрение платежа.';
+    status.textContent=(picks.length===1?'Найден 1 вариант':picks.length===2?'Найдено 2 варианта':'Найдено 3 варианта')+' из действующего каталога близко к выбранному сроку. Это подбор, не подтверждение качества VPN или оплаты.';
     for(let i=0;i<picks.length;i++){
       const plan=picks[i];
       const card=make('article','','vx-next-offer');
