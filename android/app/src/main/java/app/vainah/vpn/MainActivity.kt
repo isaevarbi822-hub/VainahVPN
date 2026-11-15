@@ -1118,8 +1118,10 @@ class MainActivity : Activity() {
         }
         add(sheet, categoryScroll, 8)
         val whiteInfo = t(
-            "H1Cloud может подключать LTE-доступ к обычному серверу без " +
-                "метки в подписке. Отметь такие узлы вручную; это не включает LTE.",
+            "Новые серверы появляются после синхронизации подписки. " +
+                "В фоне Android проверяет обновления примерно раз в 15 минут. " +
+                "LTE определяется по метке H1Cloud или твоему выбору; " +
+                "само добавление узла не включает LTE-доступ.",
             10.5f, muted
         ).apply { setPadding(dp(12), dp(3), dp(12), dp(6)) }
         add(sheet, whiteInfo)
@@ -1697,13 +1699,10 @@ class MainActivity : Activity() {
     private fun maybeRefresh() {
         if (source.busy) return
         val link = source.savedLink() ?: return
-        // STARTING is intentionally excluded to avoid an extra HTTPS request
-        // during initial TUN setup. Once live, only the node list updates.
-        val connecting = VpnConnectionState.read(this).phase ==
-            VpnConnectionState.STARTING
-        if (SubscriptionRefreshPolicy.shouldAutoRefresh(
+        val phase = VpnConnectionState.read(this).phase
+        if (SubscriptionRefreshPolicy.shouldRefreshDuringSession(
                 SystemClock.elapsedRealtime(), nextAutoRefresh,
-                connecting, SubscriptionInput.isDirectKey(link)))
+                phase, SubscriptionInput.isDirectKey(link)))
             refreshServers(false)
     }
 
