@@ -58,6 +58,44 @@ class VlessRealityConfigTest {
         assertEquals("hijack-dns", otherDnsRule.getString("action"))
     }
 
+    @Test fun explicitDomainWhitelistRoutesOnlySelectedNamesDirectly() {
+        val profile = JSONObject(VlessRealityConfig.profile(
+            safeNode, "192.0.2.25",
+            bypassDomains = setOf("example.net", "bank.example.org"),
+        ))
+        val route = profile.getJSONObject("route")
+        assertEquals("vainah-selected", route.getString("final"))
+        val rules = route.getJSONArray("rules")
+        assertEquals(4, rules.length())
+        assertEquals("hijack-dns", rules.getJSONObject(0).getString("action"))
+        assertEquals("hijack-dns", rules.getJSONObject(1).getString("action"))
+        assertEquals("sniff", rules.getJSONObject(2).getString("action"))
+        val direct = rules.getJSONObject(3)
+        assertEquals("route", direct.getString("action"))
+        assertEquals("direct", direct.getString("outbound"))
+        val exact = direct.getJSONArray("domain")
+        val suffixes = direct.getJSONArray("domain_suffix")
+        assertEquals(2, exact.length())
+        assertTrue((0 until exact.length()).any {
+            exact.getString(it) == "bank.example.org"
+        })
+        assertTrue((0 until suffixes.length()).any {
+            suffixes.getString(it) == ".example.net"
+        })
+        // Even with explicit direct domains, DNS still goes via the protected
+        // VLESS resolver; this is not a claim of complete VPN bypass.
+        assertEquals("dns-via-vless", profile.getJSONObject("dns")
+            .getString("final"))
+    }
+
+    @Test fun rejectsUntrustedDomainRulesWithoutChangingDefaultTunnel() {
+        assertThrows(IllegalArgumentException::class.java) {
+            VlessRealityConfig.profile(safeNode, bypassDomains = setOf("*.example.org"))
+        }
+        val unchanged = JSONObject(VlessRealityConfig.profile(safeNode))
+        assertEquals(2, unchanged.getJSONObject("route").getJSONArray("rules").length())
+    }
+
     @Test fun serverIpPreResolvedAndRealityIdentityRetained() {
         val profile = JSONObject(VlessRealityConfig.profile(safeNode, "192.0.2.25"))
         val outbound = profile.getJSONArray("outbounds").getJSONObject(0)
