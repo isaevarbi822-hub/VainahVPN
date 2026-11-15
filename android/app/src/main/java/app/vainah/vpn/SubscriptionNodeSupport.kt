@@ -7,8 +7,8 @@ import java.util.UUID
 
 /**
  * Parse supported and display-only VLESS subscription entries without exposing
- * their credentials in UI. Only the previously validated TCP/REALITY profile
- * may be passed to the current libbox engine.
+ * their credentials in UI. TCP/REALITY, TCP/TLS, and gRPC profiles
+ * may be passed to the current libbox engine after local validation.
  */
 object SubscriptionNodeSupport {
     data class Details(

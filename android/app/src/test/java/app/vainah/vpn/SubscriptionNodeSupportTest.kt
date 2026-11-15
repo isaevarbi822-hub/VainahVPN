@@ -20,7 +20,7 @@ class SubscriptionNodeSupportTest {
 
         assertEquals("VLESS / GRPC / REALITY",
             SubscriptionNodeSupport.inspect(grpc)?.subtitle)
-        assertFalse(SubscriptionNodeSupport.canConnect(grpc))
+        assertTrue(SubscriptionNodeSupport.canConnect(grpc))
         assertEquals("VLESS / XHTTP / TLS",
             SubscriptionNodeSupport.inspect(xhttpTls)?.subtitle)
         assertFalse(SubscriptionNodeSupport.canConnect(xhttpTls))

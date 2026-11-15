@@ -93,7 +93,7 @@ class SubscriptionPayloadParserTest {
         assertEquals("xtls-rprx-vision", converted.getString("flow"))
     }
 
-    @Test fun singBoxRealityJsonKeepsGrpcVisibleWithoutClaimingItConnects() {
+    @Test fun singBoxRealityJsonKeepsGrpcAndConnectableTls() {
         fun item(transport: String?): JSONObject {
             val o = JSONObject().put("type", "vless").put("tag", "Spain")
                 .put("server", "example.org").put("server_port", 443)
@@ -111,7 +111,7 @@ class SubscriptionPayloadParserTest {
         assertEquals(2, nodes.size)
         assertEquals(listOf("🇪🇸 Испания", "🇪🇸 Испания"), nodes.map { it.label })
         assertEquals("grpc", SubscriptionNodeSupport.inspect(nodes[0].uri)?.transport)
-        assertFalse(SubscriptionNodeSupport.canConnect(nodes[0].uri))
+        assertTrue(SubscriptionNodeSupport.canConnect(nodes[0].uri))
         assertTrue(SubscriptionNodeSupport.canConnect(nodes[1].uri))
     }
 
@@ -149,7 +149,7 @@ class SubscriptionPayloadParserTest {
         assertEquals("grpc", SubscriptionNodeSupport.inspect(loaded[1].uri)?.transport)
         assertEquals("reality", SubscriptionNodeSupport.inspect(loaded[1].uri)?.security)
         assertFalse(SubscriptionNodeSupport.canConnect(loaded[0].uri))
-        assertFalse(SubscriptionNodeSupport.canConnect(loaded[1].uri))
+        assertTrue(SubscriptionNodeSupport.canConnect(loaded[1].uri))
         assertEquals("🇹🇷", ServerRowPresentation.describe(loaded[0], 0).flag)
     }
 

@@ -460,9 +460,8 @@ class MainActivity : Activity() {
                 },
             ) {
                 if (!SubscriptionNodeSupport.canConnect(node.uri)) {
-                    popup("Конфигурация есть в H1Cloud, но текущий VPN-движок " +
-                        "VainahVPN пока не поддерживает ${entry.info.subtitle}. " +
-                        "Сервер показан без имитации подключения.")
+                    popup("Этот транспорт пока недоступен в текущем движке VainahVPN: " +
+                        entry.info.subtitle + ". Сервер показан без подключения.")
                     return@row
                 }
                 // Selecting a row never interrupts an existing VPN tunnel.
@@ -1721,8 +1720,8 @@ class MainActivity : Activity() {
             return
         }
         val node = selected ?: run {
-            popup("Нет выбранного совместимого сервера. XHTTP, gRPC и TLS-узлы " +
-                "видны в списке, но пока не подключаются текущим движком.")
+            popup("Нет выбранного совместимого сервера. XHTTP-узлы " +
+                "видны в списке, но пока не поддерживаются текущим libbox.")
             return
         }
         if (!SubscriptionNodeSupport.canConnect(node.uri)) {

@@ -7,7 +7,7 @@ import java.net.URLDecoder
 import java.util.UUID
 
 /**
- * Build a sing-box VLESS TCP REALITY outbound from a selected node.
+ * Build a sing-box VLESS outbound for TCP or gRPC using TLS or REALITY.
  * Contains credentials: never log or display the returned JSON.
  * Not itself a VPN engine; libbox still needs to own the Android VPN TUN.
  */
@@ -26,12 +26,29 @@ object VlessRealityConfig {
                 key to value
             }
         }.toMap()
-        require(params["security"] == "reality") { "REALITY required" }
-        require(params["type"] in listOf(null, "tcp", "raw")) { "TCP required" }
+        val security = params["security"] ?: ""
+        require(security in listOf("reality", "tls")) { "TLS or REALITY required" }
+        val transport = params["type"] ?: "tcp"
+        require(transport in listOf("tcp", "raw", "grpc")) {
+            "Unsupported transport"
+        }
         val sni = params["sni"]?.takeIf { it.isNotBlank() }
-            ?: throw IllegalArgumentException("Missing SNI")
+            ?: if (security == "tls") uri.host
+            else throw IllegalArgumentException("Missing REALITY SNI")
         val publicKey = params["pbk"]?.takeIf { it.isNotBlank() }
-            ?: throw IllegalArgumentException("Missing REALITY key")
+        if (security == "reality") require(!publicKey.isNullOrBlank()) {
+            "Missing REALITY key"
+        }
+        val flow = params["flow"]?.takeIf { it.isNotBlank() }
+        require(flow == null || transport != "grpc") {
+            "gRPC cannot use VLESS Vision flow"
+        }
+        require(flow == null || flow == "xtls-rprx-vision") {
+            "Unsupported VLESS flow"
+        }
+        val serviceName = (params["serviceName"] ?: params["service_name"]).orEmpty()
+        require(serviceName.length <= 256 && !serviceName.contains('\n') &&
+            !serviceName.contains('\r')) { "Invalid gRPC service name" }
         return JSONObject().apply {
             put("type", "vless")
             put("tag", "vainah-selected")
@@ -40,13 +57,17 @@ object VlessRealityConfig {
             put("uuid", uuid)
             // Bootstrap domain resolution must not recurse into the VLESS tunnel.
             put("domain_resolver", "dns-bootstrap")
-            params["flow"]?.takeIf { it.isNotBlank() }?.let { put("flow", it) }
+            flow?.let { put("flow", it) }
+            if (transport == "grpc") put("transport", JSONObject().apply {
+                put("type", "grpc")
+                put("service_name", serviceName)
+            })
             put("tls", JSONObject().apply {
                 put("enabled", true)
                 put("server_name", sni)
                 put("utls", JSONObject().put("enabled", true)
                     .put("fingerprint", params["fp"]?.takeIf { it.isNotBlank() } ?: "chrome"))
-                put("reality", JSONObject().apply {
+                if (security == "reality") put("reality", JSONObject().apply {
                     put("enabled", true)
                     put("public_key", publicKey)
                     put("short_id", params["sid"].orEmpty())
