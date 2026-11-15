@@ -82,3 +82,25 @@ html{scroll-padding-top:88px}
 @media(max-width:650px){.vx-ultra-wrap,.vx-ultra-header-inner{width:calc(100% - 32px)}.vx-ultra-header-inner{min-height:73px;align-items:flex-start;flex-direction:column;padding:13px 0;gap:12px}.vx-ultra-header-inner>div{gap:12px}.vx-ultra-header-inner>div a{font-size:11px}.vx-ultra-hero{padding:38px 0;grid-template-columns:1fr}.vx-ultra-hero-art{display:none}.vx-ultra-tool{border-radius:19px;padding:17px}.vx-ultra-tool-top{margin-bottom:20px}.vx-ultra-choices,.vx-ultra-solution{padding:17px}.vx-ultra-after{grid-template-columns:1fr;gap:10px}.vx-ultra-after a{padding:16px;gap:7px}}
 @media(max-width:360px){.vx-ultra-choice-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.vx-ultra-repair-page *{scroll-behavior:auto!important;animation:none!important;transition:none!important}.vx-ultra-choice-grid button:hover{transform:none}}
+
+/* Ultra 360 launchpad on the main marketing website. */
+body[data-refresh-home] .vx-ultra-home{padding:56px 0 66px;position:relative}
+.vx-ultra-home-head{display:flex;justify-content:space-between;align-items:end;gap:35px;margin-bottom:26px}
+.vx-ultra-home-head h2{font-size:clamp(32px,4.5vw,56px);line-height:1.08;letter-spacing:-.055em;margin:12px 0 0;color:#fff}
+.vx-ultra-home-head h2 span{color:#bda4ff}
+.vx-ultra-home-head>p{max-width:390px;color:#b7bdd6;font-size:14px;line-height:1.75;margin:0 0 4px}
+.vx-ultra-home-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}
+.vx-ultra-home-card{position:relative;overflow:hidden;display:flex;flex-direction:column;min-width:0;min-height:315px;padding:26px 24px;text-decoration:none!important;border:1px solid #876daa69;border-radius:20px;background:linear-gradient(150deg,#24213a,#121a2d 80%);box-shadow:0 16px 48px #0003;transition:transform .22s,border-color .22s,box-shadow .22s}
+.vx-ultra-home-card:hover{transform:translateY(-5px);border-color:#bca5ff;box-shadow:0 22px 55px #0006}
+.vx-ultra-home-card:focus-visible{outline:3px solid #93ddf5!important;outline-offset:3px}
+.vx-ultra-home-featured{background:radial-gradient(ellipse at 100% 0%,#5a4295cc,transparent 75%),linear-gradient(145deg,#2a2147,#12172d 82%);border-color:#b79af6aa}
+.vx-ultra-home-tag{letter-spacing:.12em;font-size:10px;color:#cbb8fa;font-weight:850}
+.vx-ultra-home-icon{display:grid;place-items:center;align-self:start;width:46px;height:46px;border-radius:14px;margin:23px 0;background:#b89cff2b;border:1px solid #bca8ff63;color:#d6c7ff;font-size:25px;line-height:1}
+.vx-ultra-home-card strong{font-size:19px;font-weight:900;letter-spacing:-.025em;line-height:1.3;color:#fff}
+.vx-ultra-home-card p{font-size:12px;line-height:1.7;color:#b9bbd3;margin:9px 0 24px}
+.vx-ultra-home-link{margin-top:auto;color:#dfceff;font-size:12px;font-weight:850}
+.vx-ultra-home-disclaimer{font-size:11px;color:#aeb1cc;line-height:1.7;margin:16px 0 0}
+@media(max-width:1100px){.vx-ultra-home-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-ultra-home-card{min-height:275px}}
+@media(max-width:650px){.vx-ultra-home-head{flex-direction:column;align-items:start;gap:14px}.vx-ultra-home-grid{grid-template-columns:1fr}.vx-ultra-home-card{min-height:220px;padding:22px}.vx-ultra-home-icon{margin:16px 0}.vx-ultra-home-card p{margin-bottom:15px}}
+@media(prefers-reduced-motion:reduce){.vx-ultra-home-card{transition:none!important}.vx-ultra-home-card:hover{transform:none}}
+@media(prefers-reduced-data:reduce){.vx-ultra-home-card{box-shadow:none}}
