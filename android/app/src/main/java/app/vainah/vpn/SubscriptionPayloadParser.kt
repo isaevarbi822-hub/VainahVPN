@@ -85,23 +85,27 @@ object SubscriptionPayloadParser {
                 is JSONObject -> {
                     when {
                         item.optString("protocol") == "vless" ->
-                            result.addAll(xrayLinks(item))
+                            result.addAll(xrayLinks(item).map { tagWhitelist(it, item) })
                         item.optString("type") == "vless" ->
-                            singBoxLink(item)?.let { result.add(it) }
+                            singBoxLink(item)?.let { result.add(tagWhitelist(it, item)) }
                         else -> {
                             val nested = item.optJSONArray("outbounds")
                             if (nested != null && nested.length() <= MAX_NODES) {
                                 for (j in 0 until nested.length()) {
                                     val outbound = nested.optJSONObject(j) ?: continue
                                     if (outbound.optString("protocol") == "vless")
-                                        result.addAll(xrayLinks(outbound))
+                                        result.addAll(xrayLinks(outbound).map {
+                                            tagWhitelist(it, outbound, item)
+                                        })
                                     else if (outbound.optString("type") == "vless")
-                                        singBoxLink(outbound)?.let { result.add(it) }
+                                        singBoxLink(outbound)?.let {
+                                            result.add(tagWhitelist(it, outbound, item))
+                                        }
                                 }
                             }
                             val link = item.optString("uri").takeIf { it.startsWith("vless://") }
                                 ?: item.optString("link").takeIf { it.startsWith("vless://") }
-                            if (link != null) result.add(link)
+                            if (link != null) result.add(tagWhitelist(link, item))
                         }
                     }
                 }
@@ -109,6 +113,59 @@ object SubscriptionPayloadParser {
             require(result.size <= MAX_NODES) { "Too many subscription nodes" }
         }
         return result
+    }
+
+    /**
+     * Some H1Cloud-compatible JSON exports carry group/category metadata in
+     * separate fields rather than the VLESS link fragment. Only explicit
+     * provider metadata can classify a node; the connection URI is unchanged
+     * except for its harmless, readable fragment. It remains a real server.
+     */
+    private fun hasWhitelistMetadata(item: JSONObject): Boolean {
+        for (key in listOf(
+            "whitelist", "white_list", "is_whitelist", "isWhitelist",
+            "isWhiteList", "whiteList"
+        )) {
+            if (item.opt(key) == true) return true
+        }
+        val keys = listOf(
+            "name", "label", "group", "groups", "category", "categories",
+            "tags", "labels", "profile_group", "service_group"
+        )
+        for (key in keys) {
+            when (val value = item.opt(key)) {
+                is String -> if (ServerCollections.isWhiteListLabel(value)) return true
+                is JSONArray -> for (index in 0 until minOf(value.length(), 50)) {
+                    if (value.optString(index).let(ServerCollections::isWhiteListLabel))
+                        return true
+                }
+            }
+        }
+        return listOf("metadata", "meta").any { key ->
+            item.optJSONObject(key)?.let { nested ->
+                // Shallow read only: never recurse through untrusted JSON.
+                keys.any { field ->
+                    val value = nested.optString(field)
+                    ServerCollections.isWhiteListLabel(value)
+                } || listOf("whitelist", "is_whitelist").any {
+                    nested.opt(it) == true
+                }
+            } == true
+        }
+    }
+
+    private fun tagWhitelist(
+        link: String, item: JSONObject, parent: JSONObject? = null
+    ): String {
+        if (!hasWhitelistMetadata(item) &&
+            (parent == null || !hasWhitelistMetadata(parent))) return link
+        val label = SubscriptionServers.displayName(link, 1)
+        if (ServerCollections.isWhiteListLabel(label)) return link
+        // URL fragment is display-only. Do not modify REALITY parameters,
+        // endpoints, UUID or subscription access tokens.
+        val tagged = (label.take(44) + " · Белые списки")
+        return link.substringBefore('#') + "#" +
+            URLEncoder.encode(tagged, "UTF-8").replace("+", "%20")
     }
 
     private fun xrayLinks(item: JSONObject): List<String> {
