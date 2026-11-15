@@ -27,7 +27,10 @@ object ServerCollections {
             "whitelist", "white-list", "white list", "white_list",
             "белый список", "белый-список", "белые списки", "белые-списки",
             "белых списков", "белого списка", "вайтлист", "вайт-лист",
-        ).any(safe::contains)
+            "lte-доступ", "lte доступ", "lte access", "lte_access",
+            "доступ lte", "лте-доступ", "лте доступ"
+        ).any(safe::contains) ||
+            Regex("(^|[^a-zа-я])lte($|[^a-zа-я])").containsMatchIn(safe)
     }
 
     private fun hasTopic(label: String, tokens: List<String>): Boolean {
@@ -69,9 +72,9 @@ object ServerCollections {
             ServerCollection.STREAMING ->
                 "В подписке нет узлов с отметкой «стриминг». Доступность видеосервисов не проверена."
             ServerCollection.WHITELIST ->
-                "Группа не указана в ответе H1Cloud. Нажми «Выбрать серверы», " +
-                    "чтобы отнести уже загруженные узлы к списку вручную. " +
-                    "Это только группировка, не изменение сетевых правил."
+                "В загруженной подписке нет помеченных LTE-узлов. " +
+                    "Обнови конфигурацию H1Cloud или отметь существующие " +
+                    "узлы вручную: пометка не включает LTE-доступ."
             ServerCollection.FAVORITES ->
                 "Здесь будут серверы, которые ты отметишь звёздочкой ★."
         }
