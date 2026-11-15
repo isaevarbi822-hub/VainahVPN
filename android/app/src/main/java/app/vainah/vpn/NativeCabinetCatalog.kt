@@ -8,7 +8,10 @@ import java.math.BigDecimal
  * checkout products offline. Only exact plans provided by the API are shown.
  */
 object NativeCabinetCatalog {
+    /** Real storefront: browser payment checkout only. */
     const val ORIGIN = "https://vainahvpn.onrender.com"
+    /** Real Python backend: all signed-in API requests and OAuth callbacks. */
+    const val API_ORIGIN = "https://vainahvpn-python-preview.onrender.com"
     const val CATALOG_ENDPOINT = "/api/site/tariffs"
     const val TRIAL_ENDPOINT = "/api/trial/config"
     const val CHECKOUT_STATUS_ENDPOINT = "/api/shop/config"
