@@ -50,6 +50,15 @@ object VpnConnectionState {
         save(context, STARTING, "Запуск VPN-движка", label, -1)
     }
 
+    /** Only an unexpected native stop after a working TUN may retry. A
+     * recovering state is explicitly unverified, never reported as ONLINE.
+     */
+    fun reconnecting(context: Context, label: String, attempt: Int, max: Int) =
+        save(context, STARTING,
+            "Восстанавливаем VPN-соединение (${attempt}/${max}). " +
+                "Интернет через туннель пока не подтверждён.",
+            label, -1)
+
     fun latency(context: Context, millis: Int) {
         context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit()
             .putInt("tcp_latency_ms", millis).apply()
