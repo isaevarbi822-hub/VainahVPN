@@ -764,12 +764,26 @@ class MainActivity : Activity() {
             if (source.savedLink() == null) "Не добавлен" else "Сохранён",
             if (source.savedLink() == null) VainahUi.Tone.NEUTRAL
             else VainahUi.Tone.SUCCESS), 12)
-        val onlineAccount = action("Открыть мою подписку", true)
+        add(live, VainahUi.detailRow(this, "Серверов из подписки",
+            nodes.size.toString(), VainahUi.Tone.PURPLE), 7)
+        add(live, VainahUi.infoStrip(this,
+            "Тариф, оплаченные заказы и срок подписки доступны после " +
+                "входа в официальный кабинет. Данные не подменяются локальными."), 11)
+        val onlineAccount = action("Мой кабинет и подписка", true)
         add(live, onlineAccount, 12)
         onlineAccount.setOnClickListener { openOfficialPage("account.html") }
-        val onlinePlans = action("Все тарифы и продление")
-        add(live, onlinePlans, 9)
+        val cabinetShortcuts = horizontal()
+        val onlinePlans = action("Тарифы")
+        cabinetShortcuts.addView(onlinePlans,
+            LinearLayout.LayoutParams(0, dp(46), 1f))
         onlinePlans.setOnClickListener { openOfficialPage("plans.html") }
+        val onlineDevices = action("Устройства")
+        cabinetShortcuts.addView(onlineDevices,
+            LinearLayout.LayoutParams(0, dp(46), 1f).apply {
+                marginStart = dp(8)
+            })
+        onlineDevices.setOnClickListener { openOfficialPage("my-devices.html") }
+        add(live, cabinetShortcuts, 10)
 
         val profile = card()
         add(body, profile, 14)
@@ -842,19 +856,22 @@ class MainActivity : Activity() {
         add(body, identity, 15)
         add(identity, tag("Учётная запись"))
         add(identity, t(
-            "Локальный импорт VPN-подписки работает отдельно от входа в веб-кабинет. " +
-                "Покупки оформляются на официальном сайте с серверной проверкой " +
-                "суммы и подтверждением платежа, не внутри APK.",
+            "Войди в свой существующий аккаунт VainahVPN по email, " +
+                "Google или Telegram. Заказы и обращения останутся привязаны " +
+                "к тому же аккаунту. Платёжные данные приложение не хранит.",
             12f, grey), 8)
-        val login = action("Войти через Clerk")
+        val login = action("Войти в личный кабинет", true)
         add(identity, login, 10)
-        login.setOnClickListener {
-            if (!BuildConfig.VAINAH_CLERK_ENABLED)
-                popup("Clerk не включён в этой тестовой сборке.")
-            else runCatching {
-                startActivity(Intent().setClassName(this,
-                    "app.vainah.vpn.ClerkLoginActivity"))
-            }.onFailure { popup("Не удалось открыть окно Clerk.") }
+        login.setOnClickListener { openOfficialPage("account.html") }
+        if (BuildConfig.VAINAH_CLERK_ENABLED) {
+            val nativeClerk = action("Нативный Clerk (тестовый вход)")
+            add(identity, nativeClerk, 9)
+            nativeClerk.setOnClickListener {
+                runCatching {
+                    startActivity(Intent().setClassName(this,
+                        "app.vainah.vpn.ClerkLoginActivity"))
+                }.onFailure { popup("Не удалось открыть окно Clerk.") }
+            }
         }
     }
 
