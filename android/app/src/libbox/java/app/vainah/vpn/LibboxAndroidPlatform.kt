@@ -12,7 +12,7 @@ import io.nekohasekai.libbox.*
 import java.net.NetworkInterface as JavaNetworkInterface
 
 /**
- * Complete, typed bridge for the libbox 1.14.0 PlatformInterface contract.
+ * Complete typed bridge for the verified 1.14.4-lx Android PlatformInterface contract.
  * A missing callback must not throw through Go's JNI interface unexpectedly.
  */
 internal class LibboxAndroidPlatform(
@@ -48,7 +48,6 @@ internal class LibboxAndroidPlatform(
     override fun autoDetectInterfaceControl(fd: Int) {
         check(service.protect(fd)) { "Cannot protect upstream socket from VPN recursion" }
     }
-    override fun useProcFS(): Boolean = false
     override fun underNetworkExtension(): Boolean = false
     override fun includeAllNetworks(): Boolean = false
     override fun usePlatformShell(): Boolean = false
