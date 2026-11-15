@@ -165,7 +165,7 @@ object SubscriptionPayloadParser {
         if (ServerCollections.isWhiteListLabel(label)) return link
         // URL fragment is display-only. Do not modify REALITY parameters,
         // endpoints, UUID or subscription access tokens.
-        val tagged = (label.take(44) + " · Белые списки")
+        val tagged = (label.take(44) + " · LTE-доступ")
         return link.substringBefore('#') + "#" +
             URLEncoder.encode(tagged, "UTF-8").replace("+", "%20")
     }
