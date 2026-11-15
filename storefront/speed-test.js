@@ -61,6 +61,7 @@
   async function throughput(kind, rounds, size, starting, ending) {
     let bytes=0;
     let elapsed=0;
+    const perRound=[];
     for (let i=0;i<rounds;i++) {
       const began=performance.now();
       const response=kind==='download'
@@ -82,18 +83,32 @@
         if(body.received_bytes!==size)throw Error('Передано не всё содержимое.');
         bytes+=size;
       }
-      elapsed+=performance.now()-began;
+      const milliseconds=performance.now()-began;
+      if(!Number.isFinite(milliseconds)||milliseconds<=0)throw Error('Некорректный таймер браузера.');
+      elapsed+=milliseconds;
+      perRound.push(size*8/(milliseconds/1000)/1_000_000);
       bar.style.width=(starting+(ending-starting)*(i+1)/rounds)+'%';
     }
-    if (elapsed<=0)throw Error('Недостаточно данных для измерения.');
-    return bytes*8/(elapsed/1000)/1_000_000;
+    if (elapsed<=0||perRound.length<2)throw Error('Недостаточно HTTP-проб для оценки.');
+    const fastest=Math.max(...perRound),slowest=Math.min(...perRound);
+    // Tiny HTTP samples cannot establish maximum ISP/VPN speed. If results
+    // vary by >3x, fail the measurement instead of presenting false precision.
+    if(slowest<=0||fastest/slowest>3){
+      throw Error('Результаты HTTP сильно различаются. Скорость не подтверждена; повтори тест в стабильной сети.');
+    }
+    return {
+      mbps:bytes*8/(elapsed/1000)/1_000_000,
+      samples:perRound.length,
+      bytes,
+      ratio:fastest/slowest
+    };
   }
   function reset(){
     for(const el of Object.values(results))el.textContent='—';
     bar.style.width='0%';
     latest=null;
     if(copyButton)copyButton.disabled=true;
-    $('speed-explanation').textContent='Только HTTP-обмен с Python-сервером Render, не скорость VPN-туннеля или интернет-провайдера. Результаты приблизительные; маленькие объёмы, загрузка сервера и пробуждение Render искажают показатели.';
+    $('speed-explanation').textContent='Нет подтверждённых измерений. Этот тест проверяет только ограниченный HTTP-обмен с Render, а не реальную скорость интернета, VPN или вашего провайдера.';
   }
   async function run(){
     if(controller)return;
@@ -108,7 +123,11 @@
     const mode=document.querySelector('input[name="speed-mode"]:checked')?.value==='normal'?'normal':'eco';
     const options=$('speed-options');
     if(options)options.disabled=true;
-    const config=mode==='eco'?{pings:3,downloads:1,uploads:1,uploadBytes:128*1024}:{pings:5,downloads:3,uploads:2,uploadBytes:256*1024};
+    // At least two independently timed samples per direction are required.
+    // This is a bounded diagnostic, not a professional line-speed benchmark.
+    const config=mode==='eco'
+      ?{pings:3,downloads:2,uploads:2,uploadBytes:128*1024}
+      :{pings:5,downloads:3,uploads:3,uploadBytes:256*1024};
     start.disabled=true;
     stop.disabled=false;
     reset();
@@ -124,13 +143,19 @@
       const latency = await timePing(config.pings);
       note('Получаем данные с сервера…','Загрузка');
       const download=await throughput('download',config.downloads,512*1024,30,68);
-      results.download.textContent=format(download);
+      results.download.textContent=format(download.mbps);
       note('Передаём данные серверу…','Отдача');
       const upload=await throughput('upload',config.uploads,config.uploadBytes,68,100);
-      results.upload.textContent=format(upload);
-      latest={...latency,download,upload,mode};
+      results.upload.textContent=format(upload.mbps);
+      latest={...latency,download:download.mbps,upload:upload.mbps,mode,
+        downloadSamples:download.samples,uploadSamples:upload.samples,
+        downloadBytes:download.bytes,uploadBytes:upload.bytes};
       const modeNode=$('speed-network-mode');
-      if(modeNode)modeNode.textContent='Режим: '+(mode==='eco'?'экономный':'стандартный')+'. Скорости приблизительные и зависят от нагрузки Render.';
+      if(modeNode)modeNode.textContent=
+        'Режим: '+(mode==='eco'?'экономный':'стандартный')+
+        '. Замерены '+download.samples+' загрузки ('+(download.bytes/1048576).toFixed(2)+
+        ' МиБ) и '+upload.samples+' отправки ('+(upload.bytes/1048576).toFixed(2)+
+        ' МиБ). Разброс замеров может быть значительным.';
       const previousNode=$('speed-previous');
       if(previous&&previousNode&&previous.mode===latest.mode){
         const diff=(key,unit)=>{
@@ -147,7 +172,9 @@
       }
       previous={...latest};
       if(copyButton)copyButton.disabled=false;
-      note('Измерение HTTP до Render завершено. Это не скорость VPN. Для сравнения выполняй тесты в одинаковых условиях.','Тест завершён');
+      $('speed-explanation').textContent=
+        'Показаны эффективные скорости маленьких HTTP-операций с сервером Render, включая ожидание ответа и обработку на сервере. Это НЕ скорость интернет-канала или VPN; короткие запросы дают приблизительные и часто заниженные результаты. Отправка оценивается по полному HTTP-запросу, а не отдельно по фактической скорости исходящего канала.';
+      note('HTTP-замеры завершены. Это диагностическая оценка обмена с Render, не тест интернета или VPN.','HTTP-пробы завершены');
     } catch (error) {
       const message=timedOut?'Превышено время ответа Render. Результат не рассчитан.':
         controller.signal.aborted?'Проверка остановлена. Результат не рассчитан.':
@@ -167,11 +194,12 @@
   stop.addEventListener('click',()=>{if(controller)controller.abort();});
   if(copyButton)copyButton.addEventListener('click',async()=>{
     if(!latest)return;
-    const summary='Vainah VPN · Speed Lab\nPing: '+format(latest.ping)+' мс'+
-      '\nРазброс задержки HTTP: '+format(latest.jitter)+' мс'+
-      '\nЗагрузка: '+format(latest.download)+' Мбит/с'+
-      '\nОтдача: '+format(latest.upload)+' Мбит/с'+
-      '\nОценка HTTP-обмена с Render (Франкфурт), не измерение VPN-туннеля и не максимальная скорость провайдера.';
+    const summary='Vainah VPN · HTTP диагностика Render'+
+      '\nМедиана ответа HTTP: '+format(latest.ping)+' мс'+
+      '\nРазброс HTTP: '+format(latest.jitter)+' мс'+
+      '\nЭффективная скорость HTTP-загрузки: '+format(latest.download)+' Мбит/с ('+latest.downloadSamples+' пробы)'+
+      '\nЭффективная скорость HTTP-отправки: '+format(latest.upload)+' Мбит/с ('+latest.uploadSamples+' пробы)'+
+      '\nЭто НЕ скорость интернета, VPN-туннеля или максимальная скорость провайдера. Ожидание ответа Render включено в замер.';
     try{
       await navigator.clipboard.writeText(summary);
       note('Результат скопирован.','Тест завершён');
