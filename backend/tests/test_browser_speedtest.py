@@ -64,7 +64,7 @@ def test_speed_page_and_tool_directory_are_public_and_linked():
         html = client.get("/speed.html").text
         assert 'id="speed-start"' in html
         assert 'id="speed-stop"' in html
-        assert 'src="speed-test.js?v=20261115-fixspeed1"' in html
+        assert 'src="speed-test.js?v=20261115-accurate2"' in html
         assert 'href="speed-test.css"' in html
         directory = client.get("/tools.html").text
         assert 'href="speed.html"' in directory
