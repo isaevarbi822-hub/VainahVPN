@@ -38,12 +38,17 @@ router = APIRouter(prefix="/api/google", tags=["Google Login"])
 
 
 def _origin() -> str:
+    # OAuth start/callback endpoints live on the Python web service, NOT the
+    # static storefront at vainahvpn.onrender.com. PUBLIC_SITE_ORIGIN is the
+    # storefront's CSRF origin, never an OAuth redirect origin.
     origin = os.environ.get(
-        "PUBLIC_SITE_ORIGIN", "https://vainahvpn-python-preview.onrender.com"
+        "PUBLIC_API_ORIGIN", "https://vainahvpn-python-preview.onrender.com"
     ).rstrip("/")
     parsed = urlsplit(origin)
-    if (parsed.scheme != "https" or not parsed.hostname or parsed.path not in ("", "/")
-            or parsed.query or parsed.fragment or parsed.username or parsed.password):
+    if (parsed.scheme != "https" or parsed.hostname !=
+            "vainahvpn-python-preview.onrender.com" or parsed.port is not None
+            or parsed.path not in ("", "/") or parsed.query or parsed.fragment
+            or parsed.username or parsed.password):
         return ""
     return origin
 
@@ -66,11 +71,16 @@ def _digest(value: str) -> str:
                     hashlib.sha256).hexdigest()
 
 
-def _pack_flow(state: str, nonce: str, verifier: str) -> str:
-    payload = json.dumps({
+def _pack_flow(
+    state: str, nonce: str, verifier: str, mobile_flow: str = "",
+) -> str:
+    fields = {
         "state": state, "nonce": nonce, "verifier": verifier,
         "exp": int(time.time()) + STATE_SECONDS,
-    }, separators=(",", ":"))
+    }
+    if mobile_flow:
+        fields["mobile_flow"] = mobile_flow
+    payload = json.dumps(fields, separators=(",", ":"))
     encoded = base64.urlsafe_b64encode(payload.encode()).rstrip(b"=").decode()
     return encoded + "." + _digest(encoded)
 
@@ -91,6 +101,10 @@ def _unpack_flow(value: str | None) -> dict | None:
         for key in ("state", "nonce", "verifier"):
             text = obj.get(key)
             if not isinstance(text, str) or not 32 <= len(text) <= 128:
+                return None
+        if "mobile_flow" in obj:
+            from .mobile_auth import _flow
+            if _flow(obj["mobile_flow"]) is None:
                 return None
         return obj
     except (ValueError, TypeError, UnicodeDecodeError, KeyError):
@@ -119,10 +133,14 @@ def config() -> dict:
 
 
 @router.get("/start")
-def start() -> RedirectResponse:
+def start(mobile_flow: str = "") -> RedirectResponse:
     settings = _config()
     if settings is None:
         return _end("not_configured")
+    if mobile_flow:
+        from .mobile_auth import pending
+        if not pending(mobile_flow, "google"):
+            return _end("invalid_mobile_flow")
     client_id, _client_secret, origin = settings
     state = secrets.token_urlsafe(32)
     nonce = secrets.token_urlsafe(32)
@@ -145,7 +163,7 @@ def start() -> RedirectResponse:
         AUTH_ENDPOINT + "?" + urlencode(parameters), status_code=302
     )
     response.set_cookie(
-        STATE_COOKIE, _pack_flow(state, nonce, verifier),
+        STATE_COOKIE, _pack_flow(state, nonce, verifier, mobile_flow),
         max_age=STATE_SECONDS, secure=True, httponly=True,
         samesite="lax", path="/",
     )
@@ -227,6 +245,16 @@ async def callback(
     except (httpx.HTTPError, HTTPException, ValueError, TypeError,
             AttributeError, KeyError, jwt.PyJWTError):
         return _end("verification_failed")
+    mobile_flow = flow.get("mobile_flow", "")
+    if mobile_flow:
+        from .mobile_auth import complete
+        deep_link = complete(mobile_flow, "google", email=email)
+        if deep_link is None:
+            return _end("mobile_link_failed")
+        result = RedirectResponse(deep_link, status_code=303)
+        result.delete_cookie(STATE_COOKIE, secure=True, httponly=True, samesite="lax")
+        result.headers["Cache-Control"] = "no-store"
+        return result
     result = RedirectResponse("/account.html?login=google&google=success", status_code=303)
     result.delete_cookie(STATE_COOKIE, secure=True, httponly=True, samesite="lax")
     result.delete_cookie(SESSION_COOKIE, secure=True, httponly=True, samesite="lax")

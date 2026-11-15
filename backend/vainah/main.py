@@ -28,6 +28,7 @@ from .h1_panel import router as h1_router
 from .h1_trial import router as h1_trial_router
 from .inspector import InvalidSubscription, inspect_subscription
 from .integration_status import integration_status
+from .mobile_auth import router as mobile_auth_router
 from .public_trial import router as public_trial_router
 from .qr_handoff import router as handoff_router
 from .reminder_dispatch import router as reminder_dispatch_router
@@ -56,6 +57,7 @@ app.include_router(telegram_router)
 app.include_router(telegram_oidc_router)
 app.include_router(email_auth_router)
 app.include_router(google_auth_router)
+app.include_router(mobile_auth_router)
 app.include_router(customer_router)
 app.include_router(device_registry_router)
 app.include_router(public_trial_router)
