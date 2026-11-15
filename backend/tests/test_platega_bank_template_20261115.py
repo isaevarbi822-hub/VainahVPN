@@ -45,7 +45,7 @@ def test_terms_matches_ten_bank_sample_sections_and_actual_vpn_service():
     assert "VPN-доступ" in html
     assert "Platega" in html
     assert "не устанавливаются универсальный запрет возврата" in html.lower()
-    assert "обязательные сведения о фактическом продавце" in html
+    assert "обязательные сведения о фактическом продавце" in html.lower()
 
 
 def test_new_documents_do_not_fabricate_merchant_details_or_enable_payments():
