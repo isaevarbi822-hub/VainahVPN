@@ -25,6 +25,9 @@ internal class NativeCabinetSession(context: Context) {
         "vainah_native_cabinet_v1", Context.MODE_PRIVATE
     )
     private val alias = "vainah_cabinet_aes_gcm_v1"
+    private val emailCookie = "__Host-vainah_email_session"
+    private val telegramCookie = "__Host-vainah_session"
+    private val sessionPattern = Regex("[A-Za-z0-9_-]{20,1500}\\.[0-9a-f]{64}")
 
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -42,29 +45,78 @@ internal class NativeCabinetSession(context: Context) {
         return generator.generateKey()
     }
 
-    fun save(session: String) {
-        require(session.matches(Regex("[A-Za-z0-9_-]{20,512}\\.[0-9a-f]{64}")))
+    private fun seal(prefix: String, text: String) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
-        val ciphertext = cipher.doFinal(session.toByteArray(StandardCharsets.UTF_8))
-        prefs.edit().putString("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-            .putString("sealed", Base64.encodeToString(ciphertext, Base64.NO_WRAP))
-            .commit()
+        val ciphertext = cipher.doFinal(text.toByteArray(StandardCharsets.UTF_8))
+        check(prefs.edit()
+            .putString(prefix + "_iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+            .putString(prefix + "_sealed", Base64.encodeToString(ciphertext, Base64.NO_WRAP))
+            .commit())
     }
 
-    fun read(): String? = runCatching {
-        val iv = prefs.getString("iv", null) ?: return null
-        val sealed = prefs.getString("sealed", null) ?: return null
+    private fun unseal(prefix: String): String? = runCatching {
+        // Old 2.0 installs stored the email session under "iv" and "sealed".
+        val iv = prefs.getString(prefix + "_iv", null)
+            ?: if (prefix == "auth") prefs.getString("iv", null) else null
+            ?: return null
+        val content = prefs.getString(prefix + "_sealed", null)
+            ?: if (prefix == "auth") prefs.getString("sealed", null) else null
+            ?: return null
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(
             128, Base64.decode(iv, Base64.NO_WRAP)))
-        val session = String(cipher.doFinal(Base64.decode(
-            sealed, Base64.NO_WRAP)), StandardCharsets.UTF_8)
-        session.takeIf { it.matches(Regex("[A-Za-z0-9_-]{20,512}\\.[0-9a-f]{64}")) }
+        String(cipher.doFinal(Base64.decode(content, Base64.NO_WRAP)),
+            StandardCharsets.UTF_8)
     }.getOrNull()
 
+    fun save(session: String) = saveSession(emailCookie, session)
+
+    fun saveSession(cookie: String, session: String) {
+        require(cookie == emailCookie || cookie == telegramCookie)
+        require(sessionPattern.matches(session))
+        seal("auth", cookie + "\n" + session)
+        prefs.edit().remove("iv").remove("sealed").apply()
+    }
+
+    fun readAuth(): Pair<String, String>? {
+        val text = unseal("auth") ?: return null
+        val index = text.indexOf('\n')
+        // Backward compatible with the original native email login.
+        val cookie = if (index < 0) emailCookie else text.substring(0, index)
+        val session = if (index < 0) text else text.substring(index + 1)
+        return if ((cookie == emailCookie || cookie == telegramCookie) &&
+            sessionPattern.matches(session)) cookie to session else null
+    }
+
+    fun read(): String? = readAuth()?.second
+
+    fun savePending(pending: NativeOAuthFlow.Pending) {
+        require(NativeOAuthFlow.validPending(pending))
+        seal("oauth", listOf(pending.flow, pending.provider,
+            pending.verifier, pending.createdAt.toString()).joinToString("\n"))
+    }
+
+    fun pending(): NativeOAuthFlow.Pending? {
+        val parts = unseal("oauth")?.split("\n") ?: return null
+        if (parts.size != 4) return null
+        val item = NativeOAuthFlow.Pending(
+            parts[0], parts[1], parts[2], parts[3].toLongOrNull() ?: return null
+        )
+        if (!NativeOAuthFlow.validPending(item)) {
+            clearPending()
+            return null
+        }
+        return item
+    }
+
+    fun clearPending() {
+        prefs.edit().remove("oauth_iv").remove("oauth_sealed").apply()
+    }
+
     fun clear() {
-        prefs.edit().clear().commit()
+        prefs.edit().remove("auth_iv").remove("auth_sealed")
+            .remove("iv").remove("sealed").apply()
     }
 }
 
