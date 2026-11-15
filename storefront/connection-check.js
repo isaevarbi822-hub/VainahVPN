@@ -1,6 +1,16 @@
 /* Vainah Check: no secrets, no local storage, no simulated server pings. */
 (() => {
   'use strict';
+  // Vainah Check calls authenticated and public same-origin APIs.
+  // On the static marketing domain those routes do not exist: using them
+  // here produces false failures and wrong subscription information.
+  const staticOrigin='https://vainahvpn.onrender.com';
+  const backendOrigin='https://vainahvpn-python-preview.onrender.com';
+  if(typeof window!=='undefined'&&window.location.origin===staticOrigin){
+    const current=new URL(window.location.href);
+    window.location.replace(backendOrigin+current.pathname+current.search+current.hash);
+    return;
+  }
   const $ = id => document.getElementById(id);
   const stamp = () => new Intl.DateTimeFormat('ru-RU',{
     hour:'2-digit',minute:'2-digit',second:'2-digit'
