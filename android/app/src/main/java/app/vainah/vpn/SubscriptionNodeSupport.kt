@@ -22,13 +22,13 @@ object SubscriptionNodeSupport {
     }
 
     fun inspect(raw: String): Details? = runCatching {
-        if (raw.length !in 1..8192) return null
+        if (raw.length !in 1..8192) return@runCatching null
         val uri = URI(raw)
         if (uri.scheme != "vless" || uri.host.isNullOrBlank() ||
-            uri.host!!.length > 253 || uri.port !in 1..65535) return null
-        val id = uri.rawUserInfo ?: return null
+            uri.host!!.length > 253 || uri.port !in 1..65535) return@runCatching null
+        val id = uri.rawUserInfo ?: return@runCatching null
         if (!id.matches(Regex("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")))
-            return null
+            return@runCatching null
         UUID.fromString(id)
         val params = uri.rawQuery.orEmpty().split('&').mapNotNull { part ->
             val p = part.indexOf('=')
@@ -37,11 +37,11 @@ object SubscriptionNodeSupport {
                 URLDecoder.decode(part.substring(p + 1), "UTF-8")
         }.toMap()
         val security = params["security"]?.lowercase(Locale.ROOT) ?: "none"
-        if (security !in setOf("tls", "reality")) return null
+        if (security !in setOf("tls", "reality")) return@runCatching null
         if (security == "reality" &&
-            (params["pbk"].isNullOrBlank() || params["sni"].isNullOrBlank())) return null
+            (params["pbk"].isNullOrBlank() || params["sni"].isNullOrBlank())) return@runCatching null
         val network = (params["type"] ?: "tcp").lowercase(Locale.ROOT)
-        if (network !in setOf("tcp", "raw", "grpc", "xhttp", "splithttp")) return null
+        if (network !in setOf("tcp", "raw", "grpc", "xhttp", "splithttp")) return@runCatching null
         val normalized = when(network) {
             "raw" -> "tcp"
             "splithttp" -> "xhttp"
