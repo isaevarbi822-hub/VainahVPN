@@ -74,15 +74,13 @@ object ServerRowPresentation {
             val withoutEmoji = safe.replace(country.flag, "").trim()
             if (withoutEmoji.isBlank()) country.display else withoutEmoji
         } else safe
-        val protocol = if (runCatching {
-            VlessRealityConfig.outbound(node.uri)
-        }.isSuccess) "VLESS / TCP / REALITY"
-        else "Формат не подтверждён"
+        val support = SubscriptionNodeSupport.inspect(node.uri)
+        val protocol = support?.subtitle ?: "Формат не подтверждён"
         return ServerRowInfo(
             title = title,
             flag = country?.flag ?: "🌐",
             subtitle = protocol,
-            transport = if (protocol == "VLESS / TCP / REALITY") "tcp" else "unknown",
+            transport = support?.transport ?: "unknown",
             country = country?.display
         )
     }
