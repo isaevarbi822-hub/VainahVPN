@@ -58,6 +58,9 @@ class MainActivity : Activity() {
     private var serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
     private var serverProbes: List<ServerTcpObservation> = emptyList()
     private var serverListExpanded = false
+    private var contentScroll: ScrollView? = null
+    private var lastRenderedPage: Page? = null
+    private var showAdvancedDiagnostics = false
     private var serverSearchQuery = ""
     private var showFavoriteServers = false
     private var serverCollection = ServerCollection.ALL
@@ -181,9 +184,9 @@ class MainActivity : Activity() {
         setLineSpacing(dp(2).toFloat(), 1.05f)
     }
     private fun card() = column().apply {
-        background = shape(VainahDesign.surface, border, 21)
-        setPadding(dp(16), dp(17), dp(16), dp(18))
-        elevation = dp(1).toFloat()
+        background = VainahUi.cardBackground(this@MainActivity)
+        setPadding(dp(17), dp(17), dp(17), dp(18))
+        elevation = dp(3).toFloat()
     }
     private fun tag(value: String) = t(value.uppercase(), 11f, violet, true).apply {
         letterSpacing = 0.1f
@@ -196,13 +199,7 @@ class MainActivity : Activity() {
         setPadding(dp(10), 0, dp(10), 0)
         typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
         setTextColor(if (mainButton) Color.WHITE else white)
-        background = RippleDrawable(
-            ColorStateList.valueOf(Color.argb(35, 110, 111, 177)),
-            shape(
-                if (mainButton) violet else VainahDesign.surface,
-                if (mainButton) violet else border, 14
-            ), null
-        )
+        background = VainahUi.buttonBackground(this@MainActivity, mainButton)
     }
     private fun input(hintValue: String) = EditText(this).apply {
         hint = hintValue
@@ -215,8 +212,29 @@ class MainActivity : Activity() {
         importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
     }
     private fun popup(message: String) {
-        AlertDialog.Builder(this).setTitle("VainahVPN").setMessage(message)
-            .setPositiveButton("Понятно", null).show()
+        // Branded, accessible dialog instead of a wall of system-default text.
+        // The message is already credential-safe before reaching this method.
+        val dialog = AlertDialog.Builder(this).create()
+        val surface = column().apply {
+            background = VainahUi.cardBackground(this@MainActivity)
+            setPadding(dp(20), dp(20), dp(20), dp(17))
+        }
+        add(surface, tag("VAINAHVPN"))
+        add(surface, t(message, 13.5f, white), 11)
+        val close = action("Понятно", true)
+        add(surface, close, 17)
+        close.setOnClickListener { dialog.dismiss() }
+        dialog.setView(surface)
+        dialog.setOnShowListener {
+            dialog.window?.setBackgroundDrawable(
+                android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+            )
+            dialog.window?.setLayout(
+                (resources.displayMetrics.widthPixels * 0.89f).toInt(),
+                android.view.WindowManager.LayoutParams.WRAP_CONTENT
+            )
+        }
+        dialog.show()
     }
 
     /**
@@ -247,8 +265,9 @@ class MainActivity : Activity() {
         connectView = null
         // Every page shares the same clean light surface and typography.
         val light = true
+        val lastOffset = if (lastRenderedPage == page) contentScroll?.scrollY ?: 0 else 0
         val frame = column().apply {
-            setBackgroundColor(if (light) ServerListVisual.backgroundColor() else bg)
+            background = VainahUi.pageBackground()
             // Android 15+ draws behind system bars. Keep the top brand and
             // bottom navigation outside status/gesture areas on every device.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -263,23 +282,28 @@ class MainActivity : Activity() {
         }
         val scroll = ScrollView(this).apply { isFillViewport = true }
         val body = column().apply {
-            setPadding(dp(14), dp(12), dp(14), dp(20))
+            setPadding(dp(15), dp(12), dp(15), dp(23))
         }
         scroll.addView(body)
         frame.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        if (page != Page.HOME) add(body, tag("VAINAHVPN"))
         if (page != Page.HOME) {
+            val brand = horizontal().apply { setPadding(dp(4), 0, dp(4), 0) }
+            brand.addView(VainahShieldView(this),
+                LinearLayout.LayoutParams(dp(35), dp(35)))
+            brand.addView(t("VAINAH", 16f, white, true),
+                LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8) })
+            brand.addView(t("VPN", 16f, violet, true))
+            add(body, brand, 3)
             add(body, t(when (page) {
                 Page.HOME -> "VainahVPN"
                 Page.LOCATIONS -> "Серверы"
                 Page.ACCOUNT -> "Подписка"
                 Page.DEVICES -> "Мои устройства"
                 Page.DIAGNOSTICS -> "Диагностика"
-                Page.SECURITY -> "Безопасность"
+                Page.SECURITY -> "Защита"
                 Page.SETTINGS -> "Настройки"
                 Page.MORE -> "Профиль"
-            }, if (light) 20f else 23f,
-                if (light) ServerListVisual.textColor() else white, true), 8)
+            }, 27f, white, true), 12)
         }
         if (!light) add(body, t("Android · " + BuildConfig.VERSION_NAME, 12f,
             grey), 7)
@@ -294,9 +318,12 @@ class MainActivity : Activity() {
             Page.MORE -> more(body)
         }
         val nav = horizontal().apply {
-            background = shape(VainahDesign.surface, VainahDesign.border, 0)
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.WHITE, Color.rgb(250, 246, 255))
+            ).apply { setStroke(dp(1), VainahDesign.border) }
             elevation = dp(7).toFloat()
-            setPadding(dp(7), dp(7), dp(7), dp(6))
+            setPadding(dp(6), dp(7), dp(6), dp(6))
         }
         val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
                 Page.SETTINGS)) Page.MORE else page
@@ -321,7 +348,7 @@ class MainActivity : Activity() {
                 )
                 val glyph = NavigationGlyphView(this@MainActivity, target.name, active)
                 addView(glyph, LinearLayout.LayoutParams(dp(22), dp(22)))
-                addView(t(label, 9.5f, if (active) violet else grey, active).apply {
+                addView(t(label, 10f, if (active) violet else grey, active).apply {
                     gravity = Gravity.CENTER
                     maxLines = 1
                 }, LinearLayout.LayoutParams(-1, -2).apply {
@@ -341,6 +368,9 @@ class MainActivity : Activity() {
         }
         frame.addView(nav)
         setContentView(frame)
+        contentScroll = scroll
+        lastRenderedPage = page
+        if (lastOffset > 0) scroll.post { scroll.scrollTo(0, lastOffset) }
         updateConnection()
         // One automatic real TCP scan per loaded list, never a fake ping.
         // It is not used to replace a manual server selection.
@@ -367,10 +397,7 @@ class MainActivity : Activity() {
         val item = horizontal().apply {
             minimumHeight = dp(if (description == null) 54 else 61)
             setPadding(dp(11), dp(8), dp(11), dp(8))
-            background = RippleDrawable(
-                ColorStateList.valueOf(Color.argb(38, 111, 111, 177)),
-                shape(VainahDesign.surface, VainahDesign.surface, 13), null
-            )
+            background = VainahUi.buttonBackground(this@MainActivity, false)
             isClickable = true
             isFocusable = true
             contentDescription = label
@@ -387,10 +414,7 @@ class MainActivity : Activity() {
     }
 
     private fun lightAction(label: String): Button = action(label).apply {
-        background = RippleDrawable(
-            ColorStateList.valueOf(Color.argb(35, 111, 111, 177)),
-            shape(VainahDesign.surface, VainahDesign.border, 13), null
-        )
+        background = VainahUi.buttonBackground(this@MainActivity, false)
         setTextColor(ServerListVisual.textColor())
         minHeight = dp(42)
     }
@@ -492,14 +516,16 @@ class MainActivity : Activity() {
         }
         upper.addView(settingsButton, LinearLayout.LayoutParams(dp(45), dp(45)))
         settingsButton.setOnClickListener { page = Page.SETTINGS; render() }
-        val brand = column().apply {
+        val brand = horizontal().apply {
             gravity = Gravity.CENTER
-            add(this, t("VainahVPN", 19f, ink, true).apply {
-                gravity = Gravity.CENTER
+            addView(VainahShieldView(this@MainActivity),
+                LinearLayout.LayoutParams(dp(34), dp(34)))
+            val title = column()
+            add(title, t("VainahVPN", 20f, ink, true))
+            add(title, t("Твоё соединение · Твои правила", 10f, muted), 3)
+            addView(title, LinearLayout.LayoutParams(-2, -2).apply {
+                marginStart = dp(8)
             })
-            add(this, t("Твоё соединение · Твои правила", 10.5f, muted).apply {
-                gravity = Gravity.CENTER
-            }, 3)
         }
         upper.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
         val addProfile = lightAction("+").apply {
@@ -556,7 +582,7 @@ class MainActivity : Activity() {
             dp(172), dp(172), Gravity.CENTER
         ))
         hero.addView(ring, LinearLayout.LayoutParams(dp(223), dp(223)))
-        val status = t("Не подключено", 19f, ink, true).apply {
+        val status = t("Не подключено", 21f, ink, true).apply {
             gravity = Gravity.CENTER
         }
         stateView = status
@@ -711,11 +737,14 @@ class MainActivity : Activity() {
         add(live, tag("МОЯ ПОДПИСКА"))
         add(live, t("Подписка VainahVPN", 20f, white, true), 9)
         add(live, t(
-            "Цена, срок действия, число устройств и история покупок " +
-                "показываются в личном кабинете после входа. " +
-                "Приложение не рисует выдуманный баланс и не принимает данные карты.",
+            "Тариф, срок и устройства — в личном кабинете. " +
+                "Оплата открывается на официальном сайте.",
             12f, grey
         ), 10)
+        add(live, VainahUi.detailRow(this, "VPN-профиль",
+            if (source.savedLink() == null) "Не добавлен" else "Сохранён",
+            if (source.savedLink() == null) VainahUi.Tone.NEUTRAL
+            else VainahUi.Tone.SUCCESS), 12)
         val onlineAccount = action("Открыть мою подписку", true)
         add(live, onlineAccount, 12)
         onlineAccount.setOnClickListener { openOfficialPage("account.html") }
@@ -729,9 +758,8 @@ class MainActivity : Activity() {
         add(profile, t(if (source.savedLink() == null)
             "Подписка не добавлена" else "Профиль сохранён", 19f, white, true), 9)
         add(profile, t(source.sourceLabel(), 12f, grey), 8)
-        add(profile, t(
-            "Профиль и ключи защищены Android Keystore.",
-            12f, grey), 9)
+        add(profile, VainahUi.infoStrip(this,
+            "VPN-ключи хранятся в защищённом Android Keystore."), 9)
         val entry = input("https://… или vless://…")
         add(profile, entry, 12)
         val save = action("Сохранить профиль", true)
@@ -812,169 +840,75 @@ class MainActivity : Activity() {
     }
 
     private fun help(body: LinearLayout) {
-        val info = card()
-        add(body, info, 21)
-        add(info, tag("Диагностика"))
-        add(info, t(
-            "HTTP 403 означает, что сервер подписки отказал конкретному " +
-                "приложению. Это не подтверждает окончание подписки.",
-            13f, grey), 10)
-        add(info, t(source.sourceLabel(), 12f, teal), 11)
-        add(info, t("libbox: " + if (EngineRegistry.active.ready)
-            "установлен" else "не установлен", 13f, grey), 10)
-        lastError?.let { add(info, t("Ошибка: " + it, 13f, errorColor), 10) }
-        add(info, t(
-            "Состояние VPN берётся из Android-службы. Наличие TUN не подтверждает " +
-                "внешний IP и отсутствие DNS-утечек.",
-            12f, grey), 10)
+        val snapshot = VpnConnectionState.read(this)
+        val active = snapshot.canDisconnect && VainahVpnService.runningInProcess
+        val status = DiagnosticPresentation.subscription(
+            source.savedLink() != null, nodes.size, source.busy, lastError
+        )
+
+        val subscription = card()
+        add(body, subscription, 13)
+        add(subscription, tag("СЕРВЕР ПОДПИСКИ"))
+        add(subscription, t(status.headline, 17f, white, true), 8)
+        add(subscription, t(status.explanation, 12f,
+            if (status.warning) errorColor else grey), 8)
+        add(subscription, VainahUi.infoStrip(this,
+            status.secondary + " · " + source.sourceLabel()), 12)
+
+        val engine = card()
+        add(body, engine, 12)
+        add(engine, VainahUi.detailRow(this, "VPN-движок libbox",
+            if (EngineRegistry.active.ready) "✓ Установлен" else "Недоступен",
+            if (EngineRegistry.active.ready) VainahUi.Tone.SUCCESS
+            else VainahUi.Tone.WARNING))
+
         val network = VpnUnderlayStatus.read(this)
-        val kind = when (network.transport) {
+        val networkName = when (network.transport) {
             "wifi" -> "Wi-Fi"
             "cellular" -> "4G / 5G"
             "ethernet" -> "Ethernet"
-            "other" -> "другое подключение"
-            else -> "нет подтверждённого интерфейса"
+            "other" -> "Другая сеть"
+            else -> "Нет сети"
         }
-        val connectionActive = VpnConnectionState.read(this).canDisconnect
-        add(info, t(
-            "Физическая сеть в VPN-сеансе: " + kind +
-                (if (connectionActive) "" else " · последнее наблюдение"),
-            13f, white, true
-        ), 12)
-        add(info, t(
-            "Проверка сети Android: " +
-                (if (network.validated) "подтверждена системой" else "не подтверждена") +
-                " · переходов между интерфейсами: " + network.transitions,
-            12f, grey), 6)
-        add(info, t(
-            "Это только состояние физической сети Android, не доказательство " +
-                "работы VPN, доступа к сайтам или отсутствия DNS-утечек. " +
-                "При смене Wi-Fi/4G libbox получает обновление интерфейса.",
-            12f, grey), 8)
-
-        val recovery = VpnUnderlayStatus.recovery(
-            this, connectionActive && VainahVpnService.runningInProcess
-        )
-        val recoveryCard = card()
-        add(body, recoveryCard, 16)
-        add(recoveryCard, tag("ВОССТАНОВЛЕНИЕ СЕТИ"))
-        add(recoveryCard, t(recovery.title, 17f, white, true), 8)
-        add(recoveryCard, t(
-            recovery.message, 12f, if (recovery.attention) errorColor else grey
-        ), 8)
-        add(recoveryCard, t(
-            "VPN никогда не перезапускается автоматически при изменении сети. " +
-                "Решение о ручном переподключении остаётся за тобой.",
-            12f, grey
-        ), 8)
-        val reopen = action("Открыть управление подключением")
-        add(recoveryCard, reopen, 10)
-        reopen.setOnClickListener { page = Page.HOME; render() }
-        val refreshRecovery = action("Обновить состояние сети")
-        add(recoveryCard, refreshRecovery, 9)
-        refreshRecovery.setOnClickListener { render() }
-
-        val failedCode = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
-            .getString("last_failure_code", null)
-        if (VpnConnectionState.read(this).phase == VpnConnectionState.FAILED &&
-            failedCode != null
-        ) {
-            val engineAdvice = VpnFailureAdvisor.fromCode(failedCode)
-            val recognized = VpnFailureAdvisor.sanitizedCode(failedCode)
-            val failureCard = card()
-            add(body, failureCard, 16)
-            add(failureCard, tag("ДИАГНОСТИКА LIBBOX"))
-            add(failureCard, t(
-                engineAdvice.title, 16f, white, true
-            ), 8)
-            add(failureCard, t(
-                engineAdvice.action, 12f, grey
-            ), 8)
-            add(failureCard, t("Код ошибки: " + recognized, 12f, teal), 8)
+        val physical = card()
+        add(body, physical, 12)
+        add(physical, tag("ФИЗИЧЕСКАЯ СЕТЬ"))
+        add(physical, t("Состояние во время VPN-сеанса",
+            17f, white, true), 8)
+        add(physical, VainahUi.detailRow(this,
+            if (active) "Физический интерфейс" else "Последний интерфейс",
+            networkName, VainahUi.Tone.PURPLE), 12)
+        add(physical, VainahUi.detailRow(this, "Проверка Android",
+            if (network.validated) "Подтверждена" else "Не подтверждена",
+            if (network.validated) VainahUi.Tone.SUCCESS
+            else VainahUi.Tone.NEUTRAL), 5)
+        add(physical, VainahUi.detailRow(this,
+            "Переходов между сетями", network.transitions.toString()), 5)
+        add(physical, t(
+            "Это состояние физической сети Android, а не доказательство " +
+                "работы VPN или отсутствия DNS-утечек.",
+            11.5f, grey), 10)
+        val tools = horizontal()
+        val report = action("Скопировать отчёт", true).apply {
+            textSize = 12f
+            contentDescription = "Скопировать обезличенный диагностический отчёт"
         }
-
-        val routes = card()
-        add(body, routes, 16)
-        add(routes, tag("DNS / IPv4 / IPv6"))
-        add(routes, t("Маршруты Android VPN", 18f, white, true), 8)
-        val routeFacts = currentRouteFacts()
-        val routeAssessment = VpnRouteAdvisor.assess(connectionActive, routeFacts)
-        val routeTitle = if (routeScanRunning) "Проверяем Android…" else routeAssessment.title
-        add(routes, t(routeTitle, 14f, white, true), 9)
-        add(routes, t(routeAssessment.explanation, 12f,
-            if (routeAssessment.needsReview) errorColor else grey), 8)
-        if (routeFacts != null) {
-            fun yn(flag: Boolean?): String = when (flag) {
-                true -> "да"
-                false -> "нет"
-                null -> "неизвестно"
-            }
-            add(routes, t(
-                "VPN-сеть: " + yn(routeFacts.visible) +
-                    " · полный IPv4-маршрут: " + yn(routeFacts.ipv4DefaultRoute) +
-                    " · полный IPv6-маршрут: " + yn(routeFacts.ipv6DefaultRoute) +
-                    " · DNS настроен: " + yn(routeFacts.dnsConfigured),
-                12f, teal
-            ), 10)
+        tools.addView(report, LinearLayout.LayoutParams(0, dp(49), 1f))
+        val retry = action("Обновить серверы").apply {
+            textSize = 12f
+            contentDescription = "Обновить список серверов из HTTPS-подписки"
+            isEnabled = !source.busy
         }
-        val inspect = action(if (routeScanRunning) "Проверка…" else
-            "Проверить маршруты и DNS")
-        inspect.isEnabled = !routeScanRunning && connectionActive &&
-            VainahVpnService.runningInProcess
-        add(routes, inspect, 12)
-        inspect.setOnClickListener { inspectVpnRoutes() }
-        add(routes, t(
-            "Это локальная проверка таблицы маршрутов и настройки DNS. " +
-                "Она не отправляет интернет-запросы, не измеряет DNS-утечки " +
-                "и не подтверждает внешний IP. Результат может устареть после смены сети.",
-            12f, grey
-        ), 9)
-
-        val handoffs = VpnUnderlayStatus.history(this)
-        val historyCard = card()
-        add(body, historyCard, 16)
-        add(historyCard, tag("ПЕРЕКЛЮЧЕНИЯ СЕТИ"))
-        add(historyCard, t("История за текущий VPN-сеанс", 18f, white, true), 8)
-        add(historyCard, t(
-            "Только тип сети и состояние проверки Android. " +
-                "Не подтверждает, что сайты открывались через VPN после перехода.",
-            12f, grey), 8)
-        fun transportLabel(code: String): String = when (code) {
-            "wifi" -> "Wi-Fi"
-            "cellular" -> "4G/5G"
-            "ethernet" -> "Ethernet"
-            "none" -> "нет сети"
-            else -> "другая сеть"
-        }
-        if (handoffs.isEmpty()) {
-            add(historyCard, t("Переходы пока не зафиксированы.", 12f, grey), 9)
-        } else {
-            for (event in handoffs.takeLast(6).asReversed()) {
-                val line = transportLabel(event.from) + " → " +
-                    transportLabel(event.to) + " · " +
-                    (if (event.validated) "Android подтвердил сеть"
-                     else "доступ сети не подтверждён")
-                add(historyCard, t(line, 12f, grey), 9)
-            }
-            if (handoffs.size > 6) {
-                add(historyCard, t(
-                    "Остальные события включены в обезличенный отчёт.",
-                    12f, grey
-                ), 8)
-            }
-        }
-        val refreshHistory = action("Обновить историю сети")
-        add(historyCard, refreshHistory, 11)
-        refreshHistory.setOnClickListener { render() }
-
-        val report = action("Скопировать безопасный отчёт")
-        add(info, report, 12)
+        tools.addView(retry, LinearLayout.LayoutParams(0, dp(49), 1f).apply {
+            marginStart = dp(8)
+        })
+        add(physical, tools, 13)
         report.setOnClickListener {
             val diag = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
-            val state = VpnConnectionState.read(this)
+            val current = VpnConnectionState.read(this)
             val underlay = VpnUnderlayStatus.read(this)
-            val text = VpnDiagnosticReport.create(
-                state.phase,
+            val safeReport = VpnDiagnosticReport.create(
+                current.phase,
                 diag.getString("last_stage", null),
                 diag.getString("vpn_probe_reason", null),
                 Build.VERSION.SDK_INT,
@@ -983,22 +917,121 @@ class MainActivity : Activity() {
                 underlay = VpnUnderlayFacts(
                     transport = underlay.transport,
                     validated = underlay.validated,
-                    transitions = underlay.transitions,
+                    transitions = underlay.transitions
                 ),
                 handoffEvents = VpnUnderlayStatus.history(this),
                 recoveryCode = VpnUnderlayStatus.recovery(
-                    this, state.canDisconnect && VainahVpnService.runningInProcess
+                    this, current.canDisconnect && VainahVpnService.runningInProcess
                 ).code,
-                failureCode = if (state.phase == VpnConnectionState.FAILED)
-                    diag.getString("last_failure_code", null) else null,
+                failureCode = if (current.phase == VpnConnectionState.FAILED)
+                    diag.getString("last_failure_code", null) else null
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("Vainah VPN diagnostic", text))
-            popup("Обезличенный отчёт скопирован. В нём нет VPN-ключей или адресов серверов.")
+            clipboard.setPrimaryClip(ClipData.newPlainText(
+                "VainahVPN diagnostic", safeReport
+            ))
+            popup("Безопасный отчёт скопирован. Ключи, адреса серверов и ссылки не включены.")
         }
-        val retry = action("Обновить серверы")
-        add(info, retry, 12)
-        retry.setOnClickListener { page = Page.HOME; render(); refreshServers(true) }
+        retry.setOnClickListener { refreshServers(true) }
+
+        val recovery = VpnUnderlayStatus.recovery(this, active)
+        val recoveryCard = card()
+        add(body, recoveryCard, 12)
+        add(recoveryCard, tag("ВОССТАНОВЛЕНИЕ СЕТИ"))
+        add(recoveryCard, t(
+            DiagnosticPresentation.tunnelHeadline(
+                snapshot.phase, VainahVpnService.runningInProcess
+            ), 17f, white, true), 8)
+        add(recoveryCard, t(recovery.message, 12f,
+            if (recovery.attention) errorColor else grey), 9)
+        add(recoveryCard, VainahUi.infoStrip(this,
+            if (active) "При неожиданной остановке движка доступны до двух " +
+                "попыток восстановления. При ручном отключении они отменяются."
+            else "Для проверки VPN запусти туннель на главной странице."), 10)
+        val openHome = action("Управление подключением")
+        add(recoveryCard, openHome, 11)
+        openHome.setOnClickListener { page = Page.HOME; render() }
+
+        val failureCode = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+            .getString("last_failure_code", null)
+        if (snapshot.phase == VpnConnectionState.FAILED && failureCode != null) {
+            val advice = VpnFailureAdvisor.fromCode(failureCode)
+            val failure = card()
+            add(body, failure, 12)
+            add(failure, tag("ПОСЛЕДНЯЯ ОШИБКА LIBBOX"))
+            add(failure, t(advice.title, 16f, white, true), 8)
+            add(failure, t(advice.action, 12f, grey), 8)
+            add(failure, t("Код: " +
+                VpnFailureAdvisor.sanitizedCode(failureCode), 11f, teal), 7)
+        }
+
+        val expanded = action(if (showAdvancedDiagnostics)
+            "Скрыть дополнительные проверки" else "Дополнительные проверки и история")
+        add(body, expanded, 13)
+        expanded.setOnClickListener {
+            showAdvancedDiagnostics = !showAdvancedDiagnostics
+            render()
+        }
+        if (!showAdvancedDiagnostics) return
+
+        val routes = card()
+        add(body, routes, 12)
+        add(routes, tag("DNS / IPv4 / IPv6"))
+        add(routes, t("Маршруты Android VPN", 17f, white, true), 8)
+        val facts = currentRouteFacts()
+        val assessment = VpnRouteAdvisor.assess(active, facts)
+        add(routes, t(if (routeScanRunning)
+            "Проверяем Android…" else assessment.title,
+            14f, white, true), 9)
+        add(routes, t(assessment.explanation, 12f,
+            if (assessment.needsReview) errorColor else grey), 8)
+        if (facts != null) {
+            fun flag(value: Boolean?): String = when (value) {
+                true -> "есть"
+                false -> "нет"
+                else -> "неизвестно"
+            }
+            add(routes, VainahUi.detailRow(this, "VPN-сеть", flag(facts.visible)), 10)
+            add(routes, VainahUi.detailRow(this,
+                "IPv4", flag(facts.ipv4DefaultRoute)), 5)
+            add(routes, VainahUi.detailRow(this,
+                "IPv6", flag(facts.ipv6DefaultRoute)), 5)
+            add(routes, VainahUi.detailRow(this,
+                "DNS", flag(facts.dnsConfigured)), 5)
+        }
+        val inspect = action(if (routeScanRunning) "Проверяем…" else
+            "Проверить маршруты и DNS")
+        inspect.isEnabled = !routeScanRunning && active
+        add(routes, inspect, 11)
+        inspect.setOnClickListener { inspectVpnRoutes() }
+        add(routes, t("Проверка локальная: не измеряет DNS-утечки, " +
+            "внешний IP или успешную передачу VPN-трафика.", 11f, grey), 8)
+
+        val history = card()
+        add(body, history, 12)
+        add(history, tag("ИСТОРИЯ СЕТИ"))
+        val events = VpnUnderlayStatus.history(this)
+        add(history, t(if (events.isEmpty())
+            "Переходы пока не зафиксированы"
+            else "Последние ${minOf(events.size, 6)} переходов",
+            16f, white, true), 8)
+        fun label(name: String): String = when (name) {
+            "wifi" -> "Wi-Fi"
+            "cellular" -> "4G/5G"
+            "ethernet" -> "Ethernet"
+            "none" -> "Нет сети"
+            else -> "Другая сеть"
+        }
+        for (event in events.takeLast(6).asReversed()) {
+            add(history, VainahUi.detailRow(this,
+                label(event.from) + " → " + label(event.to),
+                if (event.validated) "Подтверждено" else "Не проверено",
+                if (event.validated) VainahUi.Tone.SUCCESS
+                else VainahUi.Tone.NEUTRAL), 6)
+        }
+        add(history, t(
+            "История не подтверждает, что сайты открывались через VPN.",
+            11f, grey), 11)
     }
 
     private fun currentRouteFacts(): VpnNetworkFacts? {
@@ -1051,18 +1084,20 @@ class MainActivity : Activity() {
     private fun locations(body: LinearLayout) {
         val ink = ServerListVisual.textColor()
         val muted = ServerListVisual.mutedColor()
-        val sheet = ServerListVisual.sheet(this)
-        add(body, sheet, 10)
+        val summary = card()
+        add(body, summary, 13)
         val header = horizontal().apply {
-            setPadding(dp(10), dp(3), dp(10), dp(12))
+            setPadding(dp(2), dp(2), dp(2), dp(8))
         }
         val text = column()
-        add(text, t("Все серверы", 17.5f, ink, true))
+        add(text, tag("ВСЕ СЕРВЕРЫ"))
         add(text, t(
             if (nodes.isEmpty()) "Список пока пуст"
             else "${nodes.size} серверов из подписки",
-            12f, muted
+            18f, ink, true
         ), 6)
+        add(text, t("Сохранено конфигураций: ${nodes.size}",
+            11f, muted), 5)
         header.addView(text, LinearLayout.LayoutParams(0, -2, 1f))
         val refresh = lightAction("⟳").apply {
             contentDescription = "Обновить список серверов"
@@ -1071,16 +1106,15 @@ class MainActivity : Activity() {
         }
         header.addView(refresh, LinearLayout.LayoutParams(dp(48), dp(48)))
         refresh.setOnClickListener { refreshServers(true) }
-        add(sheet, header)
-        add(sheet, t(
-            if (source.busy) "Загружаем подписку…"
-            else cacheMessage, 11.5f, muted
-        ).apply { setPadding(dp(13), 0, dp(13), dp(11)) })
+        add(summary, header)
+        add(summary, VainahUi.infoStrip(this,
+            if (source.busy) "Загружаем серверы из подписки…"
+            else cacheMessage), 8)
         lastError?.let { problem ->
-            add(sheet, t(problem, 12f, Color.rgb(172, 78, 82)).apply {
-                setPadding(dp(13), 0, dp(13), dp(12))
-            })
+            add(summary, t(problem, 11.5f, errorColor), 8)
         }
+        val sheet = ServerListVisual.sheet(this)
+        add(body, sheet, 12)
         // Search/filter only updates the row container. Keeping EditText
         // alive preserves keyboard focus while the user is typing.
         val search = EditText(this).apply {
@@ -1124,21 +1158,29 @@ class MainActivity : Activity() {
             addView(categoryRow)
         }
         add(sheet, categoryScroll, 8)
-        val whiteInfo = t(
-            "Новые серверы появляются после синхронизации подписки. " +
-                "В фоне Android проверяет обновления примерно раз в 15 минут. " +
-                "LTE определяется по метке H1Cloud или твоему выбору; " +
-                "само добавление узла не включает LTE-доступ.",
-            10.5f, muted
-        ).apply { setPadding(dp(12), dp(3), dp(12), dp(6)) }
-        add(sheet, whiteInfo)
-        val editWhite = lightAction("✦ Отметить мои LTE-серверы").apply {
+        val whiteInfo = VainahUi.infoStrip(this,
+            "Список H1Cloud обновляется автоматически по расписанию Android. " +
+                "LTE-метка не подтверждает работу конкретного сервера.")
+        add(sheet, whiteInfo, 7)
+        val lteControls = horizontal()
+        val viewLte = action("LTE-серверы", true).apply {
             textSize = 11.5f
-            setTextColor(VainahDesign.green)
-            minHeight = dp(42)
-            background = shape(VainahDesign.surface, VainahDesign.border, 13)
+            contentDescription = "Показать категорию LTE-серверов"
         }
-        add(sheet, editWhite, 4)
+        lteControls.addView(viewLte, LinearLayout.LayoutParams(
+            0, dp(45), 1f))
+        viewLte.setOnClickListener {
+            serverCollection = ServerCollection.WHITELIST
+            render()
+        }
+        val editWhite = lightAction("Отметить мои LTE").apply {
+            textSize = 11f
+            contentDescription = "Выбрать реальные серверы с LTE-доступом"
+        }
+        lteControls.addView(editWhite, LinearLayout.LayoutParams(
+            0, dp(45), 1f
+        ).apply { marginStart = dp(8) })
+        add(sheet, lteControls, 9)
         editWhite.setOnClickListener { chooseWhiteListNodes() }
         val controls = horizontal().apply {
             setPadding(dp(5), dp(9), dp(5), dp(12))
@@ -1171,17 +1213,19 @@ class MainActivity : Activity() {
                     serverCollection
                 )
                 val whiteMode = serverCollection == ServerCollection.WHITELIST
-                whiteInfo.visibility = if (whiteMode) View.VISIBLE else View.GONE
-                editWhite.visibility = if (whiteMode) View.VISIBLE else View.GONE
+                whiteInfo.text = if (whiteMode)
+                    "LTE-группа включает только узлы с меткой в подписке " +
+                        "или отмеченные вручную. Пометка не включает LTE-доступ."
+                else "Новые конфигурации H1Cloud обновляются по расписанию Android. " +
+                    "В списке только реальные узлы подписки."
                 favoriteButton.text = if (serverCollection == ServerCollection.FAVORITES)
                     "★ Только избранные" else "☆ Избранные"
                 for ((category, button) in categoryButtons) {
                     val active = category == serverCollection
-                    button.background = shape(
-                        if (active) violet else VainahDesign.surface,
-                        if (active) violet else border, 12
+                    button.background = VainahUi.buttonBackground(
+                        this@MainActivity, active
                     )
-                    button.setTextColor(if (active) bg else white)
+                    button.setTextColor(if (active) Color.WHITE else white)
                     button.isSelected = active
                 }
                 sortButton.text = when (serverSort) {
@@ -1259,7 +1303,8 @@ class MainActivity : Activity() {
             setPadding(dp(17), dp(18), dp(17), dp(20))
         }
         add(body, measurement, 16)
-        add(measurement, t("TCP-задержка", 16f, ink, true))
+        add(measurement, tag("ИЗМЕРЕНИЕ СЕРВЕРОВ"))
+        add(measurement, t("TCP-задержка", 17f, ink, true), 7)
         add(measurement, t(serverProbeMessage, 12f, muted), 7)
         add(measurement, t(
             "Проверяем входные серверы без VPN. TCP-задержка — " +
@@ -1269,11 +1314,7 @@ class MainActivity : Activity() {
         val probe = action(
             if (serverProbeRunning) "Проверяем серверы…"
             else "Повторить замер и выбрать быстрый", true
-        ).apply {
-            setTextColor(Color.WHITE)
-            background = shape(ServerListVisual.accentColor(),
-                ServerListVisual.accentColor(), 14)
-        }
+        )
         probe.isEnabled = nodes.any { SubscriptionNodeSupport.canConnect(it.uri) } &&
             !serverProbeRunning && !VpnConnectionState.read(this).canDisconnect
         add(measurement, probe, 12)
@@ -1428,17 +1469,20 @@ class MainActivity : Activity() {
         add(protection, tag("Контроль безопасности"))
         add(protection, t("Только проверенные состояния", 19f, white, true), 9)
         val snapshot = VpnConnectionState.read(this)
-        add(protection, t(
-            if (snapshot.canDisconnect) "Туннель запущен; защита трафика не подтверждена."
-            else "Нет подтверждённого VPN-соединения.", 13f,
-            if (snapshot.canDisconnect) teal else grey), 12)
-        for (note in listOf(
-            "✓  Конфигурации сохраняются в Android Keystore",
-            "✓  TLS-проверка подписки не отключается",
-            "•  DNS/IPv6-утечки не проверены на этом устройстве",
-            "•  Приложение не заявляет об анонимности без тестов")) {
-            add(protection, t(note, 12f, grey), 11)
-        }
+        add(protection, VainahUi.detailRow(this,
+            "Состояние VPN",
+            if (snapshot.canDisconnect && VainahVpnService.runningInProcess)
+                "Туннель создан" else "Не запущен",
+            if (snapshot.canDisconnect && VainahVpnService.runningInProcess)
+                VainahUi.Tone.SUCCESS else VainahUi.Tone.NEUTRAL), 12)
+        add(protection, t("Туннель сам по себе не подтверждает внешний IP " +
+            "или отсутствие утечек.", 11.5f, grey), 9)
+        add(protection, VainahUi.detailRow(this,
+            "VPN-ключи", "Keystore", VainahUi.Tone.SUCCESS), 7)
+        add(protection, VainahUi.detailRow(this,
+            "Проверка HTTPS", "TLS включён", VainahUi.Tone.SUCCESS), 7)
+        add(protection, VainahUi.detailRow(this,
+            "DNS / IPv6", "Не проверены"), 7)
 
         val kill = card()
         add(body, kill, 16)
@@ -1610,9 +1654,13 @@ class MainActivity : Activity() {
         add(profile, tag("ПРОФИЛЬ"))
         add(profile, t("Личный кабинет VainahVPN", 20f, white, true), 8)
         add(profile, t(
-            "Учётная запись и сервисы VainahVPN в одном месте.",
+            "Подписка, устройства и поддержка в одном месте.",
             12f, grey
         ), 9)
+        add(profile, VainahUi.detailRow(this, "VPN-профиль",
+            if (source.savedLink() != null) "Сохранён" else "Не добавлен",
+            if (source.savedLink() != null) VainahUi.Tone.SUCCESS
+            else VainahUi.Tone.NEUTRAL), 11)
         for ((title, target) in listOf(
             "Мой профиль" to "account.html",
             "Мои устройства" to "my-devices.html",

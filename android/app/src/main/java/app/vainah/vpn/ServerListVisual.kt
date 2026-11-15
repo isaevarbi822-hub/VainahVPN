@@ -12,40 +12,27 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 
-/**
- * Unified light server-list design. The country, protocol and TCP observation
- * come only from the real imported subscription; no invented ping or endpoints.
- */
+/** Responsive server rows: only real imported nodes and measured TCP delays. */
 object ServerListVisual {
     private val ink = VainahDesign.ink
     private val muted = VainahDesign.muted
     private val accent = VainahDesign.purple
     private val line = VainahDesign.border
-    private val plain = VainahDesign.surface
-    private val chosen = Color.rgb(241, 242, 252)
 
     fun backgroundColor(): Int = VainahDesign.background
     fun textColor(): Int = ink
     fun mutedColor(): Int = muted
     fun accentColor(): Int = accent
-    fun cardColor(): Int = plain
+    fun cardColor(): Int = VainahDesign.surface
 
-    private fun dp(context: Context, size: Int): Int =
-        (context.resources.displayMetrics.density * size).toInt()
-
-    private fun shape(context: Context, color: Int, radius: Int): GradientDrawable =
-        GradientDrawable().apply {
-            setColor(color)
-            cornerRadius = dp(context, radius).toFloat()
-        }
+    private fun dp(context: Context, size: Int): Int = VainahUi.dp(context, size)
 
     fun sheet(context: Context): LinearLayout = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        background = shape(context, plain, 23).apply {
-            setStroke(dp(context, 1), VainahDesign.border)
-        }
-        setPadding(dp(context, 12), dp(context, 13), dp(context, 12), dp(context, 15))
-        elevation = dp(context, 1).toFloat()
+        background = VainahUi.cardBackground(context)
+        setPadding(dp(context, 10), dp(context, 13),
+            dp(context, 10), dp(context, 16))
+        elevation = dp(context, 3).toFloat()
     }
 
     fun row(
@@ -59,34 +46,48 @@ object ServerListVisual {
         onFavoriteClick: (() -> Unit)? = null,
         onClick: () -> Unit,
     ): View {
-        val color = if (isSelected) chosen else plain
+        val selectedTint = Color.rgb(245, 239, 255)
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(context, if (isWhitelist) 74 else 69)
+            minimumHeight = dp(context, if (!isConnectable || isWhitelist) 81 else 75)
+            setPadding(dp(context, 4), dp(context, 6),
+                dp(context, 5), dp(context, 6))
+            val fill = GradientDrawable().apply {
+                setColor(if (isSelected) selectedTint else Color.TRANSPARENT)
+                cornerRadius = dp(context, 16).toFloat()
+                if (isSelected) setStroke(dp(context, 1), VainahDesign.softPurple)
+            }
             background = RippleDrawable(
-                ColorStateList.valueOf(Color.argb(35, 111, 111, 177)),
-                shape(context, color, 13).apply {
-                    if (isSelected) setStroke(dp(context, 1), VainahDesign.softPurple)
-                },
-                null
+                ColorStateList.valueOf(Color.argb(40, 121, 75, 183)),
+                fill, null
             )
         }
+        if (onFavoriteClick != null) {
+            val favorite = TextView(context).apply {
+                text = if (isFavorite) "★" else "☆"
+                textSize = 22f
+                setTextColor(if (isFavorite) Color.rgb(223, 156, 21) else accent)
+                gravity = Gravity.CENTER
+                isClickable = true
+                isFocusable = true
+                contentDescription = if (isFavorite)
+                    "Убрать из избранного" else "Добавить в избранное"
+                setOnClickListener { onFavoriteClick() }
+            }
+            content.addView(favorite, LinearLayout.LayoutParams(
+                dp(context, 31), dp(context, 48)
+            ))
+        }
 
-        val marker = View(context).apply {
-            background = shape(context, if (isSelected) accent else color, 3)
-        }
-        content.addView(marker, LinearLayout.LayoutParams(
-            dp(context, 3), dp(context, 54)
-        ))
-        val flag = TextView(context).apply {
+        content.addView(TextView(context).apply {
             text = info.flag
-            textSize = 25f
+            textSize = 24f
             gravity = Gravity.CENTER
-        }
-        content.addView(flag, LinearLayout.LayoutParams(
-            dp(context, 44), -2
-        ).apply { marginStart = dp(context, 6); marginEnd = dp(context, 5) })
+        }, LinearLayout.LayoutParams(dp(context, 40), -2).apply {
+            marginStart = dp(context, 2)
+            marginEnd = dp(context, 5)
+        })
 
         val labels = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -102,7 +103,7 @@ object ServerListVisual {
         })
         labels.addView(TextView(context).apply {
             text = info.subtitle
-            textSize = 10.5f
+            textSize = 10.3f
             setTextColor(muted)
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
@@ -112,12 +113,14 @@ object ServerListVisual {
         if (isWhitelist || !isConnectable) {
             labels.addView(TextView(context).apply {
                 text = when {
-                    isWhitelist && !isConnectable -> "LTE · подключение пока не поддерживается"
-                    isWhitelist -> "LTE-доступ · группа"
-                    else -> "Просмотр · транспорт не поддерживается"
+                    isWhitelist && !isConnectable ->
+                        "LTE · формат пока недоступен"
+                    isWhitelist -> "LTE · группа в приложении"
+                    else -> "Просмотр · формат недоступен"
                 }
-                textSize = 9.5f
-                setTextColor(if (isConnectable) VainahDesign.green else VainahDesign.muted)
+                textSize = 9.4f
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setTextColor(if (isConnectable) VainahDesign.green else muted)
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
             }, LinearLayout.LayoutParams(-1, -2).apply {
@@ -126,44 +129,37 @@ object ServerListVisual {
         }
         content.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
 
-        val shortLatency = when {
-            latency.startsWith("TCP ") -> latency.removePrefix("TCP ")
-            latency == "—" -> "—"
-            else -> latency
-        }
-        val ping = TextView(context).apply {
-            text = shortLatency
-            textSize = 10.5f
-            setTextColor(if (latency.startsWith("TCP ")) VainahDesign.green else muted)
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        val reliable = latency.startsWith("TCP ")
+        val shortDelay = if (reliable) latency.removePrefix("TCP ") else latency
+        val delay = TextView(context).apply {
+            text = if (shortDelay == "—") "—" else shortDelay
+            textSize = 11f
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            setTextColor(if (reliable) VainahDesign.green else muted)
+            gravity = Gravity.CENTER
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
-            contentDescription = "TCP-задержка: " + latency
+            background = GradientDrawable().apply {
+                setColor(if (reliable) Color.rgb(225, 247, 235)
+                    else Color.rgb(246, 244, 251))
+                cornerRadius = dp(context, 13).toFloat()
+            }
+            setPadding(dp(context, 5), dp(context, 7),
+                dp(context, 5), dp(context, 7))
+            contentDescription = "Измеренная TCP-задержка: " + latency
         }
-        content.addView(ping, LinearLayout.LayoutParams(
-            dp(context, if (shortLatency == "—") 24 else 68), -2
+        content.addView(delay, LinearLayout.LayoutParams(
+            dp(context, if (reliable) 65 else 57), -2
         ).apply { marginStart = dp(context, 3) })
 
-        if (onFavoriteClick != null) {
-            content.addView(TextView(context).apply {
-                text = if (isFavorite) "★" else "☆"
-                textSize = 21f
-                setTextColor(if (isFavorite) accent else muted)
-                gravity = Gravity.CENTER
-                contentDescription = if (isFavorite)
-                    "Убрать из избранного" else "Добавить в избранное"
-                isFocusable = true
-                isClickable = true
-                setOnClickListener { onFavoriteClick() }
-            }, LinearLayout.LayoutParams(dp(context, 34), dp(context, 48)))
-        }
         content.addView(TextView(context).apply {
             text = "›"
             textSize = 23f
-            setTextColor(muted)
             gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(dp(context, 16), -2))
-
+            setTextColor(muted)
+        }, LinearLayout.LayoutParams(dp(context, 16), -2).apply {
+            marginStart = dp(context, 2)
+        })
         content.isClickable = true
         content.isFocusable = true
         content.contentDescription = buildString {
@@ -171,11 +167,11 @@ object ServerListVisual {
             append(", ")
             append(info.subtitle)
             append(", TCP: ")
-            append(if (latency == "—") "не измерено" else latency)
-            if (isSelected) append(", выбран для следующего подключения")
+            append(if (latency == "—") "пока не измерено" else latency)
             if (isFavorite) append(", избранный")
+            if (isSelected) append(", выбран для следующего подключения")
             if (isWhitelist) append(", группа LTE-доступ")
-            if (!isConnectable) append(", текущая сборка не поддерживает подключение")
+            if (!isConnectable) append(", транспорт не поддерживается")
         }
         content.setOnClickListener { onClick() }
         return content
