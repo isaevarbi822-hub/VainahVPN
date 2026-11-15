@@ -93,6 +93,19 @@ jobs:
           if not valid:
               print("No valid public Clerk key: full-login build will be skipped.")
           PY
+      - name: Verify XHTTP native core for Clerk preview
+        if: steps.check.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p android/app/libs
+          curl --fail --location --retry 4 --retry-delay 3 \
+            --connect-timeout 20 --max-time 300 \
+            -o android/app/libs/libbox-xhttp-lx.aar \
+            "https://github.com/Leadaxe/sing-box-lx/releases/download/v1.14.4-lx.35/libbox-1.14.4-lx.35.aar"
+          printf '%s  %s\n' \
+            "e5cfd79364316150acd5c9ddbb5d6d8c749f1ce4a590f9a3eaa408f949b8fd7b" \
+            "android/app/libs/libbox-xhttp-lx.aar" | sha256sum -c -
       - name: Build libbox + real Clerk preview and run tests
         if: steps.check.outputs.available == 'true'
         shell: bash
@@ -100,6 +113,7 @@ jobs:
           gradle -p android \
             -PvainahEnableLibbox=true \
             -PvainahEnableClerk=true \
+            -PvainahUseXhttpCore=true \
             -PvainahIsolatedPreview=true \
             "-PvainahClerkPublishableKey=$CLERK_PUBLIC_KEY" \
             :app:clean :app:assembleDebug :app:testDebugUnitTest \
