@@ -1017,12 +1017,12 @@ class MainActivity : Activity() {
         }
         add(sheet, categoryScroll, 8)
         val whiteInfo = t(
-            "H1Cloud: группы из подписки. Если метки не пришли, " +
-                "выбери существующие серверы вручную.",
+            "H1Cloud может подключать LTE-доступ к обычному серверу без " +
+                "метки в подписке. Отметь такие узлы вручную; это не включает LTE.",
             10.5f, muted
         ).apply { setPadding(dp(12), dp(3), dp(12), dp(6)) }
         add(sheet, whiteInfo)
-        val editWhite = lightAction("✦ Выбрать серверы белого списка").apply {
+        val editWhite = lightAction("✦ Отметить мои LTE-серверы").apply {
             textSize = 11.5f
             setTextColor(VainahDesign.green)
             minHeight = dp(42)
@@ -1179,7 +1179,7 @@ class MainActivity : Activity() {
         }
         val options = visible.map { it.flag + "  " + it.title }.toTypedArray()
         AlertDialog.Builder(this)
-            .setTitle("Мои серверы · Белые списки")
+            .setTitle("Белые списки · LTE-доступ")
             .setMultiChoiceItems(options, checked) { _, index, value ->
                 checked[index] = value
             }
