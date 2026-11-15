@@ -1689,47 +1689,79 @@ class MainActivity : Activity() {
 
     private fun more(body: LinearLayout) {
         val profile = card()
-        add(body, profile, 16)
-        add(profile, tag("ПРОФИЛЬ"))
-        add(profile, t("Личный кабинет VainahVPN", 20f, white, true), 8)
+        add(body, profile, 13)
+        add(profile, tag("ЛИЧНЫЙ КАБИНЕТ"))
+        add(profile, t("Мой VainahVPN", 22f, white, true), 8)
         add(profile, t(
-            "Подписка, устройства и поддержка в одном месте.",
+            "Подписка, заказы, устройства и поддержка — в одном месте.",
             12f, grey
-        ), 9)
-        add(profile, VainahUi.detailRow(this, "VPN-профиль",
-            if (source.savedLink() != null) "Сохранён" else "Не добавлен",
-            if (source.savedLink() != null) VainahUi.Tone.SUCCESS
-            else VainahUi.Tone.NEUTRAL), 11)
-        for ((title, target) in listOf(
-            "Мой профиль" to "account.html",
-            "Мои устройства" to "my-devices.html",
-            "Поддержка" to "support-center.html",
-            "Уведомления" to "notifications.html",
-            "Подарочные карты" to "gifts.html"
-        )) {
-            add(profile, menuRow(title) { openOfficialPage(target) }, 3)
-            if (target != "gifts.html")
-                add(profile, ServerListVisual.separator(this), 2)
+        ), 8)
+        val link = source.savedLink()
+        add(profile, VainahUi.detailRow(this,
+            "VPN-профиль на устройстве",
+            if (link == null) "Не добавлен" else "Сохранён",
+            if (link == null) VainahUi.Tone.NEUTRAL
+            else VainahUi.Tone.SUCCESS), 9)
+        add(profile, VainahUi.detailRow(this,
+            "Загружено серверов",
+            nodes.size.toString(), VainahUi.Tone.PURPLE), 6)
+        add(profile, VainahUi.infoStrip(this,
+            "Для реального срока, тарифа и заказов войди в тот же аккаунт, " +
+                "который используешь на сайте. Локальный VPN-профиль не " +
+                "означает, что выполнен вход в кабинет."), 11)
+        val enter = action("Открыть мой кабинет", true)
+        add(profile, enter, 12)
+        enter.setOnClickListener { openOfficialPage("account.html") }
+
+        val services = card()
+        add(body, services, 13)
+        add(services, tag("МОИ СЕРВИСЫ"))
+        add(services, t("Управление аккаунтом", 18f, white, true), 7)
+        for ((title, target) in CabinetNavigation.sections()) {
+            val description = when (target) {
+                "account.html" -> "Мой профиль, подписка и история заказов"
+                "plans.html" -> "Продление и доступные варианты"
+                "my-devices.html" -> "Мои устройства и лимиты"
+                "support-center.html" -> "Мои обращения и ответы оператора"
+                "notifications.html" -> "Напоминания об окончании подписки"
+                else -> "Мои подарки и активация"
+            }
+            add(services, menuRow(title, description) {
+                openOfficialPage(target)
+            }, 3)
+            if (target != "gifts.html") {
+                add(services, ServerListVisual.separator(this), 2)
+            }
         }
-        val hub = card()
-        add(body, hub, 14)
-        add(hub, tag("ЛОКАЛЬНЫЕ НАСТРОЙКИ"))
-        add(hub, t("На устройстве", 19f, white, true), 10)
-        add(hub, t("Параметры приложения и диагностика.",
-            12f, grey), 8)
-        for ((target, label) in listOf(
-            Page.DEVICES to "Этот Android",
-            Page.DIAGNOSTICS to "Диагностика",
-            Page.SECURITY to "Безопасность",
-            Page.SETTINGS to "Настройки приложения",
-            Page.ACCOUNT to "VPN-профиль и подписка")) {
-            add(hub, menuRow(label) {
+
+        val local = card()
+        add(body, local, 13)
+        add(local, tag("ПРИЛОЖЕНИЕ И БЕЗОПАСНОСТЬ"))
+        add(local, t("Настройки устройства", 18f, white, true), 8)
+        for ((target, label, description) in listOf(
+            Triple(Page.ACCOUNT, "VPN-профиль и подписка",
+                "Импортировать ссылку и управлять устройством"),
+            Triple(Page.SECURITY, "Защита",
+                "Kill Switch, исключения и состояние сети"),
+            Triple(Page.DEVICES, "Этот Android", "Платформа и устройство"),
+            Triple(Page.DIAGNOSTICS, "Диагностика",
+                "Проверить работу туннеля и подключение"),
+            Triple(Page.SETTINGS, "Настройки VainahVPN",
+                "Сеть, обновления и параметры")
+        )) {
+            add(local, menuRow(label, description) {
                 page = target
                 render()
             }, 3)
-            if (target != Page.ACCOUNT)
-                add(hub, ServerListVisual.separator(this), 2)
+            if (target != Page.SETTINGS) {
+                add(local, ServerListVisual.separator(this), 2)
+            }
         }
+        add(local, t(
+            "Страницы аккаунта открываются в защищённой вкладке " +
+                "официального сайта внутри VainahVPN. Оплата и вход " +
+                "выполняются на сайте, не в VPN-движке.",
+            11f, grey), 12)
     }
 
     private fun refreshServers(manual: Boolean) {
