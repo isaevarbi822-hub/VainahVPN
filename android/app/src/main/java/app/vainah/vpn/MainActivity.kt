@@ -352,8 +352,8 @@ class MainActivity : Activity() {
         val ring = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.rgb(245, 247, 251))
-                setStroke(dp(2), Color.rgb(215, 224, 238))
+                setColor(VainahDesign.previewTop)
+                setStroke(dp(2), VainahDesign.purple)
             }
         }
         val power = Button(this).apply {
@@ -364,8 +364,8 @@ class MainActivity : Activity() {
             contentDescription = "Включить или отключить VPN"
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.WHITE)
-                setStroke(dp(3), Color.rgb(232, 235, 242))
+                setColor(VainahDesign.surface2)
+                setStroke(dp(3), VainahDesign.softPurple)
             }
             elevation = dp(9).toFloat()
             setOnClickListener {
@@ -472,7 +472,7 @@ class MainActivity : Activity() {
         ), 12)
 
         val trafficPanel = column().apply {
-            background = shape(Color.WHITE, Color.WHITE, 17)
+            background = shape(ServerListVisual.cardColor(), VainahDesign.border, 17)
             setPadding(dp(18), dp(12), dp(18), dp(17))
         }
         add(body, trafficPanel, 15)
@@ -851,8 +851,7 @@ class MainActivity : Activity() {
             setTextColor(ink)
             setHintTextColor(muted)
             setPadding(dp(14), dp(12), dp(14), dp(12))
-            background = shape(Color.rgb(248, 250, 254),
-                Color.rgb(224, 231, 242), 13)
+            background = shape(VainahDesign.surface, VainahDesign.border, 13)
             setText(serverSearchQuery)
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         }
@@ -947,7 +946,7 @@ class MainActivity : Activity() {
         add(sheet, actions)
 
         val measurement = column().apply {
-            background = shape(Color.WHITE, Color.WHITE, 21)
+            background = shape(ServerListVisual.cardColor(), VainahDesign.border, 21)
             setPadding(dp(17), dp(18), dp(17), dp(20))
         }
         add(body, measurement, 16)
