@@ -2,25 +2,25 @@ package app.vainah.vpn
 
 import android.graphics.Color
 
-/**
- * Brand tokens mirror the CSS variables on site/index.html.
- * Keep in sync with native/ios/Sources/App/VainahDesign.swift.
- */
+/** Android-only light design tokens. Website and iOS themes are unchanged. */
 object VainahDesign {
-    val background: Int = Color.rgb(8, 11, 21)  // #080b15
-    val surface: Int = Color.rgb(18, 22, 38)     // #121626
-    val surface2: Int = Color.rgb(24, 27, 47)    // #181b2f
-    val border: Int = Color.rgb(41, 45, 67)      // #292d43
-    val muted: Int = Color.rgb(160, 166, 189)    // #a0a6bd
-    val ink: Int = Color.rgb(245, 246, 255)      // #f5f6ff
-    val purple: Int = Color.rgb(169, 139, 255)   // #a98bff
-    val sky: Int = Color.rgb(121, 205, 233)      // #79cde9
-    val green: Int = Color.rgb(112, 229, 177)    // #70e5b1
-    val softPurple: Int = Color.rgb(205, 185, 255)
-    val accentDark: Int = Color.rgb(101, 60, 224)
-    val previewTop: Int = Color.rgb(37, 34, 71) // #252247
-    val previewBottom: Int = Color.rgb(19, 27, 52) // #131b34
-    val inactive: Int = Color.rgb(15, 21, 39)
+    // Original light UI inspired by the supplied layout reference.
+    // One palette is shared across ALL Android screens.
+    val background: Int = Color.rgb(246, 247, 250) // #F6F7FA
+    val surface: Int = Color.rgb(255, 255, 255)     // #FFFFFF
+    val surface2: Int = Color.rgb(252, 252, 255)    // #FCFCFF
+    val border: Int = Color.rgb(227, 230, 239)      // #E3E6EF
+    val muted: Int = Color.rgb(132, 138, 155)       // #848A9B
+    val ink: Int = Color.rgb(37, 40, 61)           // #25283D
+    val purple: Int = Color.rgb(111, 111, 177)     // #6F6FB1
+    val sky: Int = Color.rgb(66, 127, 158)         // #427F9E
+    val green: Int = Color.rgb(25, 139, 107)       // #198B6B
+    val softPurple: Int = Color.rgb(214, 214, 238) // #D6D6EE
+    val accentDark: Int = Color.rgb(85, 84, 144)   // #555490
+    val previewTop: Int = Color.rgb(254, 254, 255)
+    val previewBottom: Int = Color.rgb(241, 242, 249)
+    val inactive: Int = Color.rgb(238, 239, 247)
+    val error: Int = Color.rgb(184, 63, 75)        // readable on white
 }
 
 /**
