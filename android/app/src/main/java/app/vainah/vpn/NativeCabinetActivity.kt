@@ -106,7 +106,7 @@ class NativeCabinetActivity : Activity() {
             val result = outcome.getOrNull()
             val flow = result?.json?.optString("flow").orEmpty()
             val offered = result?.json?.optString("authorize_url").orEmpty()
-            val expected = NativeCabinetCatalog.ORIGIN +
+            val expected = NativeCabinetCatalog.API_ORIGIN +
                 (if (provider == "google") "/api/google/start?mobile_flow="
                 else "/api/telegram-oidc/start?mobile_flow=") + flow
             if (result?.ok != true || !NativeOAuthFlow.validFlow(flow)
