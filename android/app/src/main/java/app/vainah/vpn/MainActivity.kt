@@ -242,16 +242,35 @@ class MainActivity : Activity() {
      * Do not handle card details or pass VPN bearer links in an Android Intent.
      */
     private fun openOfficialPage(page: String) {
-        val supported = setOf(
-            "account.html", "plans.html", "my-devices.html",
-            "support-center.html", "notifications.html", "gifts.html"
-        )
-        if (page !in supported) return
-        val uri = Uri.parse("https://vainahvpn-python-preview.onrender.com/" + page)
+        // Native cabinet navigation never interpolates user data into an URL.
+        // Authentication continues in the real backend's existing browser
+        // session; the APK receives no cookies, passwords or payment data.
+        val official = CabinetNavigation.url(page) ?: return
+        if (!CabinetNavigation.isTrustedUrl(official)) return
+        val uri = Uri.parse(official)
         try {
-            startActivity(Intent(Intent.ACTION_VIEW, uri))
+            val tab = androidx.browser.customtabs.CustomTabsIntent.Builder()
+                .setShowTitle(true)
+                .setDefaultColorSchemeParams(
+                    androidx.browser.customtabs.CustomTabColorSchemeParams.Builder()
+                        .setToolbarColor(VainahDesign.purple)
+                        .build()
+                )
+                .build()
+            tab.launchUrl(this, uri)
         } catch (_: android.content.ActivityNotFoundException) {
-            popup("Не удалось открыть официальный сайт. Проверь браузер на устройстве.")
+            openOfficialFallback(uri)
+        } catch (_: SecurityException) {
+            openOfficialFallback(uri)
+        }
+    }
+
+    private fun openOfficialFallback(uri: Uri) {
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        }.onFailure {
+            popup("Не удалось открыть защищённый кабинет. " +
+                "Проверь доступность официального сайта.")
         }
     }
 
@@ -425,7 +444,7 @@ class MainActivity : Activity() {
         sort: ServerSort = ServerSort.SUBSCRIPTION,
     ): List<ServerDirectoryEntry> = ServerDirectory.view(
         nodes, source.favoriteNodeIds(), query, favoriteOnly, sort,
-        serverProbes, source.whiteListNodeIds()
+        serverProbes, source.whiteListNodeIds() + TurkeyLteGroups.matchingIds(nodes)
     )
 
     private fun isLteGroup(entry: ServerDirectoryEntry): Boolean =
@@ -1327,13 +1346,16 @@ class MainActivity : Activity() {
             return
         }
         val visible = ServerRowPresentation.describeList(nodes)
-        val current = source.whiteListNodeIds()
+        val current = source.whiteListNodeIds() + TurkeyLteGroups.matchingIds(nodes)
         val checked = BooleanArray(nodes.size) { index ->
             ServerDirectory.identity(nodes[index].uri) in current
         }
         val options = visible.map { it.flag + "  " + it.title }.toTypedArray()
         AlertDialog.Builder(this)
-            .setTitle("Белые списки · LTE-доступ")
+            .setTitle("LTE-доступ · серверы H1Cloud")
+            .setMessage("Турция · 1 и Турция · IP добавляются сюда " +
+                "автоматически из реальной подписки. Остальные узлы можно " +
+                "отметить вручную. Это не меняет настройки доступа H1Cloud.")
             .setMultiChoiceItems(options, checked) { _, index, value ->
                 checked[index] = value
             }
