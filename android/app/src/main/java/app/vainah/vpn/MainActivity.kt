@@ -1002,11 +1002,21 @@ class MainActivity : Activity() {
             isFillViewport = false
             addView(categoryRow)
         }
-        add(sheet, categoryScroll, 10)
-        add(sheet, t(
-            "Фильтры используют названия реальных узлов H1Cloud.",
+        add(sheet, categoryScroll, 8)
+        val whiteInfo = t(
+            "H1Cloud: группы из подписки. Если метки не пришли, " +
+                "выбери существующие серверы вручную.",
             10.5f, muted
-        ).apply { setPadding(dp(12), dp(2), dp(12), dp(5)) })
+        ).apply { setPadding(dp(12), dp(3), dp(12), dp(6)) }
+        add(sheet, whiteInfo)
+        val editWhite = lightAction("✦ Выбрать серверы белого списка").apply {
+            textSize = 11.5f
+            setTextColor(VainahDesign.green)
+            minHeight = dp(42)
+            background = shape(VainahDesign.surface, VainahDesign.border, 13)
+        }
+        add(sheet, editWhite, 4)
+        editWhite.setOnClickListener { chooseWhiteListNodes() }
         val controls = horizontal().apply {
             setPadding(dp(5), dp(9), dp(5), dp(12))
         }
@@ -1037,6 +1047,9 @@ class MainActivity : Activity() {
                     directory(serverSearchQuery, false, serverSort),
                     serverCollection
                 )
+                val whiteMode = serverCollection == ServerCollection.WHITELIST
+                whiteInfo.visibility = if (whiteMode) View.VISIBLE else View.GONE
+                editWhite.visibility = if (whiteMode) View.VISIBLE else View.GONE
                 favoriteButton.text = if (serverCollection == ServerCollection.FAVORITES)
                     "★ Только избранные" else "☆ Избранные"
                 for ((category, button) in categoryButtons) {
@@ -1057,7 +1070,9 @@ class MainActivity : Activity() {
                     it.attempts == ServerTcpSelector.ATTEMPTS_PER_NODE &&
                         it.successes >= 2
                 }
-                count.text = "${matches.size} из ${nodes.size} · TCP: ${measured} измерено"
+                count.text = if (whiteMode)
+                    "Белые списки: ${matches.size} из ${nodes.size}"
+                else "${matches.size} из ${nodes.size} · TCP: ${measured} измерено"
                 results.removeAllViews()
                 if (matches.isEmpty()) {
                     val message = if (serverSearchQuery.isNotBlank())
@@ -1137,6 +1152,36 @@ class MainActivity : Activity() {
             !VpnConnectionState.read(this).canDisconnect
         add(measurement, probe, 12)
         probe.setOnClickListener { probeServersAndChoose() }
+    }
+
+    private fun chooseWhiteListNodes() {
+        if (nodes.isEmpty()) {
+            popup("Сначала добавь подписку и обнови серверы.")
+            return
+        }
+        val visible = ServerRowPresentation.describeList(nodes)
+        val current = source.whiteListNodeIds()
+        val checked = BooleanArray(nodes.size) { index ->
+            ServerDirectory.identity(nodes[index].uri) in current
+        }
+        val options = visible.map { it.flag + "  " + it.title }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Мои серверы · Белые списки")
+            .setMultiChoiceItems(options, checked) { _, index, value ->
+                checked[index] = value
+            }
+            .setPositiveButton("Сохранить") { _, _ ->
+                val selectedUris = nodes.indices.filter { checked[it] }
+                    .map { nodes[it].uri }.toSet()
+                if (source.setWhiteListNodes(nodes, selectedUris)) {
+                    serverCollection = ServerCollection.WHITELIST
+                    render()
+                } else {
+                    popup("Не удалось сохранить группу. Проверь VPN-подписку.")
+                }
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     private fun invalidateServerProbes() {
@@ -1548,8 +1593,32 @@ class MainActivity : Activity() {
         })
         main.postDelayed({ updateConnection() }, 350)
     }
+    private fun updatePowerPulse(phase: String) {
+        val orb = powerOrb
+        if (orb == null || phase != VpnConnectionState.STARTING) {
+            pulseAnimator?.cancel()
+            pulseAnimator = null
+            orb?.scaleX = 1f
+            orb?.scaleY = 1f
+            return
+        }
+        if (pulseAnimator != null) return
+        pulseAnimator = ValueAnimator.ofFloat(1f, 1.065f).apply {
+            duration = 920L
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            addUpdateListener { frame ->
+                val size = frame.animatedValue as Float
+                powerOrb?.scaleX = size
+                powerOrb?.scaleY = size
+            }
+            start()
+        }
+    }
+
     private fun updateConnection() {
         val snapshot = VpnConnectionState.read(this)
+        updatePowerPulse(snapshot.phase)
         val connected = snapshot.canDisconnect
         stateView?.text = when (snapshot.phase) {
             VpnConnectionState.ONLINE -> "Туннель запущен"
