@@ -15,7 +15,8 @@ object VpnFailureAdvisor {
     private val known = mapOf(
         "native_engine_stopped" to VpnFailureAdvice(
             "engine_stopped", "VPN-движок остановился",
-            "Проверь соединение и открой приложение. Повторное подключение выполняется вручную."
+            "После неожиданной остановки возможны до двух попыток автовосстановления. " +
+                "Если они не помогли, проверь Wi-Fi или LTE и подключись вручную."
         ),
         "resolving_h1cloud_before_vpn" to VpnFailureAdvice(
             "upstream_unreachable", "Не удалось проверить входной VPN-сервер",

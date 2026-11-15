@@ -18,6 +18,21 @@ class NativeRecoveryPolicyTest {
             VpnConnectionState.ONLINE, 1, true))
     }
 
+    @Test fun engineCanRetrySecondTimeDuringRecoveryButNeverThird() {
+        assertTrue(NativeRecoveryPolicy.shouldRetry(
+            VpnConnectionState.STARTING, 1, true, recovering = true))
+        assertFalse(NativeRecoveryPolicy.shouldRetry(
+            VpnConnectionState.STARTING, 2, true, recovering = true))
+        assertFalse(NativeRecoveryPolicy.shouldRetry(
+            VpnConnectionState.STARTING, 0, true, recovering = false))
+        assertFalse(NativeRecoveryPolicy.shouldRetry(
+            VpnConnectionState.STARTING, 1, false, recovering = true))
+        assertFalse(NativeRecoveryPolicy.shouldRetry(
+            VpnConnectionState.OFF, 0, true, recovering = true))
+        assertFalse(NativeRecoveryPolicy.shouldRetry(
+            VpnConnectionState.FAILED, 0, true, recovering = true))
+    }
+
     @Test fun noSecretsOrUserSessionMeansNoAutoreconnect() {
         assertFalse(NativeRecoveryPolicy.shouldRetry(
             VpnConnectionState.TUN_READY, 0, false))

@@ -8,10 +8,14 @@ package app.vainah.vpn
 object NativeRecoveryPolicy {
     const val MAX_RETRIES = 2
 
-    fun shouldRetry(phase: String, retryCount: Int, hasActiveNode: Boolean): Boolean =
+    fun shouldRetry(
+        phase: String, retryCount: Int, hasActiveNode: Boolean,
+        recovering: Boolean = false
+    ): Boolean =
         hasActiveNode && retryCount in 0 until MAX_RETRIES &&
             (phase == VpnConnectionState.TUN_READY ||
-                phase == VpnConnectionState.ONLINE)
+                phase == VpnConnectionState.ONLINE ||
+                (recovering && phase == VpnConnectionState.STARTING))
 
     fun retryDelayMs(nextAttempt: Int): Long = when (nextAttempt) {
         1 -> 1_500L

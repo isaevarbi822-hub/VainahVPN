@@ -36,6 +36,9 @@ class VainahVpnService : VpnService() {
     @Volatile private var lastRequestedNode: String? = null
     @Volatile private var lastRequestedLabel = "Выбранный сервер"
     @Volatile private var recoveryAttempts = 0
+    // True only between an unexpected native stop and a successfully
+    // recreated TUN; allows a second bounded retry if recovery itself fails.
+    @Volatile private var recoveringNativeSession = false
     private val recoveryHandler = Handler(Looper.getMainLooper())
     private var scheduledRecovery: Runnable? = null
 
@@ -61,12 +64,14 @@ class VainahVpnService : VpnService() {
         val snapshot = VpnConnectionState.read(this)
         val rawNode = lastRequestedNode
         if (NativeRecoveryPolicy.shouldRetry(
-                snapshot.phase, recoveryAttempts, rawNode != null
+                snapshot.phase, recoveryAttempts, rawNode != null,
+                recoveringNativeSession
             ) && rawNode != null) {
             // Invalidate all old callbacks BEFORE closing the failed engine.
             // Never leave a duplicate live TUN or reconnect after user STOP.
             val ticket = ++connectionGeneration
             val attempt = ++recoveryAttempts
+            recoveringNativeSession = true
             VpnConnectionState.reconnecting(
                 this, lastRequestedLabel, attempt, NativeRecoveryPolicy.MAX_RETRIES
             )
@@ -182,6 +187,7 @@ class VainahVpnService : VpnService() {
                 lastRequestedNode = rawNode
                 lastRequestedLabel = label
                 recoveryAttempts = 0
+                recoveringNativeSession = false
                 launchTunnelAttempt(rawNode)
             }
         }
@@ -197,7 +203,10 @@ class VainahVpnService : VpnService() {
             try {
                 // TCP reachability is measured outside the tunnel, not called VPN ping.
                 checkpoint("resolving_h1cloud_before_vpn")
-                val upstream = VpnConnectivity.prepareUpstream(this, rawNode)
+                val upstream = StartupRetryPolicy.execute(
+                    stillRequested = { isCurrentAttempt(generation) },
+                    connect = { VpnConnectivity.prepareUpstream(this, rawNode) }
+                )
                 val latency = upstream.tcpLatencyMs
                 if (!isCurrentAttempt(generation)) return@Thread
                 VpnConnectionState.latency(this, latency)
@@ -211,6 +220,7 @@ class VainahVpnService : VpnService() {
                 }
                 if (!isCurrentAttempt(generation)) return@Thread
                 result.exceptionOrNull()?.let { throw it }
+                recoveringNativeSession = false
                 VpnConnectionState.tunnelCreated(this)
                 showNotification()
                 checkpoint("checking_vpn_https_egress")
@@ -299,6 +309,7 @@ class VainahVpnService : VpnService() {
         scheduledRecovery?.let { recoveryHandler.removeCallbacks(it) }
         scheduledRecovery = null
         lastRequestedNode = null
+        recoveringNativeSession = false
         val wasCurrentService = foregroundLease.release(this)
         if (wasCurrentService) VpnTrafficStore.clear(this)
         if (userRequested && wasCurrentService) VpnConnectionState.disconnected(this)
@@ -323,6 +334,7 @@ class VainahVpnService : VpnService() {
         scheduledRecovery?.let { recoveryHandler.removeCallbacks(it) }
         scheduledRecovery = null
         lastRequestedNode = null
+        recoveringNativeSession = false
         val wasCurrentService = foregroundLease.release(this)
         // A superseded service must not mark the new service as failed.
         if (wasCurrentService && VpnConnectionState.read(this).canDisconnect) {
