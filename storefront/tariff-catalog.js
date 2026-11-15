@@ -224,8 +224,26 @@
     update();search?.focus?.();
   });
   compareClear?.addEventListener('click',()=>{selected.clear();updateCompare();});
+  function unavailable(){
+    // Never leave legacy prices and purchase buttons on screen after an
+    // unverified / failed API response.
+    const message=elem('article','','tariff-unavailable');
+    message.append(elem('h3','Цены временно не подтверждены'));
+    message.append(elem('p','Каталог не удалось получить с сервера. Мы не показываем старые суммы или кнопки покупки как действующие.'));
+    const link=elem('a','Открыть серверный каталог ↗','btn btn-border');
+    link.href='https://vainahvpn-python-preview.onrender.com/plans.html';
+    message.append(link);
+    root.replaceChildren(message);
+    if(more)more.hidden=true;
+    if(empty)empty.hidden=true;
+    if(compareBox)compareBox.hidden=true;
+    if(count)count.textContent='Цены не подтверждены';
+    if(insight)insight.textContent='Ни один тариф не считается проверенным до ответа Python API.';
+  }
   async function load(){
     status.textContent='Загружаем цены с сервера…';
+    // Static fallback offers may be outdated; hide them until validated.
+    root.replaceChildren(elem('p','Подтверждаем актуальные цены…','tariff-loading'));
     try{
       const response=await fetch(apiOrigin+'/api/site/tariffs',{
         method:'GET',cache:'no-store',credentials:'omit',
@@ -241,10 +259,8 @@
       )throw Error('CATALOG_INVALID');
       render(plans);
     }catch{
-      status.textContent='Каталог недоступен. Ниже остаются 6 основных тарифов. '+
-        'Актуальную сумму уточняй на странице оформления.';
-      if(insight)insight.textContent='Поиск и сравнение доступны после обновления каталога.';
-      if(compareBox)compareBox.hidden=true;
+      unavailable();
+      status.textContent='Каталог недоступен. Непроверенные цены скрыты. Повтори попытку позже.';
     }
   }
   if(checkoutReadiness&&apiOrigin){
