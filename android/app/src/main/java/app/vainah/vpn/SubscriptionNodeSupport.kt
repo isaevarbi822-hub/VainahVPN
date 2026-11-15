@@ -8,7 +8,8 @@ import java.util.UUID
 /**
  * Parse supported and display-only VLESS subscription entries without exposing
  * their credentials in UI. TCP/REALITY, TCP/TLS, and gRPC profiles
- * may be passed to the current libbox engine after local validation.
+ * may be passed to the bundled libbox engine after local validation.
+ * XHTTP is connectable ONLY when the checked XHTTP-enabled native AAR is bundled.
  */
 object SubscriptionNodeSupport {
     data class Details(
@@ -47,8 +48,10 @@ object SubscriptionNodeSupport {
             "splithttp" -> "xhttp"
             else -> network
         }
-        Details(normalized, security,
-            runCatching { VlessRealityConfig.outbound(raw) }.isSuccess)
+        val validProfile = runCatching { VlessRealityConfig.outbound(raw) }.isSuccess
+        val nativeTransportPresent = normalized != "xhttp" ||
+            BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED
+        Details(normalized, security, validProfile && nativeTransportPresent)
     }.getOrNull()
 
     fun canConnect(raw: String): Boolean = inspect(raw)?.connectable == true
