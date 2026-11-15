@@ -89,10 +89,27 @@ class VlessRealityConfigTest {
         )
     }
 
+    @Test fun grpcAndTlsProduceNativeTransportProfiles() {
+        val grpc = safeNode.replace("type=tcp", "type=grpc") +
+            "&serviceName=turkey-lte"
+        val converted = VlessRealityConfig.outbound(grpc)
+        assertEquals("grpc", converted.getJSONObject("transport").getString("type"))
+        assertEquals("turkey-lte",
+            converted.getJSONObject("transport").getString("service_name"))
+        assertTrue(converted.getJSONObject("tls")
+            .getJSONObject("reality").getBoolean("enabled"))
+        val tlsNode = safeNode.replace("security=reality", "security=tls")
+            .replace("&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
+        val tlsProfile = VlessRealityConfig.outbound(tlsNode)
+        assertFalse(tlsProfile.getJSONObject("tls").has("reality"))
+        assertTrue(tlsProfile.getJSONObject("tls").getBoolean("enabled"))
+        assertEquals("example.org", tlsProfile.getJSONObject("tls").getString("server_name"))
+    }
+
     @Test fun missingRealityParametersCannotStartTunnel() {
         for (bad in listOf(
             "vless://00000000-0000-4000-8000-000000000001@example.org:443",
-            safeNode.replace("security=reality", "security=tls"),
+            safeNode.replace("security=reality", "security=none"),
             safeNode.replace("pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "pbk="),
             safeNode.replace("type=tcp", "type=ws")
         )) {
