@@ -58,6 +58,9 @@ class MainActivity : Activity() {
     private var serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
     private var serverProbes: List<ServerTcpObservation> = emptyList()
     private var serverListExpanded = false
+    private var contentScroll: ScrollView? = null
+    private var lastRenderedPage: Page? = null
+    private var showAdvancedDiagnostics = false
     private var serverSearchQuery = ""
     private var showFavoriteServers = false
     private var serverCollection = ServerCollection.ALL
@@ -181,9 +184,9 @@ class MainActivity : Activity() {
         setLineSpacing(dp(2).toFloat(), 1.05f)
     }
     private fun card() = column().apply {
-        background = shape(VainahDesign.surface, border, 21)
-        setPadding(dp(16), dp(17), dp(16), dp(18))
-        elevation = dp(1).toFloat()
+        background = VainahUi.cardBackground(this@MainActivity)
+        setPadding(dp(17), dp(17), dp(17), dp(18))
+        elevation = dp(3).toFloat()
     }
     private fun tag(value: String) = t(value.uppercase(), 11f, violet, true).apply {
         letterSpacing = 0.1f
@@ -196,13 +199,7 @@ class MainActivity : Activity() {
         setPadding(dp(10), 0, dp(10), 0)
         typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
         setTextColor(if (mainButton) Color.WHITE else white)
-        background = RippleDrawable(
-            ColorStateList.valueOf(Color.argb(35, 110, 111, 177)),
-            shape(
-                if (mainButton) violet else VainahDesign.surface,
-                if (mainButton) violet else border, 14
-            ), null
-        )
+        background = VainahUi.buttonBackground(this@MainActivity, mainButton)
     }
     private fun input(hintValue: String) = EditText(this).apply {
         hint = hintValue
@@ -247,8 +244,9 @@ class MainActivity : Activity() {
         connectView = null
         // Every page shares the same clean light surface and typography.
         val light = true
+        val lastOffset = if (lastRenderedPage == page) contentScroll?.scrollY ?: 0 else 0
         val frame = column().apply {
-            setBackgroundColor(if (light) ServerListVisual.backgroundColor() else bg)
+            background = VainahUi.pageBackground()
             // Android 15+ draws behind system bars. Keep the top brand and
             // bottom navigation outside status/gesture areas on every device.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -263,23 +261,28 @@ class MainActivity : Activity() {
         }
         val scroll = ScrollView(this).apply { isFillViewport = true }
         val body = column().apply {
-            setPadding(dp(14), dp(12), dp(14), dp(20))
+            setPadding(dp(15), dp(12), dp(15), dp(23))
         }
         scroll.addView(body)
         frame.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        if (page != Page.HOME) add(body, tag("VAINAHVPN"))
         if (page != Page.HOME) {
+            val brand = horizontal().apply { setPadding(dp(4), 0, dp(4), 0) }
+            brand.addView(VainahShieldView(this),
+                LinearLayout.LayoutParams(dp(35), dp(35)))
+            brand.addView(t("VAINAH", 16f, white, true),
+                LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8) })
+            brand.addView(t("VPN", 16f, violet, true))
+            add(body, brand, 3)
             add(body, t(when (page) {
                 Page.HOME -> "VainahVPN"
                 Page.LOCATIONS -> "Серверы"
                 Page.ACCOUNT -> "Подписка"
                 Page.DEVICES -> "Мои устройства"
                 Page.DIAGNOSTICS -> "Диагностика"
-                Page.SECURITY -> "Безопасность"
+                Page.SECURITY -> "Защита"
                 Page.SETTINGS -> "Настройки"
                 Page.MORE -> "Профиль"
-            }, if (light) 20f else 23f,
-                if (light) ServerListVisual.textColor() else white, true), 8)
+            }, 27f, white, true), 12)
         }
         if (!light) add(body, t("Android · " + BuildConfig.VERSION_NAME, 12f,
             grey), 7)
@@ -294,9 +297,12 @@ class MainActivity : Activity() {
             Page.MORE -> more(body)
         }
         val nav = horizontal().apply {
-            background = shape(VainahDesign.surface, VainahDesign.border, 0)
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.WHITE, Color.rgb(250, 246, 255))
+            ).apply { setStroke(dp(1), VainahDesign.border) }
             elevation = dp(7).toFloat()
-            setPadding(dp(7), dp(7), dp(7), dp(6))
+            setPadding(dp(6), dp(7), dp(6), dp(6))
         }
         val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
                 Page.SETTINGS)) Page.MORE else page
@@ -321,7 +327,7 @@ class MainActivity : Activity() {
                 )
                 val glyph = NavigationGlyphView(this@MainActivity, target.name, active)
                 addView(glyph, LinearLayout.LayoutParams(dp(22), dp(22)))
-                addView(t(label, 9.5f, if (active) violet else grey, active).apply {
+                addView(t(label, 10f, if (active) violet else grey, active).apply {
                     gravity = Gravity.CENTER
                     maxLines = 1
                 }, LinearLayout.LayoutParams(-1, -2).apply {
@@ -341,6 +347,9 @@ class MainActivity : Activity() {
         }
         frame.addView(nav)
         setContentView(frame)
+        contentScroll = scroll
+        lastRenderedPage = page
+        if (lastOffset > 0) scroll.post { scroll.scrollTo(0, lastOffset) }
         updateConnection()
         // One automatic real TCP scan per loaded list, never a fake ping.
         // It is not used to replace a manual server selection.
@@ -492,14 +501,16 @@ class MainActivity : Activity() {
         }
         upper.addView(settingsButton, LinearLayout.LayoutParams(dp(45), dp(45)))
         settingsButton.setOnClickListener { page = Page.SETTINGS; render() }
-        val brand = column().apply {
+        val brand = horizontal().apply {
             gravity = Gravity.CENTER
-            add(this, t("VainahVPN", 19f, ink, true).apply {
-                gravity = Gravity.CENTER
+            addView(VainahShieldView(this@MainActivity),
+                LinearLayout.LayoutParams(dp(34), dp(34)))
+            val title = column()
+            add(title, t("VainahVPN", 20f, ink, true))
+            add(title, t("Твоё соединение · Твои правила", 10f, muted), 3)
+            addView(title, LinearLayout.LayoutParams(-2, -2).apply {
+                marginStart = dp(8)
             })
-            add(this, t("Твоё соединение · Твои правила", 10.5f, muted).apply {
-                gravity = Gravity.CENTER
-            }, 3)
         }
         upper.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
         val addProfile = lightAction("+").apply {
@@ -556,7 +567,7 @@ class MainActivity : Activity() {
             dp(172), dp(172), Gravity.CENTER
         ))
         hero.addView(ring, LinearLayout.LayoutParams(dp(223), dp(223)))
-        val status = t("Не подключено", 19f, ink, true).apply {
+        val status = t("Не подключено", 21f, ink, true).apply {
             gravity = Gravity.CENTER
         }
         stateView = status
