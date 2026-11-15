@@ -199,3 +199,34 @@ def test_request_rejects_bad_origin_and_invalid_pkce(configured):
             headers={"Origin": ORIGIN},
             json={"flow": "unknown", "code": "x" * 43,
                   "verifier": "x" * 43}).status_code in (400, 422)
+
+
+def test_native_api_host_stays_active_when_storefront_origin_is_static(
+    configured, monkeypatch,
+):
+    # Render serves the storefront and the Python OAuth API at DISTINCT
+    # origins; provider callbacks must NEVER land on a static HTML site.
+    monkeypatch.setenv("PUBLIC_SITE_ORIGIN", "https://vainahvpn.onrender.com")
+    assert google_auth._origin() == ORIGIN
+    assert telegram_oidc._config()[2] == ORIGIN
+    with TestClient(app, base_url=ORIGIN) as client:
+        assert client.get("/api/mobile-auth/config").json()["enabled"] is True
+        for origin in (ORIGIN, "https://vainahvpn.onrender.com"):
+            response = client.post(
+                "/api/mobile-auth/start",
+                headers={"Origin": origin},
+                json={"provider": "google", "code_challenge": challenge("x" * 43)},
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["authorize_url"].startswith(
+                ORIGIN + "/api/google/start?mobile_flow="
+            )
+        for invalid in ("http://vainahvpn.onrender.com",
+                        "https://evil.example.org",
+                        "https://vainahvpn.onrender.com.evil.org"):
+            response = client.post(
+                "/api/mobile-auth/start",
+                headers={"Origin": invalid},
+                json={"provider": "telegram", "code_challenge": challenge("x" * 43)},
+            )
+            assert response.status_code == 403
