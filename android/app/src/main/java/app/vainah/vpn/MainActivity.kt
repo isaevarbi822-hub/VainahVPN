@@ -2010,24 +2010,11 @@ class MainActivity : Activity() {
         val snapshot = VpnConnectionState.read(this)
         val serviceRunning = VainahVpnService.runningInProcess
         val underlay = VpnUnderlayStatus.read(this)
-        val network = when(underlay.transport) {
-            "wifi" -> "Wi-Fi"
-            "cellular" -> "4G / 5G"
-            "ethernet" -> "Ethernet"
-            else -> "Сеть не определена"
-        }
-        networkStatusView?.text = "Физическая сеть: " + network +
-            if (underlay.validated) " · Android: подтверждена" else
-                " · Android: не подтверждена"
+        networkStatusView?.text = VpnLivePresentation.networkStatus(
+            underlay.transport, underlay.validated)
         updatePowerPulse(snapshot.phase)
         val connected = snapshot.canDisconnect
-        stateView?.text = when (snapshot.phase) {
-            VpnConnectionState.ONLINE -> "Туннель запущен"
-            VpnConnectionState.TUN_READY -> "VPN-туннель активен"
-            VpnConnectionState.STARTING -> "Подключение…"
-            VpnConnectionState.FAILED -> "Ошибка подключения"
-            else -> "Не подключено"
-        }
+        stateView?.text = VpnLivePresentation.phaseLabel(snapshot.phase)
         (powerOrb as? PowerOrbView)?.setVpnPhase(snapshot.phase)
         stateView?.setTextColor(if (page == Page.HOME) {
             if (connected) VainahDesign.green else ServerListVisual.textColor()
@@ -2044,16 +2031,8 @@ class MainActivity : Activity() {
             trafficTimeline.record(SystemClock.elapsedRealtime(),
                 fresh.downlink, fresh.uplink)
         }
-        trafficView?.text = when {
-            !connected || !serviceRunning ->
-                "График и статистика появятся после подключения."
-            fresh == null -> "Счётчики libbox временно недоступны."
-            else -> "↓ " + VpnTrafficStore.format(fresh.downlink) +
-                "/с    ↑ " + VpnTrafficStore.format(fresh.uplink) +
-                "/с\\nЗа сеанс: ↓ " +
-                VpnTrafficStore.format(fresh.downlinkTotal) + " · ↑ " +
-                VpnTrafficStore.format(fresh.uplinkTotal)
-        }
+        trafficView?.text = VpnLivePresentation.trafficText(
+            connected, serviceRunning, fresh)
         trafficChart?.show(trafficTimeline.snapshot())
     }
 }
