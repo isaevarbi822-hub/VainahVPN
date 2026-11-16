@@ -167,7 +167,21 @@ internal object XhttpCompatibility {
                 result.put(dest, raw)
             }
         }
-        require(!(result.has("max_concurrency") && result.has("max_connections"))) {
+        // Xray rejects max_connections together with max_concurrency only
+        // when BOTH upper bounds are positive. A configured 0 or "0-0"
+        // means no active limit, and is a legitimate Xray export.
+        // Rejecting mere presence of both fields blocked valid H1Cloud nodes.
+        fun upperBound(name: String): Long {
+            val raw = result.opt(name) ?: return 0
+            return when (raw) {
+                is Number -> raw.toLong()
+                is String -> raw.substringAfter('-', raw).toLongOrNull() ?: 0
+                is JSONArray -> (raw.opt(1) as? Number)?.toLong() ?: 0
+                else -> 0
+            }
+        }
+        require(!(upperBound("max_concurrency") > 0 &&
+            upperBound("max_connections") > 0)) {
             "Conflicting XHTTP xmux limits"
         }
         return result
