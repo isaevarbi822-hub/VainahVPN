@@ -13,11 +13,11 @@ object VainahTheme {
     private const val PREF = "vainah_appearance_v3"
     @Volatile var isDark: Boolean = false
         private set
-    @Volatile var mode: Mode = Mode.SYSTEM
+    @Volatile var mode: Mode = Mode.LIGHT
         private set
 
     fun parse(value: String?): Mode =
-        Mode.entries.firstOrNull { it.name == value } ?: Mode.SYSTEM
+        Mode.values().firstOrNull { it.name == value } ?: Mode.LIGHT
 
     fun initialize(context: Context) {
         val selected = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
