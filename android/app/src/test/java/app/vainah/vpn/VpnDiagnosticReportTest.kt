@@ -99,6 +99,14 @@ class VpnDiagnosticReportTest {
         assertTrue(checked.contains("vpn_route_check=completed"))
         assertTrue(checked.contains("android_vpn_visible=unknown"))
         assertTrue(checked.contains("https_probe=probe_timeout"))
+
+        val pending = VpnDiagnosticReport.create(
+            "tun_ready", VpnProbeLifecycle.CHECKING_STAGE,
+            VpnProbeLifecycle.IN_PROGRESS, 37, true,
+            routeScanPending = true
+        )
+        assertTrue(pending.contains("vpn_route_check=in_progress"))
+        assertTrue(pending.contains("android_vpn_visible=unknown"))
     }
 
     @Test fun maliciousValuesCannotLeakIntoClipboard() {
