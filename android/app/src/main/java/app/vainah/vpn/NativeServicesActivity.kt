@@ -54,7 +54,7 @@ class NativeServicesActivity : Activity() {
         window.statusBarColor = VainahDesign.background
         window.navigationBarColor = VainahDesign.background
         @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility =
+        window.decorView.systemUiVisibility = if (VainahTheme.isDark) 0 else
             View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         render()
     }
@@ -120,7 +120,7 @@ class NativeServicesActivity : Activity() {
             setSingleLine(true)
         }
         background = GradientDrawable().apply {
-            setColor(Color.rgb(251, 249, 255))
+            setColor(VainahDesign.surface2)
             cornerRadius = dp(12).toFloat()
             setStroke(dp(1), VainahDesign.border)
         }
