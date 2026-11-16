@@ -42,30 +42,15 @@ jobs:
           python -m pytest -q
           python -m compileall -q vainah
           ruff check vainah tests
-      - name: Check web JavaScript syntax
+      - name: Check syntax of every website and tooling JavaScript file
+        shell: bash
         run: |
-          node --check web/app.js
-          node --check storefront/checkout-flow.js
-          node --check storefront/site-shell.js
-          node --check storefront/vainah-next.js
-          node --check storefront/ultra-repair.js
-          node --check storefront/tariff-catalog.js
-          node --check storefront/command-hub.js
-          node --check storefront/next-tariffs.js
-          node --check storefront/ultra-control.js
-          node --check storefront/experience.js
-          node --check storefront/account-dashboard.js
-          node --check storefront/speed-test.js
-          node --check storefront/network-check.js
-          node --check storefront/repair-wizard.js
-          node --check storefront/browser-check.js
-          node --check storefront/network-toolkit.js
-          node --check storefront/toolkit-ui.mjs
-          node --check storefront/command-center.mjs
-          node --check storefront/connection-monitor.js
-          node --check storefront/support-center.js
-          node --check storefront/support-operator.js
-          node --check storefront/connect.js
-          node --check storefront/my-devices.js
-          node --check storefront/account-dashboard.js
-          node --check storefront/experience.js
+          # Previously this was a hand-maintained 25-file list with
+          # duplicates, silently skipping many newer pages/controllers.
+          count=0
+          while IFS= read -r -d '' source; do
+            node --check "$source"
+            count=$((count + 1))
+          done < <(find storefront web scripts -type f \\( -name '*.js' -o -name '*.mjs' -o -name '*.cjs' \\) -print0)
+          echo "JavaScript syntax checked: $count files"
+          test "$count" -gt 0
