@@ -558,7 +558,7 @@ class MainActivity : Activity() {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(
-                    VainahDesign.softPurple,
+                    VainahDesign.accentDark,
                     VainahDesign.previewTop
                 )
             ).apply {
@@ -573,13 +573,15 @@ class MainActivity : Activity() {
             isFocusable = true
             val circle = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.WHITE, Color.rgb(248, 249, 252))
+                if (VainahTheme.isDark)
+                    intArrayOf(VainahDesign.purple, VainahDesign.accentDark)
+                else intArrayOf(Color.WHITE, Color.rgb(248, 249, 252))
             ).apply {
                 shape = GradientDrawable.OVAL
-                setStroke(dp(2), VainahDesign.border)
+                setStroke(dp(2), VainahDesign.softPurple)
             }
             background = RippleDrawable(
-                ColorStateList.valueOf(Color.argb(48, 111, 111, 177)),
+                ColorStateList.valueOf(Color.argb(65, 194, 128, 255)),
                 circle, null
             )
             elevation = dp(5).toFloat()
@@ -1758,8 +1760,8 @@ class MainActivity : Activity() {
         add(appearance, tag("ВНЕШНИЙ ВИД"))
         add(appearance, t("Оформление VainahVPN", 18f, white, true), 8)
         add(appearance, t(
-            "Светлая тема повторяет одобренный макет. Тёмная и системная " +
-                "темы доступны без изменения VPN-подключения.",
+            "Тёмная фиолетовая тема вдохновлена макетом VainahVPN 3.0. " +
+                "Светлая и системная темы также доступны.",
             12f, grey), 8)
         val themeOptions = horizontal()
         for (option in VainahTheme.Mode.values()) {
