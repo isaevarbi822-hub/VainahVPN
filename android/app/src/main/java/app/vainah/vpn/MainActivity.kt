@@ -1080,7 +1080,9 @@ class MainActivity : Activity() {
                 ).code,
                 failureCode = if (current.phase == VpnConnectionState.FAILED)
                     diag.getString("last_failure_code", null) else null,
-                routeScanPending = routeScanRunning
+                routeScanPending = routeScanRunning,
+                libboxDetail = if (current.phase == VpnConnectionState.FAILED)
+                    diag.getString("libbox_validation_detail", null) else null
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(
@@ -1119,6 +1121,12 @@ class MainActivity : Activity() {
             add(failure, t(advice.action, 12f, grey), 8)
             add(failure, t("Код: " +
                 VpnFailureAdvisor.sanitizedCode(failureCode), 11f, teal), 7)
+            if (failureCode == "config_validation") {
+                val detail = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+                    .getString("libbox_validation_detail", null)
+                add(failure, t("Причина проверки: " +
+                    LibboxValidationDetail.safeCode(detail), 11f, teal), 5)
+            }
         }
 
         val expanded = action(if (showAdvancedDiagnostics)
