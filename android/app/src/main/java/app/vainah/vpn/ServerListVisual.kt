@@ -131,9 +131,8 @@ object ServerListVisual {
         content.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
 
         val reliable = latency.startsWith("TCP ")
-        val shortDelay = if (reliable) latency.removePrefix("TCP ") else latency
-        val delay = TextView(context).apply {
-            text = if (shortDelay == "—") "—" else shortDelay
+                val delay = TextView(context).apply {
+            text = latency
             textSize = 11f
             typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
             setTextColor(if (reliable) VainahDesign.green else muted)
@@ -151,7 +150,7 @@ object ServerListVisual {
             contentDescription = "Измеренная TCP-задержка: " + latency
         }
         content.addView(delay, LinearLayout.LayoutParams(
-            dp(context, if (reliable) 65 else 57), -2
+            dp(context, if (reliable) 83 else 57), -2
         ).apply { marginStart = dp(context, 3) })
 
         content.addView(TextView(context).apply {
