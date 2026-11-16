@@ -1052,7 +1052,8 @@ class MainActivity : Activity() {
                     this, current.canDisconnect && VainahVpnService.runningInProcess
                 ).code,
                 failureCode = if (current.phase == VpnConnectionState.FAILED)
-                    diag.getString("last_failure_code", null) else null
+                    diag.getString("last_failure_code", null) else null,
+                routeScanPending = routeScanRunning
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(
