@@ -58,6 +58,7 @@ object VpnDiagnosticReport {
             "service_running=${if (serviceRunning) "yes" else "no"}",
             "last_stage=${code(lastStage)}",
             "https_probe=${code(probeReason)}",
+            "vpn_route_check=${if (networkFacts == null) "not_run" else "completed"}",
             "android_vpn_visible=${flag(networkFacts?.visible)}",
             "android_ipv4_default_route=${flag(networkFacts?.ipv4DefaultRoute)}",
             "android_ipv6_default_route=${flag(networkFacts?.ipv6DefaultRoute)}",
