@@ -117,11 +117,23 @@ class VlessRealityConfigTest {
             "uplink" to JSONObject().put("uplinkHTTPMethod", "POST"),
             "obfs" to JSONObject().put("xPaddingObfsMode", true)
         )
+        // Exports from Xray may contain both knobs with one limit at
+        // zero. Xray permits this; both positive bounds remain forbidden.
+        val zeroConnectionLimit = JSONObject().put("xmux", JSONObject()
+            .put("maxConcurrency", "8-16").put("maxConnections", "0-0"))
+        val zeroConcurrencyLimit = JSONObject().put("xmux", JSONObject()
+            .put("maxConcurrency", "0-0").put("maxConnections", "3-3"))
         val examples = listOf(
             "reality-tcp" to safeNode,
             "reality-grpc" to grpcReality,
             "reality-xhttp" to realityXhttp,
-            "tls-xhttp" to tlsXhttp
+            "tls-xhttp" to tlsXhttp,
+            "tls-xhttp-xmux-inactive-connections" to (
+                tlsXhttp + "&extra=" + java.net.URLEncoder.encode(
+                    zeroConnectionLimit.toString(), "UTF-8")),
+            "tls-xhttp-xmux-inactive-concurrency" to (
+                tlsXhttp + "&extra=" + java.net.URLEncoder.encode(
+                    zeroConcurrencyLimit.toString(), "UTF-8"))
         ) + extraCases.map { (name, value) ->
             "xhttp-$name" to realityXhttp + "&extra=" +
                 java.net.URLEncoder.encode(value.toString(), "UTF-8")
