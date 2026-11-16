@@ -27,7 +27,7 @@ class PowerOrbView(context: Context) : View(context) {
             phase = next
             contentDescription = when (phase) {
                 VpnConnectionState.ONLINE, VpnConnectionState.TUN_READY ->
-                    "VPN-туннель активен, нажми чтобы отключить"
+                    "Туннель создан, доступ в интернет не подтверждён. Нажми чтобы отключить"
                 VpnConnectionState.STARTING -> "VPN подключается"
                 else -> "Включить VPN"
             }
@@ -122,7 +122,7 @@ class PowerOrbView(context: Context) : View(context) {
         brush.textSize = size * 0.058f
         val label = when {
             starting -> "ПОДКЛЮЧЕНИЕ"
-            connected -> "VPN АКТИВЕН"
+            connected -> "ТУННЕЛЬ СОЗДАН"
             phase == VpnConnectionState.FAILED -> "ОШИБКА"
             else -> "ПОДКЛЮЧИТЬ"
         }
