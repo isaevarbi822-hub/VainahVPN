@@ -723,7 +723,7 @@ class MainActivity : Activity() {
             marginStart = dp(8)
         })
         whiteList.setOnClickListener {
-            serverCollection = ServerCollection.WHITELIST
+            serverCollection = ServerCollection.LTE
             page = Page.LOCATIONS
             render()
         }
@@ -1181,9 +1181,9 @@ class MainActivity : Activity() {
             setPadding(dp(8), dp(5), dp(8), dp(5))
         }
         for (category in listOf(
-            ServerCollection.ALL, ServerCollection.WHITELIST,
-            ServerCollection.FAST, ServerCollection.GAMES,
-            ServerCollection.STREAMING, ServerCollection.RECOMMENDED
+            ServerCollection.ALL, ServerCollection.LTE,
+            ServerCollection.GAMES, ServerCollection.STREAMING,
+            ServerCollection.FAST, ServerCollection.RECOMMENDED
         )) {
             val chip = lightAction(category.title).apply {
                 textSize = 10f
