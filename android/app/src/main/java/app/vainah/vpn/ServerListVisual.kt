@@ -14,10 +14,10 @@ import android.widget.TextView
 
 /** Responsive server rows: only real imported nodes and measured TCP delays. */
 object ServerListVisual {
-    private val ink = VainahDesign.ink
-    private val muted = VainahDesign.muted
-    private val accent = VainahDesign.purple
-    private val line = VainahDesign.border
+    private val ink get() = VainahDesign.ink
+    private val muted get() = VainahDesign.muted
+    private val accent get() = VainahDesign.purple
+    private val line get() = VainahDesign.border
 
     fun backgroundColor(): Int = VainahDesign.background
     fun textColor(): Int = ink
@@ -46,7 +46,7 @@ object ServerListVisual {
         onFavoriteClick: (() -> Unit)? = null,
         onClick: () -> Unit,
     ): View {
-        val selectedTint = Color.rgb(245, 239, 255)
+        val selectedTint = VainahDesign.inactive
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -140,7 +140,8 @@ object ServerListVisual {
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
             background = GradientDrawable().apply {
-                setColor(if (reliable) Color.rgb(225, 247, 235)
+                setColor(if (VainahTheme.isDark) VainahDesign.surface2
+                    else if (reliable) Color.rgb(225, 247, 235)
                     else Color.rgb(246, 244, 251))
                 cornerRadius = dp(context, 13).toFloat()
             }
