@@ -41,7 +41,7 @@ object VlessRealityConfig {
         // explicitly select h2 or http/1.1. Ignoring it can change the
         // HTTP transport and cause a working profile to fail in libbox.
         val alpnRaw = params["alpn"].orEmpty()
-        val alpnProtocols = if (alpnRaw.isBlank()) emptyList() else
+        val alpnProtocols = if (alpnRaw.isEmpty()) emptyList() else
             alpnRaw.split(',').map { it.trim() }.also { protocols ->
                 require(protocols.size in 1..8 && protocols.all {
                     it.matches(Regex("[A-Za-z0-9./_-]{1,32}"))
