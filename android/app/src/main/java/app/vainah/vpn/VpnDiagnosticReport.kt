@@ -85,6 +85,9 @@ object VpnDiagnosticReport {
             ) } ?: "unknown"}",
             "engine_failure=${VpnFailureAdvisor.sanitizedCode(failureCode)}",
             "libbox_validation_detail=${LibboxValidationDetail.safeCode(libboxDetail)}",
+            "libbox_native_core=${nativeCore?.takeIf {
+                it in setOf("lx_1_14_4_35", "lx_other", "non_lx_core", "unknown")
+            } ?: "unknown"}",
             "vpn_egress=not_verified_on_device"
         ).joinToString("\n")
     }
