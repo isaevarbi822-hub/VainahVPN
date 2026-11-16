@@ -1085,7 +1085,9 @@ class MainActivity : Activity() {
                     diag.getString("libbox_validation_detail", null) else null,
                 nativeCore = diag.getString("libbox_native_core", null),
                 selectedTransport = diag.getString("selected_transport", null),
-                selectedSecurity = diag.getString("selected_security", null)
+                selectedSecurity = diag.getString("selected_security", null),
+                libboxRejectedOption = if (current.phase == VpnConnectionState.FAILED)
+                    diag.getString("libbox_rejected_option", null) else null
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(
@@ -1129,6 +1131,13 @@ class MainActivity : Activity() {
                     .getString("libbox_validation_detail", null)
                 add(failure, t("Причина проверки: " +
                     LibboxValidationDetail.safeCode(detail), 11f, teal), 5)
+                if (LibboxValidationDetail.safeCode(detail) ==
+                    LibboxValidationIsolation.TRANSPORT_EXTRAS) {
+                    val option = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+                        .getString("libbox_rejected_option", null)
+                    add(failure, t("Поле XHTTP: " +
+                        LibboxValidationDetail.safeOption(option), 11f, teal), 5)
+                }
             }
         }
 
