@@ -114,9 +114,20 @@ internal class NativeCabinetSession(context: Context) {
         prefs.edit().remove("oauth_iv").remove("oauth_sealed").apply()
     }
 
-    fun clear() {
+    private fun clearAuthOnly() {
         prefs.edit().remove("auth_iv").remove("auth_sealed")
-            .remove("iv").remove("sealed").apply()
+            .remove("iv").remove("sealed").commit()
+    }
+
+    /** An old 401 must not log out an account created by a later OAuth reply. */
+    fun clearAuthIfUnchanged(expected: Pair<String, String>?) {
+        if (expected != null && readAuth() == expected) clearAuthOnly()
+    }
+
+    /** Explicit sign-out also invalidates an unfinished Google/Telegram flow. */
+    fun clear() {
+        clearAuthOnly()
+        clearPending()
     }
 }
 
@@ -172,7 +183,8 @@ internal class NativeCabinetApi(context: Context) {
         conn.useCaches = false
         conn.setRequestProperty("Accept", "application/json")
         conn.setRequestProperty("User-Agent", "VainahVPN-Android-NativeCabinet")
-        session.readAuth()?.let { (name, token) ->
+        val originalAuth = session.readAuth()
+        originalAuth?.let { (name, token) ->
             conn.setRequestProperty("Cookie", "$name=$token")
         }
         try {
@@ -194,10 +206,9 @@ internal class NativeCabinetApi(context: Context) {
                     ?.substringAfter("=")?.substringBefore(";")
                 if (cookie != null) session.save(cookie)
             }
-            // An email-only trial endpoint returns 401 for a valid Telegram
-            // session; that must NOT delete the user's Telegram login.
-            if (status == 401 && path == "/api/account/overview")
-                session.clear()
+            // Many account/overview and trial endpoints legitimately return
+            // 401 for an unlinked Telegram identity. They must NEVER clear
+            // that valid session; only the matching identity endpoint may.
             val stream = if (status in 200..299) conn.inputStream else conn.errorStream
             val content = stream?.use { input ->
                 // Bound memory and do not show arbitrary server errors to the user.
@@ -214,6 +225,17 @@ internal class NativeCabinetApi(context: Context) {
                 result.toString(StandardCharsets.UTF_8.name())
             }.orEmpty()
             val parsed = runCatching { JSONObject(content) }.getOrNull()
+            val identityEndpoint = when (originalAuth?.first) {
+                emailCookie -> "/api/email-auth/account"
+                telegramCookie -> "/api/telegram/account"
+                else -> null
+            }
+            if (path == identityEndpoint &&
+                (status == 401 ||
+                    (status == 200 && parsed?.has("authenticated") == true &&
+                        !parsed.optBoolean("authenticated")))) {
+                session.clearAuthIfUnchanged(originalAuth)
+            }
             if (path == "/api/mobile-auth/exchange" && status == 200 &&
                 parsed?.optBoolean("authenticated") == true) {
                 val name = parsed.optString("cookie_name")
