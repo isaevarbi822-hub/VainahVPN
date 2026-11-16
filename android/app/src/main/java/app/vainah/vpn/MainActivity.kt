@@ -67,6 +67,7 @@ class MainActivity : Activity() {
     private var serverSort = ServerSort.SUBSCRIPTION
     private var routeScanVersion = 0
     private var routeScanRunning = false
+    private var routeScanAttempted = false
     private var routeSnapshot: VpnNetworkFacts? = null
     private var routeNetworkSnapshot: VpnUnderlayStatus.Snapshot? = null
     private var routeConnectionSnapshot: VpnConnectionState.Snapshot? = null
@@ -129,6 +130,7 @@ class MainActivity : Activity() {
         // was paused. Never present old routes as a fresh VPN observation.
         routeScanVersion++
         routeScanRunning = false
+        routeScanAttempted = false
         routeSnapshot = null
         routeNetworkSnapshot = null
         routeConnectionSnapshot = null
@@ -376,6 +378,21 @@ class MainActivity : Activity() {
         lastRenderedPage = page
         if (lastOffset > 0) scroll.post { scroll.scrollTo(0, lastOffset) }
         updateConnection()
+        // Android route metadata is a local, read-only inspection. Populate
+        // Diagnostics automatically once per foreground session so a copied
+        // report does not misleadingly say "unknown" simply because a hidden
+        // secondary button was not pressed.
+        if (page == Page.DIAGNOSTICS && !routeScanAttempted &&
+            !routeScanRunning && VainahVpnService.runningInProcess &&
+            VpnConnectionState.read(this).canDisconnect) {
+            routeScanAttempted = true
+            main.post {
+                if (!isFinishing && !isDestroyed &&
+                    page == Page.DIAGNOSTICS && !routeScanRunning) {
+                    inspectVpnRoutes()
+                }
+            }
+        }
         // One automatic real TCP scan per loaded list, never a fake ping.
         // It is not used to replace a manual server selection.
         if ((page == Page.HOME || page == Page.LOCATIONS) &&
