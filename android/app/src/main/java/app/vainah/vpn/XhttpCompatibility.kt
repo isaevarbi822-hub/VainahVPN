@@ -48,6 +48,39 @@ internal object XhttpCompatibility {
         "sc_stream_up_server_secs"
     )
 
+    /**
+     * Xray exports put XHTTP-specific settings under xhttpSettings.extra,
+     * while sing-box exports place them directly under transport.
+     * Preserve both when converting subscription JSON into a VLESS link.
+     */
+    fun shareExtra(settings: JSONObject?): String {
+        if (settings == null) return ""
+        val captured = JSONObject()
+        val nested = when (val raw = settings.opt("extra")) {
+            is JSONObject -> raw
+            is String -> if (raw.isBlank()) JSONObject() else JSONObject(raw)
+            else -> JSONObject()
+        }
+        val fromNested = nested.keys()
+        while (fromNested.hasNext()) {
+            val name = fromNested.next()
+            captured.put(name, nested.opt(name))
+        }
+        val direct = settings.keys()
+        while (direct.hasNext()) {
+            val name = direct.next()
+            if (name == "extra" || name in setOf(
+                    "type", "mode", "path", "host", "x_padding_bytes", "xPaddingBytes"
+                )) continue
+            if (name in names || name in harmlessServerOnly)
+                captured.put(name, settings.opt(name))
+        }
+        if (captured.length() == 0) return ""
+        val output = captured.toString()
+        require(output.length <= 4096) { "XHTTP extra too large" }
+        return output
+    }
+
     private fun validateHeaders(value: Any): JSONObject {
         require(value is JSONObject && value.length() <= 16) {
             "Invalid XHTTP headers"
