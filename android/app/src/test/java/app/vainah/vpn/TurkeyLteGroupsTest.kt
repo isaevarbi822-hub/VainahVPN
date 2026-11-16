@@ -15,13 +15,15 @@ class TurkeyLteGroupsTest {
     @Test fun matchesOnlyTwoExplicitlyRequestedTurkeyNodes() {
         for (label in listOf(
             "Турция · 1", "Турция · IP", "🇹🇷 Турция · 1",
-            "🇹🇷 Турция · IP", "Turkey - IP", "Türkiye • 1"
+            "🇹🇷 Турция · IP", "Turkey - IP", "Türkiye • 1",
+            "Турция 1", "Турция IP", "🇹🇷 Турция 1",
+            "🇹🇷 Турция IP", "Turkey IP", "Turkey 1"
         )) {
             assertTrue("Expected matched: $label", TurkeyLteGroups.isPreferredLte(label))
         }
         for (label in listOf(
             "Турция · 2", "Турция · 3", "Турция · 10",
-            "Турция · IP extra", "🇹🇷 Турция",
+            "Турция · IP extra", "Турция IP extra", "Турция 12", "🇹🇷 Турция",
             "Албания · 1", "Turkey LTE",
             "vless://secret@example.org:443"
         )) {
