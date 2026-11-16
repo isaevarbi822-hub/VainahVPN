@@ -43,7 +43,8 @@ object VpnDiagnosticReport {
         handoffEvents: List<VpnHandoffEvent> = emptyList(),
         recoveryCode: String? = null,
         failureCode: String? = null,
-        routeScanPending: Boolean = false
+        routeScanPending: Boolean = false,
+        libboxDetail: String? = null
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
@@ -82,6 +83,7 @@ object VpnDiagnosticReport {
                 "underlay_available"
             ) } ?: "unknown"}",
             "engine_failure=${VpnFailureAdvisor.sanitizedCode(failureCode)}",
+            "libbox_validation_detail=${LibboxValidationDetail.safeCode(libboxDetail)}",
             "vpn_egress=not_verified_on_device"
         ).joinToString("\n")
     }
