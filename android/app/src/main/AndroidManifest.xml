@@ -32,6 +32,10 @@
             </intent-filter>
         </activity>
         <activity android:name=".ClerkLoginActivity" android:exported="false"/>
+        <activity
+            android:name=".NativeServicesActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"/>
         <!-- Full native account, tariff catalog, email OTP and free trial. -->
         <!-- Only OAuth authorization codes arrive through this link.
              The stored PKCE verifier is required to exchange them; no
