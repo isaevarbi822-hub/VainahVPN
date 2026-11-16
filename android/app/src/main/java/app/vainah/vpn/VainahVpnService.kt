@@ -44,7 +44,7 @@ class VainahVpnService : VpnService() {
     // Diagnostic timer only; never tears down a potentially working TUN.
     @Volatile private var probeWatchdog: Runnable? = null
 
-    private fun startProbeWatchdog(generation: Int) {
+    private fun startProbeWatchdog(generation: Int): Runnable {
         val job = Runnable {
             if (!isCurrentAttempt(generation)) return@Runnable
             val prefs = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
@@ -62,11 +62,17 @@ class VainahVpnService : VpnService() {
         }
         probeWatchdog = job
         recoveryHandler.postDelayed(job, VpnProbeLifecycle.TIMEOUT_MS)
+        return job
     }
 
-    private fun cancelProbeWatchdog() {
-        probeWatchdog?.let { recoveryHandler.removeCallbacks(it) }
-        probeWatchdog = null
+    private fun cancelProbeWatchdog(job: Runnable? = null) {
+        if (job != null) {
+            recoveryHandler.removeCallbacks(job)
+            if (probeWatchdog === job) probeWatchdog = null
+        } else {
+            probeWatchdog?.let { recoveryHandler.removeCallbacks(it) }
+            probeWatchdog = null
+        }
     }
 
     // A recreated Android service can supersede this instance even before
@@ -254,9 +260,12 @@ class VainahVpnService : VpnService() {
                 VpnConnectionState.tunnelCreated(this)
                 showNotification()
                 checkpoint(VpnProbeLifecycle.CHECKING_STAGE)
-                startProbeWatchdog(generation)
-                val probe = VpnConnectivity.diagnoseTunnel(this)
-                cancelProbeWatchdog()
+                val watchdog = startProbeWatchdog(generation)
+                val probe = try {
+                    VpnConnectivity.diagnoseTunnel(this)
+                } finally {
+                    cancelProbeWatchdog(watchdog)
+                }
                 if (!probe.reachable) {
                     // The VPN app's own process may be excluded from its TUN.
                     // A failed self-probe is NOT proof other apps lack internet.
@@ -279,7 +288,6 @@ class VainahVpnService : VpnService() {
                 VpnConnectionState.tunnelAwaitingBrowserValidation(this)
                 showNotification()
             } catch (error: Throwable) {
-                cancelProbeWatchdog()
                 // A cancelled connection must NEVER overwrite the user's
                 // deliberate OFF state, or shut down a newer generation.
                 if (!isCurrentAttempt(generation)) return@Thread
