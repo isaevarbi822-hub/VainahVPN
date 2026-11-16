@@ -38,6 +38,12 @@ object VpnFailureAdvisor {
             "tun_establishment", "Туннель libbox не подтверждён",
             "Проверь разрешение VPN и отсутствие другого активного VPN-приложения."
         ),
+        "vpn_https_probe_timeout" to VpnFailureAdvice(
+            "egress_inconclusive", "Проверка HTTPS не ответила",
+            "Приложение не получило результат собственной HTTPS-пробы вовремя. " +
+                "Это не означает, что интернет в браузере не работает. " +
+                "Проверь браузер, IP и DNS отдельно."
+        ),
         "checking_vpn_https_egress" to VpnFailureAdvice(
             "egress_inconclusive", "Проверка интернета не завершена",
             "Открой сайт в браузере и отдельно проверь внешний IP. Проба приложения не подтверждает работу VPN в других приложениях."
