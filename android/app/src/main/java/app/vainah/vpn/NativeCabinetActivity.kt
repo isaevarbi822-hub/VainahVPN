@@ -32,7 +32,7 @@ class NativeCabinetActivity : Activity() {
     private val executor = Executors.newSingleThreadExecutor()
     // Independent read-only API calls should not block one after another.
     // A fixed-size pool bounds request concurrency on slower mobile networks.
-    private val loaders = Executors.newFixedThreadPool(5)
+    private val loaders = Executors.newFixedThreadPool(8)
     private lateinit var api: NativeCabinetApi
     private var catalog: NativeCabinetCatalog.Snapshot? = null
     private var checkoutReady = false
@@ -288,13 +288,30 @@ class NativeCabinetActivity : Activity() {
         })
 
     private fun <T> awaitLoaded(
-        future: java.util.concurrent.Future<T?>?
-    ): T? = runCatching {
-        future?.get(25, java.util.concurrent.TimeUnit.SECONDS)
-    }.getOrNull()
+        future: java.util.concurrent.Future<T?>?,
+        deadlineNanos: Long
+    ): T? {
+        if (future == null) return null
+        val remaining = NativeCabinetLoadPolicy.remainingNanos(
+            System.nanoTime(), deadlineNanos)
+        if (remaining == 0L) {
+            future.cancel(true)
+            return null
+        }
+        return try {
+            future.get(remaining, java.util.concurrent.TimeUnit.NANOSECONDS)
+        } catch (_: Exception) {
+            future.cancel(true)
+            null
+        }
+    }
 
     private fun refresh() {
         perform({
+            // The whole dashboard has one monotonic time budget. Slow
+            // optional requests must never accumulate independent timeouts.
+            val deadlineNanos = NativeCabinetLoadPolicy.deadlineNanos(
+                System.nanoTime())
             // All read-only requests are independent. Starting them together
             // avoids waiting for up to eight consecutive HTTPS timeouts.
             val authType = api.authCookieName()
@@ -345,19 +362,20 @@ class NativeCabinetActivity : Activity() {
                     api.get("/api/trial/status").takeIf { it.ok }?.json
                 } else null
 
-            val email = awaitLoaded(emailFuture)
-            val telegram = if (email == null) awaitLoaded(telegramFuture) else null
+            val email = awaitLoaded(emailFuture, deadlineNanos)
+            val telegram = if (email == null)
+                awaitLoaded(telegramFuture, deadlineNanos) else null
             // Never present data for an invalid/expired identity.
             val validIdentity = email != null || telegram != null
             Loaded(
-                awaitLoaded(plansFuture),
-                awaitLoaded(checkoutFuture) == true,
-                awaitLoaded(trialFuture),
+                awaitLoaded(plansFuture, deadlineNanos),
+                awaitLoaded(checkoutFuture, deadlineNanos) == true,
+                awaitLoaded(trialFuture, deadlineNanos),
                 email, telegram,
-                if (validIdentity) awaitLoaded(overviewFuture) else null,
-                if (email != null) awaitLoaded(trialStatusFuture) else null,
-                awaitLoaded(socialFuture),
-                awaitLoaded(mailConfigFuture)
+                if (validIdentity) awaitLoaded(overviewFuture, deadlineNanos) else null,
+                if (email != null) awaitLoaded(trialStatusFuture, deadlineNanos) else null,
+                awaitLoaded(socialFuture, deadlineNanos),
+                awaitLoaded(mailConfigFuture, deadlineNanos)
             )
         }) { result ->
             result.onSuccess {
