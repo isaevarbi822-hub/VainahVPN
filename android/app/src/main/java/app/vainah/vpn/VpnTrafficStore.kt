@@ -56,6 +56,18 @@ object VpnTrafficStore {
             it.uplinkTotal, it.downlinkTotal).all { number -> number >= 0 } }
     }
 
+    /**
+     * Real libbox byte-per-second counter converted to decimal megabits/s.
+     * 100 Mbit/s corresponds to 12_500_000 bytes/s, not 100 MiB/s.
+     * This is instantaneous transfer, NOT the connection's max capacity.
+     */
+    fun formatMbps(bytesPerSecond: Long): String {
+        if (bytesPerSecond < 0) return "—"
+        val megabits = bytesPerSecond.toDouble() * 8.0 / 1_000_000.0
+        val precision = if (megabits >= 10.0) "%.1f" else "%.2f"
+        return String.format(Locale.ROOT, precision + " Мбит/с", megabits)
+    }
+
     fun format(bytes: Long): String {
         if (bytes < 0) return "—"
         if (bytes < 1024) return "$bytes Б"
