@@ -1436,8 +1436,18 @@ class MainActivity : Activity() {
                         ServerTcpMeasurement.sample(node).copy(index = index)
                     })
                 }
+                // Bound the complete server scan, even when an OS DNS lookup
+                // or socket operation does not honour a connect timeout.
+                // No timed-out node may receive an invented latency.
+                val deadline = System.nanoTime() +
+                    java.util.concurrent.TimeUnit.SECONDS.toNanos(90)
                 futures.map { (index, future) ->
-                    runCatching { future.get() }.getOrElse {
+                    try {
+                        val remaining = deadline - System.nanoTime()
+                        if (remaining <= 0L) throw java.util.concurrent.TimeoutException()
+                        future.get(remaining, java.util.concurrent.TimeUnit.NANOSECONDS)
+                    } catch (_: Exception) {
+                        future.cancel(true)
                         ServerTcpObservation(index,
                             ServerTcpSelector.ATTEMPTS_PER_NODE, emptyList())
                     }
