@@ -66,10 +66,12 @@ object SubscriptionNodeSupport {
      */
     private fun safeProfileFailure(error: Throwable?): String = when (error?.message) {
         "Unsupported XHTTP option" -> "xhttp_extra_unsupported"
-        "Unsupported XHTTP xmux setting", "Invalid XHTTP xmux",
-        "Invalid XHTTP xmux range", "Invalid XHTTP xmux keepalive",
-        "Conflicting XHTTP xmux limits", "Duplicate XHTTP xmux setting" ->
-            "xhttp_xmux_invalid"
+        "Unsupported XHTTP xmux setting" -> "xhttp_xmux_unknown_field"
+        "Conflicting XHTTP xmux limits" -> "xhttp_xmux_conflicting_limits"
+        "Invalid XHTTP xmux range" -> "xhttp_xmux_invalid_range"
+        "Invalid XHTTP xmux keepalive" -> "xhttp_xmux_invalid_keepalive"
+        "Duplicate XHTTP xmux setting" -> "xhttp_xmux_duplicate_key"
+        "Invalid XHTTP xmux" -> "xhttp_xmux_invalid"
         "Invalid XHTTP mode", "Invalid XHTTP path", "Invalid XHTTP host",
         "Invalid XHTTP padding", "Invalid XHTTP extra", "XHTTP extra too large",
         "Too many XHTTP options", "Invalid XHTTP option value",
@@ -88,6 +90,17 @@ object SubscriptionNodeSupport {
         "xhttp_extra_unsupported" ->
             "Профиль содержит дополнительную опцию XHTTP, которую этот движок не поддерживает. " +
                 "Нужно проверить исходные настройки сервера H1Cloud; параметры нельзя удалять автоматически."
+        "xhttp_xmux_unknown_field" ->
+            "В XMUX есть неподдерживаемое поле. Проверь экспорт H1Cloud и версию транспорта."
+        "xhttp_xmux_conflicting_limits" ->
+            "XMUX одновременно задаёт два активных ограничения соединений. " +
+                "Нужна правка конфигурации сервера."
+        "xhttp_xmux_invalid_range" ->
+            "В XMUX есть неверный числовой диапазон. Проверь экспорт H1Cloud."
+        "xhttp_xmux_invalid_keepalive" ->
+            "В XMUX указан неверный интервал keepalive."
+        "xhttp_xmux_duplicate_key" ->
+            "Параметр XMUX указан дважды под разными именами."
         "xhttp_xmux_invalid" ->
             "В настройках XMUX указан несовместимый или неправильный параметр. " +
                 "Проверь экспорт сервера в H1Cloud."
