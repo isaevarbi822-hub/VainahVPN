@@ -1216,7 +1216,7 @@ class MainActivity : Activity() {
         lteControls.addView(viewLte, LinearLayout.LayoutParams(
             0, dp(45), 1f))
         viewLte.setOnClickListener {
-            serverCollection = ServerCollection.WHITELIST
+            serverCollection = ServerCollection.LTE
             render()
         }
         val editWhite = lightAction("Отметить мои LTE").apply {
@@ -1258,7 +1258,8 @@ class MainActivity : Activity() {
                     directory(serverSearchQuery, false, serverSort),
                     serverCollection
                 )
-                val whiteMode = serverCollection == ServerCollection.WHITELIST
+                val whiteMode = serverCollection == ServerCollection.WHITELIST ||
+                    serverCollection == ServerCollection.LTE
                 whiteInfo.text = if (whiteMode)
                     "LTE-группа включает только узлы с меткой в подписке " +
                         "или отмеченные вручную. Пометка не включает LTE-доступ."
@@ -1533,10 +1534,10 @@ class MainActivity : Activity() {
             "Реальные статусы устройства — без имитации проверки внешнего IP.",
             12f, grey
         ), 8)
+        val vpnStatus = VpnSecurityPresentation.tunnel(snapshot.phase,
+            VainahVpnService.runningInProcess)
         add(protection, VainahUi.detailRow(this,
-            "VPN-туннель",
-            if (running) "Создан" else "Не запущен",
-            if (running) VainahUi.Tone.SUCCESS else VainahUi.Tone.NEUTRAL), 11)
+            "VPN-туннель", vpnStatus.title, vpnStatus.tone), 11)
         add(protection, VainahUi.detailRow(this,
             "VPN-ключи",
             if (source.savedLink() == null) "Не добавлены" else "Keystore",
@@ -1614,7 +1615,7 @@ class MainActivity : Activity() {
         val whitelistServers = action("Посмотреть LTE-серверы", true)
         add(lte, whitelistServers, 11)
         whitelistServers.setOnClickListener {
-            serverCollection = ServerCollection.WHITELIST
+            serverCollection = ServerCollection.LTE
             page = Page.LOCATIONS
             render()
         }
