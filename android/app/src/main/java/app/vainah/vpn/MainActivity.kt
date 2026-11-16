@@ -1082,7 +1082,8 @@ class MainActivity : Activity() {
                     diag.getString("last_failure_code", null) else null,
                 routeScanPending = routeScanRunning,
                 libboxDetail = if (current.phase == VpnConnectionState.FAILED)
-                    diag.getString("libbox_validation_detail", null) else null
+                    diag.getString("libbox_validation_detail", null) else null,
+                nativeCore = diag.getString("libbox_native_core", null)
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(
