@@ -21,6 +21,14 @@ class ServerHealthPresentationTest {
         assertTrue(result.explanation.contains("не ответил"))
     }
 
+    @Test fun cancelledOrDnsStalledProbeCannotBeCalledOffline() {
+        val timedOut = ServerHealthPresentation.assess(
+            reality, null, interrupted = true)
+        assertEquals("TCP: проверка не завершена", timedOut.summary)
+        assertTrue(timedOut.explanation.contains("не означает"))
+        assertFalse(timedOut.summary.contains("0/3"))
+    }
+
     @Test fun unsupportedTransportAndUnmeasuredNodesAreExplicit() {
         val blocked = ServerHealthPresentation.assess(
             SubscriptionNodeSupport.Details("xhttp", "reality", false), null)
