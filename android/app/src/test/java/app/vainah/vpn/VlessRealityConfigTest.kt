@@ -109,6 +109,9 @@ class VlessRealityConfigTest {
             "post-interval" to JSONObject().put("scMinPostsIntervalMs", "30-60"),
             "xmux" to JSONObject().put("xmux",
                 JSONObject().put("max_connections", "3-3")),
+            "xmux-xray-camel" to JSONObject().put("xmux",
+                JSONObject().put("maxConnections", "3-3")
+                    .put("hMaxRequestTimes", "600-900")),
             "session" to JSONObject().put("sessionPlacement", "header")
                 .put("sessionKey", "X-Session"),
             "uplink" to JSONObject().put("uplinkHTTPMethod", "POST"),
