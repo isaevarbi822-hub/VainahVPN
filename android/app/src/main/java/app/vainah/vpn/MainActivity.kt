@@ -78,6 +78,7 @@ class MainActivity : Activity() {
     private var networkStatusView: TextView? = null
     private val trafficTimeline = TrafficTimeline()
     private var connectView: Button? = null
+    private var activeServerView: Button? = null
     private var powerOrb: View? = null
     private var pulseAnimator: ValueAnimator? = null
     private val main = Handler(Looper.getMainLooper())
@@ -263,6 +264,7 @@ class MainActivity : Activity() {
         trafficChart = null
         networkStatusView = null
         connectView = null
+        activeServerView = null
         // All native pages use the selected premium theme and readable typography.
         val lastOffset = if (lastRenderedPage == page) contentScroll?.scrollY ?: 0 else 0
         val frame = column().apply {
@@ -509,7 +511,27 @@ class MainActivity : Activity() {
                         entry.info.subtitle + ". Сервер показан без подключения.")
                     return@row
                 }
-                // Selecting a row never interrupts an existing VPN tunnel.
+                val session = VpnConnectionState.read(this)
+                if (ActiveServerPresentation.requiresDisconnectBeforeSwitch(session.phase)) {
+                    // A row tap changes only the pending choice, not the
+                    // currently running VPN. Never display the newly chosen
+                    // location as if the TUN had switched on its own.
+                    AlertDialog.Builder(this)
+                        .setTitle("Переключить VPN-сервер?")
+                        .setMessage("Сейчас работает другой VPN-сеанс. " +
+                            "Чтобы использовать «" + entry.info.title +
+                            "», нужно отключить текущий туннель. " +
+                            "После отключения нажми «Подключиться» на главной.")
+                        .setNegativeButton("Оставить VPN", null)
+                        .setPositiveButton("Отключить и выбрать") { _, _ ->
+                            selected = node
+                            serverListExpanded = false
+                            page = Page.HOME
+                            disconnect()
+                            render()
+                        }.show()
+                    return@row
+                }
                 selected = node
                 if (returnHomeAfterSelection) {
                     serverListExpanded = true
@@ -581,9 +603,13 @@ class MainActivity : Activity() {
         stateView = status
         add(hero, status, 3)
         val nextNode = selected?.let { ServerRowPresentation.describe(it, 0) }
-        val selectedName = if (nextNode == null) "Выбери сервер из списка ниже"
+        val selectedName = if (nextNode == null) null
         else nextNode.flag + "  " + nextNode.title
-        val serverShortcut = lightAction(selectedName + "  ›").apply {
+        val liveSession = VpnConnectionState.read(this)
+        val displayedName = ActiveServerPresentation.homeLabel(
+            liveSession.phase, VainahVpnService.runningInProcess,
+            liveSession.server, selectedName)
+        val serverShortcut = lightAction(displayedName + "  ›").apply {
             textSize = 12.5f
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -594,6 +620,7 @@ class MainActivity : Activity() {
                 render()
             }
         }
+        activeServerView = serverShortcut
         add(hero, serverShortcut, 7)
         val detail = t(
             "Выбери сервер и подключись.",
@@ -646,7 +673,7 @@ class MainActivity : Activity() {
         val trafficPanel = card()
         add(body, trafficPanel, 11)
         add(trafficPanel, tag("МОНИТОРИНГ"))
-        add(trafficPanel, t("Скорость прямо сейчас", 18f, white, true), 7)
+        add(trafficPanel, t("Текущий VPN-трафик", 18f, white, true), 7)
         val traffic = t("Статистика появится после подключения.", 12f, muted)
         trafficView = traffic
         add(trafficPanel, traffic, 7)
@@ -658,8 +685,8 @@ class MainActivity : Activity() {
             })
         sparkline.show(trafficTimeline.snapshot())
         add(trafficPanel, VainahUi.infoStrip(this,
-            "График строится только по свежим счётчикам libbox. " +
-                "Пинг сервера и проверка внешнего IP — отдельные тесты."), 9)
+            "Показания libbox — текущие байты в секунду, а не тест " +
+                "максимальной скорости. Ноль без загрузки не означает медленный сервер."), 9)
         val sheet = ServerListVisual.sheet(this)
         add(body, sheet, 12)
         val heading = horizontal().apply {
@@ -1449,6 +1476,17 @@ class MainActivity : Activity() {
             !serverProbeRunning && !VpnConnectionState.read(this).canDisconnect
         add(measurement, probe, 12)
         probe.setOnClickListener { probeServersAndChoose() }
+        val singleProbe = lightAction(
+            if (serverProbeRunning) "Проверяем TCP…" else
+                "Проверить выбранный сервер (TCP)"
+        ).apply {
+            textSize = 12f
+            isEnabled = selected?.let { SubscriptionNodeSupport.canConnect(it.uri) } == true &&
+                !serverProbeRunning && !VpnConnectionState.read(this@MainActivity).canDisconnect
+            contentDescription = "Три TCP-проверки выбранного VPN-сервера без передачи ключей"
+        }
+        add(measurement, singleProbe, 9)
+        singleProbe.setOnClickListener { probeSelectedServerTcp() }
     }
 
     private fun chooseWhiteListNodes() {
@@ -1491,6 +1529,69 @@ class MainActivity : Activity() {
         activeProbePool = null
         serverProbes = emptyList()
         serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
+    }
+
+    /** Quick preflight for one selected H1Cloud node, with bounded waiting.
+     * No VPN, TLS or speed claim is made from an open TCP port.
+     */
+    private fun probeSelectedServerTcp() {
+        if (serverProbeRunning) return
+        if (VpnConnectionState.read(this).canDisconnect ||
+            VainahVpnService.runningInProcess) {
+            popup("Отключи VPN перед измерением TCP-входа.")
+            return
+        }
+        val target = selected ?: run {
+            popup("Сначала выбери сервер из подписки.")
+            return
+        }
+        val index = nodes.indexOfFirst { it.uri == target.uri }
+        if (index < 0 || !SubscriptionNodeSupport.canConnect(target.uri)) {
+            popup("Сервер отсутствует или его протокол не поддерживается. Обнови подписку.")
+            return
+        }
+        val name = ServerRowPresentation.describe(target, index).title
+        val generation = ++serverProbeGeneration
+        val pool = Executors.newSingleThreadExecutor()
+        activeProbePool = pool
+        serverProbeRunning = true
+        serverProbeAttempted = true
+        serverProbeMessage = "Проверяем TCP-вход выбранного сервера…"
+        render()
+        Thread({
+            val measured = try {
+                val future = pool.submit(Callable {
+                    ServerTcpMeasurement.sample(target).copy(index = index)
+                })
+                try {
+                    future.get(8, java.util.concurrent.TimeUnit.SECONDS)
+                } catch (_: Exception) {
+                    future.cancel(true)
+                    ServerTcpObservation(index,
+                        ServerTcpSelector.ATTEMPTS_PER_NODE, emptyList())
+                }
+            } finally {
+                pool.shutdownNow()
+            }
+            main.post {
+                if (generation != serverProbeGeneration ||
+                    isFinishing || isDestroyed) return@post
+                serverProbeRunning = false
+                activeProbePool = null
+                if (nodes.getOrNull(index)?.uri != target.uri ||
+                    selected?.uri != target.uri ||
+                    VpnConnectionState.read(this).canDisconnect) {
+                    serverProbeMessage = "Сервер или VPN-состояние изменились. Повтори замер."
+                    render()
+                    return@post
+                }
+                serverProbes = serverProbes.filterNot { it.index == index } + measured
+                val result = SelectedServerTcpAdvice.summary(measured)
+                serverProbeMessage = "Выбранный сервер проверен (TCP)."
+                render()
+                popup(name + ": " + result)
+            }
+        }, "vainah-single-server-tcp-check").start()
     }
 
     private fun probeServersAndChoose(selectBest: Boolean = true) {
@@ -2099,6 +2200,10 @@ class MainActivity : Activity() {
         updatePowerPulse(snapshot.phase)
         val connected = snapshot.canDisconnect
         stateView?.text = VpnHomeStatusPresentation.heading(snapshot.phase)
+        val nextNode = selected?.let { ServerRowPresentation.describe(it, 0) }
+        val nextLabel = nextNode?.let { it.flag + "  " + it.title }
+        activeServerView?.text = ActiveServerPresentation.homeLabel(
+            snapshot.phase, serviceRunning, snapshot.server, nextLabel) + "  ›"
         (powerOrb as? PowerOrbView)?.setVpnPhase(snapshot.phase)
         stateView?.setTextColor(when (snapshot.phase) {
             VpnConnectionState.ONLINE -> VainahDesign.green
