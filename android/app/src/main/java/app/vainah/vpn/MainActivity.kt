@@ -73,6 +73,9 @@ class MainActivity : Activity() {
     private var stateView: TextView? = null
     private var detailView: TextView? = null
     private var trafficView: TextView? = null
+    private var trafficChart: TrafficSparklineView? = null
+    private var networkStatusView: TextView? = null
+    private val trafficTimeline = TrafficTimeline()
     private var connectView: Button? = null
     private var powerOrb: View? = null
     private var pulseAnimator: ValueAnimator? = null
@@ -255,6 +258,8 @@ class MainActivity : Activity() {
         stateView = null
         detailView = null
         trafficView = null
+        trafficChart = null
+        networkStatusView = null
         connectView = null
         // Every page shares the same clean light surface and typography.
         val light = true
@@ -531,10 +536,21 @@ class MainActivity : Activity() {
         addProfile.setOnClickListener { page = Page.ACCOUNT; render() }
         add(body, upper, 4)
 
+        val quickStatus = card()
+        add(body, quickStatus, 13)
+        add(quickStatus, tag("СОСТОЯНИЕ СОЕДИНЕНИЯ"))
+        val networkStatus = t("Определяем сеть Android…", 13f, white, true)
+        networkStatusView = networkStatus
+        add(quickStatus, networkStatus, 7)
+        add(quickStatus, t("VPN-движок: " +
+            if (EngineRegistry.active.ready) "libbox готов" else
+                "недоступен в этой сборке", 11.5f, grey), 6)
+        add(quickStatus, VainahUi.infoStrip(this,
+            "Статус Android-сети не означает, что внешний IP уже защищён."), 10)
+
         val hero = column().apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            // The connection control floats on the page rather than living
-            // inside a second giant card.
+            // Original premium lavender ring, matching the approved design.
             setPadding(dp(9), dp(14), dp(9), dp(12))
         }
         add(body, hero, 13)
@@ -542,8 +558,8 @@ class MainActivity : Activity() {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(
-                    Color.rgb(236, 241, 249),
-                    Color.rgb(251, 247, 248)
+                    Color.rgb(233, 218, 254),
+                    Color.rgb(252, 248, 255)
                 )
             ).apply {
                 shape = GradientDrawable.OVAL
@@ -710,20 +726,36 @@ class MainActivity : Activity() {
             render()
         }
         add(sheet, footer)
+        val smart = action("✦ Умный выбор по TCP-задержке", true)
+        smart.isEnabled = nodes.any { SubscriptionNodeSupport.canConnect(it.uri) } &&
+            !serverProbeRunning && !VpnConnectionState.read(this).canDisconnect
+        smart.contentDescription =
+            "Измерить реальные входные TCP-подключения и выбрать быстрый сервер"
+        add(body, smart, 12)
+        smart.setOnClickListener { probeServersAndChoose(selectBest = true) }
         add(body, t(
-            "TCP — проверка входного сервера, не скорость VPN.",
+            "Замер TCP не равен скорости туннеля. Ручной выбор и текущий " +
+                "VPN-сеанс не заменяются автоматически.",
             11f, muted
-        ), 12)
+        ), 9)
 
-        val trafficPanel = column().apply {
-            background = shape(ServerListVisual.cardColor(), VainahDesign.border, 17)
-            setPadding(dp(18), dp(12), dp(18), dp(17))
-        }
+        val trafficPanel = card()
         add(body, trafficPanel, 15)
-        add(trafficPanel, t("Трафик текущего сеанса", 13f, ink, true))
+        add(trafficPanel, tag("МОНИТОРИНГ"))
+        add(trafficPanel, t("Скорость прямо сейчас", 18f, white, true), 7)
         val traffic = t("Статистика появится после подключения.", 12f, muted)
         trafficView = traffic
-        add(trafficPanel, traffic, 6)
+        add(trafficPanel, traffic, 7)
+        val sparkline = TrafficSparklineView(this)
+        trafficChart = sparkline
+        trafficPanel.addView(sparkline, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(132)).apply {
+                topMargin = dp(9)
+            })
+        sparkline.show(trafficTimeline.snapshot())
+        add(trafficPanel, VainahUi.infoStrip(this,
+            "График строится только по свежим счётчикам libbox. " +
+                "Пинг сервера и проверка внешнего IP — отдельные тесты."), 9)
     }
 
     private fun account(body: LinearLayout) {
@@ -1907,6 +1939,17 @@ class MainActivity : Activity() {
 
     private fun updateConnection() {
         val snapshot = VpnConnectionState.read(this)
+        val serviceRunning = VainahVpnService.runningInProcess
+        val underlay = VpnUnderlayStatus.read(this)
+        val network = when(underlay.transport) {
+            "wifi" -> "Wi-Fi"
+            "cellular" -> "4G / 5G"
+            "ethernet" -> "Ethernet"
+            else -> "Сеть не определена"
+        }
+        networkStatusView?.text = "Физическая сеть: " + network +
+            if (underlay.validated) " · Android: подтверждена" else
+                " · Android: не подтверждена"
         updatePowerPulse(snapshot.phase)
         val connected = snapshot.canDisconnect
         stateView?.text = when (snapshot.phase) {
@@ -1924,12 +1967,24 @@ class MainActivity : Activity() {
             "Выбери локацию и проверь IP в браузере после подключения."
         else snapshot.detail.ifBlank { "Данные службы пока недоступны." }
         connectView?.text = if (connected) "Отключить VPN" else "Подключиться"
-        trafficView?.text = if (!connected) "Статистика появится после подключения."
-        else VpnTrafficStore.read(this)?.let {
-            "↓ " + VpnTrafficStore.format(it.downlink) + "/с · ↑ " +
-                VpnTrafficStore.format(it.uplink) + "/с\\nЗа сеанс: ↓ " +
-                VpnTrafficStore.format(it.downlinkTotal) + " · ↑ " +
-                VpnTrafficStore.format(it.uplinkTotal)
-        } ?: "Счётчики libbox пока недоступны"
+        val fresh = if (connected && serviceRunning)
+            VpnTrafficStore.read(this) else null
+        if (fresh == null && (!connected || !serviceRunning)) {
+            trafficTimeline.clear()
+        } else if (fresh != null) {
+            trafficTimeline.record(SystemClock.elapsedRealtime(),
+                fresh.downlink, fresh.uplink)
+        }
+        trafficView?.text = when {
+            !connected || !serviceRunning ->
+                "График и статистика появятся после подключения."
+            fresh == null -> "Счётчики libbox временно недоступны."
+            else -> "↓ " + VpnTrafficStore.format(fresh.downlink) +
+                "/с    ↑ " + VpnTrafficStore.format(fresh.uplink) +
+                "/с\\nЗа сеанс: ↓ " +
+                VpnTrafficStore.format(fresh.downlinkTotal) + " · ↑ " +
+                VpnTrafficStore.format(fresh.uplinkTotal)
+        }
+        trafficChart?.show(trafficTimeline.snapshot())
     }
 }
