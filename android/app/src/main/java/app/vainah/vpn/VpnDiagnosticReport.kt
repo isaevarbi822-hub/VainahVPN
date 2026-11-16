@@ -42,7 +42,8 @@ object VpnDiagnosticReport {
         underlay: VpnUnderlayFacts? = null,
         handoffEvents: List<VpnHandoffEvent> = emptyList(),
         recoveryCode: String? = null,
-        failureCode: String? = null
+        failureCode: String? = null,
+        routeScanPending: Boolean = false
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
@@ -58,6 +59,11 @@ object VpnDiagnosticReport {
             "service_running=${if (serviceRunning) "yes" else "no"}",
             "last_stage=${code(lastStage)}",
             "https_probe=${code(probeReason)}",
+            "vpn_route_check=${when {
+                networkFacts != null -> "completed"
+                routeScanPending -> "in_progress"
+                else -> "not_run"
+            }}",
             "android_vpn_visible=${flag(networkFacts?.visible)}",
             "android_ipv4_default_route=${flag(networkFacts?.ipv4DefaultRoute)}",
             "android_ipv6_default_route=${flag(networkFacts?.ipv6DefaultRoute)}",

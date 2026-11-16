@@ -82,6 +82,33 @@ class VpnDiagnosticReportTest {
         assertFalse(report.contains("vless://private"))
     }
 
+    @Test fun reportDistinguishesUnperformedRouteScanFromUnobservableFacts() {
+        val notRun = VpnDiagnosticReport.create(
+            "tun_ready", VpnProbeLifecycle.CHECKING_STAGE,
+            VpnProbeLifecycle.IN_PROGRESS, 37, true
+        )
+        assertTrue(notRun.contains("https_probe=in_progress"))
+        assertTrue(notRun.contains("vpn_route_check=not_run"))
+        assertTrue(notRun.contains("android_vpn_visible=unknown"))
+
+        val checked = VpnDiagnosticReport.create(
+            "tun_ready", VpnProbeLifecycle.TIMEOUT_STAGE,
+            VpnProbeLifecycle.TIMEOUT, 37, true,
+            VpnNetworkFacts(visible = null)
+        )
+        assertTrue(checked.contains("vpn_route_check=completed"))
+        assertTrue(checked.contains("android_vpn_visible=unknown"))
+        assertTrue(checked.contains("https_probe=probe_timeout"))
+
+        val pending = VpnDiagnosticReport.create(
+            "tun_ready", VpnProbeLifecycle.CHECKING_STAGE,
+            VpnProbeLifecycle.IN_PROGRESS, 37, true,
+            routeScanPending = true
+        )
+        assertTrue(pending.contains("vpn_route_check=in_progress"))
+        assertTrue(pending.contains("android_vpn_visible=unknown"))
+    }
+
     @Test fun maliciousValuesCannotLeakIntoClipboard() {
         val privateUrl = "https://example.org/?token=really_private"
         val profile = "vless://secret-uuid@host.example:443"

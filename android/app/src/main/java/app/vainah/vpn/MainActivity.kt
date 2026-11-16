@@ -67,6 +67,7 @@ class MainActivity : Activity() {
     private var serverSort = ServerSort.SUBSCRIPTION
     private var routeScanVersion = 0
     private var routeScanRunning = false
+    private var routeScanAttempted = false
     private var routeSnapshot: VpnNetworkFacts? = null
     private var routeNetworkSnapshot: VpnUnderlayStatus.Snapshot? = null
     private var routeConnectionSnapshot: VpnConnectionState.Snapshot? = null
@@ -129,6 +130,7 @@ class MainActivity : Activity() {
         // was paused. Never present old routes as a fresh VPN observation.
         routeScanVersion++
         routeScanRunning = false
+        routeScanAttempted = false
         routeSnapshot = null
         routeNetworkSnapshot = null
         routeConnectionSnapshot = null
@@ -376,6 +378,21 @@ class MainActivity : Activity() {
         lastRenderedPage = page
         if (lastOffset > 0) scroll.post { scroll.scrollTo(0, lastOffset) }
         updateConnection()
+        // Android route metadata is a local, read-only inspection. Populate
+        // Diagnostics automatically once per foreground session so a copied
+        // report does not misleadingly say "unknown" simply because a hidden
+        // secondary button was not pressed.
+        if (page == Page.DIAGNOSTICS && !routeScanAttempted &&
+            !routeScanRunning && VainahVpnService.runningInProcess &&
+            VpnConnectionState.read(this).canDisconnect) {
+            routeScanAttempted = true
+            main.post {
+                if (!isFinishing && !isDestroyed &&
+                    page == Page.DIAGNOSTICS && !routeScanRunning) {
+                    inspectVpnRoutes()
+                }
+            }
+        }
         // One automatic real TCP scan per loaded list, never a fake ping.
         // It is not used to replace a manual server selection.
         if ((page == Page.HOME || page == Page.LOCATIONS) &&
@@ -558,7 +575,7 @@ class MainActivity : Activity() {
         }
         powerOrb = power
         hero.addView(power, LinearLayout.LayoutParams(dp(dialSize), dp(dialSize)))
-        val status = t("Не подключено", 19f, ink, true).apply {
+        val status = t("VPN отключён", 18f, ink, true).apply {
             gravity = Gravity.CENTER
         }
         stateView = status
@@ -579,7 +596,7 @@ class MainActivity : Activity() {
         }
         add(hero, serverShortcut, 7)
         val detail = t(
-            "Туннель ещё не проверен. После подключения проверь внешний IP.",
+            "Выбери сервер и подключись.",
             11.5f, muted
         ).apply {
             gravity = Gravity.CENTER
@@ -609,20 +626,22 @@ class MainActivity : Activity() {
         // Short, truthful physical-network status follows the power dial.
         // A validated underlay is never presented as confirmed VPN egress.
         val quickStatus = card().apply {
-            setPadding(dp(13), dp(11), dp(13), dp(12))
+            setPadding(dp(13), dp(10), dp(13), dp(11))
+            isClickable = true
+            isFocusable = true
+            contentDescription = "Физическая сеть и диагностика VPN"
+            setOnClickListener {
+                page = Page.DIAGNOSTICS
+                render()
+            }
         }
         add(body, quickStatus, 9)
+        add(quickStatus, t("ФИЗИЧЕСКАЯ СЕТЬ    ·    ДИАГНОСТИКА ›",
+            10f, violet, true))
         val networkStatus = t("Определяем физическую сеть…", 11.5f, white)
             .apply { maxLines = 2 }
         networkStatusView = networkStatus
-        add(quickStatus, networkStatus)
-        add(quickStatus, t(
-            if (EngineRegistry.active.ready) "Движок: libbox готов"
-            else "Движок VPN недоступен в этой сборке",
-            10.5f, grey), 4)
-        add(quickStatus, t(
-            "Внешний IP и DNS проверяются отдельно.",
-            10f, grey), 5)
+        add(quickStatus, networkStatus, 5)
 
         val trafficPanel = card()
         add(body, trafficPanel, 11)
@@ -1033,7 +1052,8 @@ class MainActivity : Activity() {
                     this, current.canDisconnect && VainahVpnService.runningInProcess
                 ).code,
                 failureCode = if (current.phase == VpnConnectionState.FAILED)
-                    diag.getString("last_failure_code", null) else null
+                    diag.getString("last_failure_code", null) else null,
+                routeScanPending = routeScanRunning
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(
@@ -2074,11 +2094,11 @@ class MainActivity : Activity() {
         val snapshot = VpnConnectionState.read(this)
         val serviceRunning = VainahVpnService.runningInProcess
         val underlay = VpnUnderlayStatus.read(this)
-        networkStatusView?.text = VpnLivePresentation.networkStatus(
+        networkStatusView?.text = VpnHomeStatusPresentation.physicalNetwork(
             underlay.transport, underlay.validated)
         updatePowerPulse(snapshot.phase)
         val connected = snapshot.canDisconnect
-        stateView?.text = VpnLivePresentation.phaseLabel(snapshot.phase)
+        stateView?.text = VpnHomeStatusPresentation.heading(snapshot.phase)
         (powerOrb as? PowerOrbView)?.setVpnPhase(snapshot.phase)
         stateView?.setTextColor(when (snapshot.phase) {
             VpnConnectionState.ONLINE -> VainahDesign.green
@@ -2087,9 +2107,8 @@ class MainActivity : Activity() {
             VpnConnectionState.FAILED -> VainahDesign.error
             else -> VainahDesign.ink
         })
-        detailView?.text = if (snapshot.phase == VpnConnectionState.OFF)
-            "Выбери локацию и проверь IP в браузере после подключения."
-        else snapshot.detail.ifBlank { "Данные службы пока недоступны." }
+        detailView?.text = VpnHomeStatusPresentation.detail(
+            snapshot.phase, snapshot.detail)
         connectView?.text = if (connected) "Отключить VPN" else "Подключиться"
         val fresh = if (connected && serviceRunning)
             VpnTrafficStore.read(this) else null

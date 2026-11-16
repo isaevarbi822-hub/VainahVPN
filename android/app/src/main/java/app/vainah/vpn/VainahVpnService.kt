@@ -41,6 +41,39 @@ class VainahVpnService : VpnService() {
     @Volatile private var recoveringNativeSession = false
     private val recoveryHandler = Handler(Looper.getMainLooper())
     private var scheduledRecovery: Runnable? = null
+    // Diagnostic timer only; never tears down a potentially working TUN.
+    @Volatile private var probeWatchdog: Runnable? = null
+
+    private fun startProbeWatchdog(generation: Int): Runnable {
+        val job = Runnable {
+            if (!isCurrentAttempt(generation)) return@Runnable
+            val prefs = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+            if (!VpnProbeLifecycle.shouldMarkTimedOut(
+                    true, VpnConnectionState.read(this).phase,
+                    prefs.getString("last_stage", null),
+                    prefs.getString("vpn_probe_reason", null)
+                )) return@Runnable
+            // A slow/inaccessible self-probe is not a failed VPN session.
+            prefs.edit()
+                .putString("last_stage", VpnProbeLifecycle.TIMEOUT_STAGE)
+                .putString("vpn_probe_reason", VpnProbeLifecycle.TIMEOUT)
+                .putBoolean("startup_pending", false)
+                .commit()
+        }
+        probeWatchdog = job
+        recoveryHandler.postDelayed(job, VpnProbeLifecycle.TIMEOUT_MS)
+        return job
+    }
+
+    private fun cancelProbeWatchdog(job: Runnable? = null) {
+        if (job != null) {
+            recoveryHandler.removeCallbacks(job)
+            if (probeWatchdog === job) probeWatchdog = null
+        } else {
+            probeWatchdog?.let { recoveryHandler.removeCallbacks(it) }
+            probeWatchdog = null
+        }
+    }
 
     // A recreated Android service can supersede this instance even before
     // the old onDestroy callback has been delivered. A generation check alone
@@ -116,6 +149,9 @@ class VainahVpnService : VpnService() {
         val editor = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE).edit()
             .putString("last_stage", stage)
             .putBoolean("startup_pending", true)
+        if (stage == VpnProbeLifecycle.CHECKING_STAGE) {
+            editor.putString("vpn_probe_reason", VpnProbeLifecycle.IN_PROGRESS)
+        }
         if (stage == "service_received_connect") {
             // Old DNS/HTTPS errors must not look like results from this run.
             editor.remove("vpn_probe_reason")
@@ -223,8 +259,13 @@ class VainahVpnService : VpnService() {
                 recoveringNativeSession = false
                 VpnConnectionState.tunnelCreated(this)
                 showNotification()
-                checkpoint("checking_vpn_https_egress")
-                val probe = VpnConnectivity.diagnoseTunnel(this)
+                checkpoint(VpnProbeLifecycle.CHECKING_STAGE)
+                val watchdog = startProbeWatchdog(generation)
+                val probe = try {
+                    VpnConnectivity.diagnoseTunnel(this)
+                } finally {
+                    cancelProbeWatchdog(watchdog)
+                }
                 if (!probe.reachable) {
                     // The VPN app's own process may be excluded from its TUN.
                     // A failed self-probe is NOT proof other apps lack internet.
@@ -306,6 +347,7 @@ class VainahVpnService : VpnService() {
 
     private fun disconnect(userRequested: Boolean) {
         connectionGeneration++
+        cancelProbeWatchdog()
         scheduledRecovery?.let { recoveryHandler.removeCallbacks(it) }
         scheduledRecovery = null
         lastRequestedNode = null
@@ -331,6 +373,7 @@ class VainahVpnService : VpnService() {
 
     override fun onDestroy() {
         connectionGeneration++
+        cancelProbeWatchdog()
         scheduledRecovery?.let { recoveryHandler.removeCallbacks(it) }
         scheduledRecovery = null
         lastRequestedNode = null
