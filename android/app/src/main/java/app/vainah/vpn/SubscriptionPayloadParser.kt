@@ -190,7 +190,10 @@ object SubscriptionPayloadParser {
         val path = transportSettings?.optString("path").orEmpty()
         val mode = transportSettings?.optString("mode").orEmpty()
         val host = transportSettings?.optString("host").orEmpty()
-        val padding = transportSettings?.optString("x_padding_bytes").orEmpty()
+        val padding = transportSettings?.optString("x_padding_bytes")
+            ?.ifBlank { transportSettings.optString("xPaddingBytes") }.orEmpty()
+        val xhttpExtra = if (transportSettings != null)
+            XhttpCompatibility.shareExtra(transportSettings) else ""
         val serviceName = stream.optJSONObject("grpcSettings")?.optString("serviceName").orEmpty()
         val servers = item.optJSONObject("settings")?.optJSONArray("vnext")
             ?: return emptyList()
@@ -208,7 +211,8 @@ object SubscriptionPayloadParser {
                     reality?.optString("fingerprint", "chrome")
                         ?: tls?.optString("fingerprint", "chrome") ?: "chrome",
                     user.optString("flow"), item.optString("tag"),
-                    security, network, path, serviceName, mode, host, padding
+                    security, network, path, serviceName, mode, host, padding,
+                    xhttpExtra
                 )?.let { result.add(it) }
                 if (result.size > MAX_NODES) return emptyList()
             }
@@ -236,7 +240,10 @@ object SubscriptionPayloadParser {
             transport?.optString("service_name").orEmpty(),
             transport?.optString("mode").orEmpty(),
             transport?.optString("host").orEmpty(),
-            transport?.optString("x_padding_bytes").orEmpty()
+            transport?.optString("x_padding_bytes")
+                ?.ifBlank { transport.optString("xPaddingBytes") }.orEmpty(),
+            if (network in listOf("xhttp", "splithttp"))
+                XhttpCompatibility.shareExtra(transport) else ""
         )
     }
 
@@ -244,7 +251,8 @@ object SubscriptionPayloadParser {
         uuid: String, host: String, port: Int, sni: String, pbk: String,
         sid: String, fp: String, flow: String, label: String,
         security: String, network: String, path: String, serviceName: String,
-        mode: String, httpHost: String, padding: String
+        mode: String, httpHost: String, padding: String,
+        xhttpExtra: String = ""
     ): String? {
         if (uuid.length > 64 || runCatching { UUID.fromString(uuid) }.isFailure ||
             host.isBlank() || host.length > 253 || port !in 1..65535 ||
@@ -252,7 +260,8 @@ object SubscriptionPayloadParser {
             (security == "reality" && (sni.isBlank() || pbk.isBlank())) ||
             fp.length > 80 || sid.length > 128 || flow.length > 128 ||
             path.length > 512 || serviceName.length > 256 ||
-            mode.length > 24 || httpHost.length > 253 || padding.length > 30) return null
+            mode.length > 24 || httpHost.length > 253 || padding.length > 30 ||
+            xhttpExtra.length > 4096) return null
         val authority = if (host.contains(':') && !host.startsWith("[")) "[" + host + "]" else host
         fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
         val query = buildList {
@@ -268,6 +277,8 @@ object SubscriptionPayloadParser {
             if (mode.isNotBlank()) add("mode=" + enc(mode))
             if (httpHost.isNotBlank()) add("host=" + enc(httpHost))
             if (padding.isNotBlank()) add("x_padding_bytes=" + enc(padding))
+            if (network in listOf("xhttp", "splithttp") && xhttpExtra.isNotBlank())
+                add("extra=" + enc(xhttpExtra))
         }.joinToString("&")
         val safeLabel = if (label.length in 1..80 &&
             !label.contains("://") && !label.contains('@') &&
