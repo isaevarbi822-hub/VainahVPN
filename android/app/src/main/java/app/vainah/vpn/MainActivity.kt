@@ -1619,6 +1619,39 @@ class MainActivity : Activity() {
         val account = action("Открыть кабинет в приложении")
         add(accountSecurity, account, 11)
         account.setOnClickListener { openNativeCabinet() }
+
+        val history = card()
+        add(body, history, 13)
+        add(history, tag("ИСТОРИЯ VPN"))
+        add(history, t("Подключения на этом устройстве", 18f, white, true), 7)
+        add(history, t("Сохраняются только время и состояние подключения. " +
+            "Адреса серверов, ключи и посещённые сайты не записываются.",
+            11.5f, grey), 8)
+        val events = VpnSessionJournal.read(this)
+        if (events.isEmpty()) {
+            add(history, t("Истории пока нет.", 12f, grey), 10)
+        } else {
+            for (event in events.take(8)) {
+                add(history, VainahUi.detailRow(this,
+                    VpnSessionJournal.title(event.phase),
+                    VpnSessionJournal.localTime(event.timestamp),
+                    if (event.phase == VpnConnectionState.FAILED)
+                        VainahUi.Tone.WARNING else VainahUi.Tone.NEUTRAL), 8)
+            }
+            val clearHistory = action("Очистить историю устройства")
+            add(history, clearHistory, 12)
+            clearHistory.setOnClickListener {
+                AlertDialog.Builder(this)
+                    .setTitle("Очистить историю VPN?")
+                    .setMessage("Удалятся только локальные отметки о " +
+                        "подключениях. Сама подписка и VPN не изменятся.")
+                    .setNegativeButton("Отмена", null)
+                    .setPositiveButton("Очистить") { _, _ ->
+                        VpnSessionJournal.clear(this)
+                        render()
+                    }.show()
+            }
+        }
     }
 
     private fun editSplitTunnelApps() {
