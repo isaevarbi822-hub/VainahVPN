@@ -8,7 +8,7 @@ package app.vainah.vpn
 object VpnLivePresentation {
     fun phaseLabel(phase: String): String = when (phase) {
         VpnConnectionState.ONLINE -> "Туннель запущен"
-        VpnConnectionState.TUN_READY -> "VPN-туннель активен"
+        VpnConnectionState.TUN_READY -> "Туннель открыт · интернет не проверен"
         VpnConnectionState.STARTING -> "Подключение…"
         VpnConnectionState.FAILED -> "Ошибка подключения"
         else -> "Не подключено"
