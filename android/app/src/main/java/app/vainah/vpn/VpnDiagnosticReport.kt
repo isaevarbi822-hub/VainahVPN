@@ -44,7 +44,8 @@ object VpnDiagnosticReport {
         recoveryCode: String? = null,
         failureCode: String? = null,
         routeScanPending: Boolean = false,
-        libboxDetail: String? = null
+        libboxDetail: String? = null,
+        nativeCore: String? = null
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
