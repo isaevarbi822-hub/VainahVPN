@@ -28,6 +28,9 @@ class LibboxTunnelEngine : TunnelEngine {
             // Required by upstream libbox before baseContext/NewCommandServer.
             stage(service, "initializing_libbox_setup")
             LibboxNativeApi.setup(service)
+            service.getSharedPreferences("vpn_diagnostics", android.content.Context.MODE_PRIVATE)
+                .edit().putString("libbox_native_core", LibboxNativeApi.coreIdentifier())
+                .commit()
 
             stage(service, "creating_command_handler")
             // libbox's callback belongs to the session that created it.
