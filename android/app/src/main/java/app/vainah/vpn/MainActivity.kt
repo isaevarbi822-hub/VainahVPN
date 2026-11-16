@@ -262,7 +262,6 @@ class MainActivity : Activity() {
         networkStatusView = null
         connectView = null
         // All native pages use the selected premium theme and readable typography.
-        val light = !VainahTheme.isDark
         val lastOffset = if (lastRenderedPage == page) contentScroll?.scrollY ?: 0 else 0
         val frame = column().apply {
             background = VainahUi.pageBackground()
@@ -304,8 +303,6 @@ class MainActivity : Activity() {
                 Page.MORE -> "Профиль"
             }, 27f, white, true), 12)
         }
-        if (!light) add(body, t("Android · " + BuildConfig.VERSION_NAME, 12f,
-            grey), 7)
         when (page) {
             Page.HOME -> home(body)
             Page.LOCATIONS -> locations(body)
