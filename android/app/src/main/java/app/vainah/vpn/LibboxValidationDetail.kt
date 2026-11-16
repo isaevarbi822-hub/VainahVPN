@@ -31,7 +31,7 @@ internal object LibboxValidationDetail {
         val input = message.orEmpty().take(1600)
         val field = unknownField.find(input)?.groupValues?.getOrNull(1)
             ?.lowercase(Locale.ROOT)
-        if (field in fields) return "unknown_field_$field"
+        if (field != null && field in fields) return "unknown_field_$field"
         if (unsupportedXhttp.containsMatchIn(input)) return "unsupported_xhttp"
         return "native_config_rejected"
     }
