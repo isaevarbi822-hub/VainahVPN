@@ -175,7 +175,7 @@ internal object XhttpCompatibility {
             val raw = result.opt(name) ?: return 0
             return when (raw) {
                 is Number -> raw.toLong()
-                is String -> raw.substringAfter('-', raw).toLongOrNull() ?: 0
+                is String -> raw.split('-').maxOfOrNull { it.toLongOrNull() ?: 0L } ?: 0L
                 is JSONArray -> (raw.opt(1) as? Number)?.toLong() ?: 0
                 else -> 0
             }
