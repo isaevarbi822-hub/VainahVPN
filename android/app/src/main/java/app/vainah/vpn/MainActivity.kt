@@ -261,7 +261,7 @@ class MainActivity : Activity() {
         trafficChart = null
         networkStatusView = null
         connectView = null
-        // Every page shares the same clean light surface and typography.
+        // All native pages use the selected premium theme and readable typography.
         val light = !VainahTheme.isDark
         val lastOffset = if (lastRenderedPage == page) contentScroll?.scrollY ?: 0 else 0
         val frame = column().apply {
@@ -318,10 +318,10 @@ class MainActivity : Activity() {
         val nav = horizontal().apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(VainahDesign.surface, VainahDesign.surface2)
+                intArrayOf(VainahDesign.surface, VainahDesign.background)
             ).apply { setStroke(dp(1), VainahDesign.border) }
-            elevation = dp(7).toFloat()
-            setPadding(dp(6), dp(7), dp(6), dp(6))
+            elevation = dp(5).toFloat()
+            setPadding(dp(6), dp(5), dp(6), dp(5))
         }
         val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
                 Page.SETTINGS)) Page.MORE else page
@@ -337,8 +337,9 @@ class MainActivity : Activity() {
                 isFocusable = true
                 contentDescription = label
                 val fill = GradientDrawable().apply {
-                    setColor(if (active) VainahDesign.inactive else VainahDesign.surface)
+                    setColor(if (active) VainahDesign.inactive else Color.TRANSPARENT)
                     cornerRadius = dp(15).toFloat()
+                    if (active) setStroke(dp(1), VainahDesign.purple)
                 }
                 background = RippleDrawable(
                     ColorStateList.valueOf(Color.argb(60, 180, 151, 255)),
@@ -361,7 +362,7 @@ class MainActivity : Activity() {
                     }
                 }
             }
-            nav.addView(tab, LinearLayout.LayoutParams(0, dp(55), 1f).apply {
+            nav.addView(tab, LinearLayout.LayoutParams(0, dp(54), 1f).apply {
                 marginStart = dp(2)
                 marginEnd = dp(2)
             })
@@ -536,84 +537,55 @@ class MainActivity : Activity() {
         addProfile.setOnClickListener { page = Page.ACCOUNT; render() }
         add(body, upper, 4)
 
-        val quickStatus = card()
-        add(body, quickStatus, 13)
-        add(quickStatus, tag("СОСТОЯНИЕ СОЕДИНЕНИЯ"))
-        val networkStatus = t("Определяем сеть Android…", 13f, white, true)
-        networkStatusView = networkStatus
-        add(quickStatus, networkStatus, 7)
-        add(quickStatus, t("VPN-движок: " +
-            if (EngineRegistry.active.ready) "libbox готов" else
-                "недоступен в этой сборке", 11.5f, grey), 6)
-        add(quickStatus, VainahUi.infoStrip(this,
-            "Статус Android-сети не означает, что внешний IP уже защищён."), 10)
-
         val hero = column().apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            // Original premium lavender ring, matching the approved design.
-            setPadding(dp(9), dp(14), dp(9), dp(12))
+            setPadding(dp(4), dp(8), dp(4), dp(7))
         }
-        add(body, hero, 13)
-        val ring = FrameLayout(this).apply {
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(
-                    VainahDesign.accentDark,
-                    VainahDesign.previewTop
-                )
-            ).apply {
-                shape = GradientDrawable.OVAL
-                setStroke(dp(1), VainahDesign.softPurple)
-            }
-            elevation = dp(3).toFloat()
-        }
+        add(body, hero, 5)
+        val dialSize = minOf(242,
+            (resources.displayMetrics.widthPixels / resources.displayMetrics.density)
+                .toInt() - 45)
         val power = PowerOrbView(this).apply {
-            contentDescription = "Включить или отключить VPN"
             isClickable = true
             isFocusable = true
-            val circle = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                if (VainahTheme.isDark)
-                    intArrayOf(VainahDesign.purple, VainahDesign.accentDark)
-                else intArrayOf(Color.WHITE, Color.rgb(248, 249, 252))
-            ).apply {
-                shape = GradientDrawable.OVAL
-                setStroke(dp(2), VainahDesign.softPurple)
-            }
-            background = RippleDrawable(
-                ColorStateList.valueOf(Color.argb(65, 194, 128, 255)),
-                circle, null
-            )
-            elevation = dp(5).toFloat()
+            contentDescription = "Включить или отключить VPN"
             setOnClickListener {
                 if (VpnConnectionState.read(this@MainActivity).canDisconnect) disconnect()
                 else connect()
             }
         }
         powerOrb = power
-        ring.addView(power, FrameLayout.LayoutParams(
-            dp(172), dp(172), Gravity.CENTER
-        ))
-        hero.addView(ring, LinearLayout.LayoutParams(dp(223), dp(223)))
-        val status = t("Не подключено", 21f, ink, true).apply {
+        hero.addView(power, LinearLayout.LayoutParams(dp(dialSize), dp(dialSize)))
+        val status = t("Не подключено", 19f, ink, true).apply {
             gravity = Gravity.CENTER
         }
         stateView = status
-        add(hero, status, 17)
+        add(hero, status, 3)
         val nextNode = selected?.let { ServerRowPresentation.describe(it, 0) }
         val selectedName = if (nextNode == null) "Выбери сервер из списка ниже"
         else nextNode.flag + "  " + nextNode.title
-        add(hero, t(selectedName, 14f, ink, true).apply {
-            gravity = Gravity.CENTER
+        val serverShortcut = lightAction(selectedName + "  ›").apply {
+            textSize = 12.5f
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
-        }, 8)
+            contentDescription = "Выбрать VPN-сервер"
+            setOnClickListener {
+                serverCollection = ServerCollection.ALL
+                page = Page.LOCATIONS
+                render()
+            }
+        }
+        add(hero, serverShortcut, 7)
         val detail = t(
             "Туннель ещё не проверен. После подключения проверь внешний IP.",
             11.5f, muted
-        ).apply { gravity = Gravity.CENTER }
+        ).apply {
+            gravity = Gravity.CENTER
+            maxLines = 3
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
         detailView = detail
-        add(hero, detail, 7)
+        add(hero, detail, 6)
         val connect = action("Подключиться", true).apply {
             setTextColor(Color.WHITE)
             background = RippleDrawable(
@@ -632,13 +604,48 @@ class MainActivity : Activity() {
             else connect()
         }
 
+        // Short, truthful physical-network status follows the power dial.
+        // A validated underlay is never presented as confirmed VPN egress.
+        val quickStatus = card().apply {
+            setPadding(dp(13), dp(11), dp(13), dp(12))
+        }
+        add(body, quickStatus, 9)
+        val networkStatus = t("Определяем физическую сеть…", 11.5f, white)
+            .apply { maxLines = 2 }
+        networkStatusView = networkStatus
+        add(quickStatus, networkStatus)
+        add(quickStatus, t(
+            if (EngineRegistry.active.ready) "Движок: libbox готов"
+            else "Движок VPN недоступен в этой сборке",
+            10.5f, grey), 4)
+        add(quickStatus, t(
+            "Внешний IP и DNS проверяются отдельно.",
+            10f, grey), 5)
+
+        val trafficPanel = card()
+        add(body, trafficPanel, 11)
+        add(trafficPanel, tag("МОНИТОРИНГ"))
+        add(trafficPanel, t("Скорость прямо сейчас", 18f, white, true), 7)
+        val traffic = t("Статистика появится после подключения.", 12f, muted)
+        trafficView = traffic
+        add(trafficPanel, traffic, 7)
+        val sparkline = TrafficSparklineView(this)
+        trafficChart = sparkline
+        trafficPanel.addView(sparkline, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(132)).apply {
+                topMargin = dp(9)
+            })
+        sparkline.show(trafficTimeline.snapshot())
+        add(trafficPanel, VainahUi.infoStrip(this,
+            "График строится только по свежим счётчикам libbox. " +
+                "Пинг сервера и проверка внешнего IP — отдельные тесты."), 9)
         val sheet = ServerListVisual.sheet(this)
         add(body, sheet, 12)
         val heading = horizontal().apply {
             setPadding(dp(10), 0, dp(10), dp(8))
         }
         val title = column()
-        title.addView(t("VainahVPN · Серверы", 17.5f, ink, true))
+        title.addView(t("Серверы", 17.5f, ink, true))
         title.addView(t(
             if (nodes.isEmpty()) "Подписка пока не загружена"
             else "${nodes.size} серверов · твоя подписка",
@@ -741,23 +748,7 @@ class MainActivity : Activity() {
             11f, muted
         ), 9)
 
-        val trafficPanel = card()
-        add(body, trafficPanel, 15)
-        add(trafficPanel, tag("МОНИТОРИНГ"))
-        add(trafficPanel, t("Скорость прямо сейчас", 18f, white, true), 7)
-        val traffic = t("Статистика появится после подключения.", 12f, muted)
-        trafficView = traffic
-        add(trafficPanel, traffic, 7)
-        val sparkline = TrafficSparklineView(this)
-        trafficChart = sparkline
-        trafficPanel.addView(sparkline, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(132)).apply {
-                topMargin = dp(9)
-            })
-        sparkline.show(trafficTimeline.snapshot())
-        add(trafficPanel, VainahUi.infoStrip(this,
-            "График строится только по свежим счётчикам libbox. " +
-                "Пинг сервера и проверка внешнего IP — отдельные тесты."), 9)
+
     }
 
     private fun account(body: LinearLayout) {
