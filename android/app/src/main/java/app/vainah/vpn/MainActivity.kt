@@ -646,7 +646,7 @@ class MainActivity : Activity() {
         val trafficPanel = card()
         add(body, trafficPanel, 11)
         add(trafficPanel, tag("МОНИТОРИНГ"))
-        add(trafficPanel, t("Скорость прямо сейчас", 18f, white, true), 7)
+        add(trafficPanel, t("Трафик сейчас · не Speedtest", 18f, white, true), 7)
         val traffic = t("Статистика появится после подключения.", 12f, muted)
         trafficView = traffic
         add(trafficPanel, traffic, 7)
@@ -658,8 +658,8 @@ class MainActivity : Activity() {
             })
         sparkline.show(trafficTimeline.snapshot())
         add(trafficPanel, VainahUi.infoStrip(this,
-            "График строится только по свежим счётчикам libbox. " +
-                "Пинг сервера и проверка внешнего IP — отдельные тесты."), 9)
+            "График показывает реальный трафик libbox, а не максимальную " +
+                "скорость сервера. 100 Мбит/с нельзя подтвердить без теста загрузки."), 9)
         val sheet = ServerListVisual.sheet(this)
         add(body, sheet, 12)
         val heading = horizontal().apply {
