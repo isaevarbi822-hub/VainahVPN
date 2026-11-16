@@ -12,6 +12,13 @@ class VpnTrafficStoreTest {
         assertEquals("—", VpnTrafficStore.format(-1))
     }
 
+    @Test fun decimalMegabitsAreNotMegabytesOrAdvertisedServerSpeed() {
+        assertEquals("100.0 Мбит/с", VpnTrafficStore.formatMbps(12_500_000L))
+        assertEquals("8.0 Мбит/с", VpnTrafficStore.formatMbps(1_000_000L))
+        assertEquals("0.00 Мбит/с", VpnTrafficStore.formatMbps(0L))
+        assertEquals("—", VpnTrafficStore.formatMbps(-1L))
+    }
+
     @Test fun sampleKeepsSeparateRatesAndSessionTotals() {
         val sample = VpnTrafficStore.Sample(1024L, 2048L, 123456L, 654321L)
         assertEquals(1024L, sample.uplink)
