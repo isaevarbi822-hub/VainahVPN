@@ -43,7 +43,12 @@ object VpnDiagnosticReport {
         handoffEvents: List<VpnHandoffEvent> = emptyList(),
         recoveryCode: String? = null,
         failureCode: String? = null,
-        routeScanPending: Boolean = false
+        routeScanPending: Boolean = false,
+        libboxDetail: String? = null,
+        nativeCore: String? = null,
+        selectedTransport: String? = null,
+        selectedSecurity: String? = null,
+        libboxRejectedOption: String? = null
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
@@ -81,7 +86,18 @@ object VpnDiagnosticReport {
                 "underlay_unvalidated", "underlay_restored_after_outage",
                 "underlay_available"
             ) } ?: "unknown"}",
+            "selected_transport=${selectedTransport?.takeIf {
+                it in setOf("tcp", "grpc", "xhttp", "unknown")
+            } ?: "unknown"}",
+            "selected_security=${selectedSecurity?.takeIf {
+                it in setOf("tls", "reality", "unknown")
+            } ?: "unknown"}",
             "engine_failure=${VpnFailureAdvisor.sanitizedCode(failureCode)}",
+            "libbox_validation_detail=${LibboxValidationDetail.safeCode(libboxDetail)}",
+            "libbox_rejected_option=${LibboxValidationDetail.safeOption(libboxRejectedOption)}",
+            "libbox_native_core=${nativeCore?.takeIf {
+                it in setOf("lx_1_14_4_35", "lx_other", "non_lx_core", "unknown")
+            } ?: "unknown"}",
             "vpn_egress=not_verified_on_device"
         ).joinToString("\n")
     }

@@ -28,6 +28,9 @@ class LibboxTunnelEngine : TunnelEngine {
             // Required by upstream libbox before baseContext/NewCommandServer.
             stage(service, "initializing_libbox_setup")
             LibboxNativeApi.setup(service)
+            service.getSharedPreferences("vpn_diagnostics", android.content.Context.MODE_PRIVATE)
+                .edit().putString("libbox_native_core", LibboxNativeApi.coreIdentifier())
+                .commit()
 
             stage(service, "creating_command_handler")
             // libbox's callback belongs to the session that created it.
@@ -67,7 +70,35 @@ class LibboxTunnelEngine : TunnelEngine {
             commandServer = server
 
             stage(service, "validating_libbox_config")
-            LibboxNativeApi.validateConfiguration(singBoxConfigJson)
+            try {
+                LibboxNativeApi.validateConfiguration(singBoxConfigJson)
+                service.getSharedPreferences("vpn_diagnostics", android.content.Context.MODE_PRIVATE)
+                    .edit().remove("libbox_validation_detail")
+                    .remove("libbox_rejected_option").commit()
+            } catch (error: Exception) {
+                // Never persist or log error.message: libbox may quote
+                // the confidential VLESS address or user identity.
+                val parserCode = LibboxValidationDetail.classify(error.message)
+                val safeDetail = if (parserCode == LibboxValidationIsolation.UNKNOWN) {
+                    LibboxValidationIsolation.classify(singBoxConfigJson) {
+                        candidate -> LibboxNativeApi.validateConfiguration(candidate)
+                    }
+                } else parserCode
+                val rejectedOption = if (
+                    safeDetail == LibboxValidationIsolation.TRANSPORT_EXTRAS
+                ) {
+                    LibboxValidationIsolation.rejectedOption(singBoxConfigJson) {
+                        candidate -> LibboxNativeApi.validateConfiguration(candidate)
+                    }
+                } else "unknown"
+                service.getSharedPreferences("vpn_diagnostics", android.content.Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("libbox_validation_detail", safeDetail)
+                    .putString("libbox_rejected_option",
+                        LibboxValidationDetail.safeOption(rejectedOption))
+                    .commit()
+                throw error
+            }
             stage(service, "starting_libbox_command_server")
             server.start()
             stage(service, "loading_libbox_service")

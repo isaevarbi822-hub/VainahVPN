@@ -506,9 +506,14 @@ class MainActivity : Activity() {
                     }
                 },
             ) {
-                if (!SubscriptionNodeSupport.canConnect(node.uri)) {
-                    popup("Этот транспорт пока недоступен в текущем движке VainahVPN: " +
-                        entry.info.subtitle + ". Сервер показан без подключения.")
+                val compatibility = SubscriptionNodeSupport.inspect(node.uri)
+                if (compatibility?.connectable != true) {
+                    // A present XHTTP engine is NOT the same as a parseable
+                    // subscription node. Never blame the native engine for
+                    // locally rejected server options.
+                    val code = compatibility?.rejectionCode ?: "profile_unrecognized"
+                    popup(SubscriptionNodeSupport.safeBlockMessage(compatibility) +
+                        " Код: " + code)
                     return@row
                 }
                 val session = VpnConnectionState.read(this)
@@ -1080,7 +1085,14 @@ class MainActivity : Activity() {
                 ).code,
                 failureCode = if (current.phase == VpnConnectionState.FAILED)
                     diag.getString("last_failure_code", null) else null,
-                routeScanPending = routeScanRunning
+                routeScanPending = routeScanRunning,
+                libboxDetail = if (current.phase == VpnConnectionState.FAILED)
+                    diag.getString("libbox_validation_detail", null) else null,
+                nativeCore = diag.getString("libbox_native_core", null),
+                selectedTransport = diag.getString("selected_transport", null),
+                selectedSecurity = diag.getString("selected_security", null),
+                libboxRejectedOption = if (current.phase == VpnConnectionState.FAILED)
+                    diag.getString("libbox_rejected_option", null) else null
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(
@@ -1119,6 +1131,19 @@ class MainActivity : Activity() {
             add(failure, t(advice.action, 12f, grey), 8)
             add(failure, t("Код: " +
                 VpnFailureAdvisor.sanitizedCode(failureCode), 11f, teal), 7)
+            if (failureCode == "config_validation") {
+                val detail = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+                    .getString("libbox_validation_detail", null)
+                add(failure, t("Причина проверки: " +
+                    LibboxValidationDetail.safeCode(detail), 11f, teal), 5)
+                if (LibboxValidationDetail.safeCode(detail) ==
+                    LibboxValidationIsolation.TRANSPORT_EXTRAS) {
+                    val option = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+                        .getString("libbox_rejected_option", null)
+                    add(failure, t("Поле XHTTP: " +
+                        LibboxValidationDetail.safeOption(option), 11f, teal), 5)
+                }
+            }
         }
 
         val expanded = action(if (showAdvancedDiagnostics)

@@ -109,6 +109,84 @@ internal object XhttpCompatibility {
         return sanitized
     }
 
+    // Xray JSON uses camelCase for XMUX; the pinned sing-box-lx 1.14.4
+    // parser expects snake_case. Preserve each field's value and meaning.
+    // Unknown knobs must fail closed; dropping them can change the wire shape.
+    private val xmuxNames = mapOf(
+        "maxConcurrency" to "max_concurrency",
+        "max_concurrency" to "max_concurrency",
+        "maxConnections" to "max_connections",
+        "max_connections" to "max_connections",
+        "cMaxReuseTimes" to "c_max_reuse_times",
+        "c_max_reuse_times" to "c_max_reuse_times",
+        "hMaxRequestTimes" to "h_max_request_times",
+        "h_max_request_times" to "h_max_request_times",
+        "hMaxReusableSecs" to "h_max_reusable_secs",
+        "h_max_reusable_secs" to "h_max_reusable_secs",
+        "hKeepAlivePeriod" to "h_keep_alive_period",
+        "h_keep_alive_period" to "h_keep_alive_period"
+    )
+
+    private fun normalizeXmux(value: Any): JSONObject {
+        require(value is JSONObject && value.length() <= 6 &&
+            value.toString().length <= 1024) { "Invalid XHTTP xmux" }
+        val result = JSONObject()
+        val keys = value.keys()
+        while (keys.hasNext()) {
+            val source = keys.next()
+            val dest = xmuxNames[source] ?: throw IllegalArgumentException(
+                "Unsupported XHTTP xmux setting"
+            )
+            require(!result.has(dest)) { "Duplicate XHTTP xmux setting" }
+            val raw = value.opt(source)
+            require(raw != null && raw != JSONObject.NULL)
+            if (dest == "h_keep_alive_period") {
+                val period = when (raw) {
+                    is Int -> raw
+                    is Long -> raw.takeIf { it in -86400L..86400L }?.toInt()
+                    is String -> raw.takeIf { it.matches(Regex("-?[0-9]{1,5}")) }
+                        ?.toIntOrNull()
+                    else -> null
+                }
+                require(period != null && period in -86400..86400) {
+                    "Invalid XHTTP xmux keepalive"
+                }
+                result.put(dest, period)
+            } else {
+                val good = when (raw) {
+                    is String -> raw.matches(Regex("[0-9]{1,10}(-[0-9]{1,10})?"))
+                    is Number -> raw.toLong() in 0..1_000_000_000L
+                    is JSONArray -> raw.length() == 2 &&
+                        (0..1).all { i ->
+                            val part = raw.opt(i)
+                            part is Number && part.toLong() in 0..1_000_000_000L
+                        }
+                    else -> false
+                }
+                require(good) { "Invalid XHTTP xmux range" }
+                result.put(dest, raw)
+            }
+        }
+        // Xray rejects max_connections together with max_concurrency only
+        // when BOTH upper bounds are positive. A configured 0 or "0-0"
+        // means no active limit, and is a legitimate Xray export.
+        // Rejecting mere presence of both fields blocked valid H1Cloud nodes.
+        fun upperBound(name: String): Long {
+            val raw = result.opt(name) ?: return 0
+            return when (raw) {
+                is Number -> raw.toLong()
+                is String -> raw.split('-').maxOfOrNull { it.toLongOrNull() ?: 0L } ?: 0L
+                is JSONArray -> (raw.opt(1) as? Number)?.toLong() ?: 0
+                else -> 0
+            }
+        }
+        require(!(upperBound("max_concurrency") > 0 &&
+            upperBound("max_connections") > 0)) {
+            "Conflicting XHTTP xmux limits"
+        }
+        return result
+    }
+
     fun enrich(query: Map<String, String>, transport: JSONObject): JSONObject {
         val extraRaw = query["extra"]
         require(extraRaw == null || extraRaw.length <= 4096) { "XHTTP extra too large" }
@@ -152,12 +230,7 @@ internal object XhttpCompatibility {
         for ((key, value) in chosen) {
             when (key) {
                 "headers" -> transport.put(key, validateHeaders(value))
-                "xmux" -> {
-                    require(value is JSONObject && value.toString().length <= 1024) {
-                        "Invalid XHTTP xmux"
-                    }
-                    transport.put(key, value)
-                }
+                "xmux" -> transport.put(key, normalizeXmux(value))
                 "no_grpc_header", "x_padding_obfs_mode" -> {
                     require(value is Boolean) { "Invalid XHTTP boolean" }
                     transport.put(key, value)
