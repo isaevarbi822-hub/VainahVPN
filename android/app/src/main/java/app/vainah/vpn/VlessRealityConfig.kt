@@ -37,6 +37,16 @@ object VlessRealityConfig {
         val sni = params["sni"]?.takeIf { it.isNotBlank() }
             ?: if (security == "tls") uri.host
             else throw IllegalArgumentException("Missing REALITY SNI")
+        // ALPN is wire-relevant for XHTTP and TLS: Happ/Xray links may
+        // explicitly select h2 or http/1.1. Ignoring it can change the
+        // HTTP transport and cause a working profile to fail in libbox.
+        val alpnRaw = params["alpn"].orEmpty()
+        val alpnProtocols = if (alpnRaw.isBlank()) emptyList() else
+            alpnRaw.split(',').map { it.trim() }.also { protocols ->
+                require(protocols.size in 1..8 && protocols.all {
+                    it.matches(Regex("[A-Za-z0-9./_-]{1,32}"))
+                }) { "Invalid ALPN" }
+            }
         val publicKey = params["pbk"]?.takeIf { it.isNotBlank() }
         if (security == "reality") require(!publicKey.isNullOrBlank()) {
             "Missing REALITY key"
@@ -99,6 +109,7 @@ object VlessRealityConfig {
             put("tls", JSONObject().apply {
                 put("enabled", true)
                 put("server_name", sni)
+                if (alpnProtocols.isNotEmpty()) put("alpn", JSONArray(alpnProtocols))
                 put("utls", JSONObject().put("enabled", true)
                     .put("fingerprint", params["fp"]?.takeIf { it.isNotBlank() } ?: "chrome"))
                 if (security == "reality") put("reality", JSONObject().apply {
