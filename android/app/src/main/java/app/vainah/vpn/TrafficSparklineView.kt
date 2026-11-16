@@ -14,7 +14,7 @@ import kotlin.math.max
 class TrafficSparklineView(context: Context) : View(context) {
     private var samples: List<TrafficTimeline.Point> = emptyList()
     private val grid = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(231, 224, 245)
+        color = VainahDesign.border
         strokeWidth = 1f
     }
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
