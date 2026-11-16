@@ -438,8 +438,8 @@ class NativeCabinetActivity : Activity() {
         renderTrial(body)
         if (page == "cabinet") {
             renderAccount(body)
-            renderFeatured(body)
             renderNativeServices(body)
+            renderFeatured(body)
         } else {
             renderCatalog(body)
         }
