@@ -41,6 +41,23 @@ class LibboxValidationIsolationTest {
             })
     }
 
+    @Test fun pinpointsNativeRejectedXhttpOptionWithoutSharingValues() {
+        val option = LibboxValidationIsolation.rejectedOption(example) { json ->
+            val settings = JSONObject(json).getJSONArray("outbounds")
+                .getJSONObject(0).getJSONObject("transport")
+            if (settings.has("x_padding_bytes")) {
+                throw IllegalArgumentException("private key=secret; host=private.example")
+            }
+        }
+        assertEquals("x_padding_bytes", option)
+        assertEquals("unknown", LibboxValidationDetail.safeOption("secret"))
+    }
+
+    @Test fun keepsRejectedOptionUnknownWithoutNativeIsolation() {
+        assertEquals("unknown",
+            LibboxValidationIsolation.rejectedOption("not JSON", {}))
+    }
+
     @Test fun failsClosedOnMalformedInputWithoutExportingIt() {
         assertEquals(LibboxValidationIsolation.UNKNOWN,
             LibboxValidationIsolation.classify("private.example", { }))
