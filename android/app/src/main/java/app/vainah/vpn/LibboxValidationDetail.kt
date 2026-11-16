@@ -17,7 +17,11 @@ internal object LibboxValidationDetail {
         "session_placement", "session_key", "session_table", "xmux"
     )
     private val allowlisted = fields.map { "unknown_field_$it" }.toSet() +
-        setOf("unsupported_xhttp", "native_config_rejected")
+        setOf("unsupported_xhttp", "native_config_rejected",
+            LibboxValidationIsolation.TRANSPORT_EXTRAS,
+            LibboxValidationIsolation.TRANSPORT,
+            LibboxValidationIsolation.OUTBOUND,
+            LibboxValidationIsolation.SHARED)
 
     private val unknownField = Regex(
         """(?i)\b(?:unknown|unrecognized|unsupported)\s+field\s*[:=]?\s*["']?([a-z][a-z0-9_]{0,48})"""
