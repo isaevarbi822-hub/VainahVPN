@@ -73,7 +73,8 @@ class LibboxTunnelEngine : TunnelEngine {
             try {
                 LibboxNativeApi.validateConfiguration(singBoxConfigJson)
                 service.getSharedPreferences("vpn_diagnostics", android.content.Context.MODE_PRIVATE)
-                    .edit().remove("libbox_validation_detail").commit()
+                    .edit().remove("libbox_validation_detail")
+                    .remove("libbox_rejected_option").commit()
             } catch (error: Exception) {
                 // Never persist or log error.message: libbox may quote
                 // the confidential VLESS address or user identity.
@@ -83,8 +84,19 @@ class LibboxTunnelEngine : TunnelEngine {
                         candidate -> LibboxNativeApi.validateConfiguration(candidate)
                     }
                 } else parserCode
+                val rejectedOption = if (
+                    safeDetail == LibboxValidationIsolation.TRANSPORT_EXTRAS
+                ) {
+                    LibboxValidationIsolation.rejectedOption(singBoxConfigJson) {
+                        candidate -> LibboxNativeApi.validateConfiguration(candidate)
+                    }
+                } else "unknown"
                 service.getSharedPreferences("vpn_diagnostics", android.content.Context.MODE_PRIVATE)
-                    .edit().putString("libbox_validation_detail", safeDetail).commit()
+                    .edit()
+                    .putString("libbox_validation_detail", safeDetail)
+                    .putString("libbox_rejected_option",
+                        LibboxValidationDetail.safeOption(rejectedOption))
+                    .commit()
                 throw error
             }
             stage(service, "starting_libbox_command_server")
