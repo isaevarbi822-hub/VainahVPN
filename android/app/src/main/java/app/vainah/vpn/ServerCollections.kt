@@ -11,6 +11,7 @@ import java.util.Locale
  */
 enum class ServerCollection(val title: String) {
     ALL("Все"),
+    LTE("LTE"),
     RECOMMENDED("Рекомендуемые"),
     FAST("Быстрые"),
     GAMES("Игры"),
@@ -52,7 +53,7 @@ object ServerCollections {
             ServerCollection.STREAMING -> hasTopic(
                 entry.info.title, listOf("stream", "стрим", "видео", "youtube")
             )
-            ServerCollection.WHITELIST ->
+            ServerCollection.LTE, ServerCollection.WHITELIST ->
                 isWhiteListLabel(entry.info.title) || entry.manualWhitelist
             ServerCollection.FAVORITES -> entry.favorite
         }
@@ -71,7 +72,7 @@ object ServerCollections {
                 "Серверов с отметкой «игры» в подписке нет. Мы не создаём их автоматически."
             ServerCollection.STREAMING ->
                 "В подписке нет узлов с отметкой «стриминг». Доступность видеосервисов не проверена."
-            ServerCollection.WHITELIST ->
+            ServerCollection.LTE, ServerCollection.WHITELIST ->
                 "В загруженной подписке нет помеченных LTE-узлов. " +
                     "Обнови конфигурацию H1Cloud или отметь существующие " +
                     "узлы вручную: пометка не включает LTE-доступ."
