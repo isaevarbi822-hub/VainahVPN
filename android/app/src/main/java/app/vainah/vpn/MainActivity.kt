@@ -1561,8 +1561,7 @@ class MainActivity : Activity() {
                 future.get(10L, java.util.concurrent.TimeUnit.SECONDS)
             } catch (_: Exception) {
                 future.cancel(true)
-                ServerTcpObservation(index,
-                    ServerTcpSelector.ATTEMPTS_PER_NODE, emptyList())
+                null // No fabricated 0/3: DNS lookup may have hung before attempts.
             } finally {
                 executor.shutdownNow()
             }
@@ -1577,8 +1576,10 @@ class MainActivity : Activity() {
                     if (page == Page.LOCATIONS) render()
                     return@post
                 }
-                serverProbes = serverProbes.filterNot { it.index == index } + measured
-                val result = ServerHealthPresentation.assess(info, measured)
+                serverProbes = serverProbes.filterNot { it.index == index } +
+                    listOfNotNull(measured)
+                val result = ServerHealthPresentation.assess(
+                    info, measured, interrupted = measured == null)
                 serverProbeMessage = result.summary
                 if (page == Page.LOCATIONS) {
                     render()
