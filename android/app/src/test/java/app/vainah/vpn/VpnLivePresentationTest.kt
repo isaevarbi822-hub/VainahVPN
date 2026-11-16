@@ -26,7 +26,7 @@ class VpnLivePresentationTest {
         val live = VpnLivePresentation.trafficText(true, true, sample)
         assertTrue(live.contains("КиБ/с"))
         assertTrue(live.contains("За сеанс:"))
-        assertTrue(live.contains("\\n"))
+        assertTrue(live.contains("\n"))
         assertFalse(VpnLivePresentation.trafficText(true, false, sample).contains("КиБ"))
     }
 }
