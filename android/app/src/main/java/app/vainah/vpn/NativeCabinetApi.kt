@@ -162,12 +162,12 @@ internal class NativeCabinetApi(context: Context) {
     fun clearOAuthPending() = session.clearPending()
 
     fun get(path: String): Reply {
-        require(path in accepted)
+        require(path in accepted || CabinetServicePaths.allowRead(path))
         return request(path, null)
     }
 
     fun post(path: String, body: JSONObject = JSONObject()): Reply {
-        require(path in writes)
+        require(path in writes || CabinetServicePaths.allowWrite(path))
         return request(path, body)
     }
 

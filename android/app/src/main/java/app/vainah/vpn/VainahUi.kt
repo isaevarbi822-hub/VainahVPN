@@ -23,12 +23,12 @@ object VainahUi {
 
     fun pageBackground(): GradientDrawable = GradientDrawable(
         GradientDrawable.Orientation.TL_BR,
-        intArrayOf(Color.rgb(251, 249, 255), Color.rgb(243, 239, 252))
+        intArrayOf(VainahDesign.previewTop, VainahDesign.previewBottom)
     )
 
     fun cardBackground(context: Context): GradientDrawable = GradientDrawable(
         GradientDrawable.Orientation.TL_BR,
-        intArrayOf(Color.WHITE, Color.rgb(252, 249, 255))
+        intArrayOf(VainahDesign.surface, VainahDesign.surface2)
     ).apply {
         cornerRadius = dp(context, 24).toFloat()
         setStroke(dp(context, 1), VainahDesign.border)
@@ -40,7 +40,7 @@ object VainahUi {
             intArrayOf(VainahDesign.purple, VainahDesign.accentDark)
         ) else GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.WHITE, Color.rgb(249, 245, 255))
+            intArrayOf(VainahDesign.surface, VainahDesign.surface2)
         )
         fill.apply {
             cornerRadius = dp(context, 17).toFloat()
@@ -75,7 +75,12 @@ object VainahUi {
         textSize = 11f
         gravity = Gravity.CENTER
         typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-        val (textColor, fill) = when (tone) {
+        val (textColor, fill) = if (VainahTheme.isDark) when (tone) {
+            Tone.SUCCESS -> VainahDesign.green to Color.rgb(26, 63, 45)
+            Tone.WARNING -> VainahDesign.error to Color.rgb(75, 33, 46)
+            Tone.PURPLE -> VainahDesign.ink to Color.rgb(70, 49, 96)
+            Tone.NEUTRAL -> VainahDesign.muted to Color.rgb(55, 45, 68)
+        } else when (tone) {
             Tone.SUCCESS -> VainahDesign.green to Color.rgb(225, 247, 235)
             Tone.WARNING -> VainahDesign.error to Color.rgb(255, 237, 237)
             Tone.PURPLE -> VainahDesign.purple to Color.rgb(240, 232, 253)
@@ -94,12 +99,14 @@ object VainahUi {
         TextView(context).apply {
             text = "ⓘ  " + message
             textSize = 11.5f
-            setTextColor(VainahDesign.accentDark)
+            setTextColor(if (VainahTheme.isDark) VainahDesign.ink
+                else VainahDesign.accentDark)
             setLineSpacing(dp(context, 2).toFloat(), 1.02f)
             setPadding(dp(context, 13), dp(context, 11),
                 dp(context, 13), dp(context, 11))
             background = GradientDrawable().apply {
-                setColor(Color.rgb(241, 234, 254))
+                setColor(if (VainahTheme.isDark) Color.rgb(61, 45, 82)
+                    else Color.rgb(241, 234, 254))
                 cornerRadius = dp(context, 15).toFloat()
             }
         }
@@ -114,7 +121,8 @@ object VainahUi {
         setPadding(dp(context, 10), dp(context, 5),
             dp(context, 10), dp(context, 5))
         background = GradientDrawable().apply {
-            setColor(Color.rgb(249, 247, 253))
+            setColor(if (VainahTheme.isDark) VainahDesign.surface2
+                else Color.rgb(249, 247, 253))
             cornerRadius = dp(context, 12).toFloat()
         }
         addView(TextView(context).apply {
