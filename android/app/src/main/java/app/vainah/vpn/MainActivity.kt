@@ -558,7 +558,7 @@ class MainActivity : Activity() {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(
-                    VainahDesign.softPurple,
+                    VainahDesign.accentDark,
                     VainahDesign.previewTop
                 )
             ).apply {
@@ -573,13 +573,15 @@ class MainActivity : Activity() {
             isFocusable = true
             val circle = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.WHITE, Color.rgb(248, 249, 252))
+                if (VainahTheme.isDark)
+                    intArrayOf(VainahDesign.purple, VainahDesign.accentDark)
+                else intArrayOf(Color.WHITE, Color.rgb(248, 249, 252))
             ).apply {
                 shape = GradientDrawable.OVAL
-                setStroke(dp(2), VainahDesign.border)
+                setStroke(dp(2), VainahDesign.softPurple)
             }
             background = RippleDrawable(
-                ColorStateList.valueOf(Color.argb(48, 111, 111, 177)),
+                ColorStateList.valueOf(Color.argb(65, 194, 128, 255)),
                 circle, null
             )
             elevation = dp(5).toFloat()
@@ -721,7 +723,7 @@ class MainActivity : Activity() {
             marginStart = dp(8)
         })
         whiteList.setOnClickListener {
-            serverCollection = ServerCollection.WHITELIST
+            serverCollection = ServerCollection.LTE
             page = Page.LOCATIONS
             render()
         }
@@ -1179,9 +1181,9 @@ class MainActivity : Activity() {
             setPadding(dp(8), dp(5), dp(8), dp(5))
         }
         for (category in listOf(
-            ServerCollection.ALL, ServerCollection.WHITELIST,
-            ServerCollection.FAST, ServerCollection.GAMES,
-            ServerCollection.STREAMING, ServerCollection.RECOMMENDED
+            ServerCollection.ALL, ServerCollection.LTE,
+            ServerCollection.GAMES, ServerCollection.STREAMING,
+            ServerCollection.FAST, ServerCollection.RECOMMENDED
         )) {
             val chip = lightAction(category.title).apply {
                 textSize = 10f
@@ -1214,7 +1216,7 @@ class MainActivity : Activity() {
         lteControls.addView(viewLte, LinearLayout.LayoutParams(
             0, dp(45), 1f))
         viewLte.setOnClickListener {
-            serverCollection = ServerCollection.WHITELIST
+            serverCollection = ServerCollection.LTE
             render()
         }
         val editWhite = lightAction("Отметить мои LTE").apply {
@@ -1256,7 +1258,8 @@ class MainActivity : Activity() {
                     directory(serverSearchQuery, false, serverSort),
                     serverCollection
                 )
-                val whiteMode = serverCollection == ServerCollection.WHITELIST
+                val whiteMode = serverCollection == ServerCollection.WHITELIST ||
+                    serverCollection == ServerCollection.LTE
                 whiteInfo.text = if (whiteMode)
                     "LTE-группа включает только узлы с меткой в подписке " +
                         "или отмеченные вручную. Пометка не включает LTE-доступ."
@@ -1436,8 +1439,18 @@ class MainActivity : Activity() {
                         ServerTcpMeasurement.sample(node).copy(index = index)
                     })
                 }
+                // Bound the complete server scan, even when an OS DNS lookup
+                // or socket operation does not honour a connect timeout.
+                // No timed-out node may receive an invented latency.
+                val deadline = System.nanoTime() +
+                    java.util.concurrent.TimeUnit.SECONDS.toNanos(90)
                 futures.map { (index, future) ->
-                    runCatching { future.get() }.getOrElse {
+                    try {
+                        val remaining = deadline - System.nanoTime()
+                        if (remaining <= 0L) throw java.util.concurrent.TimeoutException()
+                        future.get(remaining, java.util.concurrent.TimeUnit.NANOSECONDS)
+                    } catch (_: Exception) {
+                        future.cancel(true)
                         ServerTcpObservation(index,
                             ServerTcpSelector.ATTEMPTS_PER_NODE, emptyList())
                     }
@@ -1521,10 +1534,10 @@ class MainActivity : Activity() {
             "Реальные статусы устройства — без имитации проверки внешнего IP.",
             12f, grey
         ), 8)
+        val vpnStatus = VpnSecurityPresentation.tunnel(snapshot.phase,
+            VainahVpnService.runningInProcess)
         add(protection, VainahUi.detailRow(this,
-            "VPN-туннель",
-            if (running) "Создан" else "Не запущен",
-            if (running) VainahUi.Tone.SUCCESS else VainahUi.Tone.NEUTRAL), 11)
+            "VPN-туннель", vpnStatus.title, vpnStatus.tone), 11)
         add(protection, VainahUi.detailRow(this,
             "VPN-ключи",
             if (source.savedLink() == null) "Не добавлены" else "Keystore",
@@ -1602,7 +1615,7 @@ class MainActivity : Activity() {
         val whitelistServers = action("Посмотреть LTE-серверы", true)
         add(lte, whitelistServers, 11)
         whitelistServers.setOnClickListener {
-            serverCollection = ServerCollection.WHITELIST
+            serverCollection = ServerCollection.LTE
             page = Page.LOCATIONS
             render()
         }
@@ -1748,8 +1761,8 @@ class MainActivity : Activity() {
         add(appearance, tag("ВНЕШНИЙ ВИД"))
         add(appearance, t("Оформление VainahVPN", 18f, white, true), 8)
         add(appearance, t(
-            "Светлая тема повторяет одобренный макет. Тёмная и системная " +
-                "темы доступны без изменения VPN-подключения.",
+            "Тёмная фиолетовая тема вдохновлена макетом VainahVPN 3.0. " +
+                "Светлая и системная темы также доступны.",
             12f, grey), 8)
         val themeOptions = horizontal()
         for (option in VainahTheme.Mode.values()) {
@@ -1998,24 +2011,11 @@ class MainActivity : Activity() {
         val snapshot = VpnConnectionState.read(this)
         val serviceRunning = VainahVpnService.runningInProcess
         val underlay = VpnUnderlayStatus.read(this)
-        val network = when(underlay.transport) {
-            "wifi" -> "Wi-Fi"
-            "cellular" -> "4G / 5G"
-            "ethernet" -> "Ethernet"
-            else -> "Сеть не определена"
-        }
-        networkStatusView?.text = "Физическая сеть: " + network +
-            if (underlay.validated) " · Android: подтверждена" else
-                " · Android: не подтверждена"
+        networkStatusView?.text = VpnLivePresentation.networkStatus(
+            underlay.transport, underlay.validated)
         updatePowerPulse(snapshot.phase)
         val connected = snapshot.canDisconnect
-        stateView?.text = when (snapshot.phase) {
-            VpnConnectionState.ONLINE -> "Туннель запущен"
-            VpnConnectionState.TUN_READY -> "VPN-туннель активен"
-            VpnConnectionState.STARTING -> "Подключение…"
-            VpnConnectionState.FAILED -> "Ошибка подключения"
-            else -> "Не подключено"
-        }
+        stateView?.text = VpnLivePresentation.phaseLabel(snapshot.phase)
         (powerOrb as? PowerOrbView)?.setVpnPhase(snapshot.phase)
         stateView?.setTextColor(if (page == Page.HOME) {
             if (connected) VainahDesign.green else ServerListVisual.textColor()
@@ -2032,16 +2032,8 @@ class MainActivity : Activity() {
             trafficTimeline.record(SystemClock.elapsedRealtime(),
                 fresh.downlink, fresh.uplink)
         }
-        trafficView?.text = when {
-            !connected || !serviceRunning ->
-                "График и статистика появятся после подключения."
-            fresh == null -> "Счётчики libbox временно недоступны."
-            else -> "↓ " + VpnTrafficStore.format(fresh.downlink) +
-                "/с    ↑ " + VpnTrafficStore.format(fresh.uplink) +
-                "/с\\nЗа сеанс: ↓ " +
-                VpnTrafficStore.format(fresh.downlinkTotal) + " · ↑ " +
-                VpnTrafficStore.format(fresh.uplinkTotal)
-        }
+        trafficView?.text = VpnLivePresentation.trafficText(
+            connected, serviceRunning, fresh)
         trafficChart?.show(trafficTimeline.snapshot())
     }
 }

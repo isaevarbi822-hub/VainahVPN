@@ -47,6 +47,17 @@ class NativeOAuthFlowTest {
             "https://attacker.test/redirect"))
     }
 
+    @Test fun oauthCallbackRejectsMissingOrDuplicatedParameters() {
+        val flow = "12345678-1234-4234-8234-123456789012"
+        val code = "A".repeat(43)
+        assertTrue(NativeOAuthFlow.validCallbackParameters(listOf(flow), listOf(code)))
+        assertFalse(NativeOAuthFlow.validCallbackParameters(emptyList(), listOf(code)))
+        assertFalse(NativeOAuthFlow.validCallbackParameters(listOf(flow), emptyList()))
+        assertFalse(NativeOAuthFlow.validCallbackParameters(listOf(flow, flow), listOf(code)))
+        assertFalse(NativeOAuthFlow.validCallbackParameters(listOf(flow), listOf(code, code)))
+        assertFalse(NativeOAuthFlow.validCallbackParameters(listOf(flow), listOf("bad")))
+    }
+
     @Test fun unsupportedPkceMaterialIsRejected() {
         assertThrows(IllegalArgumentException::class.java) {
             NativeOAuthFlow.challenge("short")

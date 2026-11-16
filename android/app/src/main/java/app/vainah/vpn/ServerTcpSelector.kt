@@ -33,8 +33,12 @@ object ServerTcpSelector {
      */
     fun best(observations: List<ServerTcpObservation>): Int? =
         observations.filter {
+            // A forged or corrupted result containing more samples than
+            // actual attempts must not outrank a genuine measurement.
             it.index >= 0 && it.attempts == ATTEMPTS_PER_NODE &&
-                it.successes >= 2 && it.medianMs != null
+                it.samplesMs.size <= it.attempts &&
+                it.successes in 2..it.attempts &&
+                it.medianMs != null
         }.minWithOrNull(compareBy<ServerTcpObservation>(
             { it.medianMs ?: Int.MAX_VALUE },
             { -it.successes },

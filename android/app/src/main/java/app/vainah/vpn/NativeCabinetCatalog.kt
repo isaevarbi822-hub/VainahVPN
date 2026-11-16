@@ -51,29 +51,44 @@ object NativeCabinetCatalog {
         val seen = HashSet<String>()
         var trial: Plan? = null
         val paid = ArrayList<Plan>()
-        for(i in 0 until items.length()) {
-            val p = items.getJSONObject(i)
-            val id = p.getString("id")
-            if (!idFormat.matches(id) || !seen.add(id)) continue
-            val title = p.getString("title").trim()
-            if (title.length !in 1..80 || title.any { it.isISOControl() }) continue
-            val days = p.getInt("days")
-            val devices = p.getInt("devices")
-            if (days !in 1..3650 || devices !in 1..20) continue
-            val category = p.optString("category")
-            val isTrial = id == "trial-free" && category == "trial"
-            if (!isTrial && category !in setOf("personal", "family")) continue
-            val price = p.getString("price_rub")
-            if (!priceFormat.matches(price)) continue
-            if (isTrial && BigDecimal(price).compareTo(BigDecimal.ZERO) != 0) continue
-            if (!isTrial && BigDecimal(price) <= BigDecimal.ZERO) continue
-            val checkout = p.optBoolean("checkout_supported", false)
-            val path = p.optString("checkout_path")
-            if (isTrial && (checkout || path != "/trial.html")) continue
-            if (!isTrial && (!checkout || path != "/checkout.html?plan=$id")) continue
-            val plan = Plan(id, title, days, devices, price, category,
-                p.optString("tag").take(46), isTrial, checkout, path)
-            if (isTrial) trial = plan else paid.add(plan)
+        for (i in 0 until items.length()) {
+            // One malformed tariff must not hide the remaining valid catalog.
+            // Reject invalid checkout and prices *before* reserving its ID,
+            // otherwise a bad duplicate could suppress the real plan.
+            val plan = runCatching {
+                val p = items.optJSONObject(i) ?: return@runCatching null
+                val id = p.getString("id")
+                if (!idFormat.matches(id)) return@runCatching null
+                val title = p.getString("title").trim()
+                if (title.length !in 1..80 || title.any { it.isISOControl() })
+                    return@runCatching null
+                val days = p.getInt("days")
+                val devices = p.getInt("devices")
+                if (days !in 1..3650 || devices !in 1..20)
+                    return@runCatching null
+                val category = p.optString("category")
+                val isTrial = id == "trial-free" && category == "trial"
+                if (!isTrial && category !in setOf("personal", "family"))
+                    return@runCatching null
+                val price = p.getString("price_rub")
+                if (!priceFormat.matches(price)) return@runCatching null
+                if (isTrial && BigDecimal(price).compareTo(BigDecimal.ZERO) != 0)
+                    return@runCatching null
+                if (!isTrial && BigDecimal(price) <= BigDecimal.ZERO)
+                    return@runCatching null
+                val checkout = p.optBoolean("checkout_supported", false)
+                val checkoutPath = p.optString("checkout_path")
+                if (isTrial && (checkout || checkoutPath != "/trial.html"))
+                    return@runCatching null
+                if (!isTrial &&
+                    (!checkout || checkoutPath != "/checkout.html?plan=$id"))
+                    return@runCatching null
+                Plan(id, title, days, devices, price, category,
+                    p.optString("tag").filterNot { it.isISOControl() }.take(46),
+                    isTrial, checkout, checkoutPath)
+            }.getOrNull() ?: continue
+            if (!seen.add(plan.id)) continue
+            if (plan.trial) trial = plan else paid.add(plan)
         }
         require(paid.isNotEmpty() || trial != null) { "No valid plans" }
         return Snapshot(trial, paid)

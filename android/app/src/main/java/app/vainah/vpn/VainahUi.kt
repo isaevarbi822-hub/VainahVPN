@@ -30,7 +30,7 @@ object VainahUi {
         GradientDrawable.Orientation.TL_BR,
         intArrayOf(VainahDesign.surface, VainahDesign.surface2)
     ).apply {
-        cornerRadius = dp(context, 24).toFloat()
+        cornerRadius = dp(context, 22).toFloat()
         setStroke(dp(context, 1), VainahDesign.border)
     }
 
@@ -47,7 +47,7 @@ object VainahUi {
             if (!primary) setStroke(dp(context, 1), VainahDesign.border)
         }
         return RippleDrawable(
-            ColorStateList.valueOf(Color.argb(54, 151, 117, 210)),
+            ColorStateList.valueOf(Color.argb(70, 183, 111, 255)),
             fill, null
         )
     }

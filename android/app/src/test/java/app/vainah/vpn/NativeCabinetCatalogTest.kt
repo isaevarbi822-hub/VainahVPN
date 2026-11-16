@@ -87,6 +87,36 @@ class NativeCabinetCatalogTest {
         assertEquals("30", parsed.paid.single().id)
     }
 
+    @Test fun malformedApiRowsDoNotHideValidPlans() {
+        val rows = JSONArray()
+            .put("not-an-object")
+            .put(JSONObject().put("id", "30"))
+            .put(JSONObject().put("id", "30").put("title", "Missing fields"))
+            .put(paid("30", "149.00"))
+            .put(trial())
+        val catalog = NativeCabinetCatalog.parse(
+            JSONObject().put("plans", rows).toString())
+        assertEquals(listOf("30"), catalog.paid.map { it.id })
+        assertEquals(2, catalog.count)
+        assertEquals("149.00 ₽", catalog.paid.single().priceLabel)
+    }
+
+    @Test fun invalidDuplicateCannotReserveIdBeforeValidServerTariff() {
+        val wrong = paid("30", "0.00")
+        val valid = paid("30", "149.00")
+        val catalog = parse(wrong, valid)
+        assertEquals(1, catalog.paid.size)
+        assertEquals("149.00", catalog.paid.single().priceRub)
+        assertEquals("https://vainahvpn.onrender.com/checkout.html?plan=30",
+            NativeCabinetCatalog.checkoutUrl(catalog.paid.single(), true))
+    }
+
+    @Test fun validDuplicateKeepsFirstVerifiedPriceAndCheckout() {
+        val catalog = parse(paid("30", "149.00"), paid("30", "200.00"))
+        assertEquals(1, catalog.paid.size)
+        assertEquals("149.00", catalog.paid.single().priceRub)
+    }
+
     @Test fun emptyOrOverlargeCatalogIsRejected() {
         assertThrows(IllegalArgumentException::class.java) {
             parse()

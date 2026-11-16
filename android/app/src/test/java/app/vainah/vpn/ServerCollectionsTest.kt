@@ -51,6 +51,18 @@ class ServerCollectionsTest {
         ).isEmpty())
     }
 
+    @Test fun lteTabShowsOnlySubscriptionOrExplicitlyTaggedNodes() {
+        assertEquals(
+            ServerCollections.filter(all, ServerCollection.WHITELIST).map { it.index },
+            ServerCollections.filter(all, ServerCollection.LTE).map { it.index },
+        )
+        assertTrue(ServerCollections.emptyMessage(ServerCollection.LTE, true)
+            .contains("H1Cloud"))
+        assertTrue(ServerCollections.filter(
+            listOf(row(1, "Ordinary Server")), ServerCollection.LTE
+        ).isEmpty())
+    }
+
     @Test fun locallyGroupedNodesAreRealSubscriptionNodesNotInventedEndpoints() {
         val manuallyGrouped = row(7, "🇷🇺 Россия · TCP")
             .copy(manualWhitelist = true)

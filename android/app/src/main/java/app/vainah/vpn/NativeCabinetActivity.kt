@@ -32,7 +32,7 @@ class NativeCabinetActivity : Activity() {
     private val executor = Executors.newSingleThreadExecutor()
     // Independent read-only API calls should not block one after another.
     // A fixed-size pool bounds request concurrency on slower mobile networks.
-    private val loaders = Executors.newFixedThreadPool(5)
+    private val loaders = Executors.newFixedThreadPool(8)
     private lateinit var api: NativeCabinetApi
     private var catalog: NativeCabinetCatalog.Snapshot? = null
     private var checkoutReady = false
@@ -149,8 +149,16 @@ class NativeCabinetActivity : Activity() {
         if (uri.scheme != "vainahvpn" || uri.host != "oauth"
             || uri.path.orEmpty() !in setOf("", "/")
             || uri.fragment != null) return false
-        val flow = uri.getQueryParameter("flow").orEmpty()
-        val code = uri.getQueryParameter("code").orEmpty()
+        val flowValues = uri.getQueryParameters("flow")
+        val codeValues = uri.getQueryParameters("code")
+        if (!NativeOAuthFlow.validCallbackParameters(flowValues, codeValues) ||
+            uri.queryParameterNames.any { it !in setOf("flow", "code") }) {
+            message = "Неверная ссылка входа. Начни вход через приложение заново."
+            render()
+            return true
+        }
+        val flow = flowValues.single()
+        val code = codeValues.single()
         // One-use code by itself is never a session. Only the app holds
         // the encrypted S256 verifier needed to exchange it over HTTPS.
         val pending = api.pendingOAuth()
@@ -236,7 +244,7 @@ class NativeCabinetActivity : Activity() {
             if (code) filters = arrayOf(android.text.InputFilter.LengthFilter(6))
             imeOptions = EditorInfo.IME_ACTION_DONE
             background = GradientDrawable().apply {
-                setColor(Color.rgb(251, 249, 255))
+                setColor(VainahDesign.surface2)
                 cornerRadius = dp(14).toFloat()
                 setStroke(dp(1), VainahDesign.border)
             }
@@ -280,13 +288,30 @@ class NativeCabinetActivity : Activity() {
         })
 
     private fun <T> awaitLoaded(
-        future: java.util.concurrent.Future<T?>?
-    ): T? = runCatching {
-        future?.get(25, java.util.concurrent.TimeUnit.SECONDS)
-    }.getOrNull()
+        future: java.util.concurrent.Future<T?>?,
+        deadlineNanos: Long
+    ): T? {
+        if (future == null) return null
+        val remaining = NativeCabinetLoadPolicy.remainingNanos(
+            System.nanoTime(), deadlineNanos)
+        if (remaining == 0L) {
+            future.cancel(true)
+            return null
+        }
+        return try {
+            future.get(remaining, java.util.concurrent.TimeUnit.NANOSECONDS)
+        } catch (_: Exception) {
+            future.cancel(true)
+            null
+        }
+    }
 
     private fun refresh() {
         perform({
+            // The whole dashboard has one monotonic time budget. Slow
+            // optional requests must never accumulate independent timeouts.
+            val deadlineNanos = NativeCabinetLoadPolicy.deadlineNanos(
+                System.nanoTime())
             // All read-only requests are independent. Starting them together
             // avoids waiting for up to eight consecutive HTTPS timeouts.
             val authType = api.authCookieName()
@@ -337,19 +362,20 @@ class NativeCabinetActivity : Activity() {
                     api.get("/api/trial/status").takeIf { it.ok }?.json
                 } else null
 
-            val email = awaitLoaded(emailFuture)
-            val telegram = if (email == null) awaitLoaded(telegramFuture) else null
+            val email = awaitLoaded(emailFuture, deadlineNanos)
+            val telegram = if (email == null)
+                awaitLoaded(telegramFuture, deadlineNanos) else null
             // Never present data for an invalid/expired identity.
             val validIdentity = email != null || telegram != null
             Loaded(
-                awaitLoaded(plansFuture),
-                awaitLoaded(checkoutFuture) == true,
-                awaitLoaded(trialFuture),
+                awaitLoaded(plansFuture, deadlineNanos),
+                awaitLoaded(checkoutFuture, deadlineNanos) == true,
+                awaitLoaded(trialFuture, deadlineNanos),
                 email, telegram,
-                if (validIdentity) awaitLoaded(overviewFuture) else null,
-                if (email != null) awaitLoaded(trialStatusFuture) else null,
-                awaitLoaded(socialFuture),
-                awaitLoaded(mailConfigFuture)
+                if (validIdentity) awaitLoaded(overviewFuture, deadlineNanos) else null,
+                if (email != null) awaitLoaded(trialStatusFuture, deadlineNanos) else null,
+                awaitLoaded(socialFuture, deadlineNanos),
+                awaitLoaded(mailConfigFuture, deadlineNanos)
             )
         }) { result ->
             result.onSuccess {

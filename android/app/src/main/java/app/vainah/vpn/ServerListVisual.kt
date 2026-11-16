@@ -50,16 +50,17 @@ object ServerListVisual {
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(context, if (!isConnectable || isWhitelist) 81 else 75)
-            setPadding(dp(context, 4), dp(context, 6),
-                dp(context, 5), dp(context, 6))
+            minimumHeight = dp(context, if (!isConnectable || isWhitelist) 84 else 76)
+            setPadding(dp(context, 9), dp(context, 8),
+                dp(context, 9), dp(context, 8))
             val fill = GradientDrawable().apply {
-                setColor(if (isSelected) selectedTint else Color.TRANSPARENT)
-                cornerRadius = dp(context, 16).toFloat()
-                if (isSelected) setStroke(dp(context, 1), VainahDesign.softPurple)
+                setColor(if (isSelected) selectedTint else VainahDesign.surface2)
+                cornerRadius = dp(context, 18).toFloat()
+                setStroke(dp(context, if (isSelected) 2 else 1),
+                    if (isSelected) accent else VainahDesign.border)
             }
             background = RippleDrawable(
-                ColorStateList.valueOf(Color.argb(40, 121, 75, 183)),
+                ColorStateList.valueOf(Color.argb(55, 176, 95, 255)),
                 fill, null
             )
         }
@@ -67,7 +68,7 @@ object ServerListVisual {
             val favorite = TextView(context).apply {
                 text = if (isFavorite) "★" else "☆"
                 textSize = 22f
-                setTextColor(if (isFavorite) Color.rgb(223, 156, 21) else accent)
+                setTextColor(if (isFavorite) accent else muted)
                 gravity = Gravity.CENTER
                 isClickable = true
                 isFocusable = true
@@ -95,7 +96,7 @@ object ServerListVisual {
         }
         labels.addView(TextView(context).apply {
             text = info.title
-            textSize = 14.5f
+            textSize = 14.0f
             typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
             setTextColor(ink)
             maxLines = 1
@@ -103,7 +104,7 @@ object ServerListVisual {
         })
         labels.addView(TextView(context).apply {
             text = info.subtitle
-            textSize = 10.3f
+            textSize = 10.8f
             setTextColor(muted)
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
@@ -130,9 +131,8 @@ object ServerListVisual {
         content.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
 
         val reliable = latency.startsWith("TCP ")
-        val shortDelay = if (reliable) latency.removePrefix("TCP ") else latency
-        val delay = TextView(context).apply {
-            text = if (shortDelay == "—") "—" else shortDelay
+                val delay = TextView(context).apply {
+            text = latency
             textSize = 11f
             typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
             setTextColor(if (reliable) VainahDesign.green else muted)
@@ -140,7 +140,7 @@ object ServerListVisual {
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
             background = GradientDrawable().apply {
-                setColor(if (VainahTheme.isDark) VainahDesign.surface2
+                setColor(if (VainahTheme.isDark) VainahDesign.surface
                     else if (reliable) Color.rgb(225, 247, 235)
                     else Color.rgb(246, 244, 251))
                 cornerRadius = dp(context, 13).toFloat()
@@ -150,7 +150,7 @@ object ServerListVisual {
             contentDescription = "Измеренная TCP-задержка: " + latency
         }
         content.addView(delay, LinearLayout.LayoutParams(
-            dp(context, if (reliable) 65 else 57), -2
+            dp(context, if (reliable) 83 else 57), -2
         ).apply { marginStart = dp(context, 3) })
 
         content.addView(TextView(context).apply {
@@ -175,7 +175,11 @@ object ServerListVisual {
             if (!isConnectable) append(", транспорт не поддерживается")
         }
         content.setOnClickListener { onClick() }
-        return content
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(content, LinearLayout.LayoutParams(-1, -2))
+            setPadding(0, dp(context, 3), 0, dp(context, 3))
+        }
     }
 
     fun separator(context: Context): View = View(context).apply {

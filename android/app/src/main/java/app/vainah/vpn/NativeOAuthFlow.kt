@@ -34,6 +34,18 @@ internal object NativeOAuthFlow {
     fun validCode(value: String): Boolean =
         value.matches(Regex("[A-Za-z0-9_-]{32,128}"))
 
+    /**
+     * Never pick the first value of a repeated callback parameter.
+     * Duplicate flow/code values can make the app and the callback producer
+     * disagree about which authorization attempt is being completed.
+     */
+    fun validCallbackParameters(
+        flowValues: List<String>,
+        codeValues: List<String>
+    ): Boolean =
+        flowValues.size == 1 && codeValues.size == 1 &&
+            validFlow(flowValues.single()) && validCode(codeValues.single())
+
     fun validPending(item: Pending?, now: Long = System.currentTimeMillis()): Boolean =
         item != null && item.provider in setOf("google", "telegram") &&
             validFlow(item.flow) &&

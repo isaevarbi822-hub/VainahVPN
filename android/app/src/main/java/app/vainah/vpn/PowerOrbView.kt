@@ -24,10 +24,10 @@ class PowerOrbView(context: Context) : View(context) {
     /** Real service phase controls the symbol color; never fake VPN success. */
     fun setVpnPhase(phase: String) {
         stroke.color = when (phase) {
-            VpnConnectionState.TUN_READY, VpnConnectionState.ONLINE -> VainahDesign.green
-            VpnConnectionState.STARTING -> VainahDesign.purple
+            VpnConnectionState.TUN_READY, VpnConnectionState.ONLINE -> android.graphics.Color.WHITE
+            VpnConnectionState.STARTING -> android.graphics.Color.WHITE
             VpnConnectionState.FAILED -> VainahDesign.error
-            else -> VainahDesign.muted
+            else -> if (VainahTheme.isDark) android.graphics.Color.WHITE else VainahDesign.muted
         }
         invalidate()
     }
