@@ -149,8 +149,16 @@ class NativeCabinetActivity : Activity() {
         if (uri.scheme != "vainahvpn" || uri.host != "oauth"
             || uri.path.orEmpty() !in setOf("", "/")
             || uri.fragment != null) return false
-        val flow = uri.getQueryParameter("flow").orEmpty()
-        val code = uri.getQueryParameter("code").orEmpty()
+        val flowValues = uri.getQueryParameters("flow")
+        val codeValues = uri.getQueryParameters("code")
+        if (!NativeOAuthFlow.validCallbackParameters(flowValues, codeValues) ||
+            uri.queryParameterNames.any { it !in setOf("flow", "code") }) {
+            message = "Неверная ссылка входа. Начни вход через приложение заново."
+            render()
+            return true
+        }
+        val flow = flowValues.single()
+        val code = codeValues.single()
         // One-use code by itself is never a session. Only the app holds
         // the encrypted S256 verifier needed to exchange it over HTTPS.
         val pending = api.pendingOAuth()
