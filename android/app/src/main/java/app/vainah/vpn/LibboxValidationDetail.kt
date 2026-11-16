@@ -16,6 +16,19 @@ internal object LibboxValidationDetail {
         "no_grpc_header", "sc_min_posts_interval_ms", "sc_max_each_post_bytes",
         "session_placement", "session_key", "session_table", "xmux"
     )
+    private val allowedXhttpOptions = setOf(
+        "headers", "x_padding_bytes", "no_grpc_header",
+        "sc_max_each_post_bytes", "sc_min_posts_interval_ms",
+        "session_placement", "session_key", "session_table", "session_length",
+        "seq_placement", "seq_key",
+        "uplink_data_placement", "uplink_data_key", "uplink_chunk_size",
+        "uplink_http_method", "x_padding_obfs_mode", "x_padding_placement",
+        "x_padding_key", "x_padding_header", "x_padding_method", "xmux"
+    )
+
+    fun safeOption(candidate: String?): String =
+        candidate?.takeIf { it in allowedXhttpOptions } ?: "unknown"
+
     private val allowlisted = fields.map { "unknown_field_$it" }.toSet() +
         setOf("unsupported_xhttp", "native_config_rejected",
             LibboxValidationIsolation.TRANSPORT_EXTRAS,
