@@ -161,6 +161,43 @@ class XhttpCompatibilityTest {
         assertFalse(native.has("maxConnections"))
     }
 
+    @Test fun zeroXmuxConnectionLimitCanCoexistWithPositiveConcurrency() {
+        // Xray's guard checks both positive upper bounds, not both keys.
+        val cases = listOf(
+            JSONObject().put("maxConcurrency", "8-16").put("maxConnections", "0-0"),
+            JSONObject().put("maxConcurrency", "0-0").put("maxConnections", "3-3"),
+            JSONObject().put("maxConcurrency", 8).put("maxConnections", 0),
+            JSONObject().put("maxConcurrency", 0).put("maxConnections", 3)
+        )
+        for (xmux in cases) {
+            val converted = VlessRealityConfig.outbound(encoded(
+                JSONObject().put("xmux", xmux)
+            )).getJSONObject("transport").getJSONObject("xmux")
+            assertTrue(converted.has("max_concurrency"))
+            assertTrue(converted.has("max_connections"))
+            assertFalse(converted.has("maxConcurrency"))
+        }
+    }
+
+    @Test fun bothPositiveXmuxConnectionLimitsStillFailClosed() {
+        val bad = JSONObject().put("maxConcurrency", "2-4")
+            .put("maxConnections", "3-5")
+        assertThrows(IllegalArgumentException::class.java) {
+            VlessRealityConfig.outbound(encoded(JSONObject().put("xmux", bad)))
+        }
+    }
+
+    @Test fun xhttpTlsProfileWithZeroXmuxLimitIsNotMarkedUnsupported() {
+        val tls = encoded(JSONObject().put("xmux", JSONObject()
+            .put("maxConcurrency", "8-16")
+            .put("maxConnections", "0-0")))
+            .replace("security=reality", "security=tls")
+            .replace("&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
+        val result = SubscriptionNodeSupport.inspect(tls)
+        assertEquals("VLESS / XHTTP / TLS", result?.subtitle)
+        assertEquals(BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED, result?.connectable)
+    }
+
     @Test fun rejectsUnknownOrConflictingXmuxRatherThanDroppingOptions() {
         for (bad in listOf(
             JSONObject().put("maxConnections", "3-3").put("maxConcurrency", "10-10"),
