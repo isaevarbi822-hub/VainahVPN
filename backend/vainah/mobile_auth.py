@@ -80,6 +80,10 @@ def _schema(cur) -> None:
         CREATE INDEX IF NOT EXISTS vainah_mobile_auth_source_idx
             ON vainah_mobile_auth(source_hash, created_at)
     """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS vainah_mobile_auth_expires_idx
+            ON vainah_mobile_auth(expires_at)
+    """)
 
 
 def _flow(value: str) -> UUID | None:
@@ -133,6 +137,17 @@ def start(request: Request, body: Start) -> dict:
     try:
         with psycopg.connect(_db_url(), connect_timeout=4) as conn, conn.cursor() as cur:
             _schema(cur)
+            # Prevent indefinitely retaining expired identity payloads and
+            # single-use authorization codes. Bounded batches avoid long
+            # DELETE locks on a busy production database.
+            cur.execute("""
+                DELETE FROM vainah_mobile_auth
+                WHERE flow_id IN (
+                    SELECT flow_id FROM vainah_mobile_auth
+                    WHERE expires_at < now() - interval '1 day'
+                    ORDER BY expires_at ASC LIMIT 100
+                )
+            """)
             cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s), 7781)", (source,))
             cur.execute("""
                 SELECT COUNT(*) FROM vainah_mobile_auth
