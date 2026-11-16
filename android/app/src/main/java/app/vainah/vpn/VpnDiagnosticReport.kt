@@ -47,7 +47,8 @@ object VpnDiagnosticReport {
         libboxDetail: String? = null,
         nativeCore: String? = null,
         selectedTransport: String? = null,
-        selectedSecurity: String? = null
+        selectedSecurity: String? = null,
+        libboxRejectedOption: String? = null
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
@@ -93,6 +94,7 @@ object VpnDiagnosticReport {
             } ?: "unknown"}",
             "engine_failure=${VpnFailureAdvisor.sanitizedCode(failureCode)}",
             "libbox_validation_detail=${LibboxValidationDetail.safeCode(libboxDetail)}",
+            "libbox_rejected_option=${LibboxValidationDetail.safeOption(libboxRejectedOption)}",
             "libbox_native_core=${nativeCore?.takeIf {
                 it in setOf("lx_1_14_4_35", "lx_other", "non_lx_core", "unknown")
             } ?: "unknown"}",
