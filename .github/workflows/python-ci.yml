@@ -51,6 +51,6 @@ jobs:
           while IFS= read -r -d '' source; do
             node --check "$source"
             count=$((count + 1))
-          done < <(find storefront web scripts -type f \\( -name '*.js' -o -name '*.mjs' -o -name '*.cjs' \\) -print0)
+          done < <(find storefront web scripts -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.cjs' \) -print0)
           echo "JavaScript syntax checked: $count files"
           test "$count" -gt 0
