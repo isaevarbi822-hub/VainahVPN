@@ -45,7 +45,9 @@ object VpnDiagnosticReport {
         failureCode: String? = null,
         routeScanPending: Boolean = false,
         libboxDetail: String? = null,
-        nativeCore: String? = null
+        nativeCore: String? = null,
+        selectedTransport: String? = null,
+        selectedSecurity: String? = null
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
@@ -83,6 +85,12 @@ object VpnDiagnosticReport {
                 "underlay_unvalidated", "underlay_restored_after_outage",
                 "underlay_available"
             ) } ?: "unknown"}",
+            "selected_transport=${selectedTransport?.takeIf {
+                it in setOf("tcp", "grpc", "xhttp", "unknown")
+            } ?: "unknown"}",
+            "selected_security=${selectedSecurity?.takeIf {
+                it in setOf("tls", "reality", "unknown")
+            } ?: "unknown"}",
             "engine_failure=${VpnFailureAdvisor.sanitizedCode(failureCode)}",
             "libbox_validation_detail=${LibboxValidationDetail.safeCode(libboxDetail)}",
             "libbox_native_core=${nativeCore?.takeIf {
