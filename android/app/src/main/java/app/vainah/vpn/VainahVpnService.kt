@@ -157,6 +157,7 @@ class VainahVpnService : VpnService() {
             editor.remove("vpn_probe_reason")
                 .remove("last_failure").remove("last_failure_code")
                 .remove("libbox_validation_detail")
+                .remove("libbox_rejected_option")
                 .remove("libbox_native_core")
                 .remove("selected_transport").remove("selected_security")
         }
