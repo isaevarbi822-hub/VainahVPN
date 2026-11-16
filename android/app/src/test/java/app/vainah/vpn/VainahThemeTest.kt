@@ -4,9 +4,9 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class VainahThemeTest {
-    @Test fun originalLavenderThemeIsDefault() {
-        assertEquals(VainahTheme.Mode.LIGHT, VainahTheme.parse(null))
-        assertEquals(VainahTheme.Mode.LIGHT, VainahTheme.parse("UNKNOWN"))
+    @Test fun premiumDarkThemeIsDefault() {
+        assertEquals(VainahTheme.Mode.DARK, VainahTheme.parse(null))
+        assertEquals(VainahTheme.Mode.DARK, VainahTheme.parse("UNKNOWN"))
         assertEquals(VainahTheme.Mode.LIGHT, VainahTheme.parse("LIGHT"))
     }
 
