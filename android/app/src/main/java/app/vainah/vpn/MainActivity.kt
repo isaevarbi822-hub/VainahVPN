@@ -1476,6 +1476,17 @@ class MainActivity : Activity() {
             !serverProbeRunning && !VpnConnectionState.read(this).canDisconnect
         add(measurement, probe, 12)
         probe.setOnClickListener { probeServersAndChoose() }
+        val singleProbe = lightAction(
+            if (serverProbeRunning) "Проверяем TCP…" else
+                "Проверить выбранный сервер (TCP)"
+        ).apply {
+            textSize = 12f
+            isEnabled = selected?.let { SubscriptionNodeSupport.canConnect(it.uri) } == true &&
+                !serverProbeRunning && !VpnConnectionState.read(this@MainActivity).canDisconnect
+            contentDescription = "Три TCP-проверки выбранного VPN-сервера без передачи ключей"
+        }
+        add(measurement, singleProbe, 9)
+        singleProbe.setOnClickListener { probeSelectedServerTcp() }
     }
 
     private fun chooseWhiteListNodes() {
@@ -1518,6 +1529,69 @@ class MainActivity : Activity() {
         activeProbePool = null
         serverProbes = emptyList()
         serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
+    }
+
+    /** Quick preflight for one selected H1Cloud node, with bounded waiting.
+     * No VPN, TLS or speed claim is made from an open TCP port.
+     */
+    private fun probeSelectedServerTcp() {
+        if (serverProbeRunning) return
+        if (VpnConnectionState.read(this).canDisconnect ||
+            VainahVpnService.runningInProcess) {
+            popup("Отключи VPN перед измерением TCP-входа.")
+            return
+        }
+        val target = selected ?: run {
+            popup("Сначала выбери сервер из подписки.")
+            return
+        }
+        val index = nodes.indexOfFirst { it.uri == target.uri }
+        if (index < 0 || !SubscriptionNodeSupport.canConnect(target.uri)) {
+            popup("Сервер отсутствует или его протокол не поддерживается. Обнови подписку.")
+            return
+        }
+        val name = ServerRowPresentation.describe(target, index).title
+        val generation = ++serverProbeGeneration
+        val pool = Executors.newSingleThreadExecutor()
+        activeProbePool = pool
+        serverProbeRunning = true
+        serverProbeAttempted = true
+        serverProbeMessage = "Проверяем TCP-вход выбранного сервера…"
+        render()
+        Thread({
+            val measured = try {
+                val future = pool.submit(Callable {
+                    ServerTcpMeasurement.sample(target).copy(index = index)
+                })
+                try {
+                    future.get(8, java.util.concurrent.TimeUnit.SECONDS)
+                } catch (_: Exception) {
+                    future.cancel(true)
+                    ServerTcpObservation(index,
+                        ServerTcpSelector.ATTEMPTS_PER_NODE, emptyList())
+                }
+            } finally {
+                pool.shutdownNow()
+            }
+            main.post {
+                if (generation != serverProbeGeneration ||
+                    isFinishing || isDestroyed) return@post
+                serverProbeRunning = false
+                activeProbePool = null
+                if (nodes.getOrNull(index)?.uri != target.uri ||
+                    selected?.uri != target.uri ||
+                    VpnConnectionState.read(this).canDisconnect) {
+                    serverProbeMessage = "Сервер или VPN-состояние изменились. Повтори замер."
+                    render()
+                    return@post
+                }
+                serverProbes = serverProbes.filterNot { it.index == index } + measured
+                val result = SelectedServerTcpAdvice.summary(measured)
+                serverProbeMessage = "Выбранный сервер проверен (TCP)."
+                render()
+                popup(name + ": " + result)
+            }
+        }, "vainah-single-server-tcp-check").start()
     }
 
     private fun probeServersAndChoose(selectBest: Boolean = true) {
