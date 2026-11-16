@@ -2008,9 +2008,13 @@ class MainActivity : Activity() {
         val connected = snapshot.canDisconnect
         stateView?.text = VpnLivePresentation.phaseLabel(snapshot.phase)
         (powerOrb as? PowerOrbView)?.setVpnPhase(snapshot.phase)
-        stateView?.setTextColor(if (page == Page.HOME) {
-            if (connected) VainahDesign.green else ServerListVisual.textColor()
-        } else if (connected) green else white)
+        stateView?.setTextColor(when (snapshot.phase) {
+            VpnConnectionState.ONLINE -> VainahDesign.green
+            VpnConnectionState.TUN_READY, VpnConnectionState.STARTING ->
+                VainahDesign.purple
+            VpnConnectionState.FAILED -> VainahDesign.error
+            else -> VainahDesign.ink
+        })
         detailView?.text = if (snapshot.phase == VpnConnectionState.OFF)
             "Выбери локацию и проверь IP в браузере после подключения."
         else snapshot.detail.ifBlank { "Данные службы пока недоступны." }
