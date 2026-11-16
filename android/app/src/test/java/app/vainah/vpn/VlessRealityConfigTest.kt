@@ -102,12 +102,28 @@ class VlessRealityConfigTest {
             "&alpn=h2"
         val grpcReality = safeNode.replace("type=tcp", "type=grpc") +
             "&serviceName=test"
-        for ((name, node) in listOf(
+        val extraCases = listOf(
+            "padding" to JSONObject().put("xPaddingBytes", "400-800"),
+            "no-grpc" to JSONObject().put("noGRPCHeader", true),
+            "post-bytes" to JSONObject().put("scMaxEachPostBytes", "200000-400000"),
+            "post-interval" to JSONObject().put("scMinPostsIntervalMs", "30-60"),
+            "xmux" to JSONObject().put("xmux",
+                JSONObject().put("max_connections", "3-3")),
+            "session" to JSONObject().put("sessionPlacement", "header")
+                .put("sessionKey", "X-Session"),
+            "uplink" to JSONObject().put("uplinkHTTPMethod", "POST"),
+            "obfs" to JSONObject().put("xPaddingObfsMode", true)
+        )
+        val examples = listOf(
             "reality-tcp" to safeNode,
             "reality-grpc" to grpcReality,
             "reality-xhttp" to realityXhttp,
             "tls-xhttp" to tlsXhttp
-        )) {
+        ) + extraCases.map { (name, value) ->
+            "xhttp-$name" to realityXhttp + "&extra=" +
+                java.net.URLEncoder.encode(value.toString(), "UTF-8")
+        }
+        for ((name, node) in examples) {
             java.nio.file.Files.write(
                 dir.resolve("$name.json"),
                 VlessRealityConfig.profile(node, "192.0.2.25")
