@@ -99,6 +99,35 @@ class XhttpCompatibilityTest {
         assertEquals("custom", converted.getJSONObject("headers").getString("X-Test"))
     }
 
+    @Test fun xrayTlsAlpnSurvivesJsonSubscriptionToNativeXhttp() {
+        val server = JSONObject()
+            .put("address", "example.org").put("port", 443)
+            .put("users", JSONArray().put(JSONObject().put(
+                "id", "00000000-0000-4000-8000-000000000001")))
+        val stream = JSONObject()
+            .put("security", "tls")
+            .put("network", "xhttp")
+            .put("tlsSettings", JSONObject()
+                .put("serverName", "example.org")
+                .put("alpn", JSONArray().put("h2").put("http/1.1")))
+            .put("xhttpSettings", JSONObject()
+                .put("path", "/turkey")
+                .put("mode", "packet-up"))
+        val xray = JSONObject()
+            .put("protocol", "vless")
+            .put("tag", "Турция · IP")
+            .put("streamSettings", stream)
+            .put("settings", JSONObject().put(
+                "vnext", JSONArray().put(server)))
+        val nodes = SubscriptionPayloadParser.nodes(JSONObject().put(
+            "outbounds", JSONArray().put(xray)).toString())
+        assertEquals(1, nodes.size)
+        val importedAlpn = VlessRealityConfig.outbound(nodes.single().uri)
+            .getJSONObject("tls").getJSONArray("alpn")
+        assertEquals("h2", importedAlpn.getString(0))
+        assertEquals("http/1.1", importedAlpn.getString(1))
+    }
+
     @Test fun rejectsUnsupportedOrMalformedExtraInsteadOfSilentlyDowngrading() {
         assertFalse(SubscriptionNodeSupport.canConnect(encoded(
             JSONObject().put("downloadSettings", JSONObject().put("address", "other"))
