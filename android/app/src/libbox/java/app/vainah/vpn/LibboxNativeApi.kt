@@ -42,6 +42,16 @@ internal object LibboxNativeApi {
         Libbox.checkConfig(config)
     }
 
+    /** Only a fixed build identifier may appear in exported diagnostics. */
+    fun coreIdentifier(): String = runCatching { Libbox.version() }.getOrNull()
+        ?.let { version ->
+            when {
+                version.contains("1.14.4-lx.35") -> "lx_1_14_4_35"
+                version.contains("-lx.") -> "lx_other"
+                else -> "non_lx_core"
+            }
+        } ?: "unknown"
+
     fun createCommandServer(
         handler: CommandServerHandler,
         platform: PlatformInterface
