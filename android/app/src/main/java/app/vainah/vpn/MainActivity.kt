@@ -1612,16 +1612,13 @@ class MainActivity : Activity() {
         add(accountSecurity, tag("БЕЗОПАСНОСТЬ АККАУНТА"))
         add(accountSecurity, t("Мой личный кабинет", 18f, white, true), 8)
         add(accountSecurity, t(
-            "Доступ к заказам и устройствам защищён входом через " +
-                "официальный сайт. VPN-ключи не передаются при входе.",
+            "Кабинет, устройства и поддержка доступны прямо в VainahVPN. " +
+                "VPN-ключи не передаются при входе.",
             12f, grey
         ), 9)
-        val account = action("Перейти в личный кабинет")
+        val account = action("Открыть кабинет в приложении")
         add(accountSecurity, account, 11)
-        account.setOnClickListener {
-            page = Page.MORE
-            render()
-        }
+        account.setOnClickListener { openNativeCabinet() }
     }
 
     private fun editSplitTunnelApps() {
