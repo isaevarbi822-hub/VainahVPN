@@ -195,8 +195,11 @@ object SubscriptionPayloadParser {
                 options.optString("xPaddingBytes")
             }
         }.orEmpty()
+        // Malformed options on one Xray node must not hide the other
+        // valid servers in the same subscription.
         val xhttpExtra = if (transportSettings != null)
-            XhttpCompatibility.shareExtra(transportSettings) else ""
+            runCatching { XhttpCompatibility.shareExtra(transportSettings) }
+                .getOrElse { return emptyList() } else ""
         val serviceName = stream.optJSONObject("grpcSettings")?.optString("serviceName").orEmpty()
         val servers = item.optJSONObject("settings")?.optJSONArray("vnext")
             ?: return emptyList()
@@ -232,6 +235,10 @@ object SubscriptionPayloadParser {
         if (!tls.optBoolean("enabled")) return null
         val reality = tls.optJSONObject("reality")
         val security = if (reality?.optBoolean("enabled") == true) "reality" else "tls"
+        val xhttpExtra = if (network in listOf("xhttp", "splithttp"))
+            runCatching { XhttpCompatibility.shareExtra(transport) }
+                .getOrNull() ?: return null
+        else ""
         return link(
             item.optString("uuid"), item.optString("server"),
             item.optInt("server_port"), tls.optString("server_name"),
@@ -248,8 +255,7 @@ object SubscriptionPayloadParser {
                     options.optString("xPaddingBytes")
                 }
             }.orEmpty(),
-            if (network in listOf("xhttp", "splithttp"))
-                XhttpCompatibility.shareExtra(transport) else ""
+            xhttpExtra
         )
     }
 
