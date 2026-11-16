@@ -41,7 +41,7 @@ import java.util.concurrent.Callable
  * VainahVpnService exclusively owns the real libbox VPN session.
  */
 class MainActivity : Activity() {
-    private enum class Page { HOME, LOCATIONS, ACCOUNT, DEVICES, DIAGNOSTICS, SECURITY, SETTINGS, MORE }
+    private enum class Page { HOME, LOCATIONS, ACCOUNT, DEVICES, DIAGNOSTICS, ANALYTICS, SECURITY, SETTINGS, MORE }
     private var page = Page.HOME
     private lateinit var source: SubscriptionController
     private var nodes: List<VainahNode> = emptyList()
@@ -298,6 +298,7 @@ class MainActivity : Activity() {
                 Page.ACCOUNT -> "Подписка"
                 Page.DEVICES -> "Мои устройства"
                 Page.DIAGNOSTICS -> "Диагностика"
+                Page.ANALYTICS -> "Аналитика"
                 Page.SECURITY -> "Защита"
                 Page.SETTINGS -> "Настройки"
                 Page.MORE -> "Профиль"
@@ -311,6 +312,7 @@ class MainActivity : Activity() {
             Page.ACCOUNT -> account(body)
             Page.DEVICES -> devices(body)
             Page.DIAGNOSTICS -> help(body)
+            Page.ANALYTICS -> analytics(body)
             Page.SECURITY -> security(body)
             Page.SETTINGS -> settings(body)
             Page.MORE -> more(body)
@@ -323,12 +325,15 @@ class MainActivity : Activity() {
             elevation = dp(5).toFloat()
             setPadding(dp(6), dp(5), dp(6), dp(5))
         }
-        val selectedTab = if (page in listOf(Page.DEVICES, Page.DIAGNOSTICS,
-                Page.SETTINGS)) Page.MORE else page
+        val selectedTab = when (page) {
+            Page.DEVICES, Page.ACCOUNT, Page.SETTINGS -> Page.MORE
+            Page.SECURITY -> Page.DIAGNOSTICS
+            else -> page
+        }
         for ((target, label) in listOf(
             Page.HOME to "Главная", Page.LOCATIONS to "Серверы",
-            Page.SECURITY to "Защита", Page.ACCOUNT to "Подписка",
-            Page.MORE to "Кабинет"
+            Page.DIAGNOSTICS to "Диагностика", Page.ANALYTICS to "Аналитика",
+            Page.MORE to "Профиль"
         )) {
             val active = target == selectedTab
             val tab = column().apply {
@@ -749,6 +754,76 @@ class MainActivity : Activity() {
         ), 9)
 
 
+    }
+
+    /** Native analytics: only observed libbox counters and local state changes. */
+    private fun analytics(body: LinearLayout) {
+        val snapshot = VpnConnectionState.read(this)
+        val active = snapshot.canDisconnect && VainahVpnService.runningInProcess
+        val sample = if (active) VpnTrafficStore.read(this) else null
+
+        val traffic = card()
+        add(body, traffic, 11)
+        add(traffic, tag("ПЕРЕДАЧА ДАННЫХ"))
+        add(traffic, t("Трафик соединения", 19f, white, true), 6)
+        add(traffic, t(
+            "Только свежие измерения libbox. Показатели сервера не моделируются.",
+            11f, grey), 6)
+        val values = t(VpnLivePresentation.trafficText(
+            snapshot.canDisconnect, VainahVpnService.runningInProcess, sample),
+            12f, white)
+        trafficView = values
+        add(traffic, values, 10)
+        val graph = TrafficSparklineView(this)
+        trafficChart = graph
+        traffic.addView(graph, LinearLayout.LayoutParams(-1, dp(165)).apply {
+            topMargin = dp(10)
+        })
+        graph.show(trafficTimeline.snapshot())
+        add(traffic, VainahUi.infoStrip(this,
+            "Это скорость передачи через локальный движок, а не тест скорости интернета."), 11)
+
+        val connection = card()
+        add(body, connection, 13)
+        add(connection, tag("СОСТОЯНИЕ"))
+        add(connection, VainahUi.detailRow(this, "VPN",
+            VpnLivePresentation.phaseLabel(snapshot.phase),
+            if (snapshot.phase == VpnConnectionState.TUN_READY)
+                VainahUi.Tone.PURPLE else if (active)
+                VainahUi.Tone.SUCCESS else VainahUi.Tone.NEUTRAL), 8)
+        val underlay = VpnUnderlayStatus.read(this)
+        add(connection, VainahUi.detailRow(this, "Физическая сеть",
+            when (underlay.transport) {
+                "wifi" -> "Wi-Fi"
+                "cellular" -> "4G / 5G"
+                "ethernet" -> "Ethernet"
+                else -> "Не определена"
+            }), 6)
+        add(connection, VainahUi.detailRow(this,
+            "Смен физических сетей", underlay.transitions.toString()), 6)
+
+        val history = card()
+        add(body, history, 13)
+        add(history, tag("ИСТОРИЯ"))
+        val events = VpnSessionJournal.read(this)
+        add(history, t("Подключения на устройстве", 17f, white, true), 8)
+        if (events.isEmpty()) {
+            add(history, t("Записей пока нет.", 12f, grey), 8)
+        } else {
+            for (event in events.take(6)) {
+                add(history, VainahUi.detailRow(this,
+                    VpnSessionJournal.title(event.phase),
+                    VpnSessionJournal.localTime(event.timestamp)), 6)
+            }
+        }
+        add(history, t(
+            "Данные хранятся локально. Адреса, VPN-ключи и посещённые сайты " +
+                "в историю не добавляются.",
+            11f, grey), 10)
+
+        val diagnostics = action("Проверить сеть и DNS", true)
+        add(body, diagnostics, 13)
+        diagnostics.setOnClickListener { page = Page.DIAGNOSTICS; render() }
     }
 
     private fun account(body: LinearLayout) {
