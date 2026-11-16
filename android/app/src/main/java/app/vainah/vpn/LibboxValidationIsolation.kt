@@ -58,6 +58,43 @@ internal object LibboxValidationIsolation {
         return SHARED
     }
 
+    /**
+     * Find a *single* incompatible option by adding one option at a time to a
+     * native-approved basic XHTTP config. No candidate is ever connected.
+     *
+     * Returns only an allowlisted field name, never a field value. If all
+     * individual fields pass but their combination fails, return "interaction".
+     */
+    fun rejectedOption(actualConfig: String, check: (String) -> Unit): String {
+        val root = runCatching { JSONObject(actualConfig) }.getOrNull() ?: return "unknown"
+        val transport = root.optJSONArray("outbounds")?.optJSONObject(0)
+            ?.optJSONObject("transport") ?: return "unknown"
+        if (transport.optString("type") != "xhttp") return "unknown"
+        val basicKeys = setOf("type", "mode", "path", "host")
+        val options = transport.keys().asSequence()
+            .filter { it !in basicKeys }.toList().sorted()
+        if (options.isEmpty() || options.size > 24) return "unknown"
+        val basic = JSONObject().put("type", "xhttp")
+        for (key in listOf("mode", "path", "host")) {
+            if (transport.has(key)) basic.put(key, transport.get(key))
+        }
+
+        fun passes(candidate: JSONObject): Boolean = runCatching {
+            val copy = JSONObject(actualConfig)
+            copy.getJSONArray("outbounds").getJSONObject(0)
+                .put("transport", candidate)
+            check(copy.toString())
+        }.isSuccess
+
+        if (!passes(basic)) return "unknown"
+        for (key in options) {
+            val candidate = JSONObject(basic.toString())
+                .put(key, transport.get(key))
+            if (!passes(candidate)) return LibboxValidationDetail.safeOption(key)
+        }
+        return "interaction"
+    }
+
     private fun JSONObject.clearAndReplaceWithDirect() {
         // Mutate the object owned by the freshly-cloned config only.
         val keys = keys().asSequence().toList()
