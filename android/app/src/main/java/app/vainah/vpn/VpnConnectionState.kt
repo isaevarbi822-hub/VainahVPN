@@ -37,13 +37,19 @@ object VpnConnectionState {
 
     private fun save(context: Context, phase: String, detail: String,
                      server: String? = null, latencyMs: Int? = null) {
-        val editor = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .edit().putString("phase", phase).putString("detail", detail)
+        val prefs = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+        val previousPhase = prefs.getString("phase", OFF) ?: OFF
+        val editor = prefs.edit()
+            .putString("phase", phase).putString("detail", detail)
         if (server != null) editor.putString("server", server.take(80))
         if (latencyMs != null) editor.putInt("tcp_latency_ms", latencyMs)
         // commit is intentional: even an abrupt native crash must not leave
         // the UI saying "online" on restart.
-        editor.commit()
+        if (editor.commit()) {
+            // This journal is optional, credential-free and MUST NEVER
+            // interrupt VPN state updates or packet routing on storage errors.
+            runCatching { VpnSessionJournal.record(context, previousPhase, phase) }
+        }
     }
 
     fun starting(context: Context, label: String) {
