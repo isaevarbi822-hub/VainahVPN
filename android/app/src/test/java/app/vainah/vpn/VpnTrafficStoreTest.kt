@@ -14,7 +14,7 @@ class VpnTrafficStoreTest {
 
     @Test fun decimalMegabitsAreNotMegabytesOrAdvertisedServerSpeed() {
         assertEquals("100.0 Мбит/с", VpnTrafficStore.formatMbps(12_500_000L))
-        assertEquals("8.0 Мбит/с", VpnTrafficStore.formatMbps(1_000_000L))
+        assertEquals("8.00 Мбит/с", VpnTrafficStore.formatMbps(1_000_000L))
         assertEquals("0.00 Мбит/с", VpnTrafficStore.formatMbps(0L))
         assertEquals("—", VpnTrafficStore.formatMbps(-1L))
     }
