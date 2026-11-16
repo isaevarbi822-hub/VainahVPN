@@ -6,6 +6,9 @@ import org.junit.Test
 class VpnLivePresentationTest {
     @Test fun serviceStateDoesNotClaimVerifiedInternetEgress() {
         assertEquals("Туннель запущен", VpnLivePresentation.phaseLabel(VpnConnectionState.ONLINE))
+        assertEquals("Туннель открыт · интернет не проверен",
+            VpnLivePresentation.phaseLabel(VpnConnectionState.TUN_READY))
+
         assertEquals("Не подключено", VpnLivePresentation.phaseLabel("unknown"))
         assertEquals("Подключение…", VpnLivePresentation.phaseLabel(VpnConnectionState.STARTING))
     }
