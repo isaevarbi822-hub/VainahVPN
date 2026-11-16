@@ -439,11 +439,37 @@ class NativeCabinetActivity : Activity() {
         if (page == "cabinet") {
             renderAccount(body)
             renderFeatured(body)
+            renderNativeServices(body)
         } else {
             renderCatalog(body)
         }
         setContentView(root)
         if(position > 0) sc.post { sc.scrollTo(0, position) }
+    }
+
+    /** Real support, devices and reminders are native screens, never WebViews. */
+    private fun renderNativeServices(body: LinearLayout) {
+        val panel = card()
+        add(body, panel, 13)
+        add(panel, miniLabel("ЦЕНТР УПРАВЛЕНИЯ"))
+        add(panel, label("Всё в одном приложении", 18f, ink, true), 8)
+        add(panel, label(
+            "Поддержка, мои устройства и уведомления без открытия сайта.",
+            12f, muted), 8)
+        val sections = listOf(
+            Triple("support", "Поддержка", "Обращения и ответы оператора"),
+            Triple("devices", "Устройства", "Названия и лимит тарифа"),
+            Triple("reminders", "Напоминания", "Настройки реальной email-рассылки")
+        )
+        for ((id, title, detail) in sections) {
+            val entry = action(title + " · " + detail)
+            entry.contentDescription = title + ". " + detail
+            add(panel, entry, 9)
+            entry.setOnClickListener {
+                startActivity(Intent(this, NativeServicesActivity::class.java)
+                    .putExtra("section", id))
+            }
+        }
     }
 
     private fun renderTrial(body: LinearLayout) {
