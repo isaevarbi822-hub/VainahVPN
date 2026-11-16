@@ -42,6 +42,13 @@ class ServerTcpSelectorTest {
         )))
     }
 
+    @Test fun corruptedExtraSamplesCannotWinSmartServerSelection() {
+        val valid = obs(1, 52, 53, 51)
+        val impossible = obs(0, 1, 1, 1, 1)
+        assertEquals(1, ServerTcpSelector.best(listOf(impossible, valid)))
+        assertNull(ServerTcpSelector.best(listOf(impossible)))
+    }
+
     @Test fun noSyntheticPingOrInvalidEndpoint() {
         assertNull(ServerTcpSelector.best(emptyList()))
         assertNull(ServerTcpSelector.endpoint(VainahNode("bad", "https://example.com")))
