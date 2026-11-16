@@ -35,7 +35,7 @@ object VpnLivePresentation {
         sample == null -> "Счётчики libbox временно недоступны."
         else -> "↓ " + VpnTrafficStore.format(sample.downlink) +
             "/с    ↑ " + VpnTrafficStore.format(sample.uplink) +
-            "/с\\nЗа сеанс: ↓ " +
+            "/с\nЗа сеанс: ↓ " +
             VpnTrafficStore.format(sample.downlinkTotal) + " · ↑ " +
             VpnTrafficStore.format(sample.uplinkTotal)
     }
