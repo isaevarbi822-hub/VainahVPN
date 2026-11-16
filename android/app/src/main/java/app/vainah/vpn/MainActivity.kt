@@ -1242,6 +1242,33 @@ class MainActivity : Activity() {
         lastError?.let { problem ->
             add(summary, t(problem, 11.5f, errorColor), 8)
         }
+        // Test the chosen entry only, rather than starting an expensive scan
+        // of all 41+ subscription profiles when one Turkey node fails.
+        val target = selected
+        if (target != null) {
+            val selectedInfo = ServerRowPresentation.describe(target, 0)
+            val nodeHealth = card().apply {
+                setPadding(dp(13), dp(12), dp(13), dp(12))
+            }
+            add(body, nodeHealth, 10)
+            add(nodeHealth, tag("ПРОВЕРКА ВЫБРАННОГО СЕРВЕРА"))
+            add(nodeHealth, t(
+                selectedInfo.flag + "  " + selectedInfo.title +
+                    " · " + selectedInfo.subtitle,
+                11.5f, white, true), 5)
+            val healthButton = action(
+                if (serverProbeRunning) "Проверяем TCP…" else
+                    "Проверить TCP выбранного сервера", true
+            )
+            healthButton.isEnabled = !serverProbeRunning &&
+                !VpnConnectionState.read(this).canDisconnect
+            add(nodeHealth, healthButton, 8)
+            healthButton.setOnClickListener { probeSelectedServer() }
+            add(nodeHealth, t(
+                "TCP-тест не проверяет REALITY, IP или 100 Мбит/с. " +
+                    "Проводится только при отключённом VPN.",
+                10.5f, grey), 7)
+        }
         val sheet = ServerListVisual.sheet(this)
         add(body, sheet, 12)
         // Search/filter only updates the row container. Keeping EditText
@@ -1491,6 +1518,74 @@ class MainActivity : Activity() {
         activeProbePool = null
         serverProbes = emptyList()
         serverProbeMessage = "TCP-задержка входных узлов ещё не измерялась."
+    }
+
+    /**
+     * Read-only TCP check for the exact selected subscription entry.
+     * No credentials, endpoint hostnames or raw exception text are exported.
+     * An unresponsive TCP port is not treated as proof of a VPN leak.
+     */
+    private fun probeSelectedServer() {
+        if (serverProbeRunning) return
+        if (VpnConnectionState.read(this).canDisconnect) {
+            popup("Отключи VPN перед проверкой входного TCP-порта.")
+            return
+        }
+        val node = selected ?: run {
+            popup("Выбери сервер из подписки.")
+            return
+        }
+        val info = SubscriptionNodeSupport.inspect(node.uri)
+        if (info?.connectable != true) {
+            val result = ServerHealthPresentation.assess(info, null)
+            popup(result.summary + "\n" + result.explanation)
+            return
+        }
+        val index = nodes.indexOfFirst { it.uri == node.uri }
+        if (index < 0) {
+            popup("Выбранный сервер отсутствует в текущей подписке. Обнови список.")
+            return
+        }
+        serverProbeRunning = true
+        serverProbeAttempted = true
+        serverProbeMessage = "Измеряем TCP выбранного сервера…"
+        val version = ++serverProbeGeneration
+        val executor = Executors.newSingleThreadExecutor()
+        activeProbePool = executor
+        render()
+        Thread({
+            val future = executor.submit(Callable {
+                ServerTcpMeasurement.sample(node).copy(index = index)
+            })
+            val measured = try {
+                future.get(10L, java.util.concurrent.TimeUnit.SECONDS)
+            } catch (_: Exception) {
+                future.cancel(true)
+                ServerTcpObservation(index,
+                    ServerTcpSelector.ATTEMPTS_PER_NODE, emptyList())
+            } finally {
+                executor.shutdownNow()
+            }
+            main.post {
+                if (version != serverProbeGeneration || isFinishing || isDestroyed)
+                    return@post
+                serverProbeRunning = false
+                activeProbePool = null
+                if (nodes.getOrNull(index)?.uri != node.uri ||
+                    VpnConnectionState.read(this).canDisconnect) {
+                    serverProbeMessage = "Узел или состояние VPN изменились. Проверь заново."
+                    if (page == Page.LOCATIONS) render()
+                    return@post
+                }
+                serverProbes = serverProbes.filterNot { it.index == index } + measured
+                val result = ServerHealthPresentation.assess(info, measured)
+                serverProbeMessage = result.summary
+                if (page == Page.LOCATIONS) {
+                    render()
+                    popup(result.summary + "\n" + result.explanation)
+                }
+            }
+        }, "vainah-selected-server-tcp-check").start()
     }
 
     private fun probeServersAndChoose(selectBest: Boolean = true) {
