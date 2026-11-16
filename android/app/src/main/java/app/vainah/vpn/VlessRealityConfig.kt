@@ -85,13 +85,16 @@ object VlessRealityConfig {
                 put("service_name", serviceName)
             })
             if (transport == "xhttp" || transport == "splithttp") {
-                put("transport", JSONObject().apply {
+                val xhttp = JSONObject().apply {
                     put("type", "xhttp")
                     put("mode", xhttpMode)
                     put("path", xhttpPath)
                     if (xhttpHost.isNotBlank()) put("host", xhttpHost)
                     if (padding.isNotBlank()) put("x_padding_bytes", padding)
-                })
+                }
+                // A shared Xray/Happ URI can put wire-critical options inside
+                // URL-encoded extra JSON. Do not silently drop those settings.
+                put("transport", XhttpCompatibility.enrich(params, xhttp))
             }
             put("tls", JSONObject().apply {
                 put("enabled", true)
