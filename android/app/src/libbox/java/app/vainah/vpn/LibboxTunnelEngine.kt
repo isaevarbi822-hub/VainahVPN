@@ -67,7 +67,18 @@ class LibboxTunnelEngine : TunnelEngine {
             commandServer = server
 
             stage(service, "validating_libbox_config")
-            LibboxNativeApi.validateConfiguration(singBoxConfigJson)
+            try {
+                LibboxNativeApi.validateConfiguration(singBoxConfigJson)
+                service.getSharedPreferences("vpn_diagnostics", android.content.Context.MODE_PRIVATE)
+                    .edit().remove("libbox_validation_detail").commit()
+            } catch (error: Exception) {
+                // Never persist or log error.message: libbox may quote
+                // the confidential VLESS address or user identity.
+                service.getSharedPreferences("vpn_diagnostics", android.content.Context.MODE_PRIVATE)
+                    .edit().putString("libbox_validation_detail",
+                        LibboxValidationDetail.classify(error.message)).commit()
+                throw error
+            }
             stage(service, "starting_libbox_command_server")
             server.start()
             stage(service, "loading_libbox_service")
