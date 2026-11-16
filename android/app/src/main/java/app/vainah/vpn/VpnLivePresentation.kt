@@ -33,9 +33,9 @@ object VpnLivePresentation {
         !connected || !serviceRunning ->
             "График и статистика появятся после подключения."
         sample == null -> "Счётчики libbox временно недоступны."
-        else -> "↓ " + VpnTrafficStore.format(sample.downlink) +
-            "/с    ↑ " + VpnTrafficStore.format(sample.uplink) +
-            "/с\nЗа сеанс: ↓ " +
+        else -> "↓ " + VpnTrafficStore.formatMbps(sample.downlink) +
+            "    ↑ " + VpnTrafficStore.formatMbps(sample.uplink) +
+            "\nЗа сеанс: ↓ " +
             VpnTrafficStore.format(sample.downlinkTotal) + " · ↑ " +
             VpnTrafficStore.format(sample.uplinkTotal)
     }
