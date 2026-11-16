@@ -190,8 +190,11 @@ object SubscriptionPayloadParser {
         val path = transportSettings?.optString("path").orEmpty()
         val mode = transportSettings?.optString("mode").orEmpty()
         val host = transportSettings?.optString("host").orEmpty()
-        val padding = transportSettings?.optString("x_padding_bytes")
-            ?.ifBlank { transportSettings.optString("xPaddingBytes") }.orEmpty()
+        val padding = transportSettings?.let { options ->
+            options.optString("x_padding_bytes").ifBlank {
+                options.optString("xPaddingBytes")
+            }
+        }.orEmpty()
         val xhttpExtra = if (transportSettings != null)
             XhttpCompatibility.shareExtra(transportSettings) else ""
         val serviceName = stream.optJSONObject("grpcSettings")?.optString("serviceName").orEmpty()
@@ -240,8 +243,11 @@ object SubscriptionPayloadParser {
             transport?.optString("service_name").orEmpty(),
             transport?.optString("mode").orEmpty(),
             transport?.optString("host").orEmpty(),
-            transport?.optString("x_padding_bytes")
-                ?.ifBlank { transport.optString("xPaddingBytes") }.orEmpty(),
+            transport?.let { options ->
+                options.optString("x_padding_bytes").ifBlank {
+                    options.optString("xPaddingBytes")
+                }
+            }.orEmpty(),
             if (network in listOf("xhttp", "splithttp"))
                 XhttpCompatibility.shareExtra(transport) else ""
         )
