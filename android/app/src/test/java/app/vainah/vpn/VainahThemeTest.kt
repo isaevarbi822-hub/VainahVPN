@@ -10,6 +10,17 @@ class VainahThemeTest {
         assertEquals(VainahTheme.Mode.LIGHT, VainahTheme.parse("LIGHT"))
     }
 
+    @Test fun existingLightInstallReceivesDarkUpgradeOnlyOnce() {
+        assertEquals(VainahTheme.Mode.DARK,
+            VainahTheme.migratedMode("LIGHT", false))
+        assertEquals(VainahTheme.Mode.DARK,
+            VainahTheme.migratedMode("SYSTEM", false))
+        assertEquals(VainahTheme.Mode.LIGHT,
+            VainahTheme.migratedMode("LIGHT", true))
+        assertEquals(VainahTheme.Mode.SYSTEM,
+            VainahTheme.migratedMode("SYSTEM", true))
+    }
+
     @Test fun allRealAppearanceOptionsRoundTrip() {
         for (mode in VainahTheme.Mode.values()) {
             assertEquals(mode, VainahTheme.parse(mode.name))

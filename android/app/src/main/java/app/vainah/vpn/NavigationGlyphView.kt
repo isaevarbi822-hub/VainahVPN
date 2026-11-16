@@ -66,6 +66,23 @@ class NavigationGlyphView(
                 path.lineTo(15.5f, 9.5f)
                 canvas.drawPath(path, pen)
             }
+            "DIAGNOSTICS" -> {
+                // ECG pulse conveys connection diagnostics.
+                path.moveTo(2f, 13f)
+                path.lineTo(6f, 13f)
+                path.lineTo(9f, 6f)
+                path.lineTo(13f, 19f)
+                path.lineTo(16f, 11f)
+                path.lineTo(18f, 13f)
+                path.lineTo(22f, 13f)
+                canvas.drawPath(path, pen)
+            }
+            "ANALYTICS" -> {
+                // Three measured series bars and their trend line.
+                canvas.drawRoundRect(RectF(3f, 14f, 7f, 21f), 1f, 1f, pen)
+                canvas.drawRoundRect(RectF(10f, 9f, 14f, 21f), 1f, 1f, pen)
+                canvas.drawRoundRect(RectF(17f, 4f, 21f, 21f), 1f, 1f, pen)
+            }
             "ACCOUNT" -> {
                 canvas.drawRoundRect(RectF(3f, 5f, 21f, 19f), 3f, 3f, pen)
                 canvas.drawLine(3f, 10f, 21f, 10f, pen)
