@@ -27,9 +27,9 @@ class VpnLivePresentationTest {
         assertEquals("Счётчики libbox временно недоступны.",
             VpnLivePresentation.trafficText(true, true, null))
         val live = VpnLivePresentation.trafficText(true, true, sample)
-        assertTrue(live.contains("КиБ/с"))
+        assertTrue(live.contains("Мбит/с"))
         assertTrue(live.contains("За сеанс:"))
         assertTrue(live.contains("\n"))
-        assertFalse(VpnLivePresentation.trafficText(true, false, sample).contains("КиБ"))
+        assertFalse(VpnLivePresentation.trafficText(true, false, sample).contains("Мбит/с"))
     }
 }
