@@ -297,7 +297,7 @@ object SubscriptionPayloadParser {
             !label.contains('?') && !label.contains('#')) label
         else "VLESS REALITY"
         val raw = "vless://" + uuid + "@" + authority + ":" + port +
-            "?" + query + "#" + enc(safeLabel)
+            "?" + query + "#" + enc(safeLabel).replace("+", "%20")
         return raw.takeIf { SubscriptionNodeSupport.inspect(it) != null }
     }
 }
