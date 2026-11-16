@@ -182,6 +182,30 @@ def test_expired_flow_and_other_provider_cannot_complete(configured):
             email="nope@example.org") is None
 
 
+def test_expired_mobile_authorization_rows_are_purged_but_active_flows_survive(
+    configured,
+):
+    with TestClient(app, base_url=ORIGIN) as client:
+        expired = begin(client, "google", "x" * 43)
+        active = begin(client, "telegram", "y" * 43)
+        with psycopg.connect(configured) as conn:
+            conn.execute("""
+                UPDATE vainah_mobile_auth
+                SET expires_at=now() - interval '2 days'
+                WHERE flow_id=%s
+            """, (expired["flow"],))
+        # Start never deletes an active callback or a recently expired flow.
+        fresh = begin(client, "google", "z" * 43)
+        with psycopg.connect(configured) as conn:
+            rows = conn.execute(
+                "SELECT flow_id::text FROM vainah_mobile_auth"
+            ).fetchall()
+        remaining = {row[0] for row in rows}
+        assert expired["flow"] not in remaining
+        assert active["flow"] in remaining
+        assert fresh["flow"] in remaining
+
+
 def test_request_rejects_bad_origin_and_invalid_pkce(configured):
     with TestClient(app, base_url=ORIGIN) as client:
         assert client.post("/api/mobile-auth/start", json={
