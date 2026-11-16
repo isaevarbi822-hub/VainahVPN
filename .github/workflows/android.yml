@@ -61,8 +61,8 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           configs=("$CONFIG_DIR"/*.json)
-          if [ "${#configs[@]}" -ne 13 ]; then
-            echo "::error::Expected thirteen synthetic VPN configs from JVM tests"
+          if [ "${#configs[@]}" -ne 15 ]; then
+            echo "::error::Expected fifteen synthetic VPN configs from JVM tests"
             exit 1
           fi
           mkdir -p "$RUNNER_TEMP/vainah-sing-box"
