@@ -210,6 +210,30 @@ class VlessRealityConfigTest {
         }
     }
 
+    @Test fun mixedCaseXhttpTlsQueryMatchesServerListInspection() {
+        val tls = safeNode.replace("security=reality", "SeCuRiTy=TLS")
+            .replace("type=tcp", "TYPE=XHTTP")
+            .replace("&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
+            .replace("&fp=chrome", "&FP=chrome") +
+            "&PATH=%2Ftr%2Fip&MODE=packet-up&ALPN=h2"
+        val outbound = VlessRealityConfig.outbound(tls)
+        assertEquals("xhttp", outbound.getJSONObject("transport").getString("type"))
+        assertEquals("/tr/ip", outbound.getJSONObject("transport").getString("path"))
+        assertEquals("packet-up", outbound.getJSONObject("transport").getString("mode"))
+        assertEquals("h2", outbound.getJSONObject("tls").getJSONArray("alpn").getString(0))
+        assertFalse(outbound.getJSONObject("tls").has("reality"))
+        assertEquals(
+            BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED,
+            SubscriptionNodeSupport.inspect(tls)?.connectable)
+    }
+
+    @Test fun conflictingCaseInsensitiveProtocolKeysAreRejected() {
+        val ambiguous = safeNode + "&SECURITY=tls"
+        assertThrows(IllegalArgumentException::class.java) {
+            VlessRealityConfig.outbound(ambiguous)
+        }
+    }
+
     @Test fun missingRealityParametersCannotStartTunnel() {
         for (bad in listOf(
             "vless://00000000-0000-4000-8000-000000000001@example.org:443",
