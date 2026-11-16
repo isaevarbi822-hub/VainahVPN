@@ -506,9 +506,14 @@ class MainActivity : Activity() {
                     }
                 },
             ) {
-                if (!SubscriptionNodeSupport.canConnect(node.uri)) {
-                    popup("Этот транспорт пока недоступен в текущем движке VainahVPN: " +
-                        entry.info.subtitle + ". Сервер показан без подключения.")
+                val compatibility = SubscriptionNodeSupport.inspect(node.uri)
+                if (compatibility?.connectable != true) {
+                    // A present XHTTP engine is NOT the same as a parseable
+                    // subscription node. Never blame the native engine for
+                    // locally rejected server options.
+                    val code = compatibility?.rejectionCode ?: "profile_unrecognized"
+                    popup(SubscriptionNodeSupport.safeBlockMessage(compatibility) +
+                        " Код: " + code)
                     return@row
                 }
                 val session = VpnConnectionState.read(this)
