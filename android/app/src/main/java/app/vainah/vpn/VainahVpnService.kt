@@ -201,9 +201,23 @@ class VainahVpnService : VpnService() {
                 VpnUnderlayStatus.reset(this)
                 checkpoint("service_received_connect")
                 val rawNode = intent.getStringExtra(EXTRA_SELECTED_VLESS).orEmpty()
-                val configValid = runCatching { VlessRealityConfig.profile(rawNode) }.isSuccess
-                if (!EngineRegistry.active.ready || !configValid || SecureSubscription(this).load() == null) {
-                    VpnConnectionState.failed(this, "Не удалось проверить подписку или сервер")
+                // A provider can issue a valid, current subscription containing
+                // transport options rejected by this libbox build. These are
+                // separate failures and must never prompt repeated payments.
+                val rejection = VpnStartupPreflight.failureStage(
+                    engineReady = EngineRegistry.active.ready,
+                    subscriptionPresent = SecureSubscription(this).load() != null,
+                    profileValid = runCatching {
+                        VlessRealityConfig.profile(rawNode)
+                    }.isSuccess
+                )
+                if (rejection != null) {
+                    checkpoint(rejection)
+                    val advice = VpnFailureAdvisor.fromStage(rejection)
+                    getSharedPreferences("vpn_diagnostics", MODE_PRIVATE).edit()
+                        .putString("last_failure_code", advice.code)
+                        .putBoolean("startup_pending", false).commit()
+                    VpnConnectionState.failed(this, advice.title)
                     stopSelf()
                     return START_NOT_STICKY
                 }
@@ -292,7 +306,14 @@ class VainahVpnService : VpnService() {
                 // deliberate OFF state, or shut down a newer generation.
                 if (!isCurrentAttempt(generation)) return@Thread
                 failure("VPN startup / internet verification", error)
-                VpnConnectionState.failed(this, "Ошибка запуска VPN-движка")
+                val failedStage = getSharedPreferences(
+                    "vpn_diagnostics", MODE_PRIVATE
+                ).getString("last_stage", null)
+                // Show only a fixed, pre-reviewed diagnosis. Native exception
+                // text may contain private server credentials.
+                VpnConnectionState.failed(
+                    this, VpnFailureAdvisor.fromStage(failedStage).title
+                )
                 disconnect(userRequested = false)
             }
         }, "vainah-vpn-connect").start()
