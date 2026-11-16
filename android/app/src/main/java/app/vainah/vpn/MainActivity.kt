@@ -78,6 +78,7 @@ class MainActivity : Activity() {
     private var networkStatusView: TextView? = null
     private val trafficTimeline = TrafficTimeline()
     private var connectView: Button? = null
+    private var activeServerView: Button? = null
     private var powerOrb: View? = null
     private var pulseAnimator: ValueAnimator? = null
     private val main = Handler(Looper.getMainLooper())
@@ -263,6 +264,7 @@ class MainActivity : Activity() {
         trafficChart = null
         networkStatusView = null
         connectView = null
+        activeServerView = null
         // All native pages use the selected premium theme and readable typography.
         val lastOffset = if (lastRenderedPage == page) contentScroll?.scrollY ?: 0 else 0
         val frame = column().apply {
@@ -509,7 +511,27 @@ class MainActivity : Activity() {
                         entry.info.subtitle + ". Сервер показан без подключения.")
                     return@row
                 }
-                // Selecting a row never interrupts an existing VPN tunnel.
+                val session = VpnConnectionState.read(this)
+                if (ActiveServerPresentation.requiresDisconnectBeforeSwitch(session.phase)) {
+                    // A row tap changes only the pending choice, not the
+                    // currently running VPN. Never display the newly chosen
+                    // location as if the TUN had switched on its own.
+                    AlertDialog.Builder(this)
+                        .setTitle("Переключить VPN-сервер?")
+                        .setMessage("Сейчас работает другой VPN-сеанс. " +
+                            "Чтобы использовать «" + entry.info.title +
+                            "», нужно отключить текущий туннель. " +
+                            "После отключения нажми «Подключиться» на главной.")
+                        .setNegativeButton("Оставить VPN", null)
+                        .setPositiveButton("Отключить и выбрать") { _, _ ->
+                            selected = node
+                            serverListExpanded = false
+                            page = Page.HOME
+                            disconnect()
+                            render()
+                        }.show()
+                    return@row
+                }
                 selected = node
                 if (returnHomeAfterSelection) {
                     serverListExpanded = true
@@ -581,9 +603,13 @@ class MainActivity : Activity() {
         stateView = status
         add(hero, status, 3)
         val nextNode = selected?.let { ServerRowPresentation.describe(it, 0) }
-        val selectedName = if (nextNode == null) "Выбери сервер из списка ниже"
+        val selectedName = if (nextNode == null) null
         else nextNode.flag + "  " + nextNode.title
-        val serverShortcut = lightAction(selectedName + "  ›").apply {
+        val liveSession = VpnConnectionState.read(this)
+        val displayedName = ActiveServerPresentation.homeLabel(
+            liveSession.phase, VainahVpnService.runningInProcess,
+            liveSession.server, selectedName)
+        val serverShortcut = lightAction(displayedName + "  ›").apply {
             textSize = 12.5f
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -594,6 +620,7 @@ class MainActivity : Activity() {
                 render()
             }
         }
+        activeServerView = serverShortcut
         add(hero, serverShortcut, 7)
         val detail = t(
             "Выбери сервер и подключись.",
@@ -2099,6 +2126,10 @@ class MainActivity : Activity() {
         updatePowerPulse(snapshot.phase)
         val connected = snapshot.canDisconnect
         stateView?.text = VpnHomeStatusPresentation.heading(snapshot.phase)
+        val nextNode = selected?.let { ServerRowPresentation.describe(it, 0) }
+        val nextLabel = nextNode?.let { it.flag + "  " + it.title }
+        activeServerView?.text = ActiveServerPresentation.homeLabel(
+            snapshot.phase, serviceRunning, snapshot.server, nextLabel) + "  ›"
         (powerOrb as? PowerOrbView)?.setVpnPhase(snapshot.phase)
         stateView?.setTextColor(when (snapshot.phase) {
             VpnConnectionState.ONLINE -> VainahDesign.green
