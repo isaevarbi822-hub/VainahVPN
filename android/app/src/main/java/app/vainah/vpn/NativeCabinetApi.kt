@@ -225,15 +225,12 @@ internal class NativeCabinetApi(context: Context) {
                 result.toString(StandardCharsets.UTF_8.name())
             }.orEmpty()
             val parsed = runCatching { JSONObject(content) }.getOrNull()
-            val identityEndpoint = when (originalAuth?.first) {
-                emailCookie -> "/api/email-auth/account"
-                telegramCookie -> "/api/telegram/account"
-                else -> null
-            }
-            if (path == identityEndpoint &&
-                (status == 401 ||
-                    (status == 200 && parsed?.has("authenticated") == true &&
-                        !parsed.optBoolean("authenticated")))) {
+            val confirmedIdentity = parsed
+                ?.takeIf { it.has("authenticated") }
+                ?.optBoolean("authenticated")
+            if (NativeCabinetAuthPolicy.shouldInvalidateSession(
+                    originalAuth?.first, path, status, confirmedIdentity
+                )) {
                 session.clearAuthIfUnchanged(originalAuth)
             }
             if (path == "/api/mobile-auth/exchange" && status == 200 &&
