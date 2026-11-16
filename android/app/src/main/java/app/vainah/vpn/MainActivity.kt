@@ -106,7 +106,7 @@ class MainActivity : Activity() {
         window.statusBarColor = bg
         window.navigationBarColor = bg
         // The new light theme needs dark system bar icons on Android 8+.
-        window.decorView.systemUiVisibility =
+        window.decorView.systemUiVisibility = if (VainahTheme.isDark) 0 else
             View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
                 View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         source = SubscriptionController(this)
@@ -262,7 +262,7 @@ class MainActivity : Activity() {
         networkStatusView = null
         connectView = null
         // Every page shares the same clean light surface and typography.
-        val light = true
+        val light = !VainahTheme.isDark
         val lastOffset = if (lastRenderedPage == page) contentScroll?.scrollY ?: 0 else 0
         val frame = column().apply {
             background = VainahUi.pageBackground()
@@ -318,7 +318,7 @@ class MainActivity : Activity() {
         val nav = horizontal().apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.WHITE, Color.rgb(250, 246, 255))
+                intArrayOf(VainahDesign.surface, VainahDesign.surface2)
             ).apply { setStroke(dp(1), VainahDesign.border) }
             elevation = dp(7).toFloat()
             setPadding(dp(6), dp(7), dp(6), dp(6))
@@ -558,8 +558,8 @@ class MainActivity : Activity() {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(
-                    Color.rgb(233, 218, 254),
-                    Color.rgb(252, 248, 255)
+                    VainahDesign.softPurple,
+                    VainahDesign.previewTop
                 )
             ).apply {
                 shape = GradientDrawable.OVAL
@@ -1712,6 +1712,33 @@ class MainActivity : Activity() {
             page = Page.SECURITY
             render()
         }, 3)
+
+        val appearance = card()
+        add(body, appearance, 15)
+        add(appearance, tag("ВНЕШНИЙ ВИД"))
+        add(appearance, t("Оформление VainahVPN", 18f, white, true), 8)
+        add(appearance, t(
+            "Светлая тема повторяет одобренный макет. Тёмная и системная " +
+                "темы доступны без изменения VPN-подключения.",
+            12f, grey), 8)
+        val themeOptions = horizontal()
+        for (option in VainahTheme.Mode.values()) {
+            val selectedMode = option == VainahTheme.mode
+            val button = action(VainahTheme.label(option), selectedMode).apply {
+                textSize = 11f
+                setPadding(dp(4), 0, dp(4), 0)
+                contentDescription = "Тема: " + VainahTheme.label(option)
+            }
+            themeOptions.addView(button, LinearLayout.LayoutParams(
+                0, dp(47), 1f).apply { marginStart = dp(3) })
+            button.setOnClickListener {
+                if (VainahTheme.mode != option) {
+                    VainahTheme.select(this, option)
+                    recreate()
+                }
+            }
+        }
+        add(appearance, themeOptions, 13)
 
         val version = card()
         add(body, version, 15)
