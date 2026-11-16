@@ -79,14 +79,41 @@ class VlessRealityConfigTest {
      * fixture for executable-core validation or upload it as an artifact.
      */
     @Test fun exportInventedConfigForNativeSingBoxCheck() {
-        val path = System.getenv("VAINAH_SYNTHETIC_CONFIG_OUTPUT")
+        // Only invented UUID, address, REALITY public key and SNI are exported.
+        // Never use a real subscription fixture in GitHub Actions artifacts.
+        val legacyFile = System.getenv("VAINAH_SYNTHETIC_CONFIG_OUTPUT")
+            ?.takeIf { it.isNotBlank() }
+        if (legacyFile != null) {
+            val target = java.nio.file.Paths.get(legacyFile)
+            java.nio.file.Files.createDirectories(target.parent)
+            java.nio.file.Files.write(
+                target, VlessRealityConfig.profile(safeNode, "192.0.2.25")
+                    .toByteArray(Charsets.UTF_8)
+            )
+        }
+        val dirValue = System.getenv("VAINAH_SYNTHETIC_CONFIG_DIR")
             ?.takeIf { it.isNotBlank() } ?: return
-        val target = java.nio.file.Paths.get(path)
-        java.nio.file.Files.createDirectories(target.parent)
-        java.nio.file.Files.write(
-            target, VlessRealityConfig.profile(safeNode, "192.0.2.25")
-                .toByteArray(Charsets.UTF_8)
-        )
+        val dir = java.nio.file.Paths.get(dirValue)
+        java.nio.file.Files.createDirectories(dir)
+        val realityXhttp = safeNode.replace("type=tcp", "type=xhttp") +
+            "&mode=packet-up&path=%2Ftest&x_padding_bytes=100-1000"
+        val tlsXhttp = realityXhttp.replace("security=reality", "security=tls")
+            .replace("&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "") +
+            "&alpn=h2"
+        val grpcReality = safeNode.replace("type=tcp", "type=grpc") +
+            "&serviceName=test"
+        for ((name, node) in listOf(
+            "reality-tcp" to safeNode,
+            "reality-grpc" to grpcReality,
+            "reality-xhttp" to realityXhttp,
+            "tls-xhttp" to tlsXhttp
+        )) {
+            java.nio.file.Files.write(
+                dir.resolve("$name.json"),
+                VlessRealityConfig.profile(node, "192.0.2.25")
+                    .toByteArray(Charsets.UTF_8)
+            )
+        }
     }
 
     @Test fun grpcAndTlsProduceNativeTransportProfiles() {
