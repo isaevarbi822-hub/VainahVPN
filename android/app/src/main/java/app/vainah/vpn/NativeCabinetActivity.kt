@@ -244,7 +244,7 @@ class NativeCabinetActivity : Activity() {
             if (code) filters = arrayOf(android.text.InputFilter.LengthFilter(6))
             imeOptions = EditorInfo.IME_ACTION_DONE
             background = GradientDrawable().apply {
-                setColor(Color.rgb(251, 249, 255))
+                setColor(VainahDesign.surface2)
                 cornerRadius = dp(14).toFloat()
                 setStroke(dp(1), VainahDesign.border)
             }
