@@ -11,8 +11,14 @@ internal object ServerHealthPresentation {
 
     fun assess(
         details: SubscriptionNodeSupport.Details?,
-        observation: ServerTcpObservation?
+        observation: ServerTcpObservation?,
+        interrupted: Boolean = false
     ): Result {
+        if (interrupted) return Result(
+            "TCP: проверка не завершена",
+            "Проверка заняла слишком много времени или была прервана. " +
+                "Это не означает, что сервер отключён. Попробуй другую сеть."
+        )
         if (details == null) return Result(
             "Профиль не распознан",
             "Проверь транспорт и формат узла в подписке H1Cloud. Не передавай VPN-ключ."
