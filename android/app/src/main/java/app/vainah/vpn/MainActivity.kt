@@ -352,7 +352,8 @@ class MainActivity : Activity() {
                 )
                 val glyph = NavigationGlyphView(this@MainActivity, target.name, active)
                 addView(glyph, LinearLayout.LayoutParams(dp(22), dp(22)))
-                addView(t(label, 10f, if (active) violet else grey, active).apply {
+                addView(t(label, 9f, if (active) violet else grey, active).apply {
+                    ellipsize = android.text.TextUtils.TruncateAt.END
                     gravity = Gravity.CENTER
                     maxLines = 1
                 }, LinearLayout.LayoutParams(-1, -2).apply {
@@ -547,9 +548,8 @@ class MainActivity : Activity() {
             setPadding(dp(4), dp(8), dp(4), dp(7))
         }
         add(body, hero, 5)
-        val dialSize = minOf(242,
-            (resources.displayMetrics.widthPixels / resources.displayMetrics.density)
-                .toInt() - 45)
+        val dialSize = PremiumHomeLayout.dialSizeDp(
+            (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt())
         val power = PowerOrbView(this).apply {
             isClickable = true
             isFocusable = true
