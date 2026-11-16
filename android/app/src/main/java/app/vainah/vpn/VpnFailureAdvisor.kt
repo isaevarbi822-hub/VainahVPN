@@ -20,7 +20,8 @@ object VpnFailureAdvisor {
         ),
         "resolving_h1cloud_before_vpn" to VpnFailureAdvice(
             "upstream_unreachable", "Не удалось проверить входной VPN-сервер",
-            "Проверь Wi-Fi/4G без VPN, обнови подписку и попробуй другую локацию."
+            "TCP-порт может отвечать, даже если VPN-протокол не работает. " +
+                "Проверь другой сервер и отправь обезличенный отчёт диагностики."
         ),
         "initializing_libbox_setup" to VpnFailureAdvice(
             "libbox_initialization", "Ошибка инициализации libbox",
@@ -28,7 +29,37 @@ object VpnFailureAdvisor {
         ),
         "validating_libbox_config" to VpnFailureAdvice(
             "config_validation", "Конфигурация не прошла проверку",
-            "Обнови подписку из личного кабинета. Не публикуй VLESS-ключ в поддержке."
+            "Подписка может быть действующей: встроенный libbox не принял " +
+                "параметры этого сервера (возможна несовместимость XHTTP/REALITY). " +
+                "Повторное обновление подписки само по себе это не исправит. " +
+                "Выбери другой сервер и отправь обезличенный отчёт."
+        ),
+        "validating_selected_profile" to VpnFailureAdvice(
+            "profile_invalid", "Параметры сервера не поддерживаются",
+            "Этот профиль не удалось преобразовать в конфигурацию VPN. " +
+                "Подписка может быть актуальной. Попробуй другой сервер " +
+                "и отправь обезличенный отчёт."
+        ),
+        "subscription_storage_unavailable" to VpnFailureAdvice(
+            "subscription_storage", "Сохранённая подписка недоступна",
+            "Приложение не может прочитать зашифрованную ссылку на устройстве. " +
+                "Проверь подписку в кабинете; не оплачивай повторно."
+        ),
+        "engine_unavailable" to VpnFailureAdvice(
+            "engine_missing", "VPN-движок отсутствует в этой сборке",
+            "Установи тестовую сборку VainahVPN с libbox. " +
+                "Повторное обновление подписки не поможет."
+        ),
+        "loading_libbox_service" to VpnFailureAdvice(
+            "transport_startup", "VPN-транспорт не запустился",
+            "Встроенный движок не смог запустить выбранный сервер. " +
+                "Попробуй другой сервер; для проверки XHTTP/REALITY " +
+                "отправь обезличенный отчёт."
+        ),
+        "starting_libbox_command_server" to VpnFailureAdvice(
+            "transport_startup", "VPN-транспорт не запустился",
+            "Встроенный движок не смог запустить выбранный сервер. " +
+                "Попробуй другой сервер и отправь обезличенный отчёт."
         ),
         "opening_android_tun" to VpnFailureAdvice(
             "tun_establishment", "Android не открыл VPN-туннель",

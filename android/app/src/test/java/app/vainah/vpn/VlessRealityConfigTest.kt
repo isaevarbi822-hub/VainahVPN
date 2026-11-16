@@ -148,6 +148,22 @@ class VlessRealityConfigTest {
         }
     }
 
+    @Test fun explicitHappAlpnIsPreservedForNativeHandshake() {
+        val outbound = VlessRealityConfig.outbound(
+            safeNode + "&alpn=h2%2Chttp%2F1.1")
+        val alpn = outbound.getJSONObject("tls").getJSONArray("alpn")
+        assertEquals(listOf("h2", "http/1.1"),
+            (0 until alpn.length()).map { alpn.getString(it) })
+        assertFalse(VlessRealityConfig.outbound(safeNode)
+            .getJSONObject("tls").has("alpn"))
+
+        for (bad in listOf("&alpn=%0A", "&alpn=h2%2C", "&alpn=h2%0Dfake")) {
+            assertThrows(IllegalArgumentException::class.java) {
+                VlessRealityConfig.outbound(safeNode + bad)
+            }
+        }
+    }
+
     @Test fun missingRealityParametersCannotStartTunnel() {
         for (bad in listOf(
             "vless://00000000-0000-4000-8000-000000000001@example.org:443",

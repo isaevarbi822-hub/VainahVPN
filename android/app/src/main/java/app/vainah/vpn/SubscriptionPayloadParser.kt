@@ -170,6 +170,16 @@ object SubscriptionPayloadParser {
             URLEncoder.encode(tagged, "UTF-8").replace("+", "%20")
     }
 
+    /** Preserve only negotiated protocol names, never private profile fields. */
+    private fun alpnFromJson(settings: JSONObject?): String = when (
+        val value = settings?.opt("alpn")
+    ) {
+        is JSONArray -> (0 until minOf(value.length(), 8))
+            .joinToString(",") { value.optString(it) }
+        is String -> value.take(128)
+        else -> ""
+    }
+
     private fun xrayLinks(item: JSONObject): List<String> {
         val stream = item.optJSONObject("streamSettings") ?: return emptyList()
         val security = stream.optString("security").lowercase()
@@ -182,6 +192,8 @@ object SubscriptionPayloadParser {
             reality?.optString("serverName").orEmpty()
         else tls?.optString("serverName").orEmpty()
         val pbk = reality?.optString("publicKey").orEmpty()
+        val alpn = alpnFromJson(if (security == "reality") reality else tls)
+            .ifBlank { alpnFromJson(tls) }
         if (security == "reality" && (sni.isBlank() || pbk.isBlank()))
             return emptyList()
         val transportSettings = if (network in listOf("xhttp", "splithttp"))
@@ -218,7 +230,7 @@ object SubscriptionPayloadParser {
                         ?: tls?.optString("fingerprint", "chrome") ?: "chrome",
                     user.optString("flow"), item.optString("tag"),
                     security, network, path, serviceName, mode, host, padding,
-                    xhttpExtra
+                    xhttpExtra, alpn
                 )?.let { result.add(it) }
                 if (result.size > MAX_NODES) return emptyList()
             }
@@ -255,7 +267,7 @@ object SubscriptionPayloadParser {
                     options.optString("xPaddingBytes")
                 }
             }.orEmpty(),
-            xhttpExtra
+            xhttpExtra, alpnFromJson(tls)
         )
     }
 
@@ -264,7 +276,8 @@ object SubscriptionPayloadParser {
         sid: String, fp: String, flow: String, label: String,
         security: String, network: String, path: String, serviceName: String,
         mode: String, httpHost: String, padding: String,
-        xhttpExtra: String = ""
+        xhttpExtra: String = "",
+        alpn: String = ""
     ): String? {
         if (uuid.length > 64 || runCatching { UUID.fromString(uuid) }.isFailure ||
             host.isBlank() || host.length > 253 || port !in 1..65535 ||
@@ -273,7 +286,7 @@ object SubscriptionPayloadParser {
             fp.length > 80 || sid.length > 128 || flow.length > 128 ||
             path.length > 512 || serviceName.length > 256 ||
             mode.length > 24 || httpHost.length > 253 || padding.length > 30 ||
-            xhttpExtra.length > 4096) return null
+            xhttpExtra.length > 4096 || alpn.length > 128) return null
         val authority = if (host.contains(':') && !host.startsWith("[")) "[" + host + "]" else host
         fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
         val query = buildList {
@@ -283,6 +296,7 @@ object SubscriptionPayloadParser {
             if (pbk.isNotBlank()) add("pbk=" + enc(pbk))
             add("fp=" + enc(fp.ifBlank { "chrome" }))
             if (sid.isNotBlank()) add("sid=" + enc(sid))
+            if (alpn.isNotBlank()) add("alpn=" + enc(alpn))
             if (flow.isNotBlank()) add("flow=" + enc(flow))
             if (path.isNotBlank()) add("path=" + enc(path))
             if (serviceName.isNotBlank()) add("serviceName=" + enc(serviceName))
