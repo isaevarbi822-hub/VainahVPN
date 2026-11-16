@@ -30,6 +30,9 @@ import java.util.concurrent.Executors
  */
 class NativeCabinetActivity : Activity() {
     private val executor = Executors.newSingleThreadExecutor()
+    // Independent read-only API calls should not block one after another.
+    // A fixed-size pool bounds request concurrency on slower mobile networks.
+    private val loaders = Executors.newFixedThreadPool(5)
     private lateinit var api: NativeCabinetApi
     private var catalog: NativeCabinetCatalog.Snapshot? = null
     private var checkoutReady = false
@@ -86,6 +89,7 @@ class NativeCabinetActivity : Activity() {
 
     override fun onDestroy() {
         executor.shutdownNow()
+        loaders.shutdownNow()
         super.onDestroy()
     }
 
@@ -270,53 +274,83 @@ class NativeCabinetActivity : Activity() {
         val emailConfig: JSONObject?
     )
 
+    private fun <T> loadAsync(block: () -> T): java.util.concurrent.Future<T?> =
+        loaders.submit(java.util.concurrent.Callable<T?> {
+            runCatching { block() }.getOrNull()
+        })
+
+    private fun <T> awaitLoaded(
+        future: java.util.concurrent.Future<T?>?
+    ): T? = runCatching {
+        future?.get(25, java.util.concurrent.TimeUnit.SECONDS)
+    }.getOrNull()
+
     private fun refresh() {
         perform({
-            val plans = runCatching {
+            // All read-only requests are independent. Starting them together
+            // avoids waiting for up to eight consecutive HTTPS timeouts.
+            val authType = api.authCookieName()
+            val plansFuture = loadAsync {
                 api.get(NativeCabinetCatalog.CATALOG_ENDPOINT)
                     .takeIf { it.ok }?.json?.let {
                         NativeCabinetCatalog.parse(it.toString())
                     }
-            }.getOrNull()
-            val checkout = runCatching {
+            }
+            val checkoutFuture = loadAsync {
                 api.get(NativeCabinetCatalog.CHECKOUT_STATUS_ENDPOINT)
-                    .json?.optBoolean("checkout_ready", false) ?: false
-            }.getOrDefault(false)
-            val trial = runCatching {
-                api.get(NativeCabinetCatalog.TRIAL_ENDPOINT).json
-            }.getOrNull()
-            val social = runCatching {
+                    .takeIf { it.ok }?.json?.optBoolean("checkout_ready", false)
+            }
+            val trialFuture = loadAsync {
+                api.get(NativeCabinetCatalog.TRIAL_ENDPOINT)
+                    .takeIf { it.ok }?.json
+            }
+            val socialFuture = loadAsync {
                 api.get("/api/mobile-auth/config").takeIf { it.ok }?.json
-            }.getOrNull()
-            val emailConfig = runCatching {
+            }
+            val mailConfigFuture = loadAsync {
                 api.get("/api/email-auth/config").takeIf { it.ok }?.json
-            }.getOrNull()
-            val auth = runCatching {
-                api.get("/api/email-auth/account").json
-            }.getOrNull()
-            val email = if (auth?.optBoolean("authenticated") == true)
-                auth.optJSONObject("user")?.optString("email")?.take(254) else null
-            val telegram = if (email == null &&
-                api.authCookieName() == "__Host-vainah_session")
-                runCatching {
-                    api.get("/api/telegram/account").takeIf { it.ok }
-                        ?.json?.takeIf { it.optBoolean("authenticated") }
+            }
+            val emailFuture = if (authType == "__Host-vainah_email_session")
+                loadAsync {
+                    api.get("/api/email-auth/account")
+                        .takeIf { it.ok }?.json
+                        ?.takeIf { it.optBoolean("authenticated") }
+                        ?.optJSONObject("user")?.optString("email")?.take(254)
+                } else null
+            val telegramFuture = if (authType == "__Host-vainah_session")
+                loadAsync {
+                    api.get("/api/telegram/account")
+                        .takeIf { it.ok }?.json
+                        ?.takeIf { it.optBoolean("authenticated") }
                         ?.optJSONObject("user")
                         ?.let {
                             val username = it.optString("username").take(32)
                             if (username.isNotBlank()) "@$username" else
                                 "Telegram ID " + it.optString("telegram_id").take(18)
                         }
-                }.getOrNull()
-            else null
-            val overview = if (email != null || telegram != null) runCatching {
+                } else null
+            val overviewFuture = if (authType != null) loadAsync {
                 api.get("/api/account/overview").takeIf { it.ok }?.json
-            }.getOrNull() else null
-            val trialStatus = if (email != null) runCatching {
-                api.get("/api/trial/status").takeIf { it.ok }?.json
-            }.getOrNull() else null
-            Loaded(plans, checkout, trial, email, telegram, overview,
-                trialStatus, social, emailConfig)
+            } else null
+            val trialStatusFuture = if (authType == "__Host-vainah_email_session")
+                loadAsync {
+                    api.get("/api/trial/status").takeIf { it.ok }?.json
+                } else null
+
+            val email = awaitLoaded(emailFuture)
+            val telegram = if (email == null) awaitLoaded(telegramFuture) else null
+            // Never present data for an invalid/expired identity.
+            val validIdentity = email != null || telegram != null
+            Loaded(
+                awaitLoaded(plansFuture),
+                awaitLoaded(checkoutFuture) == true,
+                awaitLoaded(trialFuture),
+                email, telegram,
+                if (validIdentity) awaitLoaded(overviewFuture) else null,
+                if (email != null) awaitLoaded(trialStatusFuture) else null,
+                awaitLoaded(socialFuture),
+                awaitLoaded(mailConfigFuture)
+            )
         }) { result ->
             result.onSuccess {
                 catalog = it.plans
@@ -330,7 +364,8 @@ class NativeCabinetActivity : Activity() {
                 telegramAvailable = it.socialConfig?.optBoolean("telegram") == true
                 emailConfigKnown = it.emailConfig != null
                 emailConfigured = it.emailConfig?.optBoolean("available") == true
-                if (it.plans == null) message = "Не удалось загрузить тарифы. Проверь интернет."
+                if (it.plans == null)
+                    message = "Не удалось загрузить тарифы. Проверь интернет."
             }.onFailure {
                 message = "Нет связи с личным кабинетом. Подключение VPN не затронуто."
             }
