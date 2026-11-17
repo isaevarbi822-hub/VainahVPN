@@ -127,6 +127,44 @@ internal object XhttpCompatibility {
         "h_keep_alive_period" to "h_keep_alive_period"
     )
 
+    private fun normalizeXmuxRange(value: Any): String {
+        // Match the pinned core's XmuxRange decoder and parseRange: empty
+        // strings are unset, arrays have one or two integers, bounds may be
+        // reversed, and surrounding whitespace is insignificant. Keep ""
+        // distinct from "0": only an entirely unset section gets defaults.
+        val parts = when (value) {
+            is String -> {
+                val trimmed = value.trim()
+                if (trimmed.isEmpty()) return ""
+                trimmed.split('-').map { it.trim() }
+            }
+            is Number -> listOf(value.toString())
+            is JSONArray -> {
+                require(value.length() in 1..2) { "Invalid XHTTP xmux range" }
+                (0 until value.length()).map { i ->
+                    val part = value.opt(i)
+                    require(part is Number) { "Invalid XHTTP xmux range" }
+                    part.toString()
+                }
+            }
+            else -> throw IllegalArgumentException("Invalid XHTTP xmux range")
+        }
+        require(parts.size in 1..2 && parts.all {
+            it.matches(Regex("[0-9]{1,10}"))
+        }) { "Invalid XHTTP xmux range" }
+        val bounds = parts.map {
+            // A single bound must also fit Go's int on 32-bit Android ABIs.
+            // Never truncate a fractional Number or pass overflowing strings.
+            val number = it.toLongOrNull()
+            require(number != null && number in 0..Int.MAX_VALUE.toLong()) {
+                "Invalid XHTTP xmux range"
+            }
+            number
+        }
+        return if (bounds.size == 1) bounds.single().toString()
+            else "${bounds.min()}-${bounds.max()}"
+    }
+
     private fun normalizeXmux(value: Any): JSONObject {
         require(value is JSONObject && value.length() <= 6 &&
             value.toString().length <= 1024) { "Invalid XHTTP xmux" }
@@ -153,18 +191,7 @@ internal object XhttpCompatibility {
                 }
                 result.put(dest, period)
             } else {
-                val good = when (raw) {
-                    is String -> raw.matches(Regex("[0-9]{1,10}(-[0-9]{1,10})?"))
-                    is Number -> raw.toLong() in 0..1_000_000_000L
-                    is JSONArray -> raw.length() == 2 &&
-                        (0..1).all { i ->
-                            val part = raw.opt(i)
-                            part is Number && part.toLong() in 0..1_000_000_000L
-                        }
-                    else -> false
-                }
-                require(good) { "Invalid XHTTP xmux range" }
-                result.put(dest, raw)
+                result.put(dest, normalizeXmuxRange(raw))
             }
         }
         // Xray rejects max_connections together with max_concurrency only
@@ -172,13 +199,8 @@ internal object XhttpCompatibility {
         // means no active limit, and is a legitimate Xray export.
         // Rejecting mere presence of both fields blocked valid H1Cloud nodes.
         fun upperBound(name: String): Long {
-            val raw = result.opt(name) ?: return 0
-            return when (raw) {
-                is Number -> raw.toLong()
-                is String -> raw.split('-').maxOfOrNull { it.toLongOrNull() ?: 0L } ?: 0L
-                is JSONArray -> (raw.opt(1) as? Number)?.toLong() ?: 0
-                else -> 0
-            }
+            // All supported input forms now share sorted, integral bounds.
+            return result.optString(name).substringAfterLast('-').toLongOrNull() ?: 0
         }
         require(!(upperBound("max_concurrency") > 0 &&
             upperBound("max_connections") > 0)) {
@@ -224,6 +246,9 @@ internal object XhttpCompatibility {
                 "Unsupported XHTTP option"
             )
             val value = extra.opt(key)
+            // A null optional XMUX section selects native defaults, just like
+            // an absent section. Do not turn it into explicit zero limits.
+            if (target == "xmux" && value == JSONObject.NULL) continue
             require(value != null && value != JSONObject.NULL)
             chosen[target] = value
         }

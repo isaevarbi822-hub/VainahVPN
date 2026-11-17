@@ -1,5 +1,6 @@
 package app.vainah.vpn
 
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -123,8 +124,26 @@ class VlessRealityConfigTest {
             .put("maxConcurrency", "8-16").put("maxConnections", "0-0"))
         val zeroConcurrencyLimit = JSONObject().put("xmux", JSONObject()
             .put("maxConcurrency", "0-0").put("maxConnections", "3-3"))
+        val nativeXmuxCases = listOf(
+            "empty" to JSONObject().put("maxConcurrency", "")
+                .put("maxConnections", "  ").put("cMaxReuseTimes", "")
+                .put("hMaxRequestTimes", "").put("hMaxReusableSecs", "")
+                .put("hKeepAlivePeriod", 0),
+            "singleton" to JSONObject().put("maxConnections", JSONArray().put(3))
+                .put("maxConcurrency", JSONArray().put(0)),
+            "reversed" to JSONObject().put("maxConnections", JSONArray().put(3).put(0)),
+            "spaced" to JSONObject().put("maxConnections", " 3 - 3 ")
+                .put("hMaxRequestTimes", " 600 - 900 "),
+            "max-int" to JSONObject().put("hMaxRequestTimes", Int.MAX_VALUE),
+            "null" to JSONObject.NULL
+        )
+        val unusedXhttp = "&path=unused&mode=legacy&x_padding_bytes=unused&extra=not-json"
         val examples = listOf(
             "reality-tcp" to safeNode,
+            "reality-raw-vision" to (safeNode.replace("type=tcp", "type=raw") +
+                "&flow=xtls-rprx-vision"),
+            "reality-tcp-unused-xhttp" to (safeNode + unusedXhttp),
+            "reality-grpc-unused-xhttp" to (grpcReality + unusedXhttp),
             "reality-grpc" to grpcReality,
             "reality-xhttp" to realityXhttp,
             "tls-xhttp" to tlsXhttp,
@@ -137,6 +156,11 @@ class VlessRealityConfigTest {
         ) + extraCases.map { (name, value) ->
             "xhttp-$name" to realityXhttp + "&extra=" +
                 java.net.URLEncoder.encode(value.toString(), "UTF-8")
+        } + listOf("tls" to tlsXhttp, "reality" to realityXhttp).flatMap { (security, uri) ->
+            nativeXmuxCases.map { (name, xmux) ->
+                "$security-xhttp-xmux-$name" to uri + "&extra=" +
+                    java.net.URLEncoder.encode(JSONObject().put("xmux", xmux).toString(), "UTF-8")
+            }
         }
         for ((name, node) in examples) {
             java.nio.file.Files.write(
@@ -243,6 +267,26 @@ class VlessRealityConfigTest {
         val ambiguous = safeNode + "&SECURITY=tls"
         assertThrows(IllegalArgumentException::class.java) {
             VlessRealityConfig.outbound(ambiguous)
+        }
+    }
+
+    @Test fun tcpRealityVisionAndGrpcDoNotValidateUnusedXhttpOptions() {
+        val unused = "&path=not-an-http-path&mode=legacy&x_padding_bytes=unused&extra=not-json"
+        for (network in listOf("tcp", "raw")) {
+            val node = safeNode.replace("type=tcp", "type=$network") +
+                "&flow=xtls-rprx-vision" + unused
+            val outbound = VlessRealityConfig.outbound(node)
+            assertTrue(SubscriptionNodeSupport.canConnect(node))
+            assertFalse(outbound.has("transport"))
+            assertEquals("xtls-rprx-vision", outbound.getString("flow"))
+            assertEquals("1234", outbound.getJSONObject("tls")
+                .getJSONObject("reality").getString("short_id"))
+        }
+        val grpc = VlessRealityConfig.outbound(safeNode.replace("type=tcp", "type=grpc") +
+            "&serviceName=vpn" + unused)
+        assertEquals("vpn", grpc.getJSONObject("transport").getString("service_name"))
+        assertThrows(IllegalArgumentException::class.java) {
+            VlessRealityConfig.outbound(safeNode.replace("type=tcp", "type=xhttp") + unused)
         }
     }
 

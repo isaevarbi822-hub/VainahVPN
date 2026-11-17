@@ -77,29 +77,6 @@ object VlessRealityConfig {
         require(flow == null || flow == "xtls-rprx-vision") {
             "Unsupported VLESS flow"
         }
-        val serviceName = (params["serviceName"] ?: params["service_name"]).orEmpty()
-        require(serviceName.length <= 256 && !serviceName.contains('\n') &&
-            !serviceName.contains('\r')) { "Invalid gRPC service name" }
-        // Only a missing/empty path gets the protocol default. A decoded
-        // whitespace/control-only path must fail validation, not be hidden
-        // by an ifBlank("/") fallback.
-        val xhttpPath = params["path"]?.takeIf { it.isNotEmpty() } ?: "/"
-        val xhttpHost = params["host"].orEmpty()
-        val xhttpMode = params["mode"].orEmpty().ifBlank { "auto" }
-        val padding = params["x_padding_bytes"].orEmpty()
-        require(xhttpPath.length in 1..512 && xhttpPath.startsWith('/') &&
-            !xhttpPath.contains('\n') && !xhttpPath.contains('\r')) {
-            "Invalid XHTTP path"
-        }
-        require(xhttpHost.length <= 253 && !xhttpHost.contains('\n') &&
-            !xhttpHost.contains('\r')) { "Invalid XHTTP host" }
-        require(xhttpMode in listOf("auto", "packet-up", "stream-up", "stream-one")) {
-            "Invalid XHTTP mode"
-        }
-        require(padding.isBlank() ||
-            padding.matches(Regex("[0-9]{1,5}(-[0-9]{1,5})?"))) {
-            "Invalid XHTTP padding"
-        }
         return JSONObject().apply {
             put("type", "vless")
             put("tag", "vainah-selected")
@@ -110,10 +87,33 @@ object VlessRealityConfig {
             put("domain_resolver", "dns-bootstrap")
             flow?.let { put("flow", it) }
             if (transport == "grpc") put("transport", JSONObject().apply {
+                val serviceName = (params["serviceName"] ?: params["service_name"]).orEmpty()
+                require(serviceName.length <= 256 && !serviceName.contains('\n') &&
+                    !serviceName.contains('\r')) { "Invalid gRPC service name" }
                 put("type", "grpc")
                 put("service_name", serviceName)
             })
             if (transport == "xhttp" || transport == "splithttp") {
+                // Only a missing/empty path gets the protocol default. A decoded
+                // whitespace/control-only path must fail validation, not be hidden
+                // by an ifBlank("/") fallback.
+                val xhttpPath = params["path"]?.takeIf { it.isNotEmpty() } ?: "/"
+                val xhttpHost = params["host"].orEmpty()
+                val xhttpMode = params["mode"].orEmpty().ifBlank { "auto" }
+                val padding = params["x_padding_bytes"].orEmpty()
+                require(xhttpPath.length in 1..512 && xhttpPath.startsWith('/') &&
+                    !xhttpPath.contains('\n') && !xhttpPath.contains('\r')) {
+                    "Invalid XHTTP path"
+                }
+                require(xhttpHost.length <= 253 && !xhttpHost.contains('\n') &&
+                    !xhttpHost.contains('\r')) { "Invalid XHTTP host" }
+                require(xhttpMode in listOf("auto", "packet-up", "stream-up", "stream-one")) {
+                    "Invalid XHTTP mode"
+                }
+                require(padding.isBlank() ||
+                    padding.matches(Regex("[0-9]{1,5}(-[0-9]{1,5})?"))) {
+                    "Invalid XHTTP padding"
+                }
                 val xhttp = JSONObject().apply {
                     put("type", "xhttp")
                     put("mode", xhttpMode)

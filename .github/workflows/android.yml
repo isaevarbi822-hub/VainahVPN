@@ -61,8 +61,8 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           configs=("$CONFIG_DIR"/*.json)
-          if [ "${#configs[@]}" -ne 15 ]; then
-            echo "::error::Expected fifteen synthetic VPN configs from JVM tests"
+          if [ "${#configs[@]}" -ne 30 ]; then
+            echo "::error::Expected thirty synthetic VPN configs from JVM tests"
             exit 1
           fi
           mkdir -p "$RUNNER_TEMP/vainah-sing-box"
@@ -79,7 +79,7 @@ jobs:
       - name: Store isolated Android preview
         uses: actions/upload-artifact@v4
         with:
-          name: VainahVPN-Android-3.0.0-alpha.1-Ultra-Native-XHTTP
+          name: VainahVPN-Android-3.0.0-alpha.2-Ultra-Native-XHTTP
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
@@ -147,7 +147,7 @@ jobs:
         if: steps.check.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: VainahVPN-Android-3.0.0-alpha.1-Ultra-Native-XHTTP-Clerk
+          name: VainahVPN-Android-3.0.0-alpha.2-Ultra-Native-XHTTP-Clerk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
