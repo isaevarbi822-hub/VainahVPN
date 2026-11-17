@@ -135,6 +135,8 @@ class VlessRealityConfigTest {
             "spaced" to JSONObject().put("maxConnections", " 3 - 3 ")
                 .put("hMaxRequestTimes", " 600 - 900 "),
             "max-int" to JSONObject().put("hMaxRequestTimes", Int.MAX_VALUE),
+            "encoded-object" to JSONObject().put("maxConnections", "3-3")
+                .put("hMaxRequestTimes", "600-900").toString(),
             "null" to JSONObject.NULL
         )
         val unusedXhttp = "&path=unused&mode=legacy&x_padding_bytes=unused&extra=not-json"

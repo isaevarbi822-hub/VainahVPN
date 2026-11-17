@@ -72,6 +72,10 @@ object SubscriptionNodeSupport {
         "Invalid XHTTP xmux keepalive" -> "xhttp_xmux_invalid_keepalive"
         "Duplicate XHTTP xmux setting" -> "xhttp_xmux_duplicate_key"
         "Invalid XHTTP xmux" -> "xhttp_xmux_invalid"
+        "Invalid XHTTP xmux type" -> "xhttp_xmux_invalid_type"
+        "Invalid XHTTP xmux JSON" -> "xhttp_xmux_invalid_json"
+        "XHTTP xmux too large" -> "xhttp_xmux_too_large"
+        "Too many XHTTP xmux fields" -> "xhttp_xmux_too_many_fields"
         "Invalid XHTTP mode", "Invalid XHTTP path", "Invalid XHTTP host",
         "Invalid XHTTP padding", "Invalid XHTTP extra", "XHTTP extra too large",
         "Too many XHTTP options", "Invalid XHTTP option value",
@@ -83,6 +87,19 @@ object SubscriptionNodeSupport {
         "Invalid ALPN" -> "tls_alpn_invalid"
         else -> "profile_invalid"
     }
+
+    private val rejectionCodes = setOf(
+        "ok", "profile_unrecognized", "profile_invalid", "native_xhttp_missing",
+        "xhttp_extra_unsupported", "xhttp_xmux_unknown_field",
+        "xhttp_xmux_conflicting_limits", "xhttp_xmux_invalid_range",
+        "xhttp_xmux_invalid_keepalive", "xhttp_xmux_duplicate_key", "xhttp_xmux_invalid",
+        "xhttp_xmux_invalid_type", "xhttp_xmux_invalid_json", "xhttp_xmux_too_large",
+        "xhttp_xmux_too_many_fields", "xhttp_options_invalid",
+        "vless_flow_incompatible", "tls_alpn_invalid"
+    )
+
+    fun safeRejectionCode(candidate: String?): String =
+        candidate?.takeIf { it in rejectionCodes } ?: "unknown"
 
     fun safeBlockMessage(details: Details?): String = when (details?.rejectionCode) {
         "native_xhttp_missing" ->
@@ -104,6 +121,18 @@ object SubscriptionNodeSupport {
         "xhttp_xmux_invalid" ->
             "В настройках XMUX указан несовместимый или неправильный параметр. " +
                 "Проверь экспорт сервера в H1Cloud."
+        "xhttp_xmux_invalid_type" ->
+            "XMUX должен быть объектом настроек. Получен другой тип данных. " +
+                "Скопируй отчёт на вкладке «Диагностика»."
+        "xhttp_xmux_invalid_json" ->
+            "XMUX передан текстом, который не удалось разобрать как объект JSON. " +
+                "Скопируй отчёт на вкладке «Диагностика»."
+        "xhttp_xmux_too_large" ->
+            "Объект XMUX превышает допустимый размер. " +
+                "Скопируй отчёт на вкладке «Диагностика»."
+        "xhttp_xmux_too_many_fields" ->
+            "В объекте XMUX слишком много полей. " +
+                "Скопируй отчёт на вкладке «Диагностика»."
         "xhttp_options_invalid" ->
             "Параметры XHTTP не прошли проверку. Проверь режим, путь и дополнительные настройки сервера."
         "vless_flow_incompatible" ->

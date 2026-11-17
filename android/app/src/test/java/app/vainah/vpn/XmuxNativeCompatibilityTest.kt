@@ -71,9 +71,35 @@ class XmuxNativeCompatibilityTest {
     @Test fun nullSectionUsesNativeDefaultsButMalformedSectionsStillFail() {
         assertFalse(VlessRealityConfig.outbound(node(JSONObject.NULL))
             .getJSONObject("transport").has("xmux"))
-        for (value in listOf<Any>("{}", "", 0, JSONArray(), true)) {
+        for (value in listOf<Any>("", 0, JSONArray(), true)) {
             assertThrows(IllegalArgumentException::class.java) { converted(value) }
         }
+    }
+
+    @Test fun encodedXmuxObjectHasTheSameNativeMeaning() {
+        val settings = JSONObject().put("maxConnections", "3-3")
+            .put("maxConcurrency", "").put("hMaxRequestTimes", JSONArray().put(600).put(900))
+        assertEquals(converted(settings).toString(), converted(settings.toString()).toString())
+        assertEquals(0, converted("{}").length())
+        assertTrue(SubscriptionNodeSupport.canConnect(node(settings.toString())))
+        for (bad in listOf("{} trailing", "[]", "null", "{", "\"{}\"")) {
+            assertEquals("xhttp_xmux_invalid_json", SubscriptionNodeSupport.inspect(node(bad))?.rejectionCode)
+        }
+    }
+
+    @Test fun rootXmuxErrorsHavePreciseSafeCodes() {
+        val sevenFields = JSONObject().put("maxConcurrency", "")
+            .put("maxConnections", "").put("cMaxReuseTimes", "")
+            .put("hMaxRequestTimes", "").put("hMaxReusableSecs", "")
+            .put("hKeepAlivePeriod", 0).put("private_unknown_name", "secret")
+        assertEquals("xhttp_xmux_unknown_field", SubscriptionNodeSupport.inspect(node(sevenFields))?.rejectionCode)
+        assertEquals("xhttp_xmux_invalid_type", SubscriptionNodeSupport.inspect(node(false))?.rejectionCode)
+        assertEquals("xhttp_xmux_too_large", SubscriptionNodeSupport.inspect(node("x".repeat(1025)))?.rejectionCode)
+        val manyFields = JSONObject().apply { repeat(13) { put("private_$it", 0) } }
+        assertEquals("xhttp_xmux_too_many_fields", SubscriptionNodeSupport.inspect(node(manyFields))?.rejectionCode)
+        val info = SubscriptionNodeSupport.safeBlockMessage(SubscriptionNodeSupport.inspect(node(sevenFields)))
+        assertFalse(info.contains("secret"))
+        assertFalse(info.contains("private_unknown_name"))
     }
 
     @Test fun bothSubscriptionJsonFormatsPreserveXmuxAndServerEligibility() {

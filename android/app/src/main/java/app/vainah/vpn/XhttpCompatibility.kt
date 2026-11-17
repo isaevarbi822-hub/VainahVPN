@@ -2,6 +2,7 @@ package app.vainah.vpn
 
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 
 /**
  * Preserve the supported Xray XHTTP wire options instead of silently
@@ -166,18 +167,38 @@ internal object XhttpCompatibility {
     }
 
     private fun normalizeXmux(value: Any): JSONObject {
-        require(value is JSONObject && value.length() <= 6 &&
-            value.toString().length <= 1024) { "Invalid XHTTP xmux" }
+        require(value.toString().length <= 1024) { "XHTTP xmux too large" }
+        // Some subscription serializers encode nested options as JSON text,
+        // just as xhttpSettings.extra itself may be JSON text. Decode one
+        // object only; never discard malformed/unknown fields or recurse.
+        val settings = when (value) {
+            is JSONObject -> value
+            is String -> try {
+                val parser = JSONTokener(value)
+                val parsed = parser.nextValue()
+                require(parsed is JSONObject && parser.nextClean() == '\u0000')
+                parsed
+            } catch (_: Exception) {
+                throw IllegalArgumentException("Invalid XHTTP xmux JSON")
+            }
+            else -> throw IllegalArgumentException("Invalid XHTTP xmux type")
+        }
+        // Count aliases only after reading their names, so an unknown seventh
+        // field gets an accurate error instead of the old generic rejection.
+        require(settings.length() <= 12) { "Too many XHTTP xmux fields" }
         val result = JSONObject()
-        val keys = value.keys()
+        val keys = settings.keys()
         while (keys.hasNext()) {
             val source = keys.next()
             val dest = xmuxNames[source] ?: throw IllegalArgumentException(
                 "Unsupported XHTTP xmux setting"
             )
             require(!result.has(dest)) { "Duplicate XHTTP xmux setting" }
-            val raw = value.opt(source)
-            require(raw != null && raw != JSONObject.NULL)
+            val raw = settings.opt(source)
+            require(raw != null && raw != JSONObject.NULL) {
+                if (dest == "h_keep_alive_period") "Invalid XHTTP xmux keepalive"
+                else "Invalid XHTTP xmux range"
+            }
             if (dest == "h_keep_alive_period") {
                 val period = when (raw) {
                     is Int -> raw

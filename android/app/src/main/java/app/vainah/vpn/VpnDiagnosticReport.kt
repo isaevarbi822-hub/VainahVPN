@@ -48,7 +48,10 @@ object VpnDiagnosticReport {
         nativeCore: String? = null,
         selectedTransport: String? = null,
         selectedSecurity: String? = null,
-        libboxRejectedOption: String? = null
+        libboxRejectedOption: String? = null,
+        profileCheckTransport: String? = null,
+        profileCheckSecurity: String? = null,
+        profileCheckRejection: String? = null
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
@@ -59,6 +62,9 @@ object VpnDiagnosticReport {
         val safeApi = androidApiLevel.takeIf { it in 26..99 }?.toString() ?: "unknown"
         return listOf(
             "Vainah VPN Android diagnostic v1",
+            "app_version=${BuildConfig.VERSION_NAME}",
+            "app_version_code=${BuildConfig.VERSION_CODE}",
+            "native_xhttp_enabled=${if (BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED) "yes" else "no"}",
             "android_api=$safeApi",
             "phase=$safePhase",
             "service_running=${if (serviceRunning) "yes" else "no"}",
@@ -92,6 +98,13 @@ object VpnDiagnosticReport {
             "selected_security=${selectedSecurity?.takeIf {
                 it in setOf("tls", "reality", "unknown")
             } ?: "unknown"}",
+            "last_profile_check_transport=${profileCheckTransport?.takeIf {
+                it in setOf("tcp", "grpc", "xhttp")
+            } ?: "unknown"}",
+            "last_profile_check_security=${profileCheckSecurity?.takeIf {
+                it in setOf("tls", "reality")
+            } ?: "unknown"}",
+            "last_profile_check_result=${SubscriptionNodeSupport.safeRejectionCode(profileCheckRejection)}",
             "engine_failure=${VpnFailureAdvisor.sanitizedCode(failureCode)}",
             "libbox_validation_detail=${LibboxValidationDetail.safeCode(libboxDetail)}",
             "libbox_rejected_option=${LibboxValidationDetail.safeOption(libboxRejectedOption)}",

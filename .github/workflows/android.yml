@@ -5,6 +5,8 @@ on:
     branches:
       - rewrite/android-v1
       - feat/unified-android-python
+    tags:
+      - 'android-preview-*'
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
@@ -61,8 +63,8 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           configs=("$CONFIG_DIR"/*.json)
-          if [ "${#configs[@]}" -ne 30 ]; then
-            echo "::error::Expected thirty synthetic VPN configs from JVM tests"
+          if [ "${#configs[@]}" -ne 32 ]; then
+            echo "::error::Expected thirty-two synthetic VPN configs from JVM tests"
             exit 1
           fi
           mkdir -p "$RUNNER_TEMP/vainah-sing-box"
@@ -79,7 +81,7 @@ jobs:
       - name: Store isolated Android preview
         uses: actions/upload-artifact@v4
         with:
-          name: VainahVPN-Android-3.0.0-alpha.2-Ultra-Native-XHTTP
+          name: VainahVPN-Android-3.0.0-alpha.3-Ultra-Native-XHTTP
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
@@ -147,7 +149,44 @@ jobs:
         if: steps.check.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: VainahVPN-Android-3.0.0-alpha.2-Ultra-Native-XHTTP-Clerk
+          name: VainahVPN-Android-3.0.0-alpha.3-Ultra-Native-XHTTP-Clerk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+
+  publish-preview:
+    name: Publish verified APK for direct download
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/android-preview-')
+    needs: android
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: VainahVPN-Android-3.0.0-alpha.3-Ultra-Native-XHTTP
+          path: preview
+      - name: Publish preview release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd preview
+          mv app-debug.apk VainahVPN-3.0.0-alpha.3-preview.apk
+          sha256sum VainahVPN-3.0.0-alpha.3-preview.apk > SHA256SUMS.txt
+          cat > release-notes.md <<EOF
+          Android preview 3.0.0-alpha.3 (version code 302).
+
+          Includes the XMUX range and TCP/REALITY fixes, support for an XMUX object encoded as JSON text, precise local rejection codes, and app version/local profile results in diagnostics.
+
+          Built from commit $GITHUB_SHA. JVM tests and all 32 synthetic native configuration checks passed before publication. Actual Turkey server connectivity still requires verification on an Android device.
+
+          This APK is debug-signed. Android requires a matching certificate to update an existing preview. Keep subscription access before replacing an installation signed with another key. No backend or Render deployment is included.
+          EOF
+          gh release create "$GITHUB_REF_NAME" \
+            VainahVPN-3.0.0-alpha.3-preview.apk SHA256SUMS.txt \
+            --repo "$GH_REPO" --verify-tag --prerelease --latest=false \
+            --title "VainahVPN 3.0.0-alpha.3-preview" \
+            --notes-file release-notes.md

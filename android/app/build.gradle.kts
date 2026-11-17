@@ -30,8 +30,8 @@ android {
         manifestPlaceholders["vainahAppLabel"] = "VainahVPN"
         minSdk = 26
         targetSdk = 35
-        versionCode = 301
-        versionName = "3.0.0-alpha.2"
+        versionCode = 302
+        versionName = "3.0.0-alpha.3"
         buildConfigField("boolean", "VAINAH_CLERK_ENABLED", if (clerkEnabled) "true" else "false")
         buildConfigField("String", "VAINAH_CLERK_PUBLISHABLE_KEY",
             "\""+clerkPublishableKey.replace("\\","").replace("\"","")+"\"")
