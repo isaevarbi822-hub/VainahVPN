@@ -507,13 +507,14 @@ class MainActivity : Activity() {
                 },
             ) {
                 val compatibility = SubscriptionNodeSupport.inspect(node.uri)
+                rememberProfileCheck(compatibility)
                 if (compatibility?.connectable != true) {
                     // A present XHTTP engine is NOT the same as a parseable
                     // subscription node. Never blame the native engine for
                     // locally rejected server options.
                     val code = compatibility?.rejectionCode ?: "profile_unrecognized"
                     popup(SubscriptionNodeSupport.safeBlockMessage(compatibility) +
-                        " Код: " + code)
+                        "\nКод: " + code + "\nВерсия: " + BuildConfig.VERSION_NAME)
                     return@row
                 }
                 val session = VpnConnectionState.read(this)
@@ -1092,7 +1093,10 @@ class MainActivity : Activity() {
                 selectedTransport = diag.getString("selected_transport", null),
                 selectedSecurity = diag.getString("selected_security", null),
                 libboxRejectedOption = if (current.phase == VpnConnectionState.FAILED)
-                    diag.getString("libbox_rejected_option", null) else null
+                    diag.getString("libbox_rejected_option", null) else null,
+                profileCheckTransport = diag.getString("profile_check_transport", null),
+                profileCheckSecurity = diag.getString("profile_check_security", null),
+                profileCheckRejection = diag.getString("profile_check_rejection", null)
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(
@@ -2143,6 +2147,18 @@ class MainActivity : Activity() {
                 SystemClock.elapsedRealtime(), nextAutoRefresh,
                 phase, SubscriptionInput.isDirectKey(link)))
             refreshServers(false)
+    }
+
+    private fun rememberProfileCheck(details: SubscriptionNodeSupport.Details?) {
+        // Preserve local rejection facts even when the VPN service never starts.
+        // Keep these separate from the active session's transport/security.
+        val code = if (details?.connectable == true) "ok"
+            else details?.rejectionCode ?: "profile_unrecognized"
+        getSharedPreferences("vpn_diagnostics", MODE_PRIVATE).edit()
+            .putString("profile_check_transport", details?.transport ?: "unknown")
+            .putString("profile_check_security", details?.security ?: "unknown")
+            .putString("profile_check_rejection", SubscriptionNodeSupport.safeRejectionCode(code))
+            .apply()
     }
 
     private fun connect() {
