@@ -43,4 +43,6 @@ def test_chat_and_ideas_work_in_core_navigation():
     hub = (STOREFRONT / "command-hub.html").read_text(encoding="utf-8")
     assert "ultra-control.js?v=20261114-chat1" in shell
     assert 'id="vx-hub-open-chat"' in hub
-    assert 'href="plans.html#vx-new-offers"' in hub
+    assert '<strong>Избранное и сравнение</strong>' in hub
+    assert 'href="plans.html#vx-new-offers"' not in hub
+    assert '<details class="container vx-concept-archive">' in (STOREFRONT / "plans.html").read_text(encoding="utf-8")
