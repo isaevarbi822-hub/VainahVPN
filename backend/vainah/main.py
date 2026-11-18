@@ -14,6 +14,7 @@ from .account_feed import router as account_feed_router
 from .auth import auth_public_config
 from .auth import router as auth_router
 from .billing import router as shop_router
+from .platega import router as platega_router
 from .config import Settings, deployment_commit
 from .connection_check import router as connection_check_router
 from .customer_portal import router as customer_router
@@ -50,6 +51,7 @@ settings = Settings.from_env()
 app = FastAPI(title="Vainah VPN", version=settings.version, docs_url="/docs", redoc_url=None)
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 app.include_router(shop_router)
+app.include_router(platega_router)
 app.include_router(auth_router)
 app.include_router(h1_router)
 app.include_router(h1_trial_router)
