@@ -75,7 +75,7 @@ def test_v5_layout_respects_mobile_and_reduced_motion():
 
 def _catalog_fixture() -> str:
     js = (SITE / "tariff-catalog.js").read_text(encoding="utf-8")
-    match = re.search(r"const paidIds=new Set\(\[(.*?)\]\);", js, re.S)
+    match = re.search(r"const paidIds=new Set\(\[(.*?)\]\);", js, re.DOTALL)
     assert match
     ids = re.findall(r"'([a-z0-9-]+)'", match.group(1))
     assert len(ids) == 75
