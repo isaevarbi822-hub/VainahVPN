@@ -51,7 +51,8 @@ object VpnDiagnosticReport {
         libboxRejectedOption: String? = null,
         profileCheckTransport: String? = null,
         profileCheckSecurity: String? = null,
-        profileCheckRejection: String? = null
+        profileCheckRejection: String? = null,
+        turkeyAudit: List<TurkeyServerAudit.Entry> = emptyList()
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
@@ -105,6 +106,12 @@ object VpnDiagnosticReport {
                 it in setOf("tls", "reality")
             } ?: "unknown"}",
             "last_profile_check_result=${SubscriptionNodeSupport.safeRejectionCode(profileCheckRejection)}",
+            "turkey_1_local_profile=${turkeyAudit.firstOrNull {
+                it.slot == TurkeyLteGroups.Slot.ONE
+            }?.safeDiagnostic ?: "unknown"}",
+            "turkey_ip_local_profile=${turkeyAudit.firstOrNull {
+                it.slot == TurkeyLteGroups.Slot.IP
+            }?.safeDiagnostic ?: "unknown"}",
             "engine_failure=${VpnFailureAdvisor.sanitizedCode(failureCode)}",
             "libbox_validation_detail=${LibboxValidationDetail.safeCode(libboxDetail)}",
             "libbox_rejected_option=${LibboxValidationDetail.safeOption(libboxRejectedOption)}",
