@@ -1,8 +1,6 @@
 """Subscription display regression: paid, linked email and manual grants."""
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 from fastapi.testclient import TestClient
 
