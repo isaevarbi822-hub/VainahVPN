@@ -29,6 +29,7 @@ from .h1_trial import router as h1_trial_router
 from .inspector import InvalidSubscription, inspect_subscription
 from .integration_status import integration_status
 from .mobile_auth import router as mobile_auth_router
+from .manual_grants import router as manual_grants_router, customer_router as customer_manual_router
 from .platega import router as platega_router
 from .public_locations import public_locations
 from .public_trial import router as public_trial_router
@@ -62,6 +63,8 @@ app.include_router(email_auth_router)
 app.include_router(google_auth_router)
 app.include_router(mobile_auth_router)
 app.include_router(customer_router)
+app.include_router(manual_grants_router)
+app.include_router(customer_manual_router)
 app.include_router(device_registry_router)
 app.include_router(public_trial_router)
 app.include_router(speedtest_router)
@@ -113,6 +116,9 @@ async def security_headers(request: Request, call_next):
         "/operator-pilot.html",
         "/operator-pilot.js",
         "/operator-pilot.css",
+        "/operator-grants.html",
+        "/operator-grants.js",
+        "/operator-grants.css",
         "/operations.html",
         "/operations.css",
         "/operations.js",
@@ -206,6 +212,9 @@ async def security_headers(request: Request, call_next):
         "/operator-pilot.html",
         "/operator-pilot.js",
         "/operator-pilot.css",
+        "/operator-grants.html",
+        "/operator-grants.js",
+        "/operator-grants.css",
         "/operations.html",
         "/operations.css",
         "/operations.js",
