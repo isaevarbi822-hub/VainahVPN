@@ -13,7 +13,7 @@ STATIC_ORIGIN = "https://vainahvpn.onrender.com"
 def test_no_unpublished_servers_are_claimed(monkeypatch):
     monkeypatch.delenv("VAINAH_PUBLIC_LOCATIONS_JSON", raising=False)
     assert public_locations()["locations"] == []
-    assert public_locations()["source"] == "not_published"
+    assert public_locations()["source"] == "not_connected"
 
 
 def test_public_server_directory_is_bounded_and_sanitized(monkeypatch):
