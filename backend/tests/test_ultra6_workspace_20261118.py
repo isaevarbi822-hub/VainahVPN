@@ -142,6 +142,11 @@ def _fixture() -> str:
         document.documentElement.scrollWidth<=innerWidth+2;
       document.body.dataset.ultra6Smoke=
         oldRecent&&pinWorks&&settingsWork&&cleared&&removal&&viewportOK?'ok':'failed';
+      document.body.dataset.ultra6Detail=[
+        oldRecent,pinWorks,settingsWork,cleared,removal,viewportOK,
+        innerWidth,document.documentElement.scrollWidth,
+        Math.round(box.left),Math.round(box.right)
+      ].join(',');
     })();
     </script></body></html>"""
     return html.replace("__STYLE__", css).replace("__SCRIPT__", javascript)
