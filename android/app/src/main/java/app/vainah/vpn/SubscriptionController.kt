@@ -67,7 +67,10 @@ class SubscriptionController(context: Context) {
      * Returns false if no link or a request is already running.
      * Result callback executes on main thread while this instance is current.
      */
-    fun refresh(callback: (Result<List<VainahNode>>) -> Unit): Boolean {
+    fun refresh(
+        retryOnTimeout: Boolean = false,
+        callback: (Result<List<VainahNode>>) -> Unit
+    ): Boolean {
         val link = vault.load() ?: return false
         if (!inFlight.compareAndSet(false, true)) return false
         val request = generation.incrementAndGet()
@@ -75,7 +78,11 @@ class SubscriptionController(context: Context) {
         val approvedHeaders = hwid.requestHeaders()
         Thread({
             val result = runCatching {
-                val nodes = SubscriptionServers.loadNodes(link, approvedHeaders, agent)
+                val nodes = SubscriptionServers.loadNodes(
+                    link, approvedHeaders, agent,
+                    retryOnTimeout = retryOnTimeout,
+                    stillCurrent = { request == generation.get() && vault.load() == link }
+                )
                 // A current, successfully parsed result is eligible for cache.
                 if (request == generation.get() && vault.load() == link)
                     vault.saveServerCache(link, nodes)
