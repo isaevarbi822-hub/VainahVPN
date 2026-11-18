@@ -12,7 +12,7 @@ def public_locations() -> dict:
     """Return a bounded, display-only directory configured by the operator."""
     raw = os.environ.get("VAINAH_PUBLIC_LOCATIONS_JSON", "").strip()
     if not raw or len(raw) > 8192:
-        return {"locations": [], "source": "not_published"}
+        return {"locations": [], "source": "not_connected"}
     try:
         items = json.loads(raw)
     except (TypeError, ValueError):
