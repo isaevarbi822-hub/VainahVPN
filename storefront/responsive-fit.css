@@ -288,3 +288,26 @@ body > header.vx-header-collapsed .mobile-nav.open{
   background:#101629;border-top:1px solid #494064;
 }
 body > header.vx-header-collapsed .nav-wrap{gap:12px!important}
+
+body > header .mobile-nav .vx-mobile-status {
+  grid-column:1/-1;
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  min-height:44px;
+  padding:10px 13px;
+  text-align:left;
+  font-size:13px;
+  font-weight:800;
+  color:#f1eaff;
+  background:#2a2349;
+  border:1px solid #8069b8;
+  border-radius:12px;
+  cursor:pointer;
+}
+body > header .mobile-nav .vx-mobile-status:focus-visible{
+  outline:3px solid #a6e5f7;outline-offset:-3px;
+}
+@media(max-width:360px){
+  body > header .nav-side .vx-live-trigger{display:none!important}
+}
