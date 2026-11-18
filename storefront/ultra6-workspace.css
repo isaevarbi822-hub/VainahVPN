@@ -1,0 +1,135 @@
+/* Vainah Ultra 6.0 — scoped, responsive personalization layer.
+   Works without animation, without external fonts, and without remote APIs. */
+.vx6-workspace{
+  --vx6-surface:#161c30;
+  --vx6-border:rgba(181,166,242,.34);
+  --vx6-text:#f3f0ff;
+  --vx6-muted:#c1cbe3;
+  position:relative;
+  width:100%;
+  min-width:0;
+  padding:clamp(19px,2.8vw,38px);
+  margin:clamp(18px,3vw,40px) 0;
+  border-radius:25px;
+  border:1px solid var(--vx6-border);
+  background:radial-gradient(ellipse at 92% 0%,rgba(125,87,221,.23),transparent 48%),linear-gradient(142deg,#1b1b36,#111b2c 80%);
+  box-shadow:0 18px 55px rgba(2,4,13,.25);
+}
+.vx6-workspace *{box-sizing:border-box}
+.vx6-heading{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px 26px;margin:0 0 23px}
+.vx6-kicker{display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#c5b0ff;font-weight:850;line-height:1.5}
+.vx6-heading h2{margin:9px 0;color:var(--vx6-text);font-size:clamp(28px,3.3vw,42px);line-height:1.12;letter-spacing:-.04em}
+.vx6-heading p{max-width:610px;margin:8px 0;color:var(--vx6-muted);font-size:14px;line-height:1.65}
+.vx6-heading-link,.vx6-home-link{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:44px;padding:10px 16px;border-radius:12px;
+  border:1px solid #ac98de;background:#34284f;color:#f5eeff!important;
+  font-size:13px;font-weight:800;text-decoration:none;
+}
+.vx6-heading-link:hover,.vx6-home-link:hover{background:#59417a}
+.vx6-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.vx6-card{min-width:0;padding:20px;border-radius:20px;border:1px solid #444e73;background:rgba(11,17,34,.55)}
+.vx6-card h3{font-size:18px;line-height:1.3;color:#f4efff;margin:0 0 7px}
+.vx6-card>p{font-size:12px;color:#b8c5df;line-height:1.55;margin:0 0 15px}
+.vx6-link-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;align-content:start}
+.vx6-link{
+  min-width:0;display:flex;align-items:center;gap:10px;
+  min-height:58px;padding:10px 11px;border-radius:13px;
+  color:#f3f0ff!important;text-decoration:none!important;
+  background:#202841;border:1px solid #505d80;
+  transition:background .16s ease,border-color .16s ease,transform .16s ease;
+}
+.vx6-link:hover{background:#382e58;border-color:#b6a0e9;transform:translateY(-1px)}
+.vx6-link[aria-current="page"]{border-color:#a6d9ef}
+.vx6-link-icon{
+  flex:0 0 35px;width:35px;height:35px;display:grid;place-items:center;
+  background:#443664;border-radius:11px;color:#eee3ff;font-size:16px;font-weight:800;
+}
+.vx6-link-text{min-width:0;display:flex;flex-direction:column;gap:3px}
+.vx6-link-text strong{font-size:12px;line-height:1.28;overflow-wrap:anywhere}
+.vx6-link-text small{font-size:10px;color:#b7d0e0}
+.vx6-pin-item{min-width:0;position:relative}
+.vx6-pin-item>.vx6-link{padding-right:36px;height:100%}
+.vx6-unpin{
+  position:absolute;right:7px;top:50%;transform:translateY(-50%);
+  width:31px;height:35px;display:grid;place-items:center;
+  font-size:19px;font-weight:bold;border-radius:10px;
+  color:#f1e8ff;background:#463452;border:1px solid #7a6e98;cursor:pointer;
+}
+.vx6-unpin:hover{background:#6e4b76}
+.vx6-empty{grid-column:1/-1;padding:15px;margin:0;border:1px dashed #63688b;border-radius:12px;color:#d8d0ea;font-size:13px;line-height:1.65}
+.vx6-card-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
+.vx6-small-button{
+  display:inline-flex;align-items:center;justify-content:center;min-height:44px;
+  min-width:0;padding:9px 12px;border-radius:11px;border:1px solid #776a9d;
+  background:#272b45;color:#f5edff;font:800 12px/1.3 inherit;cursor:pointer;
+}
+.vx6-small-button:hover{background:#45385f;border-color:#baa6f6}
+.vx6-small-button[aria-pressed="true"]{background:#5b4589;border-color:#cebcff}
+.vx6-preferences{grid-column:1/-1}
+.vx6-preference-buttons{display:flex;flex-wrap:wrap;gap:9px}
+.vx6-small-note{font-size:12px;line-height:1.6;color:#b8c7de;margin:15px 0 0}
+.vx6-status{min-height:1.5em;font-size:12px;color:#cce8f8}
+.vx6-home{
+  display:flex;align-items:center;justify-content:space-between;gap:22px;
+  margin:0 auto clamp(28px,4vw,65px);
+  padding:18px clamp(20px,3vw,32px);
+  border:1px solid rgba(185,164,240,.3);
+  border-radius:19px;
+  background:linear-gradient(120deg,rgba(30,39,61,.88),rgba(39,28,70,.88));
+  min-width:0;
+}
+.vx6-home>div{min-width:0}
+.vx6-home strong{color:#f2eaff;font-size:17px}
+.vx6-home p{color:#c1cce1;font-size:12px;line-height:1.55;margin:5px 0 0}
+.vx6-home-link{text-align:center;flex:0 1 auto;min-width:0}
+.vx6-pin-current{
+  min-height:40px;padding:8px 12px;
+  margin-left:auto;
+  white-space:normal;
+  border:1px solid #9b88d4;border-radius:11px;
+  background:#34234f;color:#f7eeff;font-size:12px;font-weight:800;
+  cursor:pointer;
+}
+.vx6-pin-current[aria-pressed="true"]{background:#574080;border-color:#c9b0ff}
+:where(.vx6-workspace,.vx6-home,.vx-breadcrumbs) :is(a,button):focus-visible{
+  outline:3px solid #9fe3f8!important;outline-offset:3px!important;
+}
+/* Explicit accessibility preferences apply site-wide without remounting the UI. */
+html.vx6-contrast body{--vx5-quiet:#edf3ff;--muted:#e1e8ff}
+html.vx6-contrast :is(.vx6-workspace,.vx6-card,.tariff-card,.shop-panel,.vx5-start-card){
+  border-color:#c8d2f8!important;
+}
+html.vx6-contrast :is(.vx6-link,.vx6-small-button,.vx6-home-link){
+  border-color:#e0cfff!important;
+}
+html.vx6-contrast :is(.vx6-workspace p,.vx6-home p,.vx6-link-text small,.fineprint,.vx5-feedback){
+  color:#f0f4ff!important;
+}
+html.vx6-readable body main :is(p,li,dd,small){
+  line-height:1.8!important;
+}
+html.vx6-readable body main :is(p,li,dd){font-size:max(1em,16px)!important}
+html.vx6-readable body main small{font-size:max(.8em,13px)!important}
+html.vx6-no-motion *,html.vx6-no-motion *::before,html.vx6-no-motion *::after{
+  animation-duration:.01ms!important;animation-iteration-count:1!important;
+  transition-duration:.01ms!important;scroll-behavior:auto!important;
+}
+@media(max-width:1060px){
+  .vx6-grid{grid-template-columns:minmax(0,1fr)}
+  .vx6-preferences{grid-column:auto}
+  .vx6-card{padding:18px}
+}
+@media(max-width:730px){
+  .vx6-workspace{border-radius:20px;padding:18px 14px}
+  .vx6-link-list{grid-template-columns:minmax(0,1fr)}
+  .vx6-home{flex-direction:column;align-items:stretch}
+  .vx6-home-link{width:100%}
+  .vx6-heading{align-items:stretch}
+  .vx6-heading h2{font-size:30px}
+  .vx6-small-button{flex:1 1 135px}
+}
+@media(prefers-reduced-motion:reduce){
+  .vx6-workspace *{transition:none!important;animation:none!important}
+  .vx6-link:hover{transform:none}
+}
