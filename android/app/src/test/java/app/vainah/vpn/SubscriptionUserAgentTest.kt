@@ -30,7 +30,7 @@ class SubscriptionUserAgentTest {
         SubscriptionServers.configureConnection(req, emptyMap(), chosen)
         assertEquals(chosen, req.getRequestProperty("User-Agent"))
         assertFalse(req.instanceFollowRedirects)
-        assertEquals(12000, req.readTimeout)
+        assertEquals(25000, req.readTimeout)
     }
 
     @Test fun identityHeadersAndUserAgentCanBeConfiguredIndependently() {
