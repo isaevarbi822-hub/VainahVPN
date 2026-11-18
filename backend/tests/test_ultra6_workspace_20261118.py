@@ -168,7 +168,10 @@ def test_ultra6_browser_pin_accessibility_and_mobile_fit(tmp_path, width, height
         "--dump-dom", document.as_uri()
     ], capture_output=True, text=True, timeout=36, check=False)
     assert result.returncode == 0, result.stderr[-900:]
-    assert 'data-ultra6-smoke="ok"' in result.stdout, result.stdout[-1900:]
+    details = re.search(r'data-ultra6-detail="([^"]+)"', result.stdout)
+    assert 'data-ultra6-smoke="ok"' in result.stdout, (
+        details.group(1) if details else result.stdout[:1200]
+    )
 
 
 def test_every_public_shell_has_cache_busting():
