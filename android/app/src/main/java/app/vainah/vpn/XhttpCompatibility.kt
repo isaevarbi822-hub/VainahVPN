@@ -190,9 +190,20 @@ internal object XhttpCompatibility {
         val keys = settings.keys()
         while (keys.hasNext()) {
             val source = keys.next()
-            val dest = xmuxNames[source] ?: throw IllegalArgumentException(
+            // Go's encoding/json matches known field names case-insensitively.
+            // Xray exports sometimes capitalize these names differently from
+            // the UI schema, so preserve their meaning rather than reject them.
+            // A leading '#' is an inactive Xray JSON comment convention ONLY
+            // when the remainder names one known XMUX setting. Unknown names
+            // still fail closed; no active wire option is silently dropped.
+            val disabled = source.startsWith("#") && source.length > 1
+            val name = if (disabled) source.substring(1) else source
+            val dest = xmuxNames[name] ?: xmuxNames.entries.firstOrNull {
+                it.key.equals(name, ignoreCase = true)
+            }?.value ?: throw IllegalArgumentException(
                 "Unsupported XHTTP xmux setting"
             )
+            if (disabled) continue
             require(!result.has(dest)) { "Duplicate XHTTP xmux setting" }
             val raw = settings.opt(source)
             require(raw != null && raw != JSONObject.NULL) {

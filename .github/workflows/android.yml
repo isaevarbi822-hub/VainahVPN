@@ -81,7 +81,7 @@ jobs:
       - name: Store isolated Android preview
         uses: actions/upload-artifact@v4
         with:
-          name: VainahVPN-Android-3.0.0-alpha.4-Ultra-Native-XHTTP
+          name: VainahVPN-Android-3.0.0-alpha.5-Ultra-Native-XHTTP
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
@@ -149,7 +149,7 @@ jobs:
         if: steps.check.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: VainahVPN-Android-3.0.0-alpha.4-Ultra-Native-XHTTP-Clerk
+          name: VainahVPN-Android-3.0.0-alpha.5-Ultra-Native-XHTTP-Clerk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
@@ -164,7 +164,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: VainahVPN-Android-3.0.0-alpha.4-Ultra-Native-XHTTP
+          name: VainahVPN-Android-3.0.0-alpha.5-Ultra-Native-XHTTP
           path: preview
       - name: Publish preview release assets
         env:
@@ -174,19 +174,19 @@ jobs:
         run: |
           set -euo pipefail
           cd preview
-          mv app-debug.apk VainahVPN-3.0.0-alpha.4-preview.apk
-          sha256sum VainahVPN-3.0.0-alpha.4-preview.apk > SHA256SUMS.txt
+          mv app-debug.apk VainahVPN-3.0.0-alpha.5-preview.apk
+          sha256sum VainahVPN-3.0.0-alpha.5-preview.apk > SHA256SUMS.txt
           cat > release-notes.md <<EOF
-          Android preview 3.0.0-alpha.4 (version code 303).
+          Android preview 3.0.0-alpha.5 (version code 304).
 
-          Includes XMUX/XHTTP/REALITY compatibility checks, space-separated Turkey 1/IP labels, offline per-node profile readiness, and credential-free Turkey diagnostics. This is not proof of live server or VPN reachability.
+          Includes XMUX/XHTTP/REALITY profile parsing, known XMUX key-capitalization and inactive Xray comments, Turkey 1/IP label variants, and credential-free Turkey diagnostics. The real VPN handshake and external IP are not verified by CI.
 
           Built from commit $GITHUB_SHA. JVM tests and all 32 synthetic native configuration checks passed before publication. Actual Turkey server connectivity still requires verification on an Android device.
 
           This APK is debug-signed. Android requires a matching certificate to update an existing preview. Keep subscription access before replacing an installation signed with another key. No backend or Render deployment is included.
           EOF
           gh release create "$GITHUB_REF_NAME" \
-            VainahVPN-3.0.0-alpha.4-preview.apk SHA256SUMS.txt \
+            VainahVPN-3.0.0-alpha.5-preview.apk SHA256SUMS.txt \
             --repo "$GH_REPO" --verify-tag --prerelease --latest=false \
-            --title "VainahVPN 3.0.0-alpha.4-preview" \
+            --title "VainahVPN 3.0.0-alpha.5-preview" \
             --notes-file release-notes.md

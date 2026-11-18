@@ -8,7 +8,7 @@ package app.vainah.vpn
  */
 object TurkeyServerAudit {
     enum class Status(val code: String) {
-        MISSING("not_in_subscription"),
+        MISSING("not_found_by_label"),
         UNSUPPORTED("local_profile_rejected"),
         READY("locally_parseable_not_connected")
     }
@@ -24,12 +24,13 @@ object TurkeyServerAudit {
             TurkeyLteGroups.Slot.IP -> "Турция IP"
         }
         val headline: String get() = when (status) {
-            Status.MISSING -> "Нет в текущей подписке"
+            Status.MISSING -> "Не найден под этим названием"
             Status.UNSUPPORTED -> "Параметры не приняты приложением"
             Status.READY -> "Формат распознан · VPN не проверен"
         }
         val explanation: String get() = when (status) {
-            Status.MISSING -> "Нужно проверить выдачу этого узла из H1Cloud. " +
+            Status.MISSING -> "Точного совпадения названия нет в загруженных записях. " +
+                "Проверь другие узлы Турции в списке и название в H1Cloud. " +
                 "Приложение не создаёт недостающие серверы."
             Status.UNSUPPORTED -> "Один или несколько импортированных профилей не прошли " +
                 "локальную проверку. Код: " + SubscriptionNodeSupport.safeRejectionCode(rejection) + ". " +
