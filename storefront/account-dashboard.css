@@ -209,3 +209,9 @@
 .account-shell .account-client-link[hidden]{display:none!important}
 .account-shell .account-client-hint{margin-top:15px;font-size:12px;line-height:1.65;color:#c5cae0}
 .account-shell .account-client-hint a{color:#b9e6ff;text-decoration:underline;text-underline-offset:3px}
+
+/* Operator-gift controls remain hidden until the verified email lookup passes. */
+.account-manual-grant [hidden]{display:none!important}
+.account-manual-grant .account-access-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
+.account-manual-grant .account-access-actions .btn{font-size:12px;min-height:44px;padding:10px 14px}
+@media(max-width:500px){.account-manual-grant .account-access-actions{flex-direction:column}.account-manual-grant .btn{width:100%}}
