@@ -6,6 +6,7 @@
   --vx6-text:#f3f0ff;
   --vx6-muted:#c1cbe3;
   position:relative;
+  box-sizing:border-box;
   width:100%;
   min-width:0;
   padding:clamp(19px,2.8vw,38px);
