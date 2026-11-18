@@ -43,11 +43,14 @@ def test_plans_catalog_reads_cross_origin_readonly_api_on_static_site():
     script = _read("tariff-catalog.js")
     assert "window.location.origin===staticOrigin" in script
     assert "fetch(apiOrigin+'/api/site/tariffs'" in script
-    assert "if(checkoutReadiness&&apiOrigin)" in script
-    assert "Актуальная доступность оплаты проверяется" in script
+    # Public readiness now has explicit read-only CORS, with no checkout writes.
+    assert "async function checkCheckoutReadiness()" in script
+    assert "fetch(apiOrigin+'/api/shop/config'" in script
+    assert "method:'GET'" in script and "credentials:'omit'" in script
+    assert "data.platega_ready?'Platega':null" in script
     assert "['3','6'].includes(initial.get('devices'))" in script
     assert "['days','price','daily','longest'].includes(initial.get('sort'))" in script
-    assert "fetch(apiOrigin+'/api/shop/config'" not in script
+    assert "fetch(apiOrigin+'/api/shop/checkout'" not in script
 
 
 def test_home_plans_checkout_and_hub_have_real_navigation():
