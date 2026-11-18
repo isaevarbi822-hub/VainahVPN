@@ -201,8 +201,14 @@
           ? "Ранее выбранный тариф остаётся в итоговом заказе." : "");
     }
   }
-  $("shop-plan-search")?.addEventListener("input", filterPlans);
-  $("shop-plan-kind")?.addEventListener("change", filterPlans);
+  function applyPlanFilter() {
+    // Reset only the tariff list scroll after changing the filter.
+    // Never move the payment panel or the document viewport.
+    cards.scrollTop = 0;
+    filterPlans();
+  }
+  $("shop-plan-search")?.addEventListener("input", applyPlanFilter);
+  $("shop-plan-kind")?.addEventListener("change", applyPlanFilter);
 
   function draw() {
     cards.replaceChildren();
