@@ -31,6 +31,7 @@ from .integration_status import integration_status
 from .mobile_auth import router as mobile_auth_router
 from .platega import router as platega_router
 from .public_trial import router as public_trial_router
+from .public_locations import public_locations
 from .qr_handoff import router as handoff_router
 from .reminder_dispatch import router as reminder_dispatch_router
 from .reminder_preferences import router as reminder_router
@@ -164,7 +165,9 @@ async def security_headers(request: Request, call_next):
     # wildcards, credentials or write methods are permitted cross-origin.
     if (
         request.method == "GET"
-        and request.url.path == "/api/site/tariffs"
+        and request.url.path in {
+            "/api/site/tariffs", "/api/site/locations", "/api/shop/config"
+        }
         and request.headers.get("origin") == "https://vainahvpn.onrender.com"
     ):
         response.headers["Access-Control-Allow-Origin"] = (
@@ -336,7 +339,7 @@ async def public_site_services():
 
 @app.get("/api/site/locations")
 async def public_site_locations():
-    return {"locations": [], "source": "not_connected"}
+    return public_locations()
 
 
 # Public historical website is mounted AFTER the API.
