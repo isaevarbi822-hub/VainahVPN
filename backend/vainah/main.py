@@ -14,7 +14,6 @@ from .account_feed import router as account_feed_router
 from .auth import auth_public_config
 from .auth import router as auth_router
 from .billing import router as shop_router
-from .platega import router as platega_router
 from .config import Settings, deployment_commit
 from .connection_check import router as connection_check_router
 from .customer_portal import router as customer_router
@@ -30,6 +29,7 @@ from .h1_trial import router as h1_trial_router
 from .inspector import InvalidSubscription, inspect_subscription
 from .integration_status import integration_status
 from .mobile_auth import router as mobile_auth_router
+from .platega import router as platega_router
 from .public_trial import router as public_trial_router
 from .qr_handoff import router as handoff_router
 from .reminder_dispatch import router as reminder_dispatch_router
