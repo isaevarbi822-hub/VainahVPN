@@ -52,7 +52,11 @@ def test_mega_site_has_complete_tools_and_no_fake_purchases():
     assert "Шесть вариантов с фильтрами" not in hub
     assert "/api/site/tariffs" in js
     assert "document.createElement" in js
-    assert "localStorage" not in js and "sessionStorage" not in js
+    assert "sessionStorage" not in js
+    # Local-only public plan IDs are safe to remember; payment/account secrets are not.
+    assert "window.localStorage" in js and "publicFavoriteKey" in js
+    assert "JSON.stringify([...favorites])" in js
+    assert "ROLLYPAY_API_KEY" not in js and "PLATEGA_SECRET" not in js
     assert "innerHTML" not in js
     assert "/api/shop/checkout" not in js
     for path in ("tariff-catalog.js", "command-center.mjs", "site-shell.js"):

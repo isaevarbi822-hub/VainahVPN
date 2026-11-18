@@ -39,6 +39,11 @@
   const compareItems=document.querySelector('[data-tariff-compare-items]');
   const compareMessage=document.querySelector('[data-tariff-compare-message]');
   const compareClear=document.querySelector('[data-tariff-compare-clear]');
+  const favoritesOnlyButton=document.querySelector('[data-tariff-favorites-only]');
+  const favoriteCount=document.querySelector('[data-tariff-favorite-count]');
+  const shareButton=document.querySelector('[data-tariff-share]');
+  const retryButton=document.querySelector('[data-tariff-retry]');
+  const feedback=document.querySelector('[data-tariff-feedback]');
   let selectedFilter='all';
   // Allow the homepage's guided flow to open a pre-filtered *public* catalog.
   // URL params never choose a plan for purchase or set prices.
@@ -54,7 +59,22 @@
   let displayLimit=12;
   let paid=[];
   let cards=[];
+  let favoritesOnly=false;
   const selected=new Set();
+  const publicFavoriteKey='vainah-public-plan-favorites-v1';
+  const favorites=new Set();
+  const initialCompare=String(initial.get('compare')||'').split(',').slice(0,3);
+  const storage=()=>{
+    try{return typeof window!=='undefined'?window.localStorage:null;}
+    catch{return null;}
+  };
+  try{
+    const values=JSON.parse(storage()?.getItem(publicFavoriteKey)||'[]');
+    if(Array.isArray(values))for(const id of values.slice(0,8)){
+      if(typeof id==='string'&&paidIds.has(id))favorites.add(id);
+    }
+  }catch{/* Private browsing blocks storage: favorites still work for this page. */}
+  if(search&&initial.get('q'))search.value=String(initial.get('q')).slice(0,80);
   const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0});
   const elem=(tag,text='',cls='')=>{
     const node=document.createElement(tag);
@@ -91,6 +111,7 @@
     const maxBudget=Number(budget?.value)||Infinity;
     const result=cards.filter(({plan})=>{
       if(selectedFilter!=='all'&&plan.segment!==selectedFilter)return false;
+      if(favoritesOnly&&!favorites.has(plan.id))return false;
       if(byDevices==='3'&&plan.devices!==3)return false;
       if(byDevices==='6'&&plan.devices!==6)return false;
       if(priceValue(plan)>maxBudget)return false;
@@ -124,7 +145,8 @@
       b.setAttribute('aria-pressed',String(b.dataset.tariffFilter===selectedFilter));
     }
     if(count)count.textContent='Найдено '+matching.length+' из '+cards.length+
-      ' · показано '+Math.min(displayLimit,matching.length); 
+      ' · показано '+Math.min(displayLimit,matching.length)+
+      (favoritesOnly?' · только избранное':''); 
     if(more){more.hidden=matching.length<=displayLimit;
       more.textContent='Показать ещё '+Math.min(12,matching.length-displayLimit)+' тарифов ↓';}
     if(empty)empty.hidden=matching.length!==0;
@@ -138,6 +160,35 @@
         '. Сравнение стоимости не означает сравнение скорости серверов.':
         'Ничего не найдено. Измени запрос или сбрось фильтры.';
     }
+  }
+  function updateFavorites(){
+    if(favoriteCount)favoriteCount.textContent=String(favorites.size);
+    if(favoritesOnlyButton)favoritesOnlyButton.setAttribute('aria-pressed',String(favoritesOnly));
+    for(const {plan,favoriteButton} of cards){
+      const active=favorites.has(plan.id);
+      if(!favoriteButton)continue;
+      favoriteButton.setAttribute('aria-pressed',String(active));
+      favoriteButton.textContent=active?'★ Сохранён':'☆ В избранное';
+      favoriteButton.setAttribute('aria-label',
+        active?'Убрать '+plan.title+' из избранного':'Сохранить '+plan.title+' в избранном');
+    }
+  }
+  function persistFavorites(){
+    try{storage()?.setItem(publicFavoriteKey,JSON.stringify([...favorites]));}
+    catch{/* Safari private mode: in-memory favorites still work. */}
+  }
+  function toggleFavorite(plan){
+    if(favorites.has(plan.id))favorites.delete(plan.id);
+    else if(favorites.size<8)favorites.add(plan.id);
+    else{
+      if(feedback)feedback.textContent='Можно сохранить не больше 8 тарифов. Убери один из избранного.';
+      return;
+    }
+    persistFavorites();
+    updateFavorites();
+    if(favoritesOnly)show();
+    if(feedback)feedback.textContent=favorites.has(plan.id)
+      ?'Тариф сохранён в этом браузере.':'Тариф убран из избранного.';
   }
   function updateCompare(){
     if(!compareBox||!compareItems)return;
@@ -195,17 +246,54 @@
         updateCompare();
       });
       card.append(compareButton);
-      cards.push({plan:p,card,compareButton});
+      const favoriteButton=elem('button','☆ В избранное','btn btn-border vx5-favorite-toggle');
+      favoriteButton.type='button';
+      favoriteButton.setAttribute('aria-pressed','false');
+      favoriteButton.addEventListener?.('click',()=>toggleFavorite(p));
+      card.append(favoriteButton);
+      cards.push({plan:p,card,compareButton,favoriteButton});
       frag.append(card);
     }
     root.replaceChildren(frag);
+    for(const id of initialCompare){
+      if(paid.some(plan=>plan.id===id)&&selected.size<3)selected.add(id);
+    }
     show();
+    updateFavorites();
     updateCompare();
-    status.textContent='75 платных тарифов с оформлением через RollyPay и один бесплатный пробный день.';
+    status.textContent='75 платных тарифов с подтверждёнными ценами. Оформление: RollyPay или Platega при готовности кассы. Бесплатный пробный день отдельно.';
     const counter=document.getElementById('tariff-compare-label');
     if(counter)counter.textContent='Сравнить все 76 вариантов ↗';
   }
   const update=()=>{displayLimit=12;show();};
+  favoritesOnlyButton?.addEventListener('click',()=>{
+    favoritesOnly=!favoritesOnly;
+    updateFavorites();
+    update();
+  });
+  shareButton?.addEventListener('click',async()=>{
+    // Share only validated public plan identifiers and catalog filters.
+    // Never transmit account, payment, subscription or authentication data.
+    const url=new URL(window.location.href);
+    const params=url.searchParams;
+    for(const name of ['q','devices','sort','budget','segment','compare'])params.delete(name);
+    if(search?.value.trim())params.set('q',search.value.trim().slice(0,80));
+    if(device?.value!=='all')params.set('devices',device.value);
+    if(sort?.value!=='days')params.set('sort',sort.value);
+    if(budget?.value!=='all')params.set('budget',budget.value);
+    if(selectedFilter!=='all')params.set('segment',selectedFilter);
+    if(selected.size)params.set('compare',[...selected].join(','));
+    // Favorites are browser-only and are intentionally not included.
+    try{
+      if(!navigator.clipboard?.writeText)throw Error('clipboard');
+      await navigator.clipboard.writeText(url.toString());
+      if(feedback)feedback.textContent='Ссылка на фильтры и сравнение скопирована.';
+    }catch{
+      if(feedback)feedback.textContent='Автокопирование недоступно. Скопируй ссылку из открывшегося поля.';
+      if(typeof window.prompt==='function')
+        window.prompt('Ссылка на подборку — скопируй её:',url.toString());
+    }
+  });
   for(const b of filters)b.addEventListener('click',()=>{
     const next=b.dataset.tariffFilter;
     if(['all','short','standard','long','family'].includes(next)){
@@ -221,6 +309,7 @@
     selectedFilter='all';if(search)search.value='';
     if(sort)sort.value='days';if(device)device.value='all';
     if(budget)budget.value='all';
+    favoritesOnly=false;updateFavorites();
     update();search?.focus?.();
   });
   compareClear?.addEventListener('click',()=>{selected.clear();updateCompare();});
@@ -239,15 +328,19 @@
     if(compareBox)compareBox.hidden=true;
     if(count)count.textContent='Цены не подтверждены';
     if(insight)insight.textContent='Ни один тариф не считается проверенным до ответа Python API.';
+    if(retryButton)retryButton.hidden=false;
   }
   async function load(){
     status.textContent='Загружаем цены с сервера…';
+    if(retryButton)retryButton.hidden=true;
     // Static fallback offers may be outdated; hide them until validated.
     root.replaceChildren(elem('p','Подтверждаем актуальные цены…','tariff-loading'));
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),23000);
     try{
       const response=await fetch(apiOrigin+'/api/site/tariffs',{
         method:'GET',cache:'no-store',credentials:'omit',
-        headers:{Accept:'application/json'}
+        headers:{Accept:'application/json'},signal:controller.signal
       });
       if(!response.ok)throw Error('CATALOG_UNAVAILABLE');
       const data=await response.json();
@@ -260,26 +353,36 @@
       render(plans);
     }catch{
       unavailable();
-      status.textContent='Каталог недоступен. Непроверенные цены скрыты. Повтори попытку позже.';
-    }
+      status.textContent='Каталог недоступен. Непроверенные цены скрыты. Нажми «Повторить загрузку».';
+    }finally{clearTimeout(timer);}
   }
-  if(checkoutReadiness&&apiOrigin){
-    // The backend intentionally does not CORS-enable checkout configuration.
-    // Do not misreport a cross-origin browser block as a broken cash desk.
-    checkoutReadiness.textContent='Актуальная доступность оплаты проверяется на защищённой странице оформления. Подбор тарифов не создаёт счёт.';
-  }else if(checkoutReadiness){
-    checkoutReadiness.textContent='Проверяем доступность оформления…';
-    fetch('/api/shop/config',{method:'GET',cache:'no-store',
-      credentials:'omit',headers:{Accept:'application/json'}})
-      .then(response=>response.ok?response.json():Promise.reject(Error('STATUS')))
-      .then(data=>{
-        checkoutReadiness.textContent=data.checkout_ready===true
-          ?'Сайт сообщает, что касса настроена. Реальная оплата проверяется на странице оформления.'
-          :'Новые счета сейчас могут быть недоступны. Выбор тарифа не списывает деньги.';
-      })
-      .catch(()=>{
-        checkoutReadiness.textContent='Статус кассы неизвестен. Не оплачивай повторно ранее созданный заказ.';
+  retryButton?.addEventListener('click',()=>{void load();});
+  async function checkCheckoutReadiness(){
+    if(!checkoutReadiness)return;
+    checkoutReadiness.textContent='Проверяем, какие кассы настроены…';
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),14000);
+    try{
+      const response=await fetch(apiOrigin+'/api/shop/config',{
+        method:'GET',cache:'no-store',credentials:'omit',
+        headers:{Accept:'application/json'},signal:controller.signal
       });
+      if(!response.ok)throw Error('STATUS');
+      const data=await response.json();
+      if(typeof data?.checkout_ready!=='boolean'||
+         typeof data?.platega_ready!=='boolean')throw Error('INVALID_STATUS');
+      const enabled=[
+        data.checkout_ready?'RollyPay':null,
+        data.platega_ready?'Platega':null
+      ].filter(Boolean);
+      checkoutReadiness.textContent=enabled.length
+        ?'Настроенные кассы: '+enabled.join(' и ')+
+          '. Это проверка конфигурации, не подтверждение платежа. Итоговую доступность заказа проверь на странице оформления.'
+        :'Сервер пока не разрешает оформление новых счетов. Изучение тарифов остаётся доступным.';
+    }catch{
+      checkoutReadiness.textContent='Не удалось получить состояние касс. Это не означает отказ в платеже; проверь страницу оформления.';
+    }finally{clearTimeout(timer);}
   }
+  void checkCheckoutReadiness();
   void load();
 })();

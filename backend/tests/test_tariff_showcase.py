@@ -151,7 +151,10 @@ def test_plans_page_has_progressive_legacy_fallback():
     assert "public_plans" not in js
     assert "/api/site/tariffs" in js
     assert "/checkout.html?plan=" in js
-    assert "innerHTML" not in js and "localStorage" not in js
+    assert "innerHTML" not in js
+    # V5 stores only validated public plan IDs for the Favorites UI.
+    assert "window.localStorage" in js and "publicFavoriteKey" in js
+    assert "sessionStorage" not in js
     for name in ("tariff-catalog.js",):
         output = subprocess.run(
             ["node", "--check", str(SITE / name)],
