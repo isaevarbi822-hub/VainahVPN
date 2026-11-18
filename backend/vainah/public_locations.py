@@ -5,7 +5,7 @@ import re
 
 _NAME_RE = re.compile(r"^[\w\s.,()\-–№]{1,72}$", re.UNICODE)
 _IP_RE = re.compile(r"(?:\d{1,3}\.){3}\d{1,3}")
-_UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-", re.I)
+_UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-", re.IGNORECASE)
 
 
 def public_locations() -> dict:
