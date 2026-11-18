@@ -47,6 +47,9 @@ def test_strict_redirect_and_exact_amount():
 def test_gateway_requires_separate_explicit_enable(monkeypatch):
     setup_gateway(monkeypatch)
     assert platega.ready() is True
+    monkeypatch.delenv("PLATEGA_WEBHOOK_CONFIRMED")
+    assert platega.ready() is False
+    monkeypatch.setenv("PLATEGA_WEBHOOK_CONFIRMED", "enabled")
     monkeypatch.delenv("PLATEGA_ENABLED")
     assert platega.ready() is False
     monkeypatch.setenv("PLATEGA_ENABLED", "enabled")
