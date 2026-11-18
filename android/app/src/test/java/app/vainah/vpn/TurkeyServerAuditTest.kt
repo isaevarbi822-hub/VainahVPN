@@ -33,8 +33,9 @@ class TurkeyServerAuditTest {
             node("Албания 1"), node("Турция IP")
         ))
         assertEquals(TurkeyServerAudit.Status.MISSING, checks[0].status)
-        assertEquals("not_in_subscription", checks[0].safeDiagnostic)
+        assertEquals("not_found_by_label", checks[0].safeDiagnostic)
         assertEquals(0, checks[0].importedCount)
+        assertTrue(checks[0].headline.contains("названием"))
         assertEquals(TurkeyServerAudit.Status.READY, checks[1].status)
     }
 
@@ -66,7 +67,7 @@ class TurkeyServerAuditTest {
             phase = "off", lastStage = null, probeReason = null,
             androidApiLevel = 37, serviceRunning = false, turkeyAudit = entries
         )
-        assertTrue(report.contains("turkey_1_local_profile=not_in_subscription"))
+        assertTrue(report.contains("turkey_1_local_profile=not_found_by_label"))
         assertTrue(report.contains("turkey_ip_local_profile=locally_parseable_not_connected"))
         assertFalse(report.contains("example.org"))
         assertFalse(report.contains(fakeUuid))
