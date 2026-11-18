@@ -207,11 +207,14 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
           <div id="account-access-status" class="account-access-status" role="status" aria-live="polite">Проверяем доступ…</div>
           <div class="account-access-actions">
             <button id="account-get-vpn" class="btn btn-primary" type="button" disabled>Получить VPN-ссылку</button>
+            <a id="account-open-happ" class="btn btn-primary account-client-link" rel="noopener noreferrer nofollow" referrerpolicy="no-referrer" hidden>Подключиться через Happ ↗</a>
+            <a id="account-open-incy" class="btn btn-primary account-client-link" rel="noopener noreferrer nofollow" referrerpolicy="no-referrer" hidden>Подключиться через INCY ↗</a>
             <a id="account-open-vpn" class="btn btn-border" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden>Открыть подписку ↗</a>
             <button id="account-copy-vpn" class="btn btn-border" type="button" hidden>Скопировать ссылку</button>
             <button id="account-get-qr" class="btn btn-border" type="button" disabled>Показать QR для подключения</button>
             <button id="account-handoff-create" class="btn btn-border" type="button">Создать одноразовый QR · 5 минут</button>
           </div>
+          <p class="account-client-hint">После подтверждённой оплаты выбери Happ или INCY — твоя личная подписка будет передана выбранному установленному приложению. Если клиент не открылся, используй «Скопировать ссылку» и импортируй её вручную. <a href="https://www.happ.su/main" target="_blank" rel="noopener noreferrer">Скачать Happ</a> · <a href="https://incy.cc/" target="_blank" rel="noopener noreferrer">Скачать INCY</a></p>
           <div id="account-handoff-panel" class="account-qr-panel" hidden>
             <p><strong>Одноразовый QR.</strong> Подписка выдаётся только после входа в тот же подтверждённый аккаунт на другом устройстве. Токен действует пять минут.</p>
             <img id="account-handoff-image" alt="Одноразовый код переноса, действует пять минут" width="260" height="260" hidden>
