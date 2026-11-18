@@ -79,8 +79,7 @@ def safe_pay_url(value: str) -> str:
         if (url.scheme != "https" or url.hostname != "pay.platega.io"
                 or url.port not in (None, 443) or url.username is not None
                 or url.password is not None or url.fragment
-                or any(c in value for c in "\\
-	")
+                or any(ord(char) < 32 or char == chr(92) for char in value)
                 or ".." in url.path):
             raise ValueError("PLATEGA_REDIRECT_INVALID")
     except ValueError:
