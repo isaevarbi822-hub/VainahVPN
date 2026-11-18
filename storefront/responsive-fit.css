@@ -272,3 +272,19 @@ body .tariff-card { min-width:0; }
   body[data-refresh-home] .refresh-globe,
   body[data-refresh-home] .refresh-orbit-label{animation:none!important}
 }
+
+/* Runtime overflow fallback for unusually large desktop zoom settings. */
+body > header.vx-header-collapsed .desktop-nav{display:none!important}
+body > header.vx-header-collapsed .hamburger{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  min-width:44px!important;width:44px!important;height:44px!important;
+}
+body > header.vx-header-collapsed .nav-side>a[href="contact.html"],
+body > header.vx-header-collapsed .nav-side .tiny{display:none!important}
+body > header.vx-header-collapsed .mobile-nav.open{
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  max-height:65vh;max-height:65dvh;overflow-y:auto;
+  gap:9px;padding:14px 24px;
+  background:#101629;border-top:1px solid #494064;
+}
+body > header.vx-header-collapsed .nav-wrap{gap:12px!important}
