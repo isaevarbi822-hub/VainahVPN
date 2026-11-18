@@ -53,8 +53,11 @@ object SubscriptionServers {
         // verified Python preview host, never every H1Cloud VPN subscription.
         val pythonPreview = SubscriptionOrigin.fromLink(connection.url.toExternalForm()) ==
             SubscriptionOrigin.Kind.PYTHON_RENDER
-        connection.connectTimeout = if (pythonPreview) 12000 else 8000
-        connection.readTimeout = if (pythonPreview) 85000 else 12000
+        // Short third-party read timeouts caused false "no servers" reports
+        // on healthy but slow subscription endpoints. Keep limits bounded,
+        // without disabling HTTPS verification or adding alternate hosts.
+        connection.connectTimeout = if (pythonPreview) 12000 else 12000
+        connection.readTimeout = if (pythonPreview) 85000 else 25000
         connection.instanceFollowRedirects = false
         connection.useCaches = false
         connection.setRequestProperty(
@@ -154,11 +157,42 @@ object SubscriptionServers {
         throw SubscriptionHttpStatus(302)
     }
 
+    /**
+     * Retry an idempotent HTTPS GET once only for explicit user refreshes
+     * and only after a safe, classified socket timeout. Never retry HTTP
+     * 401/403/429, malformed profiles or TLS failures. Background sync uses
+     * one request to avoid doubling provider load. Each attempt retains the
+     * original URL, identity policy and strict same-origin redirects.
+     */
+    internal fun loadNodesWithRetry(
+        raw: String,
+        identityHeaders: Map<String, String> = emptyMap(),
+        userAgent: String? = null,
+        retryOnTimeout: Boolean = false,
+        stillCurrent: () -> Boolean = { true },
+        pause: (Long) -> Unit = { Thread.sleep(it) },
+        open: (String) -> HttpURLConnection
+    ): List<VainahNode> {
+        var attempt = 0
+        while (true) {
+            if (!stillCurrent()) throw IllegalStateException("Refresh cancelled")
+            try {
+                return loadNodesWithConnection(raw, identityHeaders, userAgent, open)
+            } catch (failure: SubscriptionRequestTimeout) {
+                attempt++
+                if (!retryOnTimeout || attempt >= 2 || !stillCurrent()) throw failure
+                pause(750L)
+            }
+        }
+    }
+
     fun loadNodes(
         raw: String,
         identityHeaders: Map<String, String> = emptyMap(),
-        userAgent: String? = null
-    ): List<VainahNode> = loadNodesWithConnection(raw, identityHeaders, userAgent) {
-        URL(it).openConnection() as HttpURLConnection
-    }
+        userAgent: String? = null,
+        retryOnTimeout: Boolean = false,
+        stillCurrent: () -> Boolean = { true }
+    ): List<VainahNode> = loadNodesWithRetry(
+        raw, identityHeaders, userAgent, retryOnTimeout, stillCurrent
+    ) { URL(it).openConnection() as HttpURLConnection }
 }
