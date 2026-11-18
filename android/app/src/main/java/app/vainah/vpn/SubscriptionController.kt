@@ -83,6 +83,10 @@ class SubscriptionController(context: Context) {
                     retryOnTimeout = retryOnTimeout,
                     stillCurrent = { request == generation.get() && vault.load() == link }
                 )
+                // HTTP 200 with an empty or unparseable body is not proof
+                // the user has zero eligible VPN servers. Preserve the
+                // previously encrypted list until a usable refresh succeeds.
+                if (nodes.isEmpty()) throw SubscriptionEmptyResult()
                 // A current, successfully parsed result is eligible for cache.
                 if (request == generation.get() && vault.load() == link)
                     vault.saveServerCache(link, nodes)
