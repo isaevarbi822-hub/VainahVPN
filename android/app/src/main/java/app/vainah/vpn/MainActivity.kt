@@ -1007,6 +1007,7 @@ class MainActivity : Activity() {
             source.savedLink() != null, nodes.size, source.busy, lastError
         )
 
+        showTurkeyProfileAudit(body)
         val subscription = card()
         add(body, subscription, 13)
         add(subscription, tag("СЕРВЕР ПОДПИСКИ"))
@@ -1264,6 +1265,43 @@ class MainActivity : Activity() {
     }
 
 
+    /**
+     * Exact Turkey 1 / Turkey IP profile audit. It is intentionally separate
+     * from TCP measurements and from live VPN verification. No private
+     * subscription URI, endpoint host or credential is rendered or copied.
+     */
+    private fun showTurkeyProfileAudit(body: LinearLayout) {
+        val entries = TurkeyServerAudit.inspect(nodes)
+        val sheet = card()
+        add(body, sheet, 12)
+        add(sheet, tag("ТУРЦИЯ · ПРОВЕРКА СЕРВЕРОВ"))
+        add(sheet, t("Турция 1 и Турция IP", 17f, white, true), 7)
+        add(sheet, t(
+            "Проверка только локального формата. Для настоящей работы VPN " +
+                "нужно отдельно проверить соединение и внешний IP на устройстве.",
+            11.5f, grey), 8)
+        for (entry in entries) {
+            val tone = when (entry.status) {
+                TurkeyServerAudit.Status.MISSING -> VainahUi.Tone.NEUTRAL
+                TurkeyServerAudit.Status.UNSUPPORTED -> VainahUi.Tone.WARNING
+                TurkeyServerAudit.Status.READY -> VainahUi.Tone.PURPLE
+            }
+            add(sheet, VainahUi.detailRow(this, entry.title, entry.headline, tone), 10)
+            add(sheet, t(entry.explanation, 11f, grey), 5)
+        }
+        val show = lightAction("Показать настоящие серверы Турции").apply {
+            textSize = 11.5f
+            isEnabled = entries.any { it.importedCount > 0 }
+        }
+        add(sheet, show, 11)
+        show.setOnClickListener {
+            serverCollection = ServerCollection.ALL
+            serverSearchQuery = "Турция"
+            page = Page.LOCATIONS
+            render()
+        }
+    }
+
     // Each screen reads actual subscription/service state; no invented ping,
     // traffic numbers, expiry dates or subscription-device limits.
     private fun locations(body: LinearLayout) {
@@ -1298,6 +1336,7 @@ class MainActivity : Activity() {
         lastError?.let { problem ->
             add(summary, t(problem, 11.5f, errorColor), 8)
         }
+        showTurkeyProfileAudit(body)
         val sheet = ServerListVisual.sheet(this)
         add(body, sheet, 12)
         // Search/filter only updates the row container. Keeping EditText
@@ -1576,7 +1615,10 @@ class MainActivity : Activity() {
         }
         val index = nodes.indexOfFirst { it.uri == target.uri }
         if (index < 0 || !SubscriptionNodeSupport.canConnect(target.uri)) {
-            popup("Сервер отсутствует или его протокол не поддерживается. Обнови подписку.")
+            val details = SubscriptionNodeSupport.inspect(target.uri)
+            popup("Нельзя проверить TCP этого профиля: " +
+                SubscriptionNodeSupport.safeBlockMessage(details) +
+                " Обновление подписки может не исправить несовместимость.")
             return
         }
         val name = ServerRowPresentation.describe(target, index).title
