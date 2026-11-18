@@ -133,7 +133,7 @@
       if(!Object.prototype.hasOwnProperty.call(settings,name))return;
       b.setAttribute('aria-pressed',String(state.settings[name]));
     });
-    for(const pin of document.querySelectorAll('[data-vx6-pin-current]')){
+    for(const pin of document.querySelectorAll('[data-vx6-pin-current],[data-vx6-pin-home]')){
       const isPinned=state.pins.includes(page);
       pin.textContent=isPinned?'★ В быстрых ссылках':'☆ Сохранить раздел';
       pin.setAttribute('aria-pressed',String(isPinned));
