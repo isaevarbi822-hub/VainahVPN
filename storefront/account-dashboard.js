@@ -345,6 +345,10 @@
     const open=$('account-open-vpn');
     if(open)open.removeAttribute('href');
     hide('account-open-vpn',true);
+    for(const id of ['account-open-happ','account-open-incy']){
+      const link=$(id);
+      if(link){link.removeAttribute('href');link.hidden=true;}
+    }
     hide('account-copy-vpn',true);
     const copy=$('account-copy-vpn');
     if(copy)copy.disabled=true;
@@ -480,7 +484,13 @@
         write('account-device-note','Максимальное число устройств по действующему тарифу.');
         write('account-plan-price','Смотри в заказе');
         write('account-access-status','Доступ доступен. Личную ссылку можно открыть или скопировать.');
-        const get=$('account-get-vpn');if(get)get.disabled=false;
+        const get=$('account-get-vpn');
+        if(get){
+          get.disabled=false;
+          // Fetch the subscription on the verified dashboard only. Direct links
+          // then open immediately from a user's click without an async browser popup.
+          if(!subscriptionUrl)get.click();
+        }
         const qrButton=$('account-get-qr');if(qrButton)qrButton.disabled=false;
       }
       updatePrivateActions();
@@ -600,13 +610,23 @@
       const response=await api('/api/account/access');
       if(sessionEpoch!==session||refreshEpoch!==revision)return;
       const url=new URL(response.subscription_url);
-      if(url.protocol!=='https:'||url.username||url.password)throw Error('INVALID_LINK');
+      if(url.protocol!=='https:'||url.username||url.password||url.hash)throw Error('INVALID_LINK');
       subscriptionUrl=url.href;
       const open=$('account-open-vpn');
       if(open){open.href=subscriptionUrl;open.referrerPolicy='no-referrer';open.hidden=false;}
+      // Supported client deep links preserve the HTTPS subscription URL.
+      // Never put the private URL into the site's query string or analytics.
+      for(const [id,scheme] of [['account-open-happ','happ://add/'],['account-open-incy','incy://add/']]){
+        const link=$(id);
+        if(link){
+          link.href=scheme+subscriptionUrl;
+          link.referrerPolicy='no-referrer';
+          link.hidden=false;
+        }
+      }
       hide('account-copy-vpn',false);
       const copy=$('account-copy-vpn');if(copy)copy.disabled=false;
-      write('account-access-status','Ссылка готова. Никому не передавай свой ключ.');
+      write('account-access-status','Ссылка готова. Выбери Happ или INCY для импорта. Никому не передавай свой ключ.');
     }catch(error){
       if(sessionEpoch!==session||refreshEpoch!==revision)return;
       write('account-access-status','Не удалось получить ссылку: '+error.message);
