@@ -23,6 +23,7 @@ from .live_checkout import (
     _ledger,
     current_email,
     live_ready,
+    pilot_processing_ready,
     owner_ref_for_email,
 )
 from .live_fulfillment import FulfillmentError, fulfill_paid_order_once
@@ -62,6 +63,7 @@ def ready() -> bool:
         method = os.environ.get("PLATEGA_PAYMENT_METHOD", "2")
         return (
             os.environ.get("PLATEGA_ENABLED") == "enabled"
+            and os.environ.get("PLATEGA_WEBHOOK_CONFIRMED") == "enabled"
             and len(api_secret()) >= 16
             and method in PAYMENT_METHODS
             and live_ready()
@@ -236,7 +238,7 @@ async def webhook(
     x_secret: str | None = Header(default=None),
 ) -> dict:
     # Keep processing existing invoices even if new Platega sales are paused.
-    if not live_ready() or len(api_secret()) < 16:
+    if not (live_ready() or pilot_processing_ready()) or len(api_secret()) < 16:
         raise HTTPException(503, "PLATEGA_NOT_CONFIGURED")
     if (not isinstance(x_merchantid, str)
             or not secrets.compare_digest(x_merchantid.strip().lower(), merchant_id())
