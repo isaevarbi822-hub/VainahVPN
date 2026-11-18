@@ -52,7 +52,10 @@ object VpnDiagnosticReport {
         profileCheckTransport: String? = null,
         profileCheckSecurity: String? = null,
         profileCheckRejection: String? = null,
-        turkeyAudit: List<TurkeyServerAudit.Entry> = emptyList()
+        turkeyAudit: List<TurkeyServerAudit.Entry> = emptyList(),
+        subscriptionSource: SubscriptionOrigin.Kind? = null,
+        subscriptionCachedCount: Int? = null,
+        subscriptionRefreshResult: String? = null
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
@@ -106,6 +109,13 @@ object VpnDiagnosticReport {
                 it in setOf("tls", "reality")
             } ?: "unknown"}",
             "last_profile_check_result=${SubscriptionNodeSupport.safeRejectionCode(profileCheckRejection)}",
+            "subscription_source=${subscriptionSource?.name?.lowercase()?.takeIf {
+                it in setOf("none","h1cloud","python_render","other_https","direct_key")
+            } ?: "unknown"}",
+            "subscription_local_nodes=${subscriptionCachedCount?.takeIf {
+                it in 0..50
+            }?.toString() ?: "unknown"}",
+            "subscription_refresh_result=${SubscriptionLoadFailure.safeCode(subscriptionRefreshResult)}",
             "turkey_1_local_profile=${turkeyAudit.firstOrNull {
                 it.slot == TurkeyLteGroups.Slot.ONE
             }?.safeDiagnostic ?: "unknown"}",

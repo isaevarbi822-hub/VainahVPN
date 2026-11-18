@@ -28,6 +28,15 @@ class TurkeyServerAuditTest {
         }
     }
 
+    @Test fun noImportedNodesMeansSubscriptionNotLoadedNotDeletedTurkeyServer() {
+        val checks = TurkeyServerAudit.inspect(emptyList())
+        assertEquals(2, checks.size)
+        assertTrue(checks.all { it.status == TurkeyServerAudit.Status.NOT_LOADED })
+        assertTrue(checks.all { it.safeDiagnostic == "subscription_not_loaded" })
+        assertTrue(checks.all { it.importedCount == 0 })
+        assertTrue(checks.all { it.explanation.contains("не получило список") })
+    }
+
     @Test fun missingServerNeverGetsInventedAndIsNotReportedOnline() {
         val checks = TurkeyServerAudit.inspect(listOf(
             node("Албания 1"), node("Турция IP")

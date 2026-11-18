@@ -1098,7 +1098,10 @@ class MainActivity : Activity() {
                 profileCheckTransport = diag.getString("profile_check_transport", null),
                 profileCheckSecurity = diag.getString("profile_check_security", null),
                 profileCheckRejection = diag.getString("profile_check_rejection", null),
-                turkeyAudit = TurkeyServerAudit.inspect(nodes)
+                turkeyAudit = TurkeyServerAudit.inspect(nodes),
+                subscriptionSource = SubscriptionOrigin.fromLink(source.savedLink()),
+                subscriptionCachedCount = nodes.size,
+                subscriptionRefreshResult = diag.getString("subscription_refresh_code", null)
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(
@@ -1277,12 +1280,25 @@ class MainActivity : Activity() {
         add(body, sheet, 12)
         add(sheet, tag("ТУРЦИЯ · ПРОВЕРКА СЕРВЕРОВ"))
         add(sheet, t("Турция 1 и Турция IP", 17f, white, true), 7)
+        if (nodes.isEmpty()) {
+            add(sheet, VainahUi.infoStrip(this,
+                "Проверка серверов Турции недоступна: список подписки не загрузился. " +
+                    "Это не означает, что узлы удалены из H1Cloud."), 10)
+            val retry = lightAction("Повторить загрузку подписки").apply {
+                isEnabled = !source.busy
+                textSize = 12f
+            }
+            add(sheet, retry, 9)
+            retry.setOnClickListener { refreshServers(true) }
+            return
+        }
         add(sheet, t(
             "Проверка только локального формата. Для настоящей работы VPN " +
                 "нужно отдельно проверить соединение и внешний IP на устройстве.",
             11.5f, grey), 8)
         for (entry in entries) {
             val tone = when (entry.status) {
+                TurkeyServerAudit.Status.NOT_LOADED -> VainahUi.Tone.NEUTRAL
                 TurkeyServerAudit.Status.MISSING -> VainahUi.Tone.NEUTRAL
                 TurkeyServerAudit.Status.UNSUPPORTED -> VainahUi.Tone.WARNING
                 TurkeyServerAudit.Status.READY -> VainahUi.Tone.PURPLE
@@ -2137,7 +2153,7 @@ class MainActivity : Activity() {
             return
         nextAutoRefresh = SystemClock.elapsedRealtime() +
             SubscriptionRefreshPolicy.NORMAL_MS
-        val started = source.refresh { result ->
+        val started = source.refresh(retryOnTimeout = manual) { result ->
             result.onSuccess { fresh ->
                 val updated = ServerListReconciler.unique(fresh)
                 if (updated != nodes) {
@@ -2148,14 +2164,19 @@ class MainActivity : Activity() {
                         ?: nodes.firstOrNull { SubscriptionNodeSupport.canConnect(it.uri) }
                 }
                 lastError = null
+                getSharedPreferences("vpn_diagnostics", MODE_PRIVATE).edit()
+                    .putString("subscription_refresh_code", "none").apply()
                 cacheMessage = "Загружено серверов: " + nodes.size
                 nextAutoRefresh = SystemClock.elapsedRealtime() +
                     SubscriptionRefreshPolicy.NORMAL_MS
             }.onFailure { ex ->
                 lastError = SubscriptionLoadFailure.explain(ex)
+                getSharedPreferences("vpn_diagnostics", MODE_PRIVATE).edit()
+                    .putString("subscription_refresh_code", SubscriptionLoadFailure.code(ex))
+                    .apply()
                 cacheMessage = if (nodes.isNotEmpty())
                     "Сохранённый список; актуальность не подтверждена"
-                else "Серверы не загрузились"
+                else "Список не загружен; сохранённого кеша в этой установке нет"
                 nextAutoRefresh = SubscriptionRefreshPolicy.nextAllowed(
                     SystemClock.elapsedRealtime(), ex)
             }

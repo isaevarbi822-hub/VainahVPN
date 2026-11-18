@@ -52,6 +52,6 @@ class SubscriptionLoadFailureTest {
         assertEquals("no-cache", connection.getRequestProperty("Cache-Control"))
         assertFalse(connection.instanceFollowRedirects)
         assertFalse(connection.useCaches)
-        assertEquals(8000, connection.connectTimeout)
+        assertEquals(12000, connection.connectTimeout)
     }
 }
