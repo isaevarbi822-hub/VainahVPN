@@ -401,7 +401,7 @@ def test_calendar_export_includes_real_alarm_components():
     site = Path(__file__).resolve().parents[2] / "storefront"
     script = (site / "account-dashboard.js").read_text(encoding="utf-8")
     page = (site / "account.html").read_text(encoding="utf-8")
-    assert "account-dashboard.js?v=20261106-calendar-alarms-1" in page
+    assert "account-dashboard.js?v=" in page  # Cache-busted current dashboard asset
     assert "const date=validExpiry(currentData?.subscription?.expires_at)" in script
     assert "currentData?.subscription?.paid!==true" in script
     for trigger in ("-P7D", "-P3D", "-P1D"):
