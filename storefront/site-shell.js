@@ -578,14 +578,6 @@
   // Don't trigger continuous decorative motion on metered/data-saver devices.
   // The old floating quick-actions prototype duplicated Ultra Control.
   // Vainah Control is now a full page accessible from navigation.
-  // Tablet-first layout loads last, after legacy page design systems.
-  if(!document.querySelector('link[data-vx-adaptive]')){
-    const style=document.createElement('link');
-    style.rel='stylesheet';
-    style.href='responsive-fit.css?v=20261118-ipad2';
-    style.dataset.vxAdaptive='css';
-    document.head.append(style);
-  }
   // At desktop zoom levels above the tablet breakpoint, fall back to
   // the accessible dropdown if the expanded navigation would overlap actions.
   // No polling or user tracking: only resize and font-loading events.
@@ -625,9 +617,17 @@
   }
   if(!document.querySelector('script[data-vx-quality]')){
     const script=document.createElement('script');
-    script.src='site-health.js?v=20261118-quality1';
+    script.src='site-health.js?v=20261118-ipad2';
     script.defer=true;
     script.dataset.vxQuality='js';
     document.head.append(script);
+  }
+  // Tablet-first layout loads last, after legacy page design systems.
+  if(!document.querySelector('link[data-vx-adaptive]')){
+    const style=document.createElement('link');
+    style.rel='stylesheet';
+    style.href='responsive-fit.css?v=20261118-ipad2';
+    style.dataset.vxAdaptive='css';
+    document.head.append(style);
   }
 })();
