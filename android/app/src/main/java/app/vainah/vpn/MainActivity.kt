@@ -1298,6 +1298,7 @@ class MainActivity : Activity() {
             11.5f, grey), 8)
         for (entry in entries) {
             val tone = when (entry.status) {
+                TurkeyServerAudit.Status.NOT_LOADED -> VainahUi.Tone.NEUTRAL
                 TurkeyServerAudit.Status.MISSING -> VainahUi.Tone.NEUTRAL
                 TurkeyServerAudit.Status.UNSUPPORTED -> VainahUi.Tone.WARNING
                 TurkeyServerAudit.Status.READY -> VainahUi.Tone.PURPLE
