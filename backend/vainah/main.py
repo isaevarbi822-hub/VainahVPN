@@ -30,6 +30,7 @@ from .inspector import InvalidSubscription, inspect_subscription
 from .integration_status import integration_status
 from .mobile_auth import router as mobile_auth_router
 from .platega import router as platega_router
+from .public_locations import public_locations
 from .public_trial import router as public_trial_router
 from .qr_handoff import router as handoff_router
 from .reminder_dispatch import router as reminder_dispatch_router
@@ -160,11 +161,13 @@ async def security_headers(request: Request, call_next):
             "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )
     # Public pricing is readable from the static CDN, never authenticated API.
-    # A single origin and a single read-only path are exposed. No cookies,
-    # wildcards, credentials or write methods are permitted cross-origin.
+    # Only bounded read-only public paths are exposed to the static origin.
+    # No cookies, wildcards, credentials or write methods cross origins.
     if (
         request.method == "GET"
-        and request.url.path == "/api/site/tariffs"
+        and request.url.path in {
+            "/api/site/tariffs", "/api/site/locations", "/api/shop/config"
+        }
         and request.headers.get("origin") == "https://vainahvpn.onrender.com"
     ):
         response.headers["Access-Control-Allow-Origin"] = (
@@ -336,7 +339,7 @@ async def public_site_services():
 
 @app.get("/api/site/locations")
 async def public_site_locations():
-    return {"locations": [], "source": "not_connected"}
+    return public_locations()
 
 
 # Public historical website is mounted AFTER the API.

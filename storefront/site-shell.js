@@ -51,7 +51,7 @@
     ['compare.html','Сравнение тарифов','75 платных тарифов, цена за день, срок и число устройств','разница тарифов цена за день семейные'],
     ['assistant.html','Подобрать тариф','Помощник по сроку и количеству устройств','выбрать подобрать'],
     ['account.html','Личный кабинет','VPN, срок, заказы и история после входа по email','мой впн мой vpn продление телеграм'],
-    ['checkout.html','Оформление на сайте','Выбор подписки и безопасное оформление через RollyPay','оплата роллипей касса'],
+    ['checkout.html','Оформление на сайте','Выбор подписки, RollyPay и Platega','оплата роллипей platega платега касса'],
     ['device-center.html','Мастер подключения','Пошаговая настройка и чек-лист','установка устройство конфигурация'],
     ['connect.html','Vainah Connect','Интерактивный мастер подключения к VPN на всех устройствах','qr подключение андроид айфон мак линукс виндовс установка'],
     ['devices.html','Все устройства','iPhone, iPad, Android, Windows, macOS','телефон айфон планшет'],
@@ -579,4 +579,19 @@
   // The old floating quick-actions prototype duplicated Ultra Control.
   // Vainah Control is now a full page accessible from navigation.
   // No timers or background API polling are created by the shared shell.
+  // Add one shared, isolated finishing layer rather than more inline page CSS.
+  if(!document.querySelector('link[data-vx-quality]')){
+    const style=document.createElement('link');
+    style.rel='stylesheet';
+    style.href='site-upgrade.css?v=20261118-quality1';
+    style.dataset.vxQuality='css';
+    document.head.append(style);
+  }
+  if(!document.querySelector('script[data-vx-quality]')){
+    const script=document.createElement('script');
+    script.src='site-health.js?v=20261118-quality1';
+    script.defer=true;
+    script.dataset.vxQuality='js';
+    document.head.append(script);
+  }
 })();

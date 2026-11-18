@@ -19,7 +19,8 @@ def test_all_shared_pages_use_the_new_assets():
             assert ('site-shell.js?v=20261113-ultra4' in html or
                     'site-shell.js?v=20261114-chat1' in html or
                     'site-shell.js?v=20261115-ultra360' in html or
-                    'site-shell.js?v=20261115-fixspeed1' in html), page.name
+                    'site-shell.js?v=20261115-fixspeed1' in html or
+                    'site-shell.js?v=20261118-quality1' in html), page.name
     connect_page = (SITE / "connect.html").read_text(encoding="utf-8")
     assert 'connect.js?v=20261113-device3' in connect_page
 
