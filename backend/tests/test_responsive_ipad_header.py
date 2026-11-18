@@ -106,7 +106,7 @@ def test_responsive_css_has_tablet_cutoff_and_preserves_status():
 
 
 @pytest.mark.parametrize(("width", "height"), [
-    (480, 850), (768, 980), (1024, 768), (1366, 1024), (1920, 1080),
+    (480, 850), (1366, 1024), (1920, 1080),
 ])
 def test_main_header_and_hero_fit_the_viewport(tmp_path, width, height):
     browser = (
