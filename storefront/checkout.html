@@ -17,7 +17,7 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
   <section class="container checkout-intro">
     <div class="eyebrow">VAINAH VPN / БЕЗОПАСНОЕ ОФОРМЛЕНИЕ</div>
     <h1>Выбирай свободу. <span class="gradient">Плати удобно.</span></h1>
-    <p>Выбери один из 75 платных тарифов. Срок, устройства и итоговую сумму сервер проверяет перед открытием RollyPay. Подбор тарифа и создание счёта не списывают деньги автоматически. Текущая доступность оплаты показана ниже.</p>
+    <p>Выбери один из 75 платных тарифов. Срок, устройства и итоговую сумму сервер проверяет перед открытием выбранной кассы. Подбор тарифа и создание счёта не списывают деньги автоматически. Текущая доступность оплаты показана ниже.</p>
     <div class="shop-notice" role="status" id="shop-config-status" aria-live="polite">Проверяем готовность платежей…</div>
   </section>
   <div class="container checkout-columns">
@@ -137,8 +137,9 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
   $$('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{
     try {await navigator.clipboard.writeText(b.dataset.copy);const old=b.textContent;b.textContent='Скопировано ✓';setTimeout(()=>{b.textContent=old},1800);}catch{b.textContent='Не удалось скопировать';}
   }));
-  // Public locations and prices are loaded from the backend; never invent actual live VPN availability.
+  // Legacy pages without a location widget do not issue needless API requests.
   (async()=>{
+    if (!$('[data-live-locations]')) return;
     try {
       const response=await fetch('/api/site/locations',{headers:{Accept:'application/json'}});
       if(!response.ok) return;
