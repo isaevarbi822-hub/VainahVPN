@@ -31,8 +31,8 @@ class SubscriptionTimeoutTest {
         )) {
             val connection = Timeout(url)
             SubscriptionServers.configureConnection(connection)
-            assertEquals(12000, connection.readTimeout)
-            assertEquals(8000, connection.connectTimeout)
+            assertEquals(25000, connection.readTimeout)
+            assertEquals(12000, connection.connectTimeout)
         }
     }
 
