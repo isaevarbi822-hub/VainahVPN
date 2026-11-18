@@ -115,7 +115,7 @@ def _headers() -> dict[str, str]:
     }
 
 
-async def _new_invoice(*, order_id: str, amount_rub: int,
+async def _new_invoice(*, order_id: str, amount_rub: float,
                        email: str, owner_ref: str) -> tuple[str, str]:
     payload = {
         "paymentMethod": int(os.environ.get("PLATEGA_PAYMENT_METHOD", "2")),
@@ -140,7 +140,8 @@ async def _new_invoice(*, order_id: str, amount_rub: int,
         if (not isinstance(result, dict)
                 or result.get("status") != "PENDING"
                 or (result.get("merchantId") is not None
-                    and result["merchantId"].lower() != merchant_id())):
+                    and (not isinstance(result["merchantId"], str)
+                         or result["merchantId"].lower() != merchant_id()))):
             raise ValueError("PLATEGA_CREATE_INVALID")
         transaction_id = result.get("transactionId")
         if not valid_transaction_id(transaction_id):
@@ -207,7 +208,7 @@ async def start_checkout(
                 "status": "created", "gateway": "platega",
             }
         payment_id, pay_url = await _new_invoice(
-            order_id=order_id, amount_rub=price_rub(plan),
+            order_id=order_id, amount_rub=float(price_rub(plan)),
             email=email, owner_ref=owner_ref_for_email(email),
         )
         if not ledger.attach_hosted_invoice(
@@ -261,7 +262,7 @@ async def webhook(
     if (not valid_transaction_id(payment_id)
             or not isinstance(order_id, str)
             or not LIVE_ORDER_RE.fullmatch(order_id)
-            or status not in STATUSES
+            or not isinstance(status, str) or status not in STATUSES
             or event.get("currency") != "RUB"
             or not exact_rub_amount(event.get("amount"), event.get("amount"))):
         raise HTTPException(400, "PLATEGA_CALLBACK_INVALID")
