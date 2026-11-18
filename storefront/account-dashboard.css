@@ -199,3 +199,13 @@
 .account-alert-warning{border-color:#8d6a7f;background:#322334}
 .account-alert-info{border-color:#7063a4;background:#211f3d}
 .account-alert-ok{border-color:#407a67;background:#17332e}
+
+/* Client import is available only after the authenticated access API confirms delivery. */
+.account-shell .account-client-link{
+  display:inline-flex;align-items:center;justify-content:center;min-height:46px;
+  background:linear-gradient(118deg,#d6c6ff,#86d4ec);border-color:#b8c7fd;color:#151528;
+  font-weight:850;text-align:center;
+}
+.account-shell .account-client-link[hidden]{display:none!important}
+.account-shell .account-client-hint{margin-top:15px;font-size:12px;line-height:1.65;color:#c5cae0}
+.account-shell .account-client-hint a{color:#b9e6ff;text-decoration:underline;text-underline-offset:3px}
