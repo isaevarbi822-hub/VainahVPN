@@ -43,7 +43,16 @@ object VpnDiagnosticReport {
         handoffEvents: List<VpnHandoffEvent> = emptyList(),
         recoveryCode: String? = null,
         failureCode: String? = null,
-        routeScanPending: Boolean = false
+        routeScanPending: Boolean = false,
+        libboxDetail: String? = null,
+        nativeCore: String? = null,
+        selectedTransport: String? = null,
+        selectedSecurity: String? = null,
+        libboxRejectedOption: String? = null,
+        profileCheckTransport: String? = null,
+        profileCheckSecurity: String? = null,
+        profileCheckRejection: String? = null,
+        turkeyAudit: List<TurkeyServerAudit.Entry> = emptyList()
     ): String {
         fun flag(value: Boolean?): String = when (value) {
             true -> "yes"
@@ -54,6 +63,9 @@ object VpnDiagnosticReport {
         val safeApi = androidApiLevel.takeIf { it in 26..99 }?.toString() ?: "unknown"
         return listOf(
             "Vainah VPN Android diagnostic v1",
+            "app_version=${BuildConfig.VERSION_NAME}",
+            "app_version_code=${BuildConfig.VERSION_CODE}",
+            "native_xhttp_enabled=${if (BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED) "yes" else "no"}",
             "android_api=$safeApi",
             "phase=$safePhase",
             "service_running=${if (serviceRunning) "yes" else "no"}",
@@ -81,7 +93,31 @@ object VpnDiagnosticReport {
                 "underlay_unvalidated", "underlay_restored_after_outage",
                 "underlay_available"
             ) } ?: "unknown"}",
+            "selected_transport=${selectedTransport?.takeIf {
+                it in setOf("tcp", "grpc", "xhttp", "unknown")
+            } ?: "unknown"}",
+            "selected_security=${selectedSecurity?.takeIf {
+                it in setOf("tls", "reality", "unknown")
+            } ?: "unknown"}",
+            "last_profile_check_transport=${profileCheckTransport?.takeIf {
+                it in setOf("tcp", "grpc", "xhttp")
+            } ?: "unknown"}",
+            "last_profile_check_security=${profileCheckSecurity?.takeIf {
+                it in setOf("tls", "reality")
+            } ?: "unknown"}",
+            "last_profile_check_result=${SubscriptionNodeSupport.safeRejectionCode(profileCheckRejection)}",
+            "turkey_1_local_profile=${turkeyAudit.firstOrNull {
+                it.slot == TurkeyLteGroups.Slot.ONE
+            }?.safeDiagnostic ?: "unknown"}",
+            "turkey_ip_local_profile=${turkeyAudit.firstOrNull {
+                it.slot == TurkeyLteGroups.Slot.IP
+            }?.safeDiagnostic ?: "unknown"}",
             "engine_failure=${VpnFailureAdvisor.sanitizedCode(failureCode)}",
+            "libbox_validation_detail=${LibboxValidationDetail.safeCode(libboxDetail)}",
+            "libbox_rejected_option=${LibboxValidationDetail.safeOption(libboxRejectedOption)}",
+            "libbox_native_core=${nativeCore?.takeIf {
+                it in setOf("lx_1_14_4_35", "lx_other", "non_lx_core", "unknown")
+            } ?: "unknown"}",
             "vpn_egress=not_verified_on_device"
         ).joinToString("\n")
     }

@@ -4,6 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URI
 import java.net.URLDecoder
+import java.util.Locale
 import java.util.UUID
 
 /**
@@ -20,17 +21,35 @@ object VlessRealityConfig {
         require(uri.scheme == "vless" && uri.host != null && uri.port in 1..65535)
         val uuid = uri.rawUserInfo ?: throw IllegalArgumentException("Missing UUID")
         UUID.fromString(uuid)
-        val params = uri.rawQuery.orEmpty().split('&').mapNotNull { entry ->
+        val params = LinkedHashMap<String, String>()
+        for (entry in uri.rawQuery.orEmpty().split('&')) {
             val pos = entry.indexOf('=')
-            if (pos < 0) null else {
-                val key = URLDecoder.decode(entry.substring(0, pos), "UTF-8")
-                val value = URLDecoder.decode(entry.substring(pos + 1), "UTF-8")
-                key to value
+            if (pos <= 0) continue
+            val rawKey = URLDecoder.decode(entry.substring(0, pos), "UTF-8")
+            val value = URLDecoder.decode(entry.substring(pos + 1), "UTF-8")
+            // The list parser already treats the protocol keys as
+            // case-insensitive. Make the actual converter consistent without
+            // changing server-specific values, SNI, extra JSON or ALPN.
+            val key = when (rawKey.lowercase(Locale.ROOT)) {
+                "security", "type", "sni", "pbk", "fp", "sid", "flow",
+                "alpn", "path", "host", "mode", "extra" ->
+                    rawKey.lowercase(Locale.ROOT)
+                "servicename" -> "serviceName"
+                "xpaddingbytes", "x_padding_bytes" -> "x_padding_bytes"
+                "nogrpcheader", "no_grpc_header" -> "noGRPCHeader"
+                "scmaxeachpostbytes" -> "scMaxEachPostBytes"
+                "scminpostsintervalms" -> "scMinPostsIntervalMs"
+                else -> rawKey
             }
-        }.toMap()
-        val security = params["security"] ?: ""
+            val previous = params.putIfAbsent(key, value)
+            require(previous == null || previous == value) {
+                "Conflicting VLESS query parameter"
+            }
+        }
+        val security = params["security"].orEmpty().lowercase(Locale.ROOT)
         require(security in listOf("reality", "tls")) { "TLS or REALITY required" }
-        val transport = params["type"] ?: "tcp"
+        val transport = params["type"].orEmpty().ifEmpty { "tcp" }
+            .lowercase(Locale.ROOT)
         require(transport in listOf("tcp", "raw", "grpc", "xhttp", "splithttp")) {
             "Unsupported transport"
         }
@@ -58,29 +77,6 @@ object VlessRealityConfig {
         require(flow == null || flow == "xtls-rprx-vision") {
             "Unsupported VLESS flow"
         }
-        val serviceName = (params["serviceName"] ?: params["service_name"]).orEmpty()
-        require(serviceName.length <= 256 && !serviceName.contains('\n') &&
-            !serviceName.contains('\r')) { "Invalid gRPC service name" }
-        // Only a missing/empty path gets the protocol default. A decoded
-        // whitespace/control-only path must fail validation, not be hidden
-        // by an ifBlank("/") fallback.
-        val xhttpPath = params["path"]?.takeIf { it.isNotEmpty() } ?: "/"
-        val xhttpHost = params["host"].orEmpty()
-        val xhttpMode = params["mode"].orEmpty().ifBlank { "auto" }
-        val padding = params["x_padding_bytes"].orEmpty()
-        require(xhttpPath.length in 1..512 && xhttpPath.startsWith('/') &&
-            !xhttpPath.contains('\n') && !xhttpPath.contains('\r')) {
-            "Invalid XHTTP path"
-        }
-        require(xhttpHost.length <= 253 && !xhttpHost.contains('\n') &&
-            !xhttpHost.contains('\r')) { "Invalid XHTTP host" }
-        require(xhttpMode in listOf("auto", "packet-up", "stream-up", "stream-one")) {
-            "Invalid XHTTP mode"
-        }
-        require(padding.isBlank() ||
-            padding.matches(Regex("[0-9]{1,5}(-[0-9]{1,5})?"))) {
-            "Invalid XHTTP padding"
-        }
         return JSONObject().apply {
             put("type", "vless")
             put("tag", "vainah-selected")
@@ -91,10 +87,33 @@ object VlessRealityConfig {
             put("domain_resolver", "dns-bootstrap")
             flow?.let { put("flow", it) }
             if (transport == "grpc") put("transport", JSONObject().apply {
+                val serviceName = (params["serviceName"] ?: params["service_name"]).orEmpty()
+                require(serviceName.length <= 256 && !serviceName.contains('\n') &&
+                    !serviceName.contains('\r')) { "Invalid gRPC service name" }
                 put("type", "grpc")
                 put("service_name", serviceName)
             })
             if (transport == "xhttp" || transport == "splithttp") {
+                // Only a missing/empty path gets the protocol default. A decoded
+                // whitespace/control-only path must fail validation, not be hidden
+                // by an ifBlank("/") fallback.
+                val xhttpPath = params["path"]?.takeIf { it.isNotEmpty() } ?: "/"
+                val xhttpHost = params["host"].orEmpty()
+                val xhttpMode = params["mode"].orEmpty().ifBlank { "auto" }
+                val padding = params["x_padding_bytes"].orEmpty()
+                require(xhttpPath.length in 1..512 && xhttpPath.startsWith('/') &&
+                    !xhttpPath.contains('\n') && !xhttpPath.contains('\r')) {
+                    "Invalid XHTTP path"
+                }
+                require(xhttpHost.length <= 253 && !xhttpHost.contains('\n') &&
+                    !xhttpHost.contains('\r')) { "Invalid XHTTP host" }
+                require(xhttpMode in listOf("auto", "packet-up", "stream-up", "stream-one")) {
+                    "Invalid XHTTP mode"
+                }
+                require(padding.isBlank() ||
+                    padding.matches(Regex("[0-9]{1,5}(-[0-9]{1,5})?"))) {
+                    "Invalid XHTTP padding"
+                }
                 val xhttp = JSONObject().apply {
                     put("type", "xhttp")
                     put("mode", xhttpMode)

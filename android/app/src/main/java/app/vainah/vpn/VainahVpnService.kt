@@ -156,6 +156,10 @@ class VainahVpnService : VpnService() {
             // Old DNS/HTTPS errors must not look like results from this run.
             editor.remove("vpn_probe_reason")
                 .remove("last_failure").remove("last_failure_code")
+                .remove("libbox_validation_detail")
+                .remove("libbox_rejected_option")
+                .remove("libbox_native_core")
+                .remove("selected_transport").remove("selected_security")
         }
         editor.commit()
     }
@@ -201,6 +205,11 @@ class VainahVpnService : VpnService() {
                 VpnUnderlayStatus.reset(this)
                 checkpoint("service_received_connect")
                 val rawNode = intent.getStringExtra(EXTRA_SELECTED_VLESS).orEmpty()
+                val inspected = SubscriptionNodeSupport.inspect(rawNode)
+                getSharedPreferences("vpn_diagnostics", MODE_PRIVATE).edit()
+                    .putString("selected_transport", inspected?.transport ?: "unknown")
+                    .putString("selected_security", inspected?.security ?: "unknown")
+                    .commit()
                 // A provider can issue a valid, current subscription containing
                 // transport options rejected by this libbox build. These are
                 // separate failures and must never prompt repeated payments.

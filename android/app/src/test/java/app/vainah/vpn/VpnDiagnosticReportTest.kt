@@ -4,6 +4,28 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class VpnDiagnosticReportTest {
+    @Test fun localProfileRejectionIsReportedEvenWithVpnOff() {
+        val report = VpnDiagnosticReport.create("off", null, null, 37, false,
+            selectedTransport = "tcp", selectedSecurity = "reality",
+            profileCheckTransport = "xhttp", profileCheckSecurity = "tls",
+            profileCheckRejection = "xhttp_xmux_invalid_type")
+        assertTrue(report.contains("app_version=${BuildConfig.VERSION_NAME}"))
+        assertTrue(report.contains("app_version_code=${BuildConfig.VERSION_CODE}"))
+        assertTrue(report.contains("selected_transport=tcp"))
+        assertTrue(report.contains("selected_security=reality"))
+        assertTrue(report.contains("last_profile_check_transport=xhttp"))
+        assertTrue(report.contains("last_profile_check_security=tls"))
+        assertTrue(report.contains("last_profile_check_result=xhttp_xmux_invalid_type"))
+    }
+
+    @Test fun profileCheckFieldsNeverExportUserValues() {
+        val report = VpnDiagnosticReport.create("off", null, null, 37, false,
+            profileCheckTransport = "private_host", profileCheckSecurity = "private_token",
+            profileCheckRejection = "private_uuid")
+        assertTrue(report.contains("last_profile_check_result=unknown"))
+        assertFalse(report.contains("private_"))
+    }
+
     @Test fun includesOnlyCredentialsFreeCodes() {
         val report = VpnDiagnosticReport.create(
             "tun_ready", "vpn_https_probe_inconclusive",

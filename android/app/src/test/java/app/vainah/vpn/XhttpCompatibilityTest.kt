@@ -144,6 +144,72 @@ class XhttpCompatibilityTest {
             .put("mode", "packet-up"))))
     }
 
+    @Test fun xrayXmuxCamelCaseIsConvertedToNativeSnakeCase() {
+        val extra = JSONObject().put("xmux", JSONObject()
+            .put("maxConnections", "3-3")
+            .put("cMaxReuseTimes", "10-20")
+            .put("hMaxRequestTimes", "600-900")
+            .put("hMaxReusableSecs", "1800-3000")
+            .put("hKeepAlivePeriod", 0))
+        val native = VlessRealityConfig.outbound(encoded(extra))
+            .getJSONObject("transport").getJSONObject("xmux")
+        assertEquals("3-3", native.getString("max_connections"))
+        assertEquals("10-20", native.getString("c_max_reuse_times"))
+        assertEquals("600-900", native.getString("h_max_request_times"))
+        assertEquals("1800-3000", native.getString("h_max_reusable_secs"))
+        assertEquals(0, native.getInt("h_keep_alive_period"))
+        assertFalse(native.has("maxConnections"))
+    }
+
+    @Test fun zeroXmuxConnectionLimitCanCoexistWithPositiveConcurrency() {
+        // Xray's guard checks both positive upper bounds, not both keys.
+        val cases = listOf(
+            JSONObject().put("maxConcurrency", "8-16").put("maxConnections", "0-0"),
+            JSONObject().put("maxConcurrency", "0-0").put("maxConnections", "3-3"),
+            JSONObject().put("maxConcurrency", 8).put("maxConnections", 0),
+            JSONObject().put("maxConcurrency", 0).put("maxConnections", 3)
+        )
+        for (xmux in cases) {
+            val converted = VlessRealityConfig.outbound(encoded(
+                JSONObject().put("xmux", xmux)
+            )).getJSONObject("transport").getJSONObject("xmux")
+            assertTrue(converted.has("max_concurrency"))
+            assertTrue(converted.has("max_connections"))
+            assertFalse(converted.has("maxConcurrency"))
+        }
+    }
+
+    @Test fun bothPositiveXmuxConnectionLimitsStillFailClosed() {
+        val bad = JSONObject().put("maxConcurrency", "2-4")
+            .put("maxConnections", "3-5")
+        assertThrows(IllegalArgumentException::class.java) {
+            VlessRealityConfig.outbound(encoded(JSONObject().put("xmux", bad)))
+        }
+    }
+
+    @Test fun xhttpTlsProfileWithZeroXmuxLimitIsNotMarkedUnsupported() {
+        val tls = encoded(JSONObject().put("xmux", JSONObject()
+            .put("maxConcurrency", "8-16")
+            .put("maxConnections", "0-0")))
+            .replace("security=reality", "security=tls")
+            .replace("&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
+        val result = SubscriptionNodeSupport.inspect(tls)
+        assertEquals("VLESS / XHTTP / TLS", result?.subtitle)
+        assertEquals(BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED, result?.connectable)
+    }
+
+    @Test fun rejectsUnknownOrConflictingXmuxRatherThanDroppingOptions() {
+        for (bad in listOf(
+            JSONObject().put("maxConnections", "3-3").put("maxConcurrency", "10-10"),
+            JSONObject().put("hiddenServerField", true),
+            JSONObject().put("hKeepAlivePeriod", "unbounded")
+        )) {
+            assertThrows(IllegalArgumentException::class.java) {
+                VlessRealityConfig.outbound(encoded(JSONObject().put("xmux", bad)))
+            }
+        }
+    }
+
     @Test fun allowsKnownServerOnlyXrayFieldsWithoutChangingTransport() {
         val p = VlessRealityConfig.outbound(encoded(
             JSONObject().put("noSSEHeader", true).put("mode", "packet-up")

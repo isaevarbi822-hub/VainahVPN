@@ -5,6 +5,8 @@ on:
     branches:
       - rewrite/android-v1
       - feat/unified-android-python
+    tags:
+      - 'android-preview-*'
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
@@ -44,6 +46,8 @@ jobs:
             "e5cfd79364316150acd5c9ddbb5d6d8c749f1ce4a590f9a3eaa408f949b8fd7b" \
             "android/app/libs/libbox-xhttp-lx.aar" | sha256sum -c -
       - name: Clean build, compiled libbox adapter and Kotlin tests
+        env:
+          VAINAH_SYNTHETIC_CONFIG_DIR: ${{ runner.temp }}/vainah-native-configs
         run: |
           gradle -p android \
             -PvainahEnableLibbox=true \
@@ -51,10 +55,33 @@ jobs:
             -PvainahIsolatedPreview=true \
             :app:clean :app:assembleDebug :app:testDebugUnitTest \
             --no-daemon --stacktrace
+      - name: Validate invented VLESS profiles with pinned native sing-box-lx
+        env:
+          CONFIG_DIR: ${{ runner.temp }}/vainah-native-configs
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          configs=("$CONFIG_DIR"/*.json)
+          if [ "${#configs[@]}" -ne 32 ]; then
+            echo "::error::Expected thirty-two synthetic VPN configs from JVM tests"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/vainah-sing-box"
+          curl --fail --location --retry 4 --retry-delay 3             --connect-timeout 20 --max-time 300             -o "$RUNNER_TEMP/vainah-sing-box/core.tar.gz"             "https://github.com/Leadaxe/sing-box-lx/releases/download/v1.14.4-lx.35/sing-box-1.14.4-lx.35-linux-amd64.tar.gz"
+          printf '%s  %s\n'             "dfdc958f96c7dba32a43dc3e32dc5a093334c4802e3a4fefa09e4c9fde4f2d53"             "$RUNNER_TEMP/vainah-sing-box/core.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/vainah-sing-box/core.tar.gz"             -C "$RUNNER_TEMP/vainah-sing-box"
+          native="$(find "$RUNNER_TEMP/vainah-sing-box" -type f -name sing-box -print -quit)"
+          test -n "$native"
+          "$native" version
+          for config in "${configs[@]}"; do
+            echo "Native schema check: $(basename "$config")"
+            "$native" check -c "$config"
+          done
       - name: Store isolated Android preview
         uses: actions/upload-artifact@v4
         with:
-          name: VainahVPN-Android-3.0.0-alpha.1-Ultra-Native-XHTTP
+          name: VainahVPN-Android-3.0.0-alpha.4-Ultra-Native-XHTTP
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
@@ -122,7 +149,44 @@ jobs:
         if: steps.check.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: VainahVPN-Android-3.0.0-alpha.1-Ultra-Native-XHTTP-Clerk
+          name: VainahVPN-Android-3.0.0-alpha.4-Ultra-Native-XHTTP-Clerk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+
+  publish-preview:
+    name: Publish verified APK for direct download
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/android-preview-')
+    needs: android
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: VainahVPN-Android-3.0.0-alpha.4-Ultra-Native-XHTTP
+          path: preview
+      - name: Publish preview release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd preview
+          mv app-debug.apk VainahVPN-3.0.0-alpha.4-preview.apk
+          sha256sum VainahVPN-3.0.0-alpha.4-preview.apk > SHA256SUMS.txt
+          cat > release-notes.md <<EOF
+          Android preview 3.0.0-alpha.4 (version code 303).
+
+          Includes XMUX/XHTTP/REALITY compatibility checks, space-separated Turkey 1/IP labels, offline per-node profile readiness, and credential-free Turkey diagnostics. This is not proof of live server or VPN reachability.
+
+          Built from commit $GITHUB_SHA. JVM tests and all 32 synthetic native configuration checks passed before publication. Actual Turkey server connectivity still requires verification on an Android device.
+
+          This APK is debug-signed. Android requires a matching certificate to update an existing preview. Keep subscription access before replacing an installation signed with another key. No backend or Render deployment is included.
+          EOF
+          gh release create "$GITHUB_REF_NAME" \
+            VainahVPN-3.0.0-alpha.4-preview.apk SHA256SUMS.txt \
+            --repo "$GH_REPO" --verify-tag --prerelease --latest=false \
+            --title "VainahVPN 3.0.0-alpha.4-preview" \
+            --notes-file release-notes.md

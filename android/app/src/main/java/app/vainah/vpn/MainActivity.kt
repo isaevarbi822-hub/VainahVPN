@@ -506,9 +506,15 @@ class MainActivity : Activity() {
                     }
                 },
             ) {
-                if (!SubscriptionNodeSupport.canConnect(node.uri)) {
-                    popup("Этот транспорт пока недоступен в текущем движке VainahVPN: " +
-                        entry.info.subtitle + ". Сервер показан без подключения.")
+                val compatibility = SubscriptionNodeSupport.inspect(node.uri)
+                rememberProfileCheck(compatibility)
+                if (compatibility?.connectable != true) {
+                    // A present XHTTP engine is NOT the same as a parseable
+                    // subscription node. Never blame the native engine for
+                    // locally rejected server options.
+                    val code = compatibility?.rejectionCode ?: "profile_unrecognized"
+                    popup(SubscriptionNodeSupport.safeBlockMessage(compatibility) +
+                        "\nКод: " + code + "\nВерсия: " + BuildConfig.VERSION_NAME)
                     return@row
                 }
                 val session = VpnConnectionState.read(this)
@@ -1001,6 +1007,7 @@ class MainActivity : Activity() {
             source.savedLink() != null, nodes.size, source.busy, lastError
         )
 
+        showTurkeyProfileAudit(body)
         val subscription = card()
         add(body, subscription, 13)
         add(subscription, tag("СЕРВЕР ПОДПИСКИ"))
@@ -1080,7 +1087,18 @@ class MainActivity : Activity() {
                 ).code,
                 failureCode = if (current.phase == VpnConnectionState.FAILED)
                     diag.getString("last_failure_code", null) else null,
-                routeScanPending = routeScanRunning
+                routeScanPending = routeScanRunning,
+                libboxDetail = if (current.phase == VpnConnectionState.FAILED)
+                    diag.getString("libbox_validation_detail", null) else null,
+                nativeCore = diag.getString("libbox_native_core", null),
+                selectedTransport = diag.getString("selected_transport", null),
+                selectedSecurity = diag.getString("selected_security", null),
+                libboxRejectedOption = if (current.phase == VpnConnectionState.FAILED)
+                    diag.getString("libbox_rejected_option", null) else null,
+                profileCheckTransport = diag.getString("profile_check_transport", null),
+                profileCheckSecurity = diag.getString("profile_check_security", null),
+                profileCheckRejection = diag.getString("profile_check_rejection", null),
+                turkeyAudit = TurkeyServerAudit.inspect(nodes)
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(
@@ -1119,6 +1137,19 @@ class MainActivity : Activity() {
             add(failure, t(advice.action, 12f, grey), 8)
             add(failure, t("Код: " +
                 VpnFailureAdvisor.sanitizedCode(failureCode), 11f, teal), 7)
+            if (failureCode == "config_validation") {
+                val detail = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+                    .getString("libbox_validation_detail", null)
+                add(failure, t("Причина проверки: " +
+                    LibboxValidationDetail.safeCode(detail), 11f, teal), 5)
+                if (LibboxValidationDetail.safeCode(detail) ==
+                    LibboxValidationIsolation.TRANSPORT_EXTRAS) {
+                    val option = getSharedPreferences("vpn_diagnostics", MODE_PRIVATE)
+                        .getString("libbox_rejected_option", null)
+                    add(failure, t("Поле XHTTP: " +
+                        LibboxValidationDetail.safeOption(option), 11f, teal), 5)
+                }
+            }
         }
 
         val expanded = action(if (showAdvancedDiagnostics)
@@ -1235,6 +1266,43 @@ class MainActivity : Activity() {
     }
 
 
+    /**
+     * Exact Turkey 1 / Turkey IP profile audit. It is intentionally separate
+     * from TCP measurements and from live VPN verification. No private
+     * subscription URI, endpoint host or credential is rendered or copied.
+     */
+    private fun showTurkeyProfileAudit(body: LinearLayout) {
+        val entries = TurkeyServerAudit.inspect(nodes)
+        val sheet = card()
+        add(body, sheet, 12)
+        add(sheet, tag("ТУРЦИЯ · ПРОВЕРКА СЕРВЕРОВ"))
+        add(sheet, t("Турция 1 и Турция IP", 17f, white, true), 7)
+        add(sheet, t(
+            "Проверка только локального формата. Для настоящей работы VPN " +
+                "нужно отдельно проверить соединение и внешний IP на устройстве.",
+            11.5f, grey), 8)
+        for (entry in entries) {
+            val tone = when (entry.status) {
+                TurkeyServerAudit.Status.MISSING -> VainahUi.Tone.NEUTRAL
+                TurkeyServerAudit.Status.UNSUPPORTED -> VainahUi.Tone.WARNING
+                TurkeyServerAudit.Status.READY -> VainahUi.Tone.PURPLE
+            }
+            add(sheet, VainahUi.detailRow(this, entry.title, entry.headline, tone), 10)
+            add(sheet, t(entry.explanation, 11f, grey), 5)
+        }
+        val show = lightAction("Показать настоящие серверы Турции").apply {
+            textSize = 11.5f
+            isEnabled = entries.any { it.importedCount > 0 }
+        }
+        add(sheet, show, 11)
+        show.setOnClickListener {
+            serverCollection = ServerCollection.ALL
+            serverSearchQuery = "Турция"
+            page = Page.LOCATIONS
+            render()
+        }
+    }
+
     // Each screen reads actual subscription/service state; no invented ping,
     // traffic numbers, expiry dates or subscription-device limits.
     private fun locations(body: LinearLayout) {
@@ -1269,6 +1337,7 @@ class MainActivity : Activity() {
         lastError?.let { problem ->
             add(summary, t(problem, 11.5f, errorColor), 8)
         }
+        showTurkeyProfileAudit(body)
         val sheet = ServerListVisual.sheet(this)
         add(body, sheet, 12)
         // Search/filter only updates the row container. Keeping EditText
@@ -1547,7 +1616,10 @@ class MainActivity : Activity() {
         }
         val index = nodes.indexOfFirst { it.uri == target.uri }
         if (index < 0 || !SubscriptionNodeSupport.canConnect(target.uri)) {
-            popup("Сервер отсутствует или его протокол не поддерживается. Обнови подписку.")
+            val details = SubscriptionNodeSupport.inspect(target.uri)
+            popup("Нельзя проверить TCP этого профиля: " +
+                SubscriptionNodeSupport.safeBlockMessage(details) +
+                " Обновление подписки может не исправить несовместимость.")
             return
         }
         val name = ServerRowPresentation.describe(target, index).title
@@ -2118,6 +2190,18 @@ class MainActivity : Activity() {
                 SystemClock.elapsedRealtime(), nextAutoRefresh,
                 phase, SubscriptionInput.isDirectKey(link)))
             refreshServers(false)
+    }
+
+    private fun rememberProfileCheck(details: SubscriptionNodeSupport.Details?) {
+        // Preserve local rejection facts even when the VPN service never starts.
+        // Keep these separate from the active session's transport/security.
+        val code = if (details?.connectable == true) "ok"
+            else details?.rejectionCode ?: "profile_unrecognized"
+        getSharedPreferences("vpn_diagnostics", MODE_PRIVATE).edit()
+            .putString("profile_check_transport", details?.transport ?: "unknown")
+            .putString("profile_check_security", details?.security ?: "unknown")
+            .putString("profile_check_rejection", SubscriptionNodeSupport.safeRejectionCode(code))
+            .apply()
     }
 
     private fun connect() {
