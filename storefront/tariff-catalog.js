@@ -261,7 +261,7 @@
     show();
     updateFavorites();
     updateCompare();
-    status.textContent='75 проверенных платных тарифов · RollyPay и Platega · один бесплатный пробный день.';
+    status.textContent='75 платных тарифов с подтверждёнными ценами. Оформление: RollyPay или Platega при готовности кассы. Бесплатный пробный день отдельно.';
     const counter=document.getElementById('tariff-compare-label');
     if(counter)counter.textContent='Сравнить все 76 вариантов ↗';
   }
