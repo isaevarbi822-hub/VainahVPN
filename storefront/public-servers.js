@@ -8,6 +8,8 @@
   const message=document.getElementById('server-directory-status');
   const refresh=document.getElementById('server-refresh');
   if(!root||!input||!favoritesButton||!sort||!message||!refresh)return;
+  const apiOrigin=window.location.origin==='https://vainahvpn.onrender.com'
+    ?'https://vainahvpn-python-preview.onrender.com':'';
   const storageKey='vainah-public-location-favorites-v1';
   const text=(tag,value,cls='')=>{
     const e=document.createElement(tag);e.textContent=String(value);
@@ -84,9 +86,12 @@
     const seq=++revision;
     message.textContent='Обновляем публичный список…';
     refresh.disabled=true;
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),9000);
     try{
-      const response=await fetch('/api/site/locations',{
-        headers:{Accept:'application/json'},cache:'no-store',credentials:'omit'
+      const response=await fetch(apiOrigin+'/api/site/locations',{
+        headers:{Accept:'application/json'},cache:'no-store',
+        credentials:'omit',signal:controller.signal
       });
       if(!response.ok)throw Error('HTTP '+response.status);
       const data=await response.json();
@@ -99,7 +104,7 @@
       locations=[];
       render();
       message.textContent='Не удалось проверить публичные локации. Перезагрузи список. Реальная подписка не затронута.';
-    }finally{if(seq===revision)refresh.disabled=false;}
+    }finally{clearTimeout(timer);if(seq===revision)refresh.disabled=false;}
   }
   favorites=readFavorites();
   input.addEventListener('input',render);
