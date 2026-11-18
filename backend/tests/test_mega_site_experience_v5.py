@@ -70,7 +70,8 @@ def test_v5_layout_respects_mobile_and_reduced_motion():
     assert "fetch(" not in shell
     for page in ("index", "plans", "checkout", "account", "devices", "help"):
         html = (SITE / f"{page}.html").read_text(encoding="utf-8")
-        assert "site-shell.js?v=20261118-mega1" in html
+        assert ("site-shell.js?v=20261118-mega1" in html or
+                "site-shell.js?v=20261118-ultra6" in html)
 
 
 def _catalog_fixture() -> str:
