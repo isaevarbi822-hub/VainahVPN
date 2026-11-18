@@ -1277,6 +1277,18 @@ class MainActivity : Activity() {
         add(body, sheet, 12)
         add(sheet, tag("ТУРЦИЯ · ПРОВЕРКА СЕРВЕРОВ"))
         add(sheet, t("Турция 1 и Турция IP", 17f, white, true), 7)
+        if (nodes.isEmpty()) {
+            add(sheet, VainahUi.infoStrip(this,
+                "Проверка серверов Турции недоступна: список подписки не загрузился. " +
+                    "Это не означает, что узлы удалены из H1Cloud."), 10)
+            val retry = lightAction("Повторить загрузку подписки").apply {
+                isEnabled = !source.busy
+                textSize = 12f
+            }
+            add(sheet, retry, 9)
+            retry.setOnClickListener { refreshServers(true) }
+            return
+        }
         add(sheet, t(
             "Проверка только локального формата. Для настоящей работы VPN " +
                 "нужно отдельно проверить соединение и внешний IP на устройстве.",
@@ -2137,7 +2149,7 @@ class MainActivity : Activity() {
             return
         nextAutoRefresh = SystemClock.elapsedRealtime() +
             SubscriptionRefreshPolicy.NORMAL_MS
-        val started = source.refresh { result ->
+        val started = source.refresh(retryOnTimeout = manual) { result ->
             result.onSuccess { fresh ->
                 val updated = ServerListReconciler.unique(fresh)
                 if (updated != nodes) {
@@ -2155,7 +2167,7 @@ class MainActivity : Activity() {
                 lastError = SubscriptionLoadFailure.explain(ex)
                 cacheMessage = if (nodes.isNotEmpty())
                     "Сохранённый список; актуальность не подтверждена"
-                else "Серверы не загрузились"
+                else "Список не загружен; сохранённого кеша в этой установке нет"
                 nextAutoRefresh = SubscriptionRefreshPolicy.nextAllowed(
                     SystemClock.elapsedRealtime(), ex)
             }
