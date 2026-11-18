@@ -17,7 +17,9 @@ class TurkeyLteGroupsTest {
             "Турция · 1", "Турция · IP", "🇹🇷 Турция · 1",
             "🇹🇷 Турция · IP", "Turkey - IP", "Türkiye • 1",
             "Турция IP", "Турция 1", "🇹🇷 Турция  IP", "Turkey IP",
-            "Turkiye 1", "Türkiye 1", "Турция:IP"
+            "Turkiye 1", "Türkiye 1", "Турция:IP",
+            "Турция | 1", "Турция № 1", "Turkey # IP",
+            "Турция 🇹🇷 1", "🇹🇷 Turkey | IP"
         )) {
             assertTrue("Expected matched: $label", TurkeyLteGroups.isPreferredLte(label))
         }
@@ -25,6 +27,7 @@ class TurkeyLteGroupsTest {
             "Турция · 2", "Турция · 3", "Турция · 10",
             "Турция · IP extra", "🇹🇷 Турция", "ТурцияIP",
             "Турция 10", "Турция 11", "Турция IP 2",
+            "Турция | 10", "Турция # IP extra", "Турция 1 LTE",
             "Албания · 1", "Turkey LTE",
             "vless://secret@example.org:443"
         )) {
