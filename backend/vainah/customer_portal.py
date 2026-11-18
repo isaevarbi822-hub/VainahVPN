@@ -365,7 +365,7 @@ async def overview(request: Request) -> dict:
         }
 
     manual = {"available": False}
-    if email:
+    if email and current_email(request) is not None:
         # A manual issue is NOT a paid purchase. Its metadata is owner-checked
         # and never carries a private access URL in this overview response.
         from .manual_grants import manual_grant_summary_for_email
