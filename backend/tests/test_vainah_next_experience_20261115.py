@@ -62,7 +62,7 @@ def test_home_plans_checkout_and_hub_have_real_navigation():
     assert "Умный подбор VPN" in hub
     assert 'href="index.html#vainah-route"' in hub
     assert 'class="vx-next-checkout-steps"' in checkout
-    assert "Platega — в подготовке" in checkout
+    assert 'name="shop-gateway" value="platega" disabled' in checkout
     assert 'id="shop-buy"' in checkout
     assert "RollyPay" in checkout
     assert 'href="https://vainahvpn.onrender.com/refund.html"' in checkout

@@ -29,6 +29,7 @@ from .h1_trial import router as h1_trial_router
 from .inspector import InvalidSubscription, inspect_subscription
 from .integration_status import integration_status
 from .mobile_auth import router as mobile_auth_router
+from .platega import router as platega_router
 from .public_trial import router as public_trial_router
 from .qr_handoff import router as handoff_router
 from .reminder_dispatch import router as reminder_dispatch_router
@@ -50,6 +51,7 @@ settings = Settings.from_env()
 app = FastAPI(title="Vainah VPN", version=settings.version, docs_url="/docs", redoc_url=None)
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 app.include_router(shop_router)
+app.include_router(platega_router)
 app.include_router(auth_router)
 app.include_router(h1_router)
 app.include_router(h1_trial_router)

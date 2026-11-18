@@ -45,14 +45,23 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
   <ol>
     <li><em>Выбор тарифа.</em> Цена и срок загружаются с защищённого сервера.</li>
     <li><em>Проверка аккаунта.</em> Для покупки нужен вход и подтверждённый email.</li>
-    <li><em>Оплата и получение.</em> Счёт открывается на странице RollyPay; доступ выдаётся только после подтверждения платежа.</li>
+    <li><em>Оплата и получение.</em> Счёт открывается на защищённой странице выбранной кассы; доступ выдаётся только после подтверждения платежа.</li>
   </ol>
 </div>
-      <div class="payment-method"><span class="payment-symbol">R</span><span><strong>RollyPay</strong><small>Защищённая платёжная форма. Доступные способы определяет твоя касса.</small></span></div>
-      <div class="shop-provider-pending" aria-label="Platega — подключение не завершено">
-  <span class="payment-symbol" aria-hidden="true">P</span>
-  <span><strong>Platega — в подготовке</strong><small>Дополнительная касса пока не подключена и не принимает оплату на этом сайте. Выбрать её сейчас нельзя.</small></span>
-</div>
+      <div class="payment-method" role="group" aria-label="Выбор платёжной кассы">
+        <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+          <input type="radio" name="shop-gateway" value="rollypay" checked>
+          <span class="payment-symbol" aria-hidden="true">R</span>
+          <span><strong>RollyPay</strong><small>Защищённая платёжная форма RollyPay.</small></span>
+        </label>
+      </div>
+      <div class="payment-method">
+        <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+          <input type="radio" name="shop-gateway" value="platega" disabled>
+          <span class="payment-symbol" aria-hidden="true">P</span>
+          <span><strong>Platega</strong><small id="platega-availability">Проверяем подключение второй кассы…</small></span>
+        </label>
+      </div>
       <button class="shop-submit" id="shop-buy" type="button" disabled>Проверяем возможность оплаты…</button><nav class="shop-legal-links" aria-label="Юридические документы перед оплатой" data-checkout-documents>
   <strong>Документы перед оплатой</strong>
   <p>Перед оформлением заказа ознакомься с условиями и правилами сервиса. Каждая ссылка ведёт на отдельную страницу.</p>
@@ -63,7 +72,7 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
     <li><a href="https://vainahvpn.onrender.com/refund.html">Условия возврата ↗</a></li>
   </ul>
 </nav>
-      <p class="fineprint">Создание счёта не списывает деньги само по себе. При доступной оплате платёж совершается только на защищённой странице RollyPay. Нужен подтверждённый email: он уже есть при входе через email/Google, а для Telegram привязывается один раз в кабинете. VPN выдаётся только после подтверждённой оплаты.</p>
+      <p class="fineprint">Создание счёта не списывает деньги само по себе. При доступной оплате платёж совершается только на защищённой странице выбранной кассы. Нужен подтверждённый email: он уже есть при входе через email/Google, а для Telegram привязывается один раз в кабинете. VPN выдаётся только после подтверждённой оплаты.</p>
       <a class="shop-inline-link" href="account.html#account-email-panel">Войти через email, Google, Telegram / Подтвердить почту</a><a class="shop-inline-link" href="plans.html">← Вернуться к тарифам</a>
       <p class="vx-next-inline-message"><strong>Нужна помощь до оплаты?</strong> <a href="help.html">Ответы на вопросы</a>, <a href="connect.html">инструкция по подключению</a> и <a href="contact.html">контакты поддержки</a>. Если счёт уже создан, сначала проверь его статус — повторная покупка может привести к двойному платежу.</p>
     </aside>
@@ -93,7 +102,7 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
       <a id="shop-test-link" hidden target="_blank" rel="noopener noreferrer">Открыть тестовую форму RollyPay ↗</a>
     </details>
   </section>
-</main><footer><div class="container"><div class="footer-grid"><div><a class="logo" href="index.html"><span class="logo-mark" aria-hidden="true"><svg fill="none" viewBox="0 0 32 32"><path d="m6 9 10 15L26 9" stroke="#fff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/><path d="m16 6 5 8-5 11" stroke="#d1f7ff" stroke-width="2.4" stroke-linecap="round"/></svg></span><span>VAINAH <em>VPN</em></span></a><p>Твоё соединение. Твои правила.</p><p>Управление доступом и понятные инструкции. Для подключения к сети нужен совместимый VPN-клиент.</p></div><div><h4>Сервис</h4><a href="plans.html">Тарифы</a><a href="servers.html">Локации</a><a href="guide.html">Как подключиться</a><a href="about.html">О Vainah VPN</a></div><div><h4>Информация</h4><a href="help.html">Вопросы и ответы</a><a href="contact.html">Поддержка</a><a href="privacy.html">Конфиденциальность</a><a href="terms.html">Условия сервиса</a></div></div><div class="footer-bottom"><span>© 2026 Vainah VPN. Твоё соединение. Твои правила.</span><span>Актуальные тарифы — на сайте · RollyPay при доступной кассе</span></div></div><div class="container site-explore-links" style="border-top:1px solid #34384e;padding:24px 32px;font-size:13px;display:flex;gap:16px;flex-wrap:wrap;color:#cbbaff"><a href="features.html">Возможности</a><a href="devices.html">Устройства</a><a href="security.html">Безопасность</a><a href="speed.html">Скорость</a><a href="troubleshooting.html">Диагностика</a></div><div class="container" style="border-top:1px solid #34384e;padding:24px 32px;display:flex;gap:12px 22px;flex-wrap:wrap;font-size:13px;color:#cbbaff">
+</main><footer><div class="container"><div class="footer-grid"><div><a class="logo" href="index.html"><span class="logo-mark" aria-hidden="true"><svg fill="none" viewBox="0 0 32 32"><path d="m6 9 10 15L26 9" stroke="#fff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/><path d="m16 6 5 8-5 11" stroke="#d1f7ff" stroke-width="2.4" stroke-linecap="round"/></svg></span><span>VAINAH <em>VPN</em></span></a><p>Твоё соединение. Твои правила.</p><p>Управление доступом и понятные инструкции. Для подключения к сети нужен совместимый VPN-клиент.</p></div><div><h4>Сервис</h4><a href="plans.html">Тарифы</a><a href="servers.html">Локации</a><a href="guide.html">Как подключиться</a><a href="about.html">О Vainah VPN</a></div><div><h4>Информация</h4><a href="help.html">Вопросы и ответы</a><a href="contact.html">Поддержка</a><a href="privacy.html">Конфиденциальность</a><a href="terms.html">Условия сервиса</a></div></div><div class="footer-bottom"><span>© 2026 Vainah VPN. Твоё соединение. Твои правила.</span><span>Актуальные тарифы — на сайте · RollyPay / Platega при доступности</span></div></div><div class="container site-explore-links" style="border-top:1px solid #34384e;padding:24px 32px;font-size:13px;display:flex;gap:16px;flex-wrap:wrap;color:#cbbaff"><a href="features.html">Возможности</a><a href="devices.html">Устройства</a><a href="security.html">Безопасность</a><a href="speed.html">Скорость</a><a href="troubleshooting.html">Диагностика</a></div><div class="container" style="border-top:1px solid #34384e;padding:24px 32px;display:flex;gap:12px 22px;flex-wrap:wrap;font-size:13px;color:#cbbaff">
 <a href="start.html">🚀 Быстрый старт</a>
 <a href="glossary.html">📚 Словарь VPN</a>
 <a href="checklist.html">✅ Чек-лист</a>

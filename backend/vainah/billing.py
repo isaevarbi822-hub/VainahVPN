@@ -1142,9 +1142,13 @@ def plans() -> dict:
 @router.get("/config")
 def config() -> dict:
     from .live_checkout import live_ready
+    from .platega import ready as platega_ready
 
     approved = live_ready()
+    platega_enabled = platega_ready()
     return {"gateway": "rollypay", "checkout_ready": approved,
+            "platega_ready": platega_enabled,
+            "gateways": {"rollypay": approved, "platega": platega_enabled},
             "sandbox_available": (
                 len(os.environ.get("VAINAH_SANDBOX_TEST_TOKEN", "")) >= 24
                 and os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") == "enabled"
