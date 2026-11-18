@@ -70,11 +70,10 @@
     ['notifications.html','Мои уведомления','Срок VPN, продление и настройки email-напоминаний','напоминание продлить 7 3 1 день срок письмо'],
     ['gifts.html','Подарочные карты','Подарочные подписки и полученные коды','подарок код дарить подарочная карта'],
     ['referrals.html','Приглашения','Программа приглашений и рекомендации','пригласить реферал ссылка'],
-        ['servers.html','Серверы','Локации и доступность панели','локации страны'],
+    ['servers.html','Серверы','Локации и доступность панели','локации страны'],
     ['security.html','Безопасность','Защита личной конфигурации','приватность'],
     ['privacy.html','Конфиденциальность','Как сайт обращается с данными','данные'],
     ['terms.html','Условия сервиса','Правила использования Vainah VPN','условия'],
-    ['speed.html','Тест скорости','Ping, jitter, загрузка и отдача данных','скорость speedtest интернет mbps download upload'],
     ['network-check.html','Проверка соединения','HTTPS, Python API, email-вход, оплата и отклик сервера','здоровье сети диагностика сеть health check ping'],
     ['network-toolkit.html','12 сетевых калькуляторов','Скорость, трафик, прогноз за месяц, лимит устройств и резервное копирование','калькулятор расчёт скорость Мбит скачать время трафик мегабайт'],
     ['connection-monitor.html','Монитор стабильности','Повторные замеры отклика API, ошибки и копирование отчёта','монитор интернет стабильно latency ping uptime стабильность'], 
@@ -638,5 +637,21 @@
     sheet.href='experience-v5.css?v=20261118-mega1';
     sheet.dataset.vxExperienceV5='style';
     document.head.append(sheet);
+  }
+  // Ultra 6: private-by-design navigation preferences on informational pages.
+  // No network access, payments, authentication, or private page history.
+  if(!document.querySelector('link[data-vx-ultra6]')){
+    const sheet=document.createElement('link');
+    sheet.rel='stylesheet';
+    sheet.href='ultra6-workspace.css?v=20261118-u6a';
+    sheet.dataset.vxUltra6='css';
+    document.head.append(sheet);
+  }
+  if(!document.querySelector('script[data-vx-ultra6]')){
+    const script=document.createElement('script');
+    script.src='ultra6-workspace.js?v=20261118-u6a';
+    script.defer=true;
+    script.dataset.vxUltra6='js';
+    document.head.append(script);
   }
 })();
