@@ -22,6 +22,7 @@ def setup_gateway(monkeypatch):
     monkeypatch.setenv("PLATEGA_SECRET", SECRET)
     monkeypatch.setenv("PLATEGA_PAYMENT_METHOD", "2")
     monkeypatch.setenv("PLATEGA_ENABLED", "enabled")
+    monkeypatch.setenv("PLATEGA_WEBHOOK_CONFIRMED", "enabled")
     monkeypatch.setattr(platega, "live_ready", lambda: True)
 
 
