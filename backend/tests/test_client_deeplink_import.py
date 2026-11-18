@@ -34,7 +34,11 @@ global.document={
  createTextNode(text){return {textContent:text};}
 };
 global.window={};
-global.navigator={clipboard:{writeText(text){copied.push(text);return Promise.resolve();}}};
+// Node 22+ may expose a read-only navigator; define a browser stub explicitly.
+Object.defineProperty(globalThis,'navigator',{
+ configurable:true,
+ value:{clipboard:{writeText(text){copied.push(text);return Promise.resolve();}}}
+});
 const reply=body=>({ok:true,status:200,json:async()=>body});
 let active=true;
 const requests=[];
