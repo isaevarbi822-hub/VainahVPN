@@ -398,18 +398,23 @@ def get_grant(
         raise _http_error(exc) from None
 
 
-@customer_router.get("/manual-grant")
-async def customer_manual_grant(request: Request) -> dict:
-    """Verified email ownership only; never confuse a grant with paid orders."""
-    email = current_email(request)
-    if not email:
-        raise HTTPException(401, "VERIFIED_EMAIL_LOGIN_REQUIRED")
+async def manual_grant_summary_for_email(
+    email: str, *, include_secret: bool = False,
+) -> dict:
+    """Read only the signed-in recipient's verified H1 profile.
+
+    Overview never receives the private subscription URL. The separate
+    owner-checked /manual-grant endpoint supplies it on request.
+    """
     try:
         owner = _owner_hash(email)
-        with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
+        with psycopg.connect(
+            database_url(), connect_timeout=4
+        ) as conn, conn.cursor() as cur:
             _schema(cur)
             cur.execute("""
-                SELECT client_name, days, devices, expires_at, subscription_cipher
+                SELECT client_name, days, devices, expires_at,
+                       subscription_cipher
                 FROM vainah_manual_grants
                 WHERE owner_hash=%s AND state='issued'
                 ORDER BY created_at DESC LIMIT 1
@@ -423,11 +428,28 @@ async def customer_manual_grant(request: Request) -> dict:
         checked = await read_h1_issued_client_status(client_name)
         if not checked.get("active"):
             return {"available": False}
-        url = _validate_subscription_url(unseal_live_secret(cipher))
-        return {
+        result = {
             "available": True, "days": days, "devices": devices,
-            "expires_at": checked.get("expires_at"), "subscription_url": url,
+            "expires_at": checked.get("expires_at"),
+            "traffic": checked.get("traffic"),
             "gifted": True, "paid": False,
         }
-    except (psycopg.Error, LiveLedgerError, H1PanelError, LiveH1Error, OSError):
+        if include_secret:
+            result["subscription_url"] = _validate_subscription_url(
+                unseal_live_secret(cipher)
+            )
+        return result
+    except (
+        psycopg.Error, LiveLedgerError, H1PanelError,
+        LiveH1Error, OSError,
+    ):
         raise HTTPException(503, "MANUAL_GRANT_ACCESS_UNAVAILABLE") from None
+
+
+@customer_router.get("/manual-grant")
+async def customer_manual_grant(request: Request) -> dict:
+    """A private link is exposed only to its verified email owner."""
+    email = current_email(request)
+    if not email:
+        raise HTTPException(401, "VERIFIED_EMAIL_LOGIN_REQUIRED")
+    return await manual_grant_summary_for_email(email, include_secret=True)
