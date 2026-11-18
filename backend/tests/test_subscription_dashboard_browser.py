@@ -1,6 +1,6 @@
 """Browser DOM smoke: verified manual subscription must render without paid order."""
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 
 def test_verified_manual_subscription_populates_cards_and_deeplinks():
