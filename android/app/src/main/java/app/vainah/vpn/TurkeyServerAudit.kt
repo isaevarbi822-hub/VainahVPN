@@ -8,6 +8,7 @@ package app.vainah.vpn
  */
 object TurkeyServerAudit {
     enum class Status(val code: String) {
+        NOT_LOADED("subscription_not_loaded"),
         MISSING("not_found_by_label"),
         UNSUPPORTED("local_profile_rejected"),
         READY("locally_parseable_not_connected")
@@ -24,11 +25,14 @@ object TurkeyServerAudit {
             TurkeyLteGroups.Slot.IP -> "Турция IP"
         }
         val headline: String get() = when (status) {
+            Status.NOT_LOADED -> "Невозможно проверить · список не загружен"
             Status.MISSING -> "Не найден под этим названием"
             Status.UNSUPPORTED -> "Параметры не приняты приложением"
             Status.READY -> "Формат распознан · VPN не проверен"
         }
         val explanation: String get() = when (status) {
+            Status.NOT_LOADED -> "Приложение не получило список серверов. " +
+                "Проверь HTTPS-подписку и повтори загрузку; это не ошибка самого узла Турции."
             Status.MISSING -> "Точного совпадения названия нет в загруженных записях. " +
                 "Проверь другие узлы Турции в списке и название в H1Cloud. " +
                 "Приложение не создаёт недостающие серверы."
@@ -39,6 +43,7 @@ object TurkeyServerAudit {
                 "VLESS/REALITY/XHTTP, DNS, внешнего IP или соединения в браузере."
         }
         val safeDiagnostic: String get() = when (status) {
+            Status.NOT_LOADED -> Status.NOT_LOADED.code
             Status.MISSING -> Status.MISSING.code
             Status.READY -> Status.READY.code
             Status.UNSUPPORTED -> Status.UNSUPPORTED.code + "_" +
@@ -48,6 +53,7 @@ object TurkeyServerAudit {
 
     fun inspect(nodes: List<VainahNode>): List<Entry> =
         TurkeyLteGroups.Slot.entries.map { slot ->
+            if (nodes.isEmpty()) return@map Entry(slot, Status.NOT_LOADED, 0)
             val found = nodes.asSequence()
                 .filter { TurkeyLteGroups.slot(it.label) == slot }
                 .take(50).toList()
