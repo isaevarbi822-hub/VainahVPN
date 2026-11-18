@@ -4,14 +4,14 @@ import java.util.Locale
 
 /**
  * Group only the TWO explicitly named Turkey entries already imported from H1Cloud.
- * Accept punctuation-separated and ordinary-space labels; never synthesize a
+ * Accept common separators, numbered labels and ordinary-space labels; never synthesize a
  * server, alter its VLESS URI, or imply LTE/transport connectivity.
  */
 object TurkeyLteGroups {
     enum class Slot { ONE, IP }
 
     private val requested = Regex(
-        "^(?:турция|turkey|türkiye|turkiye)(?:\\s*[·•\\-–—:]\\s*|\\s+)(1|ip)$",
+        "^(?:турция|turkey|türkiye|turkiye)(?:\\s*🇹🇷)?(?:\\s*[·•|#№\\-–—:]\\s*|\\s+)(1|ip)$",
         RegexOption.IGNORE_CASE
     )
 
