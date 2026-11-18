@@ -6,6 +6,7 @@
   const hide=(id,value)=>{const node=$(id);if(node)node.hidden=value;};
   let user=null;
   let subscriptionUrl=null;
+  let manualGrantUrl=null;
   let privateQrUrl=null;
   let qrPending=false;
   let currentData=null;
@@ -342,6 +343,13 @@
   function clearSubscription(){
     clearQR();
     subscriptionUrl=null;
+    manualGrantUrl=null;
+    hide('account-manual-copy',true);
+    for(const id of ['account-manual-happ','account-manual-incy']){
+      const element=$(id);
+      if(element){element.removeAttribute('href');element.hidden=true;}
+    }
+    write('account-manual-status','Подарочная подписка ещё не проверена.');
     const open=$('account-open-vpn');
     if(open)open.removeAttribute('href');
     hide('account-open-vpn',true);
@@ -645,6 +653,44 @@
     }catch{
       if(sessionEpoch===session&&refreshEpoch===revision)write('account-access-status','Не удалось скопировать ссылку.');
     }
+  });
+  const manualGet=$('account-manual-get');
+  if(manualGet)manualGet.addEventListener('click',async()=>{
+    if(!user)return;
+    const session=sessionEpoch,revision=refreshEpoch;
+    manualGet.disabled=true;
+    write('account-manual-status','Проверяем персональную выдачу в H1Cloud...');
+    try{
+      const result=await api('/api/account/manual-grant');
+      if(session!==sessionEpoch||revision!==refreshEpoch)return;
+      if(result.available!==true){
+        write('account-manual-status','Для этой подтверждённой почты нет активной ручной подписки.');
+        return;
+      }
+      const url=new URL(result.subscription_url);
+      if(url.protocol!=='https:'||url.username||url.password||url.hash)throw Error('INVALID_LINK');
+      manualGrantUrl=url.href;
+      hide('account-manual-copy',false);
+      for(const [id,scheme] of [['account-manual-happ','happ://add/'],['account-manual-incy','incy://add/']]){
+        const element=$(id);
+        if(element){element.href=scheme+manualGrantUrl;element.hidden=false;}
+      }
+      write('account-manual-status','Подписка без оплаты активна до '+
+        formatDate(result.expires_at)+'. Устройств: '+result.devices+'.');
+    }catch(error){
+      if(session===sessionEpoch&&revision===refreshEpoch)
+        write('account-manual-status','Не удалось проверить подписку: '+error.message);
+    }finally{
+      if(session===sessionEpoch&&revision===refreshEpoch)manualGet.disabled=false;
+    }
+  });
+  const manualCopy=$('account-manual-copy');
+  if(manualCopy)manualCopy.addEventListener('click',async()=>{
+    if(!manualGrantUrl)return;
+    try{
+      await navigator.clipboard.writeText(manualGrantUrl);
+      write('account-manual-status','Личная ссылка скопирована. Не отправляй её посторонним.');
+    }catch{write('account-manual-status','Браузер запретил копирование ссылки.');}
   });
   const logout=$('account-exit');
   if(logout)logout.addEventListener('click',async()=>{
