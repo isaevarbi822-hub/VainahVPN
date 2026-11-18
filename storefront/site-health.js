@@ -17,8 +17,21 @@
   button.setAttribute('aria-haspopup','dialog');
   button.setAttribute('aria-controls','vx-live-dialog');
   button.setAttribute('aria-label','Проверить доступность касс Vainah VPN');
+  button.title='Проверка готовности RollyPay и Platega';
   button.innerHTML='<span class="vx-live-dot" aria-hidden="true"></span><span class="vx-live-label">Проверка оплаты</span>';
   nav.prepend(button);
+  // On tiny phones the status shortcut lives inside the open menu, where
+  // it remains reachable without squeezing the entire header off-screen.
+  const mobileMenu=document.querySelector('body > header .mobile-nav');
+  if(mobileMenu && !mobileMenu.querySelector('.vx-mobile-status')){
+    const mobileStatus=document.createElement('button');
+    mobileStatus.type='button';
+    mobileStatus.className='vx-mobile-status';
+    mobileStatus.textContent='◈ Проверка оплаты';
+    mobileStatus.setAttribute('aria-label','Открыть проверку готовности RollyPay и Platega');
+    mobileMenu.prepend(mobileStatus);
+    mobileStatus.addEventListener('click',()=>button.click());
+  }
   const dialog=document.createElement('dialog');
   dialog.id='vx-live-dialog';
   dialog.className='vx-live-dialog';
