@@ -76,6 +76,7 @@
 .checkout-next .checkout-columns .shop-plans{
   min-width:0;
   min-height:120px;
+  max-height:min(62vh,650px);
   max-height:min(62dvh,650px);
   overflow-y:auto;
   overflow-x:hidden;
@@ -93,6 +94,7 @@
   position:sticky;
   top:16px;
   min-width:0;
+  max-height:min(78vh,740px);
   max-height:min(78dvh,740px);
   overflow-y:auto;
   overflow-x:hidden;
@@ -139,10 +141,11 @@
 }
 @media(max-width:900px){
   .checkout-next .checkout-columns{grid-template-columns:minmax(0,1fr);gap:17px}
-  .checkout-next .checkout-columns .shop-plans{max-height:min(46dvh,480px)}
+  .checkout-next .checkout-columns .shop-plans{max-height:min(46vh,480px);max-height:min(46dvh,480px)}
   .checkout-next .checkout-columns .shop-summary{
     position:relative;
     top:auto;
+    max-height:min(66vh,720px);
     max-height:min(66dvh,720px);
     scroll-margin-top:16px;
   }
@@ -150,18 +153,20 @@
 @media(max-width:600px){
   .checkout-next .checkout-columns .shop-plans{
     grid-template-columns:minmax(0,1fr);
+    max-height:min(45vh,420px);
     max-height:min(45dvh,420px);
     scrollbar-gutter:stable;
     padding:4px 7px 10px 3px;
   }
   .checkout-next .checkout-columns .shop-summary{
+    max-height:min(70vh,640px);
     max-height:min(70dvh,640px);
   }
   .checkout-next .shop-to-payment-link{width:100%}
 }
 @media(max-height:480px) and (min-width:901px){
   .checkout-next .checkout-columns .shop-plans{max-height:300px}
-  .checkout-next .checkout-columns .shop-summary{max-height:calc(100dvh - 32px)}
+  .checkout-next .checkout-columns .shop-summary{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px)}
 }
 @media(prefers-reduced-motion:reduce){
   .checkout-next .checkout-columns :is(.shop-plans,.shop-summary){scroll-behavior:auto}
