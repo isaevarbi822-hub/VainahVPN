@@ -53,3 +53,10 @@
 @media(max-width:900px){.checkout-columns .shop-summary{position:static}}
 @media(max-width:520px){.shop-filter-controls{grid-template-columns:1fr;gap:11px}.shop-filter-controls :is(input,select){min-height:44px}.shop-plan{overflow-wrap:anywhere}}
 @media(prefers-reduced-motion:reduce){.shop-panel .shop-plan{transition:none}}
+
+.shop-gateways { border: 0; padding: 0; margin: 20px 0; min-width: 0; }
+.shop-gateways legend { font-weight: 700; margin-bottom: 12px; }
+.shop-gateways .payment-method { cursor: pointer; margin: 8px 0; }
+.shop-gateways input { accent-color: #a855f7; width: 20px; height: 20px; flex-shrink: 0; }
+.shop-gateways .payment-method:has(input:checked) { outline: 2px solid #a855f7; border-radius: 12px; }
+.shop-gateways .payment-method:has(input:disabled) { cursor: default; opacity: .65; }

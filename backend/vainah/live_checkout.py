@@ -64,7 +64,7 @@ def live_account_ready() -> bool:
     )
 
 
-def _live_infrastructure_ready() -> bool:
+def _live_infrastructure_ready(gateway: str = "rollypay") -> bool:
     """Common infrastructure checks for both public sales and one live pilot."""
     if not email_login_ready():
         return False
@@ -74,11 +74,16 @@ def _live_infrastructure_ready() -> bool:
         ("postgresql://", "postgres://")
     ):
         return False
-    for name, minimum in (
-        ("SESSION_SIGNING_KEY", 32),
-        ("ROLLYPAY_API_KEY", 16),
-        ("ROLLYPAY_SIGNING_SECRET", 16),
-    ):
+    credentials = (("ROLLYPAY_API_KEY", 16), ("ROLLYPAY_SIGNING_SECRET", 16))
+    if gateway == "platega":
+        from .platega import configured
+
+        if not configured():
+            return False
+        credentials = ()
+    elif gateway != "rollypay":
+        return False
+    for name, minimum in (("SESSION_SIGNING_KEY", 32), *credentials):
         if len(os.environ.get(name, "")) < minimum:
             return False
     try:
@@ -480,6 +485,11 @@ async def handle_live_paid_webhook(
     except (ValueError, UnicodeDecodeError, RecursionError):
         raise HTTPException(400, "LIVE_WEBHOOK_JSON_INVALID") from None
 
+    return await deliver_confirmed_order(ledger=ledger, order_id=order_id)
+
+
+async def deliver_confirmed_order(*, ledger, order_id: str) -> dict:
+    """Shared delivery only after a provider-specific durable payment proof."""
     try:
         check_gift = getattr(ledger, "is_gift_order", None)
         if check_gift is not None and check_gift(order_id):

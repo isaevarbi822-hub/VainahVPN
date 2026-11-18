@@ -13,7 +13,7 @@ def _page(name: str) -> str:
 def test_privacy_matches_seven_bank_sample_sections_and_date():
     html = _page("privacy.html")
     assert '<h1>Политика конфиденциальности</h1>' in html
-    assert '<time datetime="2026-11-15">' in html
+    assert '<time datetime="2026-11-18">' in html
     for heading in (
         "1. Общие положения", "2. Сбор информации",
         "3. Использование информации", "4. Передача информации третьим лицам",
@@ -21,9 +21,9 @@ def test_privacy_matches_seven_bank_sample_sections_and_date():
         "7. Изменения в Политике",
     ):
         assert f"<h2>{heading}</h2>" in html
-    for provider in ("RollyPay", "H1Cloud", "Google", "Telegram"):
+    for provider in ("RollyPay", "Platega", "H1Cloud", "Google", "Telegram"):
         assert provider in html
-    assert "Platega пока не включена" in html
+    assert "При выборе Platega ей передаются подтверждённый email" in html
     assert "срок хранения" in html.lower()
     assert 'href="contact.html"' in html
 
@@ -31,7 +31,7 @@ def test_privacy_matches_seven_bank_sample_sections_and_date():
 def test_terms_matches_ten_bank_sample_sections_and_actual_vpn_service():
     html = _page("terms.html")
     assert '<h1>Пользовательское соглашение</h1>' in html
-    assert '<time datetime="2026-11-15">' in html
+    assert '<time datetime="2026-11-18">' in html
     for heading in (
         "1. Общие положения", "2. Характер услуг и цифровых продуктов",
         "3. Гарантии и ответственность сторон", "4. Законность использования",

@@ -17,6 +17,7 @@ import time
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from threading import RLock
+from typing import Literal
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
@@ -1076,6 +1077,10 @@ class StartSandbox(BaseModel):
     plan: str
 
 
+class StartCheckout(StartSandbox):
+    gateway: Literal["rollypay", "platega"] = "rollypay"
+
+
 router = APIRouter(prefix="/api/shop", tags=["Shop"])
 sandbox = BillingSandbox(
     mode=os.environ.get("VAINAH_SHOP_SANDBOX_MODE", "mock"),
@@ -1142,17 +1147,25 @@ def plans() -> dict:
 @router.get("/config")
 def config() -> dict:
     from .live_checkout import live_ready
+    from .platega_checkout import ready as platega_ready
 
     approved = live_ready()
+    additional = platega_ready()
+    any_ready = approved or additional
     return {"gateway": "rollypay", "checkout_ready": approved,
+            "gateways": [
+                {"id": "rollypay", "name": "RollyPay", "checkout_ready": approved},
+                {"id": "platega", "name": "Platega", "checkout_ready": additional},
+            ],
+            "any_checkout_ready": any_ready,
             "sandbox_available": (
                 len(os.environ.get("VAINAH_SANDBOX_TEST_TOKEN", "")) >= 24
                 and os.environ.get("VAINAH_SHOP_SANDBOX_ENABLED") == "enabled"
-            ), "customer_accounts_ready": approved,
-            "provisioning_ready": approved,
+            ), "customer_accounts_ready": any_ready,
+            "provisioning_ready": any_ready,
             "message": (
-                "Подтверждённый email и оплата на сайте RollyPay."
-                if approved else
+                "Подтверждённый email и оплата на сайте выбранной кассы."
+                if any_ready else
                 "Оформление реальных заказов закрыто до подтверждения "
                 "полного цикла платежа и выдачи VPN."
             )}
@@ -1210,6 +1223,7 @@ def own_checkout_intent(
     request: Request,
     plan: str,
     idempotency_key: str | None = Header(default=None),
+    gateway: Literal["rollypay", "platega"] = "rollypay",
 ) -> dict:
     """Owner-only read of a previously submitted invoice; never charges."""
     from .live_checkout import (
@@ -1236,6 +1250,7 @@ def own_checkout_intent(
         return _ledger().checkout_intent_status(
             owner_ref=owner_ref_for_email(email),
             plan_id=plan, idempotency_key=idempotency_key,
+            **({"gateway": gateway} if gateway != "rollypay" else {}),
         )
     except LiveLedgerError:
         raise HTTPException(503, "LIVE_CHECKOUT_STATUS_UNAVAILABLE") from None
@@ -1243,14 +1258,72 @@ def own_checkout_intent(
 
 @router.post("/checkout")
 async def public_checkout(
-    body: StartSandbox, request: Request,
+    body: StartCheckout, request: Request,
     idempotency_key: str | None = Header(default=None),
 ) -> dict:
     from .live_checkout import start_live_checkout
 
+    if body.gateway == "platega":
+        from .platega_checkout import start_checkout
+
+        return await start_checkout(
+            request=request, plan_id=body.plan, idempotency_key=idempotency_key,
+        )
     return await start_live_checkout(
         request=request, plan_id=body.plan, idempotency_key=idempotency_key,
     )
+
+
+@router.post("/operator/platega/checkout")
+async def platega_pilot_checkout(
+    body: StartSandbox, request: Request,
+    idempotency_key: str | None = Header(default=None),
+    x_sandbox_token: str | None = Header(default=None),
+    x_live_pilot_token: str | None = Header(default=None),
+) -> dict:
+    from .live_checkout import require_pilot_operator
+    from .platega_checkout import start_checkout
+
+    _require_operator(x_sandbox_token)
+    require_pilot_operator(x_live_pilot_token)
+    return await start_checkout(
+        request=request, plan_id=body.plan, idempotency_key=idempotency_key, pilot=True,
+    )
+
+
+@router.get("/operator/platega/status")
+def platega_operator_status(
+    x_sandbox_token: str | None = Header(default=None),
+) -> dict:
+    from . import live_checkout, platega, platega_checkout
+    from .live_ledger import LiveLedgerError
+
+    _require_operator(x_sandbox_token)
+    report = {
+        "credentials_configured": platega.configured(),
+        "processing_ready": platega_checkout.processing_ready(),
+        "checkout_ready": platega_checkout.ready(),
+        "pilot_checkout_ready": platega_checkout.pilot_ready(),
+        "webhook_path": "/api/shop/webhooks/platega",
+        "ledger_available": False,
+    }
+    if live_checkout.live_account_ready():
+        try:
+            pilot = live_checkout._ledger().live_pilot_status(gateway="platega")
+            if "signed_webhook_received" in pilot:
+                pilot["verified_webhook_received"] = pilot.pop("signed_webhook_received")
+            report.update(pilot)
+            report["ledger_available"] = True
+        except LiveLedgerError:
+            pass
+    return report
+
+
+@router.post("/webhooks/platega")
+async def platega_webhook(request: Request) -> dict:
+    from .platega_checkout import handle_callback
+
+    return await handle_callback(request=request)
 
 
 @router.post("/operator/live-pilot/checkout")
