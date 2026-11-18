@@ -12,7 +12,6 @@ import hmac
 import html
 import os
 import re
-import secrets
 import time
 from datetime import UTC, datetime
 from urllib.parse import urlencode
@@ -25,8 +24,19 @@ from pydantic import BaseModel, ConfigDict, Field
 from .billing import _require_operator
 from .email_auth import current_email, normalize_email
 from .email_delivery import database_url, send_email
-from .h1_live_provision import LiveH1Error, _client, _disabled, _expiry, _validate_subscription_url
-from .h1_panel import H1PanelError, panel_settings, panel_tls_verify, read_h1_issued_client_status
+from .h1_live_provision import (
+    LiveH1Error,
+    _client,
+    _disabled,
+    _expiry,
+    _validate_subscription_url,
+)
+from .h1_panel import (
+    H1PanelError,
+    panel_settings,
+    panel_tls_verify,
+    read_h1_issued_client_status,
+)
 from .live_checkout import require_pilot_operator
 from .live_ledger import LiveLedgerError, seal_live_secret, unseal_live_secret
 from .telegram_auth import require_same_origin
