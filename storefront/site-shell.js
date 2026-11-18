@@ -630,4 +630,13 @@
     style.dataset.vxAdaptive='css';
     document.head.append(style);
   }
+  // The task-first homepage and public tariff workspace share one final
+  // stylesheet. It never alters checkout/auth/network behavior.
+  if(!document.querySelector('link[data-vx-experience-v5]')){
+    const sheet=document.createElement('link');
+    sheet.rel='stylesheet';
+    sheet.href='experience-v5.css?v=20261118-mega1';
+    sheet.dataset.vxExperienceV5='style';
+    document.head.append(sheet);
+  }
 })();
