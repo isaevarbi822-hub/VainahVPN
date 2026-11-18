@@ -15,18 +15,32 @@ class TurkeyLteGroupsTest {
     @Test fun matchesOnlyTwoExplicitlyRequestedTurkeyNodes() {
         for (label in listOf(
             "Турция · 1", "Турция · IP", "🇹🇷 Турция · 1",
-            "🇹🇷 Турция · IP", "Turkey - IP", "Türkiye • 1"
+            "🇹🇷 Турция · IP", "Turkey - IP", "Türkiye • 1",
+            "Турция IP", "Турция 1", "🇹🇷 Турция  IP", "Turkey IP",
+            "Turkiye 1", "Türkiye 1", "Турция:IP"
         )) {
             assertTrue("Expected matched: $label", TurkeyLteGroups.isPreferredLte(label))
         }
         for (label in listOf(
             "Турция · 2", "Турция · 3", "Турция · 10",
-            "Турция · IP extra", "🇹🇷 Турция",
+            "Турция · IP extra", "🇹🇷 Турция", "ТурцияIP",
+            "Турция 10", "Турция 11", "Турция IP 2",
             "Албания · 1", "Turkey LTE",
             "vless://secret@example.org:443"
         )) {
             assertFalse("Must not match: $label", TurkeyLteGroups.isPreferredLte(label))
         }
+    }
+
+    @Test fun canonicalSlotsMatchBothHumanReadabilityFormats() {
+        assertEquals(TurkeyLteGroups.Slot.ONE, TurkeyLteGroups.slot("Турция 1"))
+        assertEquals(TurkeyLteGroups.Slot.IP, TurkeyLteGroups.slot("Турция IP"))
+        assertEquals(TurkeyLteGroups.Slot.IP, TurkeyLteGroups.slot("Türkiye · IP"))
+        assertNull(TurkeyLteGroups.slot("Турция 10"))
+        assertNull(TurkeyLteGroups.slot("TurkeyIP"))
+        assertEquals(2, TurkeyLteGroups.matchingIds(listOf(
+            node("Турция 1", 1), node("Турция IP", 2)
+        )).size)
     }
 
     @Test fun usesOnlyActualImportedUrisAndCreatesNoServers() {
