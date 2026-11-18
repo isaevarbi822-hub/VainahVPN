@@ -1,10 +1,10 @@
-/* RollyPay checkout: server-side checkout_ready controls readiness; never assume payment status from client UI. */
+/* Hosted checkout: server controls both gateways; never assume paid from browser redirects. */
 (() => {
   "use strict";
   const $ = id => document.getElementById(id);
   const cards = $("shop-plans");
   if (!cards) return;
-  const state = { plans: [], selected: null, config: null, busy: false, testOrder: null };
+  const state = { plans: [], selected: null, config: null, gateway: "rollypay", busy: false, testOrder: null };
   const money = amount => Number(amount).toLocaleString("ru-RU", {maximumFractionDigits: 0}) + " ₽";
   function message(text) { $("shop-config-status").textContent = text; }
   function testMessage(text) { $("shop-test-result").textContent = text; }
@@ -63,7 +63,27 @@
       return json;
     } finally {clearTimeout(timer);}
   }
-  const intentKeyName = planId => "vainah-live-checkout-intent-v1-" + planId;
+  function gatewayReady(name = state.gateway) {
+    return name === "platega"
+      ? state.config?.platega_ready === true
+      : state.config?.checkout_ready === true;
+  }
+  function updateGatewayControls() {
+    if (!gatewayReady(state.gateway))
+      state.gateway = gatewayReady("rollypay") ? "rollypay" :
+        gatewayReady("platega") ? "platega" : "rollypay";
+    document.querySelectorAll('input[name="shop-gateway"]').forEach(radio => {
+      radio.disabled = !gatewayReady(radio.value) || state.busy;
+      radio.checked = radio.value === state.gateway;
+    });
+    const availability = $("platega-availability");
+    if (availability)
+      availability.textContent = gatewayReady("platega")
+        ? "Касса Platega готова к созданию счёта."
+        : "Касса Platega недоступна: проверь настройки подключения.";
+  }
+  const intentKeyName = planId => "vainah-live-checkout-intent-v1-" +
+    (state.gateway === "platega" ? "platega-" : "") + planId;
 
   async function checkExistingCheckout(planId) {
     // The token is tied to a verified email on the server; never use it as
@@ -209,10 +229,11 @@
     const requested = new URLSearchParams(location.search).get("plan");
     select(state.plans.some(p => p.id === requested) ? requested : "30");
     filterPlans();
-    $("shop-buy").disabled = !state.config?.checkout_ready;
-    $("shop-buy").textContent = state.config?.checkout_ready ? "Перейти к оплате ↗" : "Оплата пока недоступна";
+    updateGatewayControls();
+    $("shop-buy").disabled = !gatewayReady();
+    $("shop-buy").textContent = gatewayReady() ? "Перейти к оплате ↗" : "Оплата пока недоступна";
     $("shop-test-create").disabled = !state.config?.sandbox_available;
-    if (state.config?.checkout_ready && state.selected) {
+    if (gatewayReady() && state.selected) {
       const selectedPlanId = state.selected.id;
       void checkExistingCheckout(selectedPlanId).catch(err => {
         if (state.selected?.id === selectedPlanId) {
@@ -236,7 +257,7 @@
       state.plans = plans.items;
       state.config = config;
       draw();
-      message(config.checkout_ready
+      message(gatewayReady()
         ? "Оплата включена для авторизованных покупателей."
         : "Оформление новых платежей сейчас не разрешено сервером (checkout_ready=false). Это не означает, что сайт или backend недоступен.");
       if (!config.sandbox_available) {
@@ -248,10 +269,24 @@
       $("shop-test-create").disabled = true;
     }
   }
+  document.querySelectorAll('input[name="shop-gateway"]').forEach(radio => {
+    radio.addEventListener("change", () => {
+      if (state.busy || !radio.checked || !gatewayReady(radio.value)) return;
+      state.gateway = radio.value;
+      updateGatewayControls();
+      $("shop-buy").disabled = !gatewayReady();
+      message("Выбрана касса " + (state.gateway === "platega" ? "Platega" : "RollyPay") + ".");
+      if (state.selected)
+        void checkExistingCheckout(state.selected.id).catch(() =>
+          message("Не удалось проверить предыдущий счёт. Новый счёт не создавай до проверки истории.")
+        );
+    });
+  });
   $("shop-buy").addEventListener("click", async () => {
-    if (state.busy || !state.config?.checkout_ready || !state.selected) return;
+    if (state.busy || !gatewayReady() || !state.selected) return;
     state.busy = true;
     $("shop-buy").disabled = true;
+    updateGatewayControls();
     try {
       // Reuse the same server-side intent if network timeouts or repeated
       // clicks occur: never create a second invoice for an uncertain request.
@@ -259,6 +294,7 @@
         throw Error("Для защищённой оплаты нужен современный браузер с HTTPS.");
       }
       const planId = state.selected.id;
+      const selectedGateway = state.gateway;
       const intentName = intentKeyName(planId);
       const previous = await checkExistingCheckout(planId);
       if (previous.found === true && previous.payment_state !== "created" &&
@@ -274,7 +310,8 @@
         checkoutKey = crypto.randomUUID();
         sessionStorage.setItem(intentName, checkoutKey);
       }
-      const reply = await api("/api/shop/checkout", {
+      const reply = await api(
+        selectedGateway === "platega" ? "/api/shop/checkout/platega" : "/api/shop/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -283,10 +320,19 @@
         body: JSON.stringify({plan: planId})
       });
       const url = new URL(reply.pay_url);
-      if (url.protocol !== "https:" || url.host !== "pay.rollypay.io" ||
-          url.username || url.password ||
-          !/^\/pay\/[A-Za-z0-9_-]{6,255}\/?$/.test(url.pathname) ||
-          url.search || url.hash) throw Error("Недопустимый адрес платёжной формы");
+      if (reply.gateway !== selectedGateway || url.protocol !== "https:" ||
+          url.username || url.password || url.hash || url.port) {
+        throw Error("Недопустимый адрес платёжной формы");
+      }
+      if (selectedGateway === "rollypay") {
+        if (url.hostname !== "pay.rollypay.io" ||
+            !/^\/pay\/[A-Za-z0-9_-]{6,255}\/?$/.test(url.pathname) ||
+            url.search) throw Error("Недопустимый адрес RollyPay");
+      } else if (selectedGateway === "platega") {
+        if (url.hostname !== "pay.platega.io" || url.href.length > 2048 ||
+            url.pathname.includes(".."))
+          throw Error("Недопустимый адрес Platega");
+      } else throw Error("Неизвестная касса");
       location.assign(url.href);
     } catch (err) {
       if (err.message === "VERIFIED_EMAIL_REQUIRED") {
@@ -298,7 +344,8 @@
       }
     } finally {
       state.busy = false;
-      $("shop-buy").disabled = !state.config?.checkout_ready;
+      updateGatewayControls();
+      $("shop-buy").disabled = !gatewayReady();
     }
   });
   $("shop-test-diagnose").addEventListener("click", async () => {
