@@ -13,7 +13,7 @@ def _page(name: str) -> str:
 def test_privacy_matches_seven_bank_sample_sections_and_date():
     html = _page("privacy.html")
     assert '<h1>Политика конфиденциальности</h1>' in html
-    assert '<time datetime="2026-11-15">' in html
+    assert '<time datetime="2026-11-18">' in html
     for heading in (
         "1. Общие положения", "2. Сбор информации",
         "3. Использование информации", "4. Передача информации третьим лицам",
@@ -23,7 +23,8 @@ def test_privacy_matches_seven_bank_sample_sections_and_date():
         assert f"<h2>{heading}</h2>" in html
     for provider in ("RollyPay", "H1Cloud", "Google", "Telegram"):
         assert provider in html
-    assert "Platega пока не включена" in html
+    assert "Platega пока не включена" not in html
+    assert "<strong>Platega</strong>" in html
     assert "срок хранения" in html.lower()
     assert 'href="contact.html"' in html
 
@@ -31,7 +32,7 @@ def test_privacy_matches_seven_bank_sample_sections_and_date():
 def test_terms_matches_ten_bank_sample_sections_and_actual_vpn_service():
     html = _page("terms.html")
     assert '<h1>Пользовательское соглашение</h1>' in html
-    assert '<time datetime="2026-11-15">' in html
+    assert '<time datetime="2026-11-18">' in html
     for heading in (
         "1. Общие положения", "2. Характер услуг и цифровых продуктов",
         "3. Гарантии и ответственность сторон", "4. Законность использования",
@@ -57,7 +58,7 @@ def test_new_documents_do_not_fabricate_merchant_details_or_enable_payments():
         assert "X-Secret" not in html
     for name in ("oferta.html", "refund.html"):
         html = _page(name)
-        assert "Предварительная редакция: 15 ноября 2026 года" in html
+        assert "Предварительная редакция: 18 ноября 2026 года" in html
 
 
 def test_manager_operator_wording_is_consistent_in_all_four_documents():
