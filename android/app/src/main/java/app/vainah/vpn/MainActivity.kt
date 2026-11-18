@@ -1098,7 +1098,10 @@ class MainActivity : Activity() {
                 profileCheckTransport = diag.getString("profile_check_transport", null),
                 profileCheckSecurity = diag.getString("profile_check_security", null),
                 profileCheckRejection = diag.getString("profile_check_rejection", null),
-                turkeyAudit = TurkeyServerAudit.inspect(nodes)
+                turkeyAudit = TurkeyServerAudit.inspect(nodes),
+                subscriptionSource = SubscriptionOrigin.fromLink(source.savedLink()),
+                subscriptionCachedCount = nodes.size,
+                subscriptionRefreshResult = diag.getString("subscription_refresh_code", null)
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(
@@ -2160,11 +2163,16 @@ class MainActivity : Activity() {
                         ?: nodes.firstOrNull { SubscriptionNodeSupport.canConnect(it.uri) }
                 }
                 lastError = null
+                getSharedPreferences("vpn_diagnostics", MODE_PRIVATE).edit()
+                    .putString("subscription_refresh_code", "none").apply()
                 cacheMessage = "Загружено серверов: " + nodes.size
                 nextAutoRefresh = SystemClock.elapsedRealtime() +
                     SubscriptionRefreshPolicy.NORMAL_MS
             }.onFailure { ex ->
                 lastError = SubscriptionLoadFailure.explain(ex)
+                getSharedPreferences("vpn_diagnostics", MODE_PRIVATE).edit()
+                    .putString("subscription_refresh_code", SubscriptionLoadFailure.code(ex))
+                    .apply()
                 cacheMessage = if (nodes.isNotEmpty())
                     "Сохранённый список; актуальность не подтверждена"
                 else "Список не загружен; сохранённого кеша в этой установке нет"
