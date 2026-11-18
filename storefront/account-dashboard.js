@@ -26,6 +26,57 @@
     );
     return body;
   }
+  function clientImportLink(client,rawUrl){
+    // Happ and INCY use different actions for an HTTPS subscription.
+    // The URL is deliberately preserved as a nested URL (not base64 or
+    // encodeURIComponent), as documented by both clients.
+    const url=new URL(rawUrl);
+    if(url.protocol!=='https:'||url.username||url.password||url.hash)
+      throw Error('INVALID_SUBSCRIPTION_URL');
+    const prefix=client==='happ'?'happ://add/':
+      client==='incy'?'incy://import/':null;
+    if(!prefix)throw Error('UNSUPPORTED_CLIENT');
+    return prefix+url.href;
+  }
+  function updateClientLinks(url,manual=false){
+    const list=manual
+      ?[['account-manual-happ','happ'],['account-manual-incy','incy']]
+      :[['account-open-happ','happ'],['account-open-incy','incy']];
+    for(const [id,client] of list){
+      const link=$(id);
+      if(!link)continue;
+      link.href=clientImportLink(client,url);
+      link.referrerPolicy='no-referrer';
+      link.hidden=false;
+    }
+  }
+  function registerImportFallback(id,client,manual=false){
+    const link=$(id);
+    if(!link)return;
+    link.addEventListener('click',()=>{
+      const url=manual?manualGrantUrl:subscriptionUrl;
+      if(!user||!url||link.hidden||link.getAttribute?.('href')===null)return;
+      const session=sessionEpoch,revision=refreshEpoch;
+      const target=manual?'account-manual-status':'account-access-status';
+      // A direct link click (not async navigation) retains the user gesture
+      // needed by mobile browsers to launch an installed VPN client.
+      // Copy in the same gesture as a fallback if the handler is unavailable.
+      write(target,'Открываем '+(client==='happ'?'Happ':'INCY')+
+        ' для импорта подписки. Подтверди открытие приложения, если браузер спросит.');
+      if(navigator.clipboard?.writeText){
+        void navigator.clipboard.writeText(url).then(()=>{
+          if(session!==sessionEpoch||revision!==refreshEpoch)return;
+          write(target,'Отправили ссылку в '+(client==='happ'?'Happ':'INCY')+
+            '. Резервная копия ссылки также в буфере обмена. Если импорт не появился — вставь её через «+» в клиенте.');
+        }).catch(()=>{
+          if(session!==sessionEpoch||revision!==refreshEpoch)return;
+          write(target,'Открываем приложение. Если импорт не появился, вернись сюда и нажми «Скопировать ссылку».');
+        });
+      }
+      // Do not preventDefault, await, or call location after fetching:
+      // those patterns lose the external-protocol user gesture.
+    });
+  }
   const safeString=value=>typeof value==='string'?value:'';
   function formatDate(value){
     if(!value)return 'Не указана';
@@ -658,23 +709,13 @@
       if(gifted){
         manualGrantUrl=subscriptionUrl;
         hide('account-manual-copy',false);
-        for(const [id,scheme] of [['account-manual-happ','happ://add/'],['account-manual-incy','incy://add/']]){
-          const link=$(id);
-          if(link){link.href=scheme+manualGrantUrl;link.hidden=false;}
-        }
+        updateClientLinks(manualGrantUrl,true);
       }
       const open=$('account-open-vpn');
       if(open){open.href=subscriptionUrl;open.referrerPolicy='no-referrer';open.hidden=false;}
-      // Supported client deep links preserve the HTTPS subscription URL.
-      // Never put the private URL into the site's query string or analytics.
-      for(const [id,scheme] of [['account-open-happ','happ://add/'],['account-open-incy','incy://add/']]){
-        const link=$(id);
-        if(link){
-          link.href=scheme+subscriptionUrl;
-          link.referrerPolicy='no-referrer';
-          link.hidden=false;
-        }
-      }
+      // Direct user-clicked custom schemes; never put the private URL in
+      // site navigation, query parameters, analytics or app download links.
+      updateClientLinks(subscriptionUrl);
       hide('account-copy-vpn',false);
       const copy=$('account-copy-vpn');if(copy)copy.disabled=false;
       write('account-access-status',gifted
@@ -716,10 +757,7 @@
       if(url.protocol!=='https:'||url.username||url.password||url.hash)throw Error('INVALID_LINK');
       manualGrantUrl=url.href;
       hide('account-manual-copy',false);
-      for(const [id,scheme] of [['account-manual-happ','happ://add/'],['account-manual-incy','incy://add/']]){
-        const element=$(id);
-        if(element){element.href=scheme+manualGrantUrl;element.hidden=false;}
-      }
+      updateClientLinks(manualGrantUrl,true);
       write('account-manual-status','Подписка без оплаты активна до '+
         formatDate(result.expires_at)+'. Устройств: '+result.devices+'.');
     }catch(error){
@@ -737,6 +775,12 @@
       write('account-manual-status','Личная ссылка скопирована. Не отправляй её посторонним.');
     }catch{write('account-manual-status','Браузер запретил копирование ссылки.');}
   });
+  for(const [id,client,manual] of [
+    ['account-open-happ','happ',false],
+    ['account-open-incy','incy',false],
+    ['account-manual-happ','happ',true],
+    ['account-manual-incy','incy',true],
+  ])registerImportFallback(id,client,manual);
   const logout=$('account-exit');
   if(logout)logout.addEventListener('click',async()=>{
     // Clear private links immediately, even while the logout request is pending.
