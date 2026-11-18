@@ -32,7 +32,9 @@ def test_orders_are_rendered_without_html_injection_or_fabricated_amounts():
 
 
 def test_private_access_not_written_to_order_markup():
-    assert "api('/api/account/access')" in SCRIPT
+    assert "gifted?'/api/account/manual-grant':'/api/account/access'" in SCRIPT
+    assert "if(!user||(!paid&&!gifted))return" in SCRIPT
+    assert "if(gifted&&response.available!==true)" in SCRIPT
     assert "const url=new URL(response.subscription_url)" in SCRIPT
     assert "url.protocol!=='https:'" in SCRIPT
     assert "subscriptionUrl=url.href" in SCRIPT
