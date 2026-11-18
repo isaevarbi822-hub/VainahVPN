@@ -22,6 +22,7 @@ def _order(plan="30-family"):
 
 @pytest.fixture
 def email_client(monkeypatch):
+    monkeypatch.setattr(portal, "current_email", lambda _request: "owner@example.com")
     monkeypatch.setattr(
         portal, "portal_identity",
         lambda _request, include_email=True: (None, "owner@example.com", "email"),
