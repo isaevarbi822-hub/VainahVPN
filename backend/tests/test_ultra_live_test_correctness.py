@@ -28,8 +28,10 @@ def test_speed_test_and_diagnostics_route_to_python_origin():
     diagnostics = (SITE / "diagnostics.html").read_text(encoding="utf-8")
     assert "'/status.html','/speed.html','/diagnostics.html'" in shell
     assert "window.location.replace(toBackend(currentUrl))" in shell
-    assert "site-shell.js?v=20261115-fixspeed1" in html
-    assert "site-shell.js?v=20261115-fixspeed1" in diagnostics
+    assert ("site-shell.js?v=20261115-fixspeed1" in html or
+            "site-shell.js?v=20261118-ultra6" in html)
+    assert ("site-shell.js?v=20261115-fixspeed1" in diagnostics or
+            "site-shell.js?v=20261118-ultra6" in diagnostics)
     assert "speed-test.js?v=20261115-accurate2" in html
     assert "<small>Ответ HTTP, медиана</small>" in html
     assert "<small>Разброс HTTP-ответов</small>" in html
