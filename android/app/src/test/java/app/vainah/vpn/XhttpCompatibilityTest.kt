@@ -198,6 +198,35 @@ class XhttpCompatibilityTest {
         assertEquals(BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED, result?.connectable)
     }
 
+    @Test fun xrayXmuxRecognizesKnownCaseVariantsAndDisabledCommentKeys() {
+        val extra = JSONObject().put("xmux", JSONObject()
+            .put("#maxConcurrency", "8-16")
+            .put("MAXCONNECTIONS", "3-3")
+            .put("HMAXREQUESTTIMES", "600-900")
+            .put("hmaxreusablesecs", "1800-3000"))
+        val native = VlessRealityConfig.outbound(encoded(extra))
+            .getJSONObject("transport").getJSONObject("xmux")
+        assertFalse(native.has("max_concurrency"))
+        assertEquals("3-3", native.getString("max_connections"))
+        assertEquals("600-900", native.getString("h_max_request_times"))
+        assertEquals("1800-3000", native.getString("h_max_reusable_secs"))
+        assertEquals(BuildConfig.VAINAH_XHTTP_ENGINE_ENABLED,
+            SubscriptionNodeSupport.canConnect(encoded(extra)))
+    }
+
+    @Test fun xmuxUnknownActiveOptionsAndAliasCollisionsRemainRejected() {
+        for (unsupported in listOf("#unknownPrivateSetting", "futureXrayWireOption")) {
+            val raw = encoded(JSONObject().put("xmux",
+                JSONObject().put(unsupported, "secret").put("maxConnections", "3-3")))
+            assertEquals("xhttp_xmux_unknown_field",
+                SubscriptionNodeSupport.inspect(raw)?.rejectionCode)
+        }
+        val aliasCollision = encoded(JSONObject().put("xmux", JSONObject()
+            .put("MAXCONNECTIONS", 3).put("maxConnections", 5)))
+        assertEquals("xhttp_xmux_duplicate_key",
+            SubscriptionNodeSupport.inspect(aliasCollision)?.rejectionCode)
+    }
+
     @Test fun rejectsUnknownOrConflictingXmuxRatherThanDroppingOptions() {
         for (bad in listOf(
             JSONObject().put("maxConnections", "3-3").put("maxConcurrency", "10-10"),
