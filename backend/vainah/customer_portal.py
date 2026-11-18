@@ -74,14 +74,16 @@ def portal_identity(
     request: Request, *, include_email: bool = True
 ) -> tuple[str | None, str | None, str]:
     """A verified mailbox by itself must not claim arbitrary Telegram IDs."""
+    # Prefer the signed email session. A stale Telegram cookie must never
+    # replace the verified mailbox used for the live purchase.
+    email = current_email(request)
+    if email is not None:
+        return telegram_id_for_verified_email(email), email, "email"
     telegram = current_user(request)
     if telegram is not None:
         telegram_id = telegram["telegram_id"]
         verified = verified_email(telegram_id) if include_email else None
         return telegram_id, verified, "telegram"
-    email = current_email(request)
-    if email is not None:
-        return telegram_id_for_verified_email(email), email, "email"
     raise HTTPException(401, "ACCOUNT_LOGIN_REQUIRED")
 
 
@@ -197,6 +199,16 @@ async def h1_email_customer_state(email: str) -> dict:
     }
 
 
+def _plan_details(plan_id: str) -> tuple[str, int]:
+    """Match the current paid catalog, including family and expanded plans."""
+    from .billing import get_plan
+
+    plan = get_plan(plan_id)
+    if plan is not None:
+        return str(plan["title"]), int(plan["devices"])
+    return PLAN_LABELS.get(plan_id, ("VPN-подписка", 3))
+
+
 def live_paid_email_orders(email: str) -> list[dict]:
     """Customer-only order list without credentials, links or other owners."""
     from .live_checkout import live_account_ready, owner_ref_for_email
@@ -213,9 +225,7 @@ def live_paid_email_orders(email: str) -> list[dict]:
     return [
         {
             "order_id": row["order_id"], "plan_id": row["plan_id"],
-            "title": PLAN_LABELS.get(
-                row["plan_id"], ("VPN-подписка", 3)
-            )[0],
+            "title": _plan_details(row["plan_id"])[0],
             "status": (
                 "delivered" if row["payment_state"] == "paid"
                 and row["delivery_state"] == "delivered"
@@ -305,54 +315,92 @@ class EmailCode(BaseModel):
 @router.get("/overview")
 async def overview(request: Request) -> dict:
     telegram_id, email, method = portal_identity(request)
-    if telegram_id is None:
-        # Email-only identity: query only orders signed to this exact mailbox.
-        # A Vainah H1 profile alone is never proof of a paid order.
+
+    # Payments may belong either to the verified email account or to a
+    # separately linked, verified legacy Telegram identity. Show both,
+    # without ever treating one provider profile as payment proof.
+    email_orders = live_paid_email_orders(email) if email else []
+    telegram_orders = customer_receipts(telegram_id) if telegram_id else []
+    orders = list(email_orders)
+    known_ids = {order["order_id"] for order in orders}
+    orders.extend(
+        order for order in telegram_orders
+        if order["order_id"] not in known_ids
+    )
+    paid_email = next(
+        (order for order in email_orders if order["paid"] and order["delivered"]),
+        None,
+    )
+    paid_telegram = next(
+        (order for order in telegram_orders if order["paid"] and order["delivered"]),
+        None,
+    )
+
+    if paid_email:
         state = await h1_email_customer_state(email)
-        orders = live_paid_email_orders(email)
-        delivered = next((
-            order for order in orders
-            if order["paid"] and order["delivered"]
-        ), None)
-        subscription = None
-        if delivered and state["status"] == "active":
-            title, devices = PLAN_LABELS.get(
-                delivered["plan_id"], ("VPN-подписка", 3)
-            )
-            subscription = {
-                "status": "delivered", "paid": True,
-                "order_id": delivered["order_id"],
-                "plan_title": title, "device_limit": devices,
-                "expires_at": state.get("expires_at"),
-                "traffic": state.get("traffic"),
-            }
-        return {
-            "authenticated": True,
-            "auth_method": method,
-            "email": {"verified": True, "address": email},
-            "orders": orders,
-            "subscription": subscription,
-            "h1cloud": state,
-        }
-    orders = customer_receipts(telegram_id)
-    last = next((o for o in orders if o["paid"] and o["delivered"]), None)
-    state = await h1_customer_state(telegram_id)
+        paid_order = paid_email
+    elif paid_telegram:
+        state = await h1_customer_state(telegram_id)
+        paid_order = paid_telegram
+    elif email:
+        state = await h1_email_customer_state(email)
+        paid_order = None
+    else:
+        state = await h1_customer_state(telegram_id)
+        paid_order = None
+
     subscription = None
-    if last and state["status"] == "active":
-        title, limit = PLAN_LABELS.get(last["plan_id"], ("VPN-подписка", 3))
+    if paid_order:
+        title, devices = _plan_details(paid_order["plan_id"])
+        confirmed = state["status"] == "active"
         subscription = {
-            "status": "delivered", "paid": True,
-            "order_id": last["order_id"],
-            "plan_title": title, "device_limit": limit,
-            "expires_at": state.get("expires_at"),
-            "traffic": state.get("traffic"),
+            "status": "delivered" if confirmed else "verification_pending",
+            "paid": True,
+            "order_id": paid_order["order_id"],
+            "plan_title": title,
+            "device_limit": devices,
+            "expires_at": state.get("expires_at") if confirmed else None,
+            "traffic": state.get("traffic") if confirmed else None,
+            "provider_status": state["status"],
         }
+
+    manual = {"available": False}
+    if email:
+        # A manual issue is NOT a paid purchase. Its metadata is owner-checked
+        # and never carries a private access URL in this overview response.
+        from .manual_grants import manual_grant_summary_for_email
+
+        try:
+            manual = await manual_grant_summary_for_email(email)
+        except HTTPException:
+            # A temporary manual-grant outage cannot erase paid order history.
+            manual = {"available": False, "status": "unavailable"}
+
+    if manual.get("available") is True:
+        manual_sub = {
+            "status": "issued", "paid": False, "gifted": True,
+            "plan_title": "Подписка от оператора",
+            "device_limit": manual["devices"],
+            "expires_at": manual["expires_at"],
+            "traffic": manual.get("traffic"),
+            "source": "manual_grant",
+        }
+        if subscription is None or subscription["status"] != "delivered":
+            subscription = manual_sub
+            state = {
+                "status": "active",
+                "message": "Ручная подписка подтверждена H1Cloud.",
+                "expires_at": manual["expires_at"],
+                "traffic": manual.get("traffic"),
+            }
+
     return {
         "authenticated": True,
         "auth_method": method,
         "email": {"verified": bool(email), "address": email},
         "orders": orders,
         "subscription": subscription,
+        "manual_grant": manual,
         "h1cloud": state,
     }
 
