@@ -28,8 +28,9 @@ from .h1_panel import router as h1_router
 from .h1_trial import router as h1_trial_router
 from .inspector import InvalidSubscription, inspect_subscription
 from .integration_status import integration_status
+from .manual_grants import customer_router as customer_manual_router
+from .manual_grants import router as manual_grants_router
 from .mobile_auth import router as mobile_auth_router
-from .manual_grants import router as manual_grants_router, customer_router as customer_manual_router
 from .platega import router as platega_router
 from .public_locations import public_locations
 from .public_trial import router as public_trial_router
