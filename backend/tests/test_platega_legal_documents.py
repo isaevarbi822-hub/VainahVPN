@@ -56,10 +56,10 @@ def test_site_documents_discoverable_on_home_plans_privacy_terms():
         assert "legal-link-strip.css?v=1" in html
 
 
-def test_second_provider_is_not_active_and_no_checkout_api_writes_added():
+def test_provider_choices_start_disabled_and_documents_have_no_payment_controls():
     html = (STORE / "checkout.html").read_text(encoding="utf-8")
-    assert "Platega — в подготовке" in html
-    assert "Дополнительная касса пока не подключена" in html
+    assert 'id="shop-gateway-platega" value="platega" disabled' in html
+    assert 'id="shop-gateway-rollypay" value="rollypay" checked disabled' in html
     assert 'id="shop-buy"' in html
     assert "RollyPay" in html
     # All new legal documents are static and contain no hidden payment controls.

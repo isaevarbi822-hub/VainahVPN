@@ -1,8 +1,8 @@
-"""Payment-to-H1Cloud fulfillment coordinator (not attached to public routes).
+"""Payment-to-H1Cloud fulfillment after provider-specific payment verification.
 
-The public checkout and live RollyPay callbacks remain disabled. After merchant
-approval, a trusted worker can call this with a persisted paid order. The paid
-state must first have been verified from a correctly signed RollyPay callback.
+After merchant approval, a trusted handler can call this with a persisted paid
+order verified by RollyPay's signed callback or Platega's authenticated callback
+and provider read-back.
 All customer access is claimed atomically in PostgreSQL before any H1 writes.
 """
 from __future__ import annotations

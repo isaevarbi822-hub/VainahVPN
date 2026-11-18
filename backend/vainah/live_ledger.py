@@ -1,6 +1,5 @@
-"""Durable, single-claim PostgreSQL foundation for future LIVE orders.
+"""Durable, single-claim PostgreSQL orders for RollyPay and Platega.
 
-This is intentionally NOT wired to public checkout or RollyPay live callbacks.
 A real H1Cloud write can be non-idempotent; once a claim is acquired it is
 never automatically released, even on timeout. Operators must reconcile
 uncertain node writes before deciding on a retry.
@@ -125,8 +124,26 @@ class PostgresLiveOrderLedger:
             ADD COLUMN IF NOT EXISTS is_pilot BOOLEAN NOT NULL DEFAULT FALSE
         """)
         cur.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS vainah_live_one_pilot_uq
-            ON vainah_live_orders (is_pilot) WHERE is_pilot = TRUE
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS gateway TEXT NOT NULL DEFAULT 'rollypay'
+                CHECK (gateway IN ('rollypay', 'platega'))
+        """)
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
+            ADD COLUMN IF NOT EXISTS provider_status TEXT
+        """)
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS vainah_live_gateway_payment_uq
+            ON vainah_live_orders (gateway, payment_id)
+        """)
+        cur.execute("""
+            ALTER TABLE vainah_live_orders
+            DROP CONSTRAINT IF EXISTS vainah_live_orders_payment_id_key
+        """)
+        cur.execute("DROP INDEX IF EXISTS vainah_live_one_pilot_uq")
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS vainah_live_one_gateway_pilot_uq
+            ON vainah_live_orders (gateway) WHERE is_pilot = TRUE
         """)
         cur.execute("""
             ALTER TABLE vainah_live_orders
@@ -233,7 +250,8 @@ class PostgresLiveOrderLedger:
                          plan_id: str, idempotency_key: str,
                          pilot: bool = False,
                          discounted_pilot: bool = False,
-                         gift: bool = False) -> tuple[str, str | None]:
+                         gift: bool = False,
+                         gateway: str = "rollypay") -> tuple[str, str | None]:
         """One durable invoice intent per browser-generated UUID, per owner.
 
         A pending intent is never retried automatically: an earlier gateway
@@ -241,6 +259,10 @@ class PostgresLiveOrderLedger:
         """
         from uuid import UUID
 
+        if gateway not in {"rollypay", "platega"}:
+            raise LiveLedgerError("LIVE_GATEWAY_INVALID")
+        if gateway == "platega" and (gift or discounted_pilot):
+            raise LiveLedgerError("LIVE_GATEWAY_INVALID")
         try:
             normalized = str(UUID(idempotency_key))
         except (ValueError, TypeError, AttributeError):
@@ -327,13 +349,14 @@ class PostgresLiveOrderLedger:
                         order_id, owner_ref, plan_id, amount_rub,
                         receipt_email_cipher, checkout_nonce_hash,
                         is_pilot, is_discount_pilot, is_gift,
-                        gift_buyer_ref, gift_code_hash, gift_code_cipher
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        gift_buyer_ref, gift_code_hash, gift_code_cipher, gateway
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT DO NOTHING
                     RETURNING order_id
                 """, (order_id, owner_ref, plan_id, price_rub(plan),
                       recipient, nonce_hash, pilot, discounted_pilot,
-                      gift, owner_ref if gift else None, gift_code_hash, gift_cipher))
+                      gift, owner_ref if gift else None, gift_code_hash, gift_cipher,
+                      gateway))
                 created = cur.fetchone()
                 if created:
                     return created[0], None
@@ -342,7 +365,8 @@ class PostgresLiveOrderLedger:
                            pay_url_cipher, is_pilot, is_discount_pilot, is_gift
                     FROM vainah_live_orders
                     WHERE checkout_nonce_hash = %s
-                """, (nonce_hash,))
+                      AND gateway = %s
+                """, (nonce_hash, gateway))
                 existing = cur.fetchone()
                 if not existing and pilot:
                     raise LiveLedgerError("LIVE_PILOT_ALREADY_RESERVED")
@@ -361,6 +385,7 @@ class PostgresLiveOrderLedger:
 
     def checkout_intent_status(
         self, *, owner_ref: str, plan_id: str, idempotency_key: str,
+        gateway: str = "rollypay",
     ) -> dict:
         """Inspect the owner-bound idempotency key without touching RollyPay.
 
@@ -373,7 +398,8 @@ class PostgresLiveOrderLedger:
             normalized = str(UUID(idempotency_key))
         except (ValueError, TypeError, AttributeError):
             raise LiveLedgerError("LIVE_IDEMPOTENCY_INVALID") from None
-        if (normalized != idempotency_key or len(idempotency_key) != 36
+        if (gateway not in {"rollypay", "platega"}
+                or normalized != idempotency_key or len(idempotency_key) != 36
                 or not isinstance(owner_ref, str)
                 or not isinstance(plan_id, str)
                 or plan_id not in {p["id"] for p in CATALOG}):
@@ -394,9 +420,10 @@ class PostgresLiveOrderLedger:
                     FROM vainah_live_orders
                     WHERE checkout_nonce_hash = %s AND owner_ref = %s
                       AND plan_id = %s
+                      AND gateway = %s
                       AND is_pilot = FALSE AND is_discount_pilot = FALSE
                     LIMIT 1
-                """, (nonce_hash, owner_ref, plan_id))
+                """, (nonce_hash, owner_ref, plan_id, gateway))
                 row = cur.fetchone()
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
@@ -411,7 +438,8 @@ class PostgresLiveOrderLedger:
 
 
     def attach_hosted_invoice(self, *,
-                              order_id: str, payment_id: str, pay_url: str) -> bool:
+                              order_id: str, payment_id: str, pay_url: str,
+                              gateway: str = "rollypay") -> bool:
         """Atomically persist validated hosted URL and provider payment ID."""
         from .billing import safe_pay_url
 
@@ -419,7 +447,14 @@ class PostgresLiveOrderLedger:
                 or not PAYMENT_ID_RE.fullmatch(payment_id)):
             raise LiveLedgerError("LIVE_PAYMENT_INVALID")
         try:
-            safe_pay_url(pay_url)
+            if gateway == "platega":
+                from .platega import safe_pay_url as platega_pay_url
+
+                platega_pay_url(pay_url)
+            elif gateway == "rollypay":
+                safe_pay_url(pay_url)
+            else:
+                raise ValueError("LIVE_GATEWAY_INVALID")
         except ValueError:
             raise LiveLedgerError("LIVE_PAYMENT_URL_INVALID") from None
         ciphertext = seal_live_secret(pay_url)
@@ -433,10 +468,86 @@ class PostgresLiveOrderLedger:
                     SET payment_id = %s, pay_url_cipher = %s,
                         payment_state = 'created', updated_at = now()
                     WHERE order_id = %s
+                        AND gateway = %s
                         AND payment_id IS NULL AND payment_state = 'reserved'
                     RETURNING order_id
-                """, (payment_id, ciphertext, order_id))
+                """, (payment_id, ciphertext, order_id, gateway))
                 return cur.fetchone() is not None
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+
+    def platega_order(self, order_id: str) -> dict:
+        """Internal immutable binding; never expose IDs or amounts in callback output."""
+        if not isinstance(order_id, str) or not LIVE_ORDER_RE.fullmatch(order_id):
+            raise LiveLedgerError("LIVE_ORDER_INVALID")
+        try:
+            with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT payment_id, amount_rub, is_pilot
+                    FROM vainah_live_orders WHERE order_id = %s AND gateway = 'platega'
+                """, (order_id,))
+                row = cur.fetchone()
+        except psycopg.Error:
+            raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
+        if not row:
+            raise LiveLedgerError("LIVE_ORDER_UNKNOWN")
+        if not row[0]:
+            # The callback may race attachment or follow a lost POST response.
+            # Never attach a new payment solely from an incoming callback.
+            raise LiveLedgerError("LIVE_CHECKOUT_RECONCILIATION_REQUIRED")
+        return {"payment_id": row[0], "amount_rub": str(row[1]), "pilot": row[2]}
+
+    def record_platega_status(self, proof) -> bool:
+        """Persist authenticated + read-back verified proof; return delivery eligibility.
+
+        Reversals are terminal. Disputes and partial refunds require manual
+        reconciliation of any H1 access; a later confirmation cannot clear a
+        delivery claim or manual-review marker and issue access again.
+        """
+        from .platega import CALLBACK_STATUSES, PaymentProof, amount
+
+        if not isinstance(proof, PaymentProof) or proof.status not in CALLBACK_STATUSES:
+            raise LiveLedgerError("LIVE_PAYMENT_MISMATCH")
+        try:
+            with psycopg.connect(self._database_url, connect_timeout=4) as conn, conn.cursor() as cur:
+                self._schema(cur)
+                cur.execute("""
+                    SELECT payment_id, amount_rub, payment_state, provider_status
+                    FROM vainah_live_orders
+                    WHERE order_id = %s AND gateway = 'platega' FOR UPDATE
+                """, (proof.order_id,))
+                row = cur.fetchone()
+                if (not row or row[0] != proof.payment_id
+                        or amount(str(row[1])) != proof.amount_rub):
+                    raise LiveLedgerError("LIVE_PAYMENT_MISMATCH")
+                if row[2] in {"refunded", "chargeback"}:
+                    return False
+                if row[2] not in {"created", "paid"}:
+                    raise LiveLedgerError("LIVE_PAYMENT_INVALID_STATE")
+                if proof.status == "CONFIRMED":
+                    if row[3] in {"CANCELED", "PARTIALLY_REFUNDED"}:
+                        return False
+                    cur.execute("""
+                        UPDATE vainah_live_orders
+                        SET payment_state = 'paid', provider_status = 'CONFIRMED',
+                            webhook_at = now(), updated_at = now()
+                        WHERE order_id = %s
+                    """, (proof.order_id,))
+                    return True
+                cur.execute("""
+                    UPDATE vainah_live_orders
+                    SET provider_status = %s,
+                        payment_state = CASE WHEN %s = 'CHARGEBACKED'
+                            THEN 'chargeback' ELSE payment_state END,
+                        delivery_state = CASE
+                            WHEN %s IN ('DISPUTED', 'PARTIALLY_REFUNDED', 'CHARGEBACKED')
+                              OR payment_state = 'paid'
+                            THEN 'manual_review' ELSE delivery_state END,
+                        webhook_at = now(), updated_at = now()
+                    WHERE order_id = %s
+                """, (proof.status, proof.status, proof.status, proof.order_id))
+                return False
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
 
@@ -451,15 +562,17 @@ class PostgresLiveOrderLedger:
                 self._schema(cur)
                 cur.execute("""
                     SELECT (is_pilot OR is_discount_pilot)
-                    FROM vainah_live_orders WHERE order_id = %s
+                    FROM vainah_live_orders WHERE order_id = %s AND gateway = 'rollypay'
                 """, (order_id,))
                 row = cur.fetchone()
                 return bool(row and row[0] is True)
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
 
-    def live_pilot_status(self) -> dict:
+    def live_pilot_status(self, *, gateway: str = "rollypay") -> dict:
         """Sanitized one-order dashboard: no PII, H1 link, or payment credentials."""
+        if gateway not in {"rollypay", "platega"}:
+            raise LiveLedgerError("LIVE_GATEWAY_INVALID")
         try:
             with psycopg.connect(
                 self._database_url, connect_timeout=4,
@@ -469,9 +582,9 @@ class PostgresLiveOrderLedger:
                     SELECT payment_state, delivery_state,
                            webhook_at IS NOT NULL, delivered_at IS NOT NULL,
                            access_email_sent_at IS NOT NULL
-                    FROM vainah_live_orders WHERE is_pilot = TRUE
+                    FROM vainah_live_orders WHERE is_pilot = TRUE AND gateway = %s
                     LIMIT 1
-                """)
+                """, (gateway,))
                 row = cur.fetchone()
         except psycopg.Error:
             raise LiveLedgerError("LIVE_LEDGER_UNAVAILABLE") from None
@@ -557,7 +670,7 @@ class PostgresLiveOrderLedger:
                 cur.execute("""
                     SELECT order_id, payment_id, plan_id, amount_rub, payment_state
                     FROM vainah_live_orders
-                    WHERE is_pilot = TRUE AND owner_ref = %s
+                    WHERE is_pilot = TRUE AND owner_ref = %s AND gateway = 'rollypay'
                     LIMIT 1
                 """, (owner_ref,))
                 row = cur.fetchone()
@@ -738,7 +851,7 @@ class PostgresLiveOrderLedger:
                     UPDATE vainah_live_orders
                     SET payment_id = %s, payment_state = 'created',
                         updated_at = now()
-                    WHERE order_id = %s AND payment_id IS NULL
+                    WHERE order_id = %s AND gateway = 'rollypay' AND payment_id IS NULL
                         AND payment_state = 'reserved'
                     RETURNING order_id
                 """, (payment_id, order_id))
@@ -771,7 +884,7 @@ class PostgresLiveOrderLedger:
                 cur.execute("""
                     SELECT owner_ref, plan_id, payment_id, amount_rub, payment_state
                     FROM vainah_live_orders
-                    WHERE order_id = %s FOR UPDATE
+                    WHERE order_id = %s AND gateway = 'rollypay' FOR UPDATE
                 """, (order_id,))
                 record = cur.fetchone()
                 if not record or not record[2]:
@@ -834,7 +947,7 @@ class PostgresLiveOrderLedger:
                 cur.execute("""
                     SELECT owner_ref, plan_id, payment_id,
                            amount_rub, payment_state
-                    FROM vainah_live_orders WHERE order_id = %s
+                    FROM vainah_live_orders WHERE order_id = %s AND gateway = 'rollypay'
                     FOR UPDATE
                 """, (order_id,))
                 record = cur.fetchone()
