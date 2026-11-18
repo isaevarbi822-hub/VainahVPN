@@ -1290,9 +1290,11 @@ class MainActivity : Activity() {
             add(sheet, VainahUi.detailRow(this, entry.title, entry.headline, tone), 10)
             add(sheet, t(entry.explanation, 11f, grey), 5)
         }
-        val show = lightAction("Показать настоящие серверы Турции").apply {
+        val show = lightAction("Все узлы Турции из подписки").apply {
             textSize = 11.5f
-            isEnabled = entries.any { it.importedCount > 0 }
+            // A label may differ from the two expected names: still allow
+            // inspecting real imported Turkey entries without guessing URIs.
+            isEnabled = nodes.isNotEmpty()
         }
         add(sheet, show, 11)
         show.setOnClickListener {
