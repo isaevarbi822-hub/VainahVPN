@@ -35,6 +35,7 @@
   }
   const statusNames={
     delivered:'Оплачено · выдано',paid:'Оплачено · выдаётся',
+    issued:'Выдано без оплаты',verification_pending:'Проверка H1Cloud',
     pending:'Ожидает оплаты',created:'Ожидает оплаты',
     processing:'Обрабатывается',cancelled:'Отменён',canceled:'Отменён',
     expired:'Истёк',failed:'Ошибка обработки',
@@ -189,7 +190,8 @@
   function buildAdvisories(data){
     const notices=[];
     const sub=data?.subscription;
-    const confirmed=sub?.paid===true&&sub?.status==='delivered';
+    const confirmed=(sub?.paid===true&&sub?.status==='delivered')||
+      (sub?.paid===false&&sub?.gifted===true&&sub?.status==='issued');
     const h1status=safeString(data?.h1cloud?.status);
     const orders=Array.isArray(data?.orders)?data.orders:[];
     const hasPaid=orders.some(order=>order&&order.paid===true&&
@@ -205,7 +207,7 @@
       }else{
         notices.push({
           kind:'info',title:'Пока нет подтверждённой активной подписки',
-          detail:'После оплаты и подтверждения выдачи H1Cloud здесь появятся данные о сроке и трафике.',
+          detail:'После подтверждённой оплаты или ручной выдачи H1Cloud здесь появятся данные о сроке и трафике.',
           href:'plans.html',action:'Посмотреть тарифы'
         });
       }
@@ -475,7 +477,10 @@
       write('account-history-count',String(orders.length));
       showHistory();
       const delivery=result.subscription;
-      const ready=delivery?.status==='delivered'&&delivery?.paid===true;
+      const paidReady=delivery?.status==='delivered'&&delivery?.paid===true;
+      const giftedReady=delivery?.status==='issued'&&
+        delivery?.gifted===true&&delivery?.paid===false;
+      const ready=paidReady||giftedReady;
       updateTraffic(ready?delivery:null);
       renderAdvisories(result);
       if(ready){
@@ -484,14 +489,17 @@
         updateExpiryNote(delivery.expires_at);
         write('metric-devices',String(delivery.device_limit||'—'));
         write('account-plan-name',delivery.plan_title||'Активный тариф');
-        write('account-plan-chip','Оплачено · доступ выдан');
+        write('account-plan-chip',giftedReady
+          ?'Выдано оператором · без оплаты':'Оплачено · доступ выдан');
         write('account-plan-sub',delivery.expires_at
           ?'Подписка до '+formatDate(delivery.expires_at)
           :'Точный срок проверь в H1Cloud');
         write('account-device-limit',String(delivery.device_limit||'—')+' устройства');
         write('account-device-note','Максимальное число устройств по действующему тарифу.');
-        write('account-plan-price','Смотри в заказе');
-        write('account-access-status','Доступ доступен. Личную ссылку можно открыть или скопировать.');
+        write('account-plan-price',giftedReady?'Без оплаты':'Смотри в заказе');
+        write('account-access-status',giftedReady
+          ?'Ручная подписка активна. Можно получить персональную ссылку и открыть её в Happ или INCY.'
+          :'Доступ выдан. Личную ссылку можно открыть или скопировать.');
         const get=$('account-get-vpn');
         if(get){
           get.disabled=false;
@@ -499,7 +507,28 @@
           // then open immediately from a user's click without an async browser popup.
           if(!subscriptionUrl)get.click();
         }
-        const qrButton=$('account-get-qr');if(qrButton)qrButton.disabled=false;
+        const qrButton=$('account-get-qr');
+        if(qrButton)qrButton.disabled=!paidReady;
+      }else if(delivery?.paid===true&&delivery?.status==='verification_pending'){
+        write('metric-plan',delivery.plan_title||'Оплаченная подписка');
+        write('metric-expiry','Проверяется');
+        write('metric-devices',String(delivery.device_limit||'—'));
+        write('account-plan-name',delivery.plan_title||'Оплаченный тариф');
+        write('account-plan-chip','Выдача подтверждена · проверяем H1Cloud');
+        write('account-plan-sub','Провайдер пока не подтвердил активность. Не оплачивай повторно.');
+        write('account-device-limit',String(delivery.device_limit||'—'));
+        write('account-device-note','Лимит по оплаченному тарифу, не статус подключения.');
+        write('account-access-status','Заказ оплачен, но активный VPN-профиль не подтверждён. Повтори проверку позже.');
+      }
+      const manual=result.manual_grant;
+      if(manual?.status==='unavailable'){
+        write('account-manual-status','Временная ошибка проверки ручной выдачи. Оплаченные данные сохранены.');
+      }else if(manual?.available===true){
+        write('account-manual-status','Подписка от оператора активна до '+
+          formatDate(manual.expires_at)+'. Разрешено устройств: '+manual.devices+
+          '. Нажми «Проверить подписку», чтобы получить отдельную ссылку.');
+      }else{
+        write('account-manual-status','Активной ручной подписки для подтверждённого email нет.');
       }
       updatePrivateActions();
     }catch(error){
@@ -610,16 +639,30 @@
   if(window.addEventListener)window.addEventListener('pagehide',clearQR);
   const get=$('account-get-vpn');
   if(get)get.addEventListener('click',async()=>{
-    if(!user||!currentData?.subscription?.order_id)return;
+    const subscription=currentData?.subscription;
+    const paid=subscription?.paid===true&&subscription?.status==='delivered'&&
+      !!subscription?.order_id;
+    const gifted=subscription?.paid===false&&subscription?.gifted===true&&
+      subscription?.status==='issued';
+    if(!user||(!paid&&!gifted))return;
     const session=sessionEpoch;
     const revision=refreshEpoch;
     get.disabled=true;
     try{
-      const response=await api('/api/account/access');
+      const response=await api(gifted?'/api/account/manual-grant':'/api/account/access');
       if(sessionEpoch!==session||refreshEpoch!==revision)return;
+      if(gifted&&response.available!==true)throw Error('MANUAL_GRANT_NOT_ACTIVE');
       const url=new URL(response.subscription_url);
       if(url.protocol!=='https:'||url.username||url.password||url.hash)throw Error('INVALID_LINK');
       subscriptionUrl=url.href;
+      if(gifted){
+        manualGrantUrl=subscriptionUrl;
+        hide('account-manual-copy',false);
+        for(const [id,scheme] of [['account-manual-happ','happ://add/'],['account-manual-incy','incy://add/']]){
+          const link=$(id);
+          if(link){link.href=scheme+manualGrantUrl;link.hidden=false;}
+        }
+      }
       const open=$('account-open-vpn');
       if(open){open.href=subscriptionUrl;open.referrerPolicy='no-referrer';open.hidden=false;}
       // Supported client deep links preserve the HTTPS subscription URL.
@@ -634,7 +677,9 @@
       }
       hide('account-copy-vpn',false);
       const copy=$('account-copy-vpn');if(copy)copy.disabled=false;
-      write('account-access-status','Ссылка готова. Выбери Happ или INCY для импорта. Никому не передавай свой ключ.');
+      write('account-access-status',gifted
+        ?'Ручная подписка подтверждена. Выбери Happ или INCY. Никому не передавай свой ключ.'
+        :'Ссылка готова. Выбери Happ или INCY для импорта. Никому не передавай свой ключ.');
     }catch(error){
       if(sessionEpoch!==session||refreshEpoch!==revision)return;
       write('account-access-status','Не удалось получить ссылку: '+error.message);
@@ -754,10 +799,12 @@
     const text=[
       'VAINAH VPN — сведения для поддержки',
       'Вход выполнен: да',
-      'Подтверждённая подписка: '+(sub?.paid===true&&sub?.status==='delivered'?'да':'не подтверждена'),
+      'Оплаченная подписка: '+(sub?.paid===true&&sub?.status==='delivered'?'подтверждена':'не подтверждена'),
+      'Ручная подписка: '+(sub?.gifted===true&&sub?.status==='issued'?'подтверждена':'не подтверждена'),
       'Состояние H1Cloud: '+status,
       'Заказов в истории: '+orders.length,
-      'Дата окончания: '+(sub?.paid===true&&sub?.status==='delivered'?formatDate(sub.expires_at):'не подтверждена'),
+      'Дата окончания: '+((sub?.paid===true&&sub?.status==='delivered')||
+        (sub?.gifted===true&&sub?.status==='issued')?formatDate(sub.expires_at):'не подтверждена'),
       'VPN-ключи, email, ID заказа и платёжные реквизиты исключены.'
     ].join('\n');
     return text;
