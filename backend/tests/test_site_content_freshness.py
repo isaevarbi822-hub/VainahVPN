@@ -56,7 +56,7 @@ def test_shop_and_help_no_longer_advertise_legacy_rates_or_telegram_checkout():
         "checkout.html": ("75 платных тарифов", "RollyPay"),
         "help.html": ("75 платных тарифов", "серверного каталога"),
         "hub.html": ("Срок от 2 до 730 дней", "RollyPay"),
-        "trial.html": ("25 ₽ за 2 дня", "10 ГБ"),
+        "trial.html": ("Актуальные цены загружаются с сервера", "10 ГБ"),
         "terms.html": ("75 платных тарифов", "RollyPay"),
         "contact.html": ("центр поддержки", "@VainahSupport"),
         "troubleshooting.html": ("личный кабинет", "повторный платёж"),
@@ -91,7 +91,7 @@ def test_final_fifty_plan_copy_and_live_support_are_consistent():
             "75 платных тарифов доступны к оформлению",
             "Загружаем актуальные тарифы",
         ),
-        "terms.html": ("15 ноября 2026", "75 платных тарифов"),
+        "terms.html": ("18 ноября 2026", "75 платных тарифов"),
     }
     for filename, phrases in expected.items():
         html = (SITE / filename).read_text(encoding="utf-8")
