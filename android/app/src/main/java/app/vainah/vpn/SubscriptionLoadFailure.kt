@@ -15,6 +15,9 @@ class SubscriptionHttpStatus(
     val source: SubscriptionOrigin.Kind = SubscriptionOrigin.Kind.NONE
 ) : Exception()
 
+/** A syntactically successful HTTPS response contained no supported nodes. */
+class SubscriptionEmptyResult : IllegalStateException()
+
 /** No host, full URL or private subscription token is attached to this error. */
 class SubscriptionRequestTimeout(
     val source: SubscriptionOrigin.Kind
@@ -25,7 +28,7 @@ object SubscriptionLoadFailure {
     private val allowed = setOf(
         "none", "https_timeout", "http_401", "http_403", "http_404",
         "http_410", "http_429", "http_5xx", "http_other",
-        "dns", "connect", "tls", "format", "unknown"
+        "dns", "connect", "tls", "format", "empty_response", "unknown"
     )
     fun code(error: Throwable?): String {
         val value = when (error) {
@@ -43,6 +46,7 @@ object SubscriptionLoadFailure {
             is UnknownHostException -> "dns"
             is ConnectException -> "connect"
             is SSLException -> "tls"
+            is SubscriptionEmptyResult -> "empty_response"
             is IllegalArgumentException -> "format"
             else -> "unknown"
         }
@@ -80,6 +84,7 @@ object SubscriptionLoadFailure {
         is SocketTimeoutException -> "Тайм-аут HTTPS: сервер не ответил. Попробуй обновить позднее."
         is ConnectException -> "Не удалось подключиться к серверу подписки по HTTPS."
         is SSLException -> "Ошибка TLS: не удалось проверить защищённое соединение с H1Cloud."
+        is SubscriptionEmptyResult -> "Сервер подписки ответил, но список VPN-узлов пуст или формат не распознан. Последний сохранённый список не удалён."
         is IllegalArgumentException -> "Ссылка или формат подписки не поддерживается этим приложением."
         else -> "Не удалось обновить H1Cloud-серверы. Ранее загруженные локации сохранены."
     }
