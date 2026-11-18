@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0b1020">
+<title>Ручная выдача VPN — Vainah VPN</title>
+<link rel="stylesheet" href="/operator-grants.css">
+<script src="/operator-grants.js" defer></script>
+</head>
+<body>
+<main class="shell">
+<header class="topbar">
+<a href="/" class="brand">VAINAH <span>VPN</span></a>
+<a class="back" href="/account.html">Личный кабинет ↗</a>
+</header>
+<section class="hero">
+<p class="eyebrow">ЗАКРЫТАЯ ПАНЕЛЬ · H1CLOUD</p>
+<h1>Выдать VPN-подписку</h1>
+<p>Создай персональный VPN-доступ для получателя по email без оплаты. После успешной проверки H1Cloud ссылка будет доступна получателю при входе с этой почтой. Это не заказ и не фискальная квитанция.</p>
+</section>
+<section class="panel">
+<h2>1. Подтверди права оператора</h2>
+<p>Укажи два разных секретных токена из переменных окружения Python-сервиса Render. Не пересылай их никому; сайт не сохраняет их в браузерном хранилище.</p>
+<div class="grid">
+<label>Операторский токен <small>VAINAH_SANDBOX_TEST_TOKEN</small><input id="operator-token" type="password" autocomplete="off" spellcheck="false" placeholder="••••••••••" maxlength="256"></label>
+<label>Токен закрытого пилота <small>VAINAH_LIVE_PILOT_OPERATOR_TOKEN</small><input id="pilot-token" type="password" autocomplete="off" spellcheck="false" placeholder="••••••••••" maxlength="256"></label>
+</div>
+<div class="actions">
+<button id="check" type="button">Проверить доступ к выдаче</button>
+<button id="lock" type="button" class="ghost">Скрыть и сбросить</button>
+</div>
+<p id="check-status" class="status" role="status" aria-live="polite">Выдача недоступна без проверки прав оператора.</p>
+</section>
+<section class="panel">
+<h2>2. Параметры подписки</h2>
+<p>Один получатель — одна активная ручная выдача. Новую подписку можно создать после окончания предыдущей. Платежи и оплаченные тарифы не изменяются.</p>
+<form id="grant-form">
+<label class="email">Email получателя<input id="recipient" type="email" required autocomplete="off" maxlength="254" placeholder="client@example.com"></label>
+<div class="grid">
+<label>Срок действия<select id="days"><option value="1">1 день</option><option value="7">7 дней</option><option value="30" selected>30 дней</option><option value="90">90 дней</option><option value="180">180 дней</option><option value="365">365 дней</option></select></label>
+<label>Лимит устройств<select id="devices"><option value="1">1 устройство</option><option value="2">2 устройства</option><option value="3" selected>3 устройства</option><option value="6">6 устройств</option></select></label>
+</div>
+<label class="confirm"><input id="confirm" type="checkbox" required> Подтверждаю выдачу реального VPN-доступа без оплаты именно этому получателю.</label>
+<button id="issue" type="submit" class="primary" disabled>Выдать подписку через H1Cloud</button>
+</form>
+<p class="note">При сетевой ошибке повторная выдача блокируется до проверки: H1Cloud мог создать профиль даже без ответа. Не создавай новую выдачу для того же email без выяснения причины.</p>
+<p id="grant-status" class="status" role="status" aria-live="polite">Сначала проверь операторский доступ.</p>
+</section>
+<section id="result" class="panel result" hidden>
+<h2>3. Результат выдачи</h2>
+<div id="result-detail" class="status" role="status" aria-live="polite"></div>
+<label>Личная ссылка подписки<input id="subscription" type="text" readonly spellcheck="false" autocomplete="off"></label>
+<div class="actions">
+<button id="copy" type="button">Скопировать ссылку</button>
+<a href="/connect.html#vc-clients-heading">Инструкция для Happ и INCY ↗</a>
+</div>
+<p class="note">Ссылка является секретом доступа. Передавай её только нужному получателю. Для получения через личный кабинет клиенту нужно войти с подтверждённым email.</p>
+</section>
+<footer>© 2026 Vainah VPN · закрытая ручная выдача. Поиск и индексация запрещены.</footer>
+</main>
+</body>
+</html>
