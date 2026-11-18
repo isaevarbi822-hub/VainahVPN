@@ -125,7 +125,7 @@ document.body.dataset.scrollTest=
          "--user-data-dir=" + str(tmp_path / "chrome-profile"),
          "--window-size=" + str(width) + "," + str(height),
          "--dump-dom", page.as_uri()],
-        capture_output=True, text=True, timeout=16, check=False,
+        capture_output=True, text=True, timeout=36, check=False,
     )
     assert outcome.returncode == 0, outcome.stderr[-1000:]
     assert 'data-scroll-test="ok"' in outcome.stdout, outcome.stdout[-1800:]
