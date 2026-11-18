@@ -1097,7 +1097,8 @@ class MainActivity : Activity() {
                     diag.getString("libbox_rejected_option", null) else null,
                 profileCheckTransport = diag.getString("profile_check_transport", null),
                 profileCheckSecurity = diag.getString("profile_check_security", null),
-                profileCheckRejection = diag.getString("profile_check_rejection", null)
+                profileCheckRejection = diag.getString("profile_check_rejection", null),
+                turkeyAudit = TurkeyServerAudit.inspect(nodes)
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(
