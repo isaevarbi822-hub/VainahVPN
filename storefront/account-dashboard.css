@@ -215,3 +215,37 @@
 .account-manual-grant .account-access-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
 .account-manual-grant .account-access-actions .btn{font-size:12px;min-height:44px;padding:10px 14px}
 @media(max-width:500px){.account-manual-grant .account-access-actions{flex-direction:column}.account-manual-grant .btn{width:100%}}
+
+/* Account reliability and client handoff: no private links in status text. */
+.account-shell .account-session-health{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 15px;margin:0 0 17px;
+  border:1px solid #5f6888;border-radius:12px;
+  background:#19243b;color:#cddcf0;font-size:12px;line-height:1.5;
+  overflow-wrap:anywhere;
+}
+.account-shell .account-session-health::before{
+  content:"";width:9px;height:9px;flex:0 0 9px;border-radius:50%;
+  background:#9bacc8;box-shadow:0 0 0 3px #9bacc81f;
+}
+.account-shell .account-session-health[data-state="verified"]{border-color:#396b69;color:#b1e8d6}
+.account-shell .account-session-health[data-state="verified"]::before{background:#78dbbd}
+.account-shell .account-session-health[data-state="error"]{border-color:#9b7351;color:#f8d2ae}
+.account-shell .account-session-health[data-state="error"]::before{background:#f0b879}
+.account-shell .account-import-intent{
+  margin:10px 0 13px;padding:12px 14px;border:1px solid #7472b7;
+  border-radius:12px;background:#2b2a4a;color:#e6dfff;
+  font-size:12px;line-height:1.55;
+}
+.account-shell .account-import-intent[hidden]{display:none!important}
+.account-shell .account-client-link.account-client-preferred{
+  border:2px solid #f2ddad;box-shadow:0 0 0 3px #f2ddad24;
+  outline-offset:4px;
+}
+@media(max-width:540px){
+  .account-shell .account-session-health{font-size:12px}
+  .account-shell .account-import-intent{font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  .account-shell .account-client-link{transition:none!important}
+}
