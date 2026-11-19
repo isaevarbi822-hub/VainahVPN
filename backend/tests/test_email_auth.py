@@ -28,7 +28,14 @@ def environment(monkeypatch):
 def test_email_session_signature_and_expiry(environment):
     cookie = email_auth._sign_session(EMAIL, now=1700000000)
     assert email_auth._read_session(cookie, now=1700000001) == EMAIL
-    assert email_auth._read_session(cookie, now=1700000000 + 13 * 3600) is None
+    # A reopened browser remains signed in after 12 hours, but not forever.
+    assert email_auth._read_session(cookie, now=1700000000 + 13 * 3600) == EMAIL
+    assert email_auth._read_session(
+        cookie, now=1700000000 + email_auth.SESSION_SECONDS - 1
+    ) == EMAIL
+    assert email_auth._read_session(
+        cookie, now=1700000000 + email_auth.SESSION_SECONDS
+    ) is None
     assert email_auth._read_session(cookie + "a", now=1700000001) is None
     payload, signature = cookie.split(".")
     modified = ("A" if payload[0] != "A" else "B") + payload[1:]
@@ -104,6 +111,7 @@ def test_email_otp_login_and_logout(environment, monkeypatch):
         assert "__Host-vainah_email_session=" in cookie
         assert "HttpOnly" in cookie and "Secure" in cookie
         assert "SameSite=lax" in cookie
+        assert f"Max-Age={email_auth.SESSION_SECONDS}" in cookie
         assert client.get("/api/email-auth/account").json() == {
             "authenticated": True,
             "user": {"auth_method": "email", "email": EMAIL},
