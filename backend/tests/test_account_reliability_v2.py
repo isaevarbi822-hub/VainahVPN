@@ -85,10 +85,12 @@ const tick=()=>new Promise(r=>setImmediate(r));
     assert run.returncode == 0, run.stderr
 
 
-def test_static_login_redirect_only_keeps_known_client_choice():
+def test_static_login_uses_single_canonical_auth_origin():
     content = (ROOT / "storefront/account.html").read_text(encoding="utf-8")
-    assert "choice==='happ'||choice==='incy'" in content
-    assert "'?client='+choice:''" in content
+    redirect = (ROOT / "storefront/static-auth-redirect.js").read_text(encoding="utf-8")
+    assert 'src="/static-auth-redirect.js?v=20261119-stay-login1"' in content
+    assert '"/account.html"' in redirect
+    assert 'apiOrigin+window.location.pathname+window.location.search+window.location.hash' in redirect
     assert "window.location.hash" in content
     assert "account-import-intent" in content
     assert "account-dashboard-health" in content
