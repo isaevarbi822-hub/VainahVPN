@@ -131,7 +131,7 @@ const compareButton=card=>card.children.find(c=>c.className.includes('tariff-com
  assert.equal(more.hidden,false);
  more.events.click();
  assert.equal(visible().length,24);
- assert.ok(status.textContent.includes('75 платных'));
+ assert.ok(status.textContent.includes('Платных тарифов: 75'));
  // Price sorting never changes the source catalog or checkout URLs.
  sort.value='price';sort.events.change();
  assert.equal(visible()[0].children[2].textContent,'Vainah Pulse');

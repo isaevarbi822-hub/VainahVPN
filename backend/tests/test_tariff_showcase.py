@@ -203,7 +203,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  assert.ok(links.some(x=>x.href.endsWith('legend-730d')));
  assert.ok(links.some(x=>x.href.endsWith('family-max-730d')));
  assert.ok(links.some(x=>x.href.includes('30-family')));
- assert.ok(status.textContent.includes('75 платных'));
+ assert.ok(status.textContent.includes('Платных тарифов: 75'));
 })().catch(e=>{console.error(e);process.exitCode=1});
 """
     harness = harness.replace("__CATALOG__", json.dumps(public_tariff_catalog()["plans"]))

@@ -1155,8 +1155,8 @@ def config() -> dict:
             ), "customer_accounts_ready": approved,
             "provisioning_ready": approved,
             "message": (
-                "Подтверждённый email и оплата на сайте RollyPay."
-                if approved else
+                "Для оплаты через доступную кассу нужен подтверждённый email."
+                if approved or platega_enabled else
                 "Оформление реальных заказов закрыто до подтверждения "
                 "полного цикла платежа и выдачи VPN."
             )}

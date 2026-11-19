@@ -24,7 +24,9 @@ def test_email_is_default_and_account_has_customer_shortcuts():
 def test_orders_are_rendered_without_html_injection_or_fabricated_amounts():
     assert 'function renderOrders(orders)' in SCRIPT
     assert "title.textContent=safeString(order.title)" in SCRIPT
-    assert 'amount.textContent=\'—\'' in SCRIPT
+    assert ".test(order.amount_rub)" in SCRIPT
+    assert "format(Number(order.amount_rub))" in SCRIPT
+    assert ":'—';" in SCRIPT
     assert "row.append(title,date,amount,state)" in SCRIPT
     assert "formatDate(delivery.expires_at)" in SCRIPT
     assert "vx-no-fake-traffic" not in SCRIPT

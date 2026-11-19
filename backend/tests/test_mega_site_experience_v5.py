@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import json
-import re
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+
+from vainah.tariff_catalog import public_tariff_catalog
 
 SITE = Path(__file__).resolve().parents[2] / "storefront"
 
@@ -38,7 +39,7 @@ def test_catalog_actions_are_complete_and_accessible():
 def test_catalog_uses_only_verified_server_amounts_for_checkout():
     js = (SITE / "tariff-catalog.js").read_text(encoding="utf-8")
     for required in (
-        "new Set(plans.map(p=>p.id)).size!==76",
+        "new Set(plans.map(p=>p.id)).size!==plans.length",
         "plans.every(safe)", "plan.checkout_path",
         "const publicFavoriteKey=", "storage()?.setItem",
         "favoritesOnly&&!favorites.has(plan.id)",
@@ -76,27 +77,7 @@ def test_v5_layout_respects_mobile_and_reduced_motion():
 
 def _catalog_fixture() -> str:
     js = (SITE / "tariff-catalog.js").read_text(encoding="utf-8")
-    match = re.search(r"const paidIds=new Set\(\[(.*?)\]\);", js, re.DOTALL)
-    assert match
-    ids = re.findall(r"'([a-z0-9-]+)'", match.group(1))
-    assert len(ids) == 75
-    items = [
-        {
-            "id": plan_id, "title": "Тариф " + plan_id,
-            "days": 30, "devices": 6 if "family" in plan_id else 3,
-            "price_rub": "149.00", "status": "existing",
-            "checkout_supported": True,
-            "checkout_path": "/checkout.html?plan=" + plan_id,
-            "segment": "family" if "family" in plan_id else "standard",
-        }
-        for plan_id in ids
-    ]
-    items.append({
-        "id": "trial-free", "title": "Пробный день", "days": 1,
-        "devices": 2, "price_rub": "0.00", "status": "trial",
-        "traffic_gb": 10, "checkout_supported": False, "segment": "short",
-    })
-    payload = json.dumps({"total": 76, "plans": items}, ensure_ascii=False)
+    payload = json.dumps(public_tariff_catalog(), ensure_ascii=False)
     document = """<!doctype html><html lang="ru"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     </head><body>

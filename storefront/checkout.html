@@ -1,4 +1,15 @@
-<!doctype html><html lang="ru"><head><meta name="robots" content="noindex, nofollow"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#080b15"><meta name="description" content="Vainah VPN — выбор подписки и отдельное оформление через RollyPay или Platega."><title>Купить VPN — Vainah VPN</title><style>
+<!doctype html><html lang="ru"><head><script>
+if (window.location.hostname === 'vainahvpn.onrender.com') {
+  const source = new URLSearchParams(window.location.search);
+  const target = new URL('https://vainahvpn-python-preview.onrender.com/checkout.html');
+  const plan = source.get('plan');
+  const gateway = source.get('gateway');
+  if (plan !== null) target.searchParams.set('plan', plan);
+  if (gateway === 'rollypay' || gateway === 'platega') target.searchParams.set('gateway', gateway);
+  if (window.location.hash === '#shop-payment-panel') target.hash = window.location.hash;
+  window.location.replace(target.href);
+}
+</script><meta name="robots" content="noindex, nofollow"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#080b15"><meta name="description" content="Vainah VPN — выбор подписки и отдельное оформление через RollyPay или Platega."><title>Купить VPN — Vainah VPN</title><style>
 :root{color-scheme:dark;--bg:#080b15;--surface:#121626;--surface2:#181b2f;--line:#292d43;--muted:#a0a6bd;--ink:#f5f6ff;--purple:#a98bff;--sky:#79cde9;--green:#70e5b1;--shadow:0 25px 80px #0008}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#080b15;color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55;overflow-x:hidden}body:before{content:"";position:absolute;z-index:-1;top:0;right:-24vw;width:95vw;height:980px;background:radial-gradient(ellipse at 45% 25%,#49307560,transparent 58%);pointer-events:none}a{color:inherit;text-decoration:none}button,input,textarea{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--sky);outline-offset:4px}.container{max-width:1190px;margin:0 auto;padding:0 32px}.skip{position:absolute;top:-100px;left:10px;z-index:90;padding:10px;background:#fff;color:#000}.skip:focus{top:10px}
 body>header{position:relative;top:auto;z-index:30;background:#090d19e8;border-bottom:1px solid #ffffff14;backdrop-filter:blur(22px)}.nav-wrap{height:80px;display:flex;align-items:center;justify-content:space-between;gap:28px}.logo{display:inline-flex;align-items:center;gap:12px;font-size:17px;font-weight:850;letter-spacing:.04em;white-space:nowrap}.logo-mark{width:42px;height:42px;border-radius:14px;background:linear-gradient(130deg,#bd9fff,#653ce0);display:grid;place-items:center;box-shadow:0 10px 26px #a17bff52}.logo-mark svg{width:29px;height:29px}.logo em{font-style:normal;color:#bba6ff}.desktop-nav{display:flex;align-items:center;gap:27px;font-size:13px;color:#b5bad0}.desktop-nav a{transition:color .2s}.desktop-nav a:hover,.desktop-nav a[aria-current=page]{color:#fff}.desktop-nav a[aria-current=page]:after{content:"";display:block;height:2px;border-radius:2px;background:var(--purple);margin-top:3px}.nav-side{display:flex;gap:13px;align-items:center}.nav-side .tiny{font-size:11px;line-height:1.3;color:#b7accf;max-width:95px;text-align:right}.hamburger{display:none;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid #40415d;background:#171b2f;color:white;border-radius:13px;font-size:23px}.mobile-nav{display:none;border-top:1px solid #ffffff1a;padding:12px 32px 20px;background:#0d1020}.mobile-nav.open{display:grid;grid-template-columns:1fr 1fr;gap:7px}.mobile-nav a{padding:13px 12px;border-radius:10px;background:#191d30;font-size:14px}.mobile-nav a[aria-current=page]{color:#c4adff}
@@ -13,58 +24,54 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
 @media(max-width:1040px){.desktop-nav{gap:15px}.nav-side .tiny{display:none}.hero{gap:24px}.orb-shell{width:320px;height:320px}.hero-art{height:460px}.chip-left{left:-2px}.chip-right{right:0}.container{padding:0 24px}}@media(max-width:780px){.desktop-nav,.nav-side .btn{display:none}.hamburger{display:flex}.nav-wrap{height:70px}.hero{grid-template-columns:1fr;gap:0;min-height:auto;padding-top:70px;padding-bottom:50px}.hero h1{font-size:clamp(48px,10vw,76px)}.hero-art{height:390px}.orb-shell{width:295px;height:295px}.orb-shell svg{height:230px;width:230px}.connect-chip{min-width:auto;padding:10px 12px}.chip-left{left:0;top:34px}.chip-right{right:0;bottom:26px}.mini-stat,.card-grid,.plan-grid,.steps{grid-template-columns:1fr 1fr}.featureband,.content-grid,.location-layout{grid-template-columns:1fr}.featureband .illustration{order:-1}.footer-grid{grid-template-columns:1fr 1fr}.footer-grid>div:first-child{grid-column:span 2}.cta{flex-direction:column;align-items:flex-start}.section{padding:65px 0}.page-intro{padding:57px 0 28px}.plan-grid .plan:last-child{grid-column:span 2}.plan-grid .plan:last-child{min-height:300px}}@media(max-width:520px){.container{padding:0 18px}.logo{font-size:15px}.logo-mark{height:38px;width:38px}.hero h1{font-size:49px}.hero-copy{font-size:14px}.hero-art{height:335px}.orb-shell{width:255px;height:255px}.orb-shell svg{height:190px;width:190px}.connect-chip{font-size:10px}.chip-left{top:35px}.chip-right{bottom:17px}.card-grid,.plan-grid,.mini-stat,.steps,.input-row{grid-template-columns:1fr}.plan-grid .plan:last-child{grid-column:auto}.plan{min-height:340px}.mini-stat>div{border-right:0;border-bottom:1px solid #34384e}.mini-stat>div:last-child{border-bottom:0}.section{padding:52px 0}.section-head h2,.page-heading h1{font-size:39px}.paper{padding:23px}.cta{margin:45px 0 20px;padding:34px 25px}.footer-grid{gap:25px}.footer-grid>div:first-child{grid-column:span 2}.footer-grid h4{font-size:11px}.small-note{font-size:11px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}.btn:hover{transform:none}}
 
-</style><link rel="stylesheet" href="site-shell.css?v=20261107-superplus2"><script src="site-shell.js?v=20261118-ultra6" defer></script><script src="telegram-login-widget.js"></script><link rel="stylesheet" href="checkout-flow.css?v=20261118-independent-scroll1"><script src="checkout-flow.js?v=20261118-independent-scroll1" defer></script><link rel="stylesheet" href="refresh.css?v=20261113-ultra3"><script src="refresh.js?v=20261108-2" defer></script><link rel="stylesheet" href="legal-link-strip.css?v=1"><link rel="stylesheet" href="vainah-next.css?v=20261115-next1"></head><body><a class="skip" href="#main">Перейти к содержимому</a><header><div class="container nav-wrap"><a href="index.html" class="logo" aria-label="Vainah VPN — Главная"><span class="logo-mark" aria-hidden="true"><svg fill="none" viewBox="0 0 32 32"><path d="m6 9 10 15L26 9" stroke="#fff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/><path d="m16 6 5 8-5 11" stroke="#d1f7ff" stroke-width="2.4" stroke-linecap="round"/></svg></span><span>VAINAH <em>VPN</em></span></a><nav class="desktop-nav" aria-label="Основная навигация"><a href="index.html" >Главная</a><a href="features.html" >Возможности</a><a href="devices.html" >Устройства</a><a href="plans.html" >Тарифы</a><a href="servers.html" >Серверы</a><a href="guide.html">Подключение</a><a href="help.html" >Помощь</a><a href="about.html" >О сервисе</a></nav><div class="nav-side"><span class="tiny">Твоё соединение.<br>Твои правила.</span><a class="btn btn-border btn-small" href="contact.html">Поддержка</a><button class="hamburger" type="button" data-menu-button aria-expanded="false" aria-controls="mobile-nav" aria-label="Открыть меню">☰</button></div></div><nav id="mobile-nav" class="mobile-nav" data-mobile-nav aria-label="Мобильная навигация"><a href="index.html" >Главная</a><a href="plans.html" >Тарифы</a><a href="servers.html" >Серверы</a><a href="guide.html">Подключение</a><a href="help.html" >Помощь</a><a href="about.html" >О сервисе</a><a href="contact.html" >Поддержка</a><a href="features.html">Возможности</a><a href="devices.html">Устройства</a><a href="security.html">Безопасность</a><a href="speed.html">Скорость</a><a href="troubleshooting.html">Решение проблем</a></nav></header><main id="main" class="checkout-next">
+</style><link rel="stylesheet" href="site-shell.css?v=20261107-superplus2"><script src="site-shell.js?v=20261118-ultra6" defer></script><script src="telegram-login-widget.js"></script><link rel="stylesheet" href="checkout-flow.css?v=20261119-purchase1"><script src="checkout-flow.js?v=20261119-purchase1" defer></script><link rel="stylesheet" href="refresh.css?v=20261113-ultra3"><script src="refresh.js?v=20261108-2" defer></script><link rel="stylesheet" href="legal-link-strip.css?v=1"><link rel="stylesheet" href="vainah-next.css?v=20261115-next1"></head><body><a class="skip" href="#main">Перейти к содержимому</a><header><div class="container nav-wrap"><a href="index.html" class="logo" aria-label="Vainah VPN — Главная"><span class="logo-mark" aria-hidden="true"><svg fill="none" viewBox="0 0 32 32"><path d="m6 9 10 15L26 9" stroke="#fff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/><path d="m16 6 5 8-5 11" stroke="#d1f7ff" stroke-width="2.4" stroke-linecap="round"/></svg></span><span>VAINAH <em>VPN</em></span></a><nav class="desktop-nav" aria-label="Основная навигация"><a href="index.html" >Главная</a><a href="features.html" >Возможности</a><a href="devices.html" >Устройства</a><a href="plans.html" >Тарифы</a><a href="servers.html" >Серверы</a><a href="guide.html">Подключение</a><a href="help.html" >Помощь</a><a href="about.html" >О сервисе</a></nav><div class="nav-side"><span class="tiny">Твоё соединение.<br>Твои правила.</span><a class="btn btn-border btn-small" href="contact.html">Поддержка</a><button class="hamburger" type="button" data-menu-button aria-expanded="false" aria-controls="mobile-nav" aria-label="Открыть меню">☰</button></div></div><nav id="mobile-nav" class="mobile-nav" data-mobile-nav aria-label="Мобильная навигация"><a href="index.html" >Главная</a><a href="plans.html" >Тарифы</a><a href="servers.html" >Серверы</a><a href="guide.html">Подключение</a><a href="help.html" >Помощь</a><a href="about.html" >О сервисе</a><a href="contact.html" >Поддержка</a><a href="features.html">Возможности</a><a href="devices.html">Устройства</a><a href="security.html">Безопасность</a><a href="speed.html">Скорость</a><a href="troubleshooting.html">Решение проблем</a></nav></header><main id="main" class="checkout-next">
   <section class="container checkout-intro">
-    <div class="eyebrow">VAINAH VPN / БЕЗОПАСНОЕ ОФОРМЛЕНИЕ</div>
-    <h1>Выбирай свободу. <span class="gradient">Плати удобно.</span></h1>
-    <p>Выбери один из 75 платных тарифов. Срок, устройства и итоговую сумму сервер проверяет перед открытием выбранной кассы. Подбор тарифа и создание счёта не списывают деньги автоматически. Текущая доступность оплаты показана ниже.</p>
-    <div class="shop-notice" role="status" id="shop-config-status" aria-live="polite">Проверяем готовность платежей…</div>
+    <h1>Оформление подписки</h1>
+    <p>Выбери тариф и кассу. После подтверждения оплаты доступ появится в личном кабинете.</p>
   </section>
   <div class="container checkout-columns">
     <section class="shop-panel" aria-labelledby="plans-title">
-      <div class="shop-heading"><span class="tiny-tag">ШАГ 01 · КАТАЛОГ</span><h2 id="plans-title">Выбери подписку</h2><p>Цены, лимиты устройств и сроки загружаются напрямую с Python-сервера. Бесплатный пробный тариф активируется отдельно без оформления платежа.</p><p class="shop-scroll-tip">↕ Прокручивай только список тарифов — окно оплаты останется на месте.</p></div>
+      <div class="shop-heading"><h2 id="plans-title">Выбор тарифа</h2><p>Сумма указана за весь срок подписки.</p></div>
       <div class="shop-filter-controls" aria-label="Поиск тарифов перед оплатой">
         <label for="shop-plan-search">Поиск подписки
           <input id="shop-plan-search" type="search" maxlength="80" autocomplete="off" placeholder="Название, срок, 30, Legend…">
         </label>
         <label for="shop-plan-kind">Тип подписки
-          <select id="shop-plan-kind"><option value="all">Все 75 тарифов</option><option value="personal">Личные · 3 устройства</option><option value="family">Семейные · 6 устройств</option></select>
+          <select id="shop-plan-kind"><option value="all">Все тарифы</option><option value="personal">Личные · 3 устройства</option><option value="family">Семейные · 6 устройств</option></select>
         </label>
       </div>
       <p id="shop-plan-results" role="status" aria-live="polite" class="shop-filter-results">Загружаем тарифы с сервера…</p>
-      <div id="shop-plans" class="shop-plans" role="region" tabindex="0" aria-label="Прокручиваемый список тарифов"></div><p class="shop-to-payment"><a class="shop-to-payment-link" href="#shop-payment-panel">Перейти к оформлению выбранного тарифа ↗</a></p><p class="fineprint">Хочешь сначала проверить подключение? <a class="shop-inline-link" href="trial.html">Пробный день бесплатно: 2 устройства и 10 ГБ</a></p>
+      <div id="shop-plans" class="shop-plans" role="region" tabindex="0" aria-label="Список тарифов"></div>
+      <button class="shop-secondary" id="shop-plan-retry" type="button" hidden>Повторить загрузку</button>
+      <p class="shop-to-payment" id="shop-to-payment" hidden><a class="shop-to-payment-link" href="#shop-payment-panel">К оплате выбранного тарифа ↓</a></p><p class="fineprint">Хочешь сначала проверить подключение? <a class="shop-inline-link" href="trial.html">Пробный день бесплатно: 2 устройства и 10 ГБ</a></p>
     </section>
-    <aside class="shop-panel shop-summary" id="shop-payment-panel" tabindex="0" role="region" aria-label="Отдельное прокручиваемое окно оплаты">
-      <div class="shop-heading"><span class="tiny-tag">ШАГ 02 · ОТДЕЛЬНОЕ ОКНО</span><h2>Твой заказ</h2><p>Без скрытой смены цены на стороне браузера.</p><p class="shop-scroll-tip">↕ Листай здесь способы оплаты и документы — список тарифов не будет двигаться.</p></div>
-      <div class="shop-line"><span>Выбранный тариф</span><strong id="shop-selected-title">—</strong></div>
+    <aside class="shop-panel shop-summary" id="shop-payment-panel" tabindex="0" role="region" aria-labelledby="shop-payment-title">
+      <div class="shop-heading"><h2 id="shop-payment-title">Твой заказ</h2></div>
+      <div class="shop-line"><span>Тариф</span><strong id="shop-selected-title">—</strong></div>
       <div class="shop-line"><span>Устройств</span><strong id="shop-selected-devices">—</strong></div>
       <div class="shop-line"><span>Срок</span><strong id="shop-selected-days">—</strong></div>
       <div class="shop-line shop-total"><span>Итого</span><strong id="shop-total">—</strong></div>
-      <div class="vx-next-checkout-steps" aria-label="Как происходит оформление">
-  <strong>Прозрачное оформление · три шага</strong>
-  <ol>
-    <li><em>Выбор тарифа.</em> Цена и срок загружаются с защищённого сервера.</li>
-    <li><em>Проверка аккаунта.</em> Для покупки нужен вход и подтверждённый email.</li>
-    <li><em>Оплата и получение.</em> Счёт открывается на защищённой странице выбранной кассы; доступ выдаётся только после подтверждения платежа.</li>
-  </ol>
-</div>
-      <div class="payment-method" role="group" aria-label="Выбор платёжной кассы">
-        <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
-          <input type="radio" name="shop-gateway" value="rollypay" checked>
-          <span class="payment-symbol" aria-hidden="true">R</span>
-          <span><strong>RollyPay</strong><small>Защищённая платёжная форма RollyPay.</small></span>
+      <fieldset class="shop-gateways">
+        <legend>Способ оплаты</legend>
+        <label class="payment-method">
+          <input type="radio" name="shop-gateway" value="rollypay" checked disabled>
+          <span><strong>RollyPay</strong><small id="rollypay-availability">Доступность уточняется</small></span>
         </label>
-      </div>
-      <div class="payment-method">
-        <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+        <label class="payment-method">
           <input type="radio" name="shop-gateway" value="platega" disabled>
-          <span class="payment-symbol" aria-hidden="true">P</span>
-          <span><strong>Platega</strong><small id="platega-availability">Проверяем подключение второй кассы…</small></span>
+          <span><strong>Platega</strong><small id="platega-availability">Доступность уточняется</small></span>
         </label>
+      </fieldset>
+      <p class="shop-config-status" role="status" id="shop-config-status">Проверяем доступность оплаты…</p>
+      <button class="shop-secondary" id="shop-config-retry" type="button" hidden>Проверить кассы ещё раз</button>
+      <div class="shop-payment-actions">
+        <button class="shop-submit" id="shop-buy" type="button" disabled>Оплата пока недоступна</button>
+        <a class="shop-submit shop-login" id="shop-login" href="account.html#account-auth-panel" hidden>Войти или подтвердить почту</a>
+        <p class="shop-payment-status" id="shop-payment-status" role="status"></p>
       </div>
-      <button class="shop-submit" id="shop-buy" type="button" disabled>Проверяем возможность оплаты…</button><nav class="shop-legal-links" aria-label="Юридические документы перед оплатой" data-checkout-documents>
+      <nav class="shop-legal-links" aria-label="Юридические документы перед оплатой" data-checkout-documents>
   <strong>Документы перед оплатой</strong>
-  <p>Перед оформлением заказа ознакомься с условиями и правилами сервиса. Каждая ссылка ведёт на отдельную страницу.</p>
+  <p>Перед оформлением заказа ознакомься с условиями сервиса.</p>
   <ul>
     <li><a href="https://vainahvpn.onrender.com/oferta.html">Публичная оферта ↗</a></li>
     <li><a href="https://vainahvpn.onrender.com/terms.html">Пользовательское соглашение ↗</a></li>
@@ -72,9 +79,11 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
     <li><a href="https://vainahvpn.onrender.com/refund.html">Условия возврата ↗</a></li>
   </ul>
 </nav>
-      <p class="fineprint">Создание счёта не списывает деньги само по себе. При доступной оплате платёж совершается только на защищённой странице выбранной кассы. Нужен подтверждённый email: он уже есть при входе через email/Google, а для Telegram привязывается один раз в кабинете. VPN выдаётся только после подтверждённой оплаты.</p>
-      <a class="shop-inline-link" href="account.html#account-email-panel">Войти через email, Google, Telegram / Подтвердить почту</a><a class="shop-inline-link" href="plans.html">← Вернуться к тарифам</a>
-      <p class="vx-next-inline-message"><strong>Нужна помощь до оплаты?</strong> <a href="help.html">Ответы на вопросы</a>, <a href="connect.html">инструкция по подключению</a> и <a href="contact.html">контакты поддержки</a>. Если счёт уже создан, сначала проверь его статус — повторная покупка может привести к двойному платежу.</p>
+      <p class="fineprint">Платёж проходит на странице выбранной кассы. Если уже оплатил, открой кабинет и проверь статус заказа.</p>
+      <div class="shop-help-links">
+        <a class="shop-inline-link" href="account.html#account-history-heading">Личный кабинет</a>
+        <a class="shop-inline-link" href="contact.html">Помощь с оплатой</a>
+      </div>
     </aside>
   </div>
   <section class="container shop-operator">
@@ -82,7 +91,7 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
       <p>Создавай только тестовые заказы. Для доступа нужен секретный тестовый токен из серверных переменных. Он не сохраняется в браузере.</p>
       <label for="shop-test-token">Тестовый токен</label>
       <input id="shop-test-token" type="password" autocomplete="off" placeholder="Токен тестирования" />
-      <div class="shop-actions"><button type="button" class="shop-submit" id="shop-test-create">Создать тестовый счёт</button>
+      <div class="shop-actions"><button type="button" class="shop-submit" id="shop-test-create" disabled>Создать тестовый счёт</button>
       <button type="button" class="shop-secondary" id="shop-test-diagnose">Проверить связь с кассой</button>
       <button type="button" class="shop-secondary" id="shop-test-webhook">Проверить готовность webhook</button>
       <button type="button" class="shop-secondary" id="shop-test-h1-trial">Выдать тестовый VPN на 1 день (1 устройство)</button>

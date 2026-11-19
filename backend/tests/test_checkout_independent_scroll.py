@@ -16,8 +16,8 @@ def test_checkout_has_two_accessible_separate_scroll_areas():
     assert 'id="shop-payment-panel" tabindex="0" role="region"' in html
     assert 'href="#shop-payment-panel"' in html
     assert html.index('id="shop-plans"') < html.index('id="shop-payment-panel"')
-    assert "checkout-flow.css?v=20261118-independent-scroll1" in html
-    assert "checkout-flow.js?v=20261118-independent-scroll1" in html
+    assert "checkout-flow.css?v=20261119-purchase1" in html
+    assert "checkout-flow.js?v=20261119-purchase1" in html
     assert 'name="shop-gateway" value="rollypay"' in html
     assert 'name="shop-gateway" value="platega"' in html
 

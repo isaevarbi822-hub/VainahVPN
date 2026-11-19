@@ -67,6 +67,31 @@ def test_unpaid_account_cannot_reveal_provider_link(client, monkeypatch):
     assert result.json()["detail"] == "PAID_DELIVERY_NOT_FOUND"
 
 
+def test_telegram_access_requires_the_server_verified_email_link(client, monkeypatch):
+    from vainah import live_checkout
+
+    monkeypatch.setattr(live_checkout, "live_account_ready", lambda: True)
+    monkeypatch.setattr(portal, "customer_receipts", lambda _uid: [])
+    looked_up = []
+    private_link = "https://sub.example.com/test-only"
+
+    def paid_access(email):
+        looked_up.append(email)
+        return private_link
+
+    monkeypatch.setattr(portal, "live_paid_email_access", paid_access)
+    monkeypatch.setattr(portal, "verified_email", lambda _uid: None)
+    assert client.get("/api/account/access").status_code == 404
+    assert looked_up == []
+
+    monkeypatch.setattr(portal, "verified_email", lambda _uid: "verified@example.com")
+    response = client.get("/api/account/access")
+    assert response.status_code == 200
+    assert response.json() == {"subscription_url": private_link}
+    assert looked_up == ["verified@example.com"]
+    assert client.get("/api/account/qr").headers["Content-Type"] == "image/svg+xml"
+
+
 def test_verified_email_code_workflow_requires_cookie_and_origin(client, monkeypatch):
     sent = []
     monkeypatch.setattr(portal, "email_service_ready", lambda: True)

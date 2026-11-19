@@ -1,7 +1,6 @@
 """Platega contract tests; never contact a real payment provider."""
 from __future__ import annotations
 
-import os
 from uuid import uuid4
 
 import pytest
@@ -178,13 +177,9 @@ def test_confirmed_callback_uses_only_verified_ledger_result(monkeypatch):
     assert seen["delivery"]["order_id"] == ORDER
 
 
-@pytest.mark.skipif(
-    not os.environ.get("VAINAH_TEST_DATABASE_URL"),
-    reason="Test-only PostgreSQL required",
-)
-def test_platega_order_immutable_gateway_and_paid_idempotency(monkeypatch):
+def test_platega_order_immutable_gateway_and_paid_idempotency(monkeypatch, postgres_url):
     monkeypatch.setenv("SESSION_SIGNING_KEY", "test-secret-" + "z" * 54)
-    ledger = PostgresLiveOrderLedger(os.environ["VAINAH_TEST_DATABASE_URL"])
+    ledger = PostgresLiveOrderLedger(postgres_url)
     order_id, old_url = ledger.reserve_checkout(
         owner_ref="v1_" + "d" * 64, verified_email="test-platega@example.com",
         plan_id="30", idempotency_key=str(uuid4()), gateway="platega",

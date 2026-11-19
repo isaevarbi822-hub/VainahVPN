@@ -15,8 +15,38 @@
   let refreshEpoch=0;
   // A connection guide may suggest a client, but cannot trigger an import
   // without the subscriber's own click on the installed application.
-  const requestedClient=new URLSearchParams(window.location?.search||'').get('client');
+  const params=new URLSearchParams(window.location?.search||'');
+  const requestedClient=params.get('client');
   const selectedClient=['happ','incy'].includes(requestedClient)?requestedClient:null;
+  const checkoutLink=$('account-checkout-link');
+  const checkoutPanel=$('account-checkout-panel');
+  const checkoutPlanKey='vainah-checkout-plan';
+  try{
+    if(sessionStorage.getItem('vainah-checkout-return')==='1'){
+      hide('account-payment-return',false);
+      sessionStorage.removeItem('vainah-checkout-return');
+    }
+  }catch{}
+  if(checkoutLink&&checkoutPanel){
+    let checkoutParams=params;
+    try{
+      if(!params.has('plan')){
+        checkoutParams=new URLSearchParams(sessionStorage.getItem(checkoutPlanKey)||'');
+      }
+    }catch{}
+    const plan=checkoutParams.get('plan');
+    const gateway=checkoutParams.get('gateway');
+    if(plan&&/^[a-z0-9-]{1,60}$/.test(plan)){
+      const selection=new URLSearchParams({plan});
+      if(gateway==='platega'||gateway==='rollypay')selection.set('gateway',gateway);
+      try{sessionStorage.setItem(checkoutPlanKey,selection.toString());}catch{}
+      checkoutLink.href='checkout.html?'+selection+'#shop-payment-panel';
+      checkoutPanel.hidden=false;
+      checkoutLink.addEventListener('click',()=>{
+        try{sessionStorage.removeItem(checkoutPlanKey);}catch{}
+      });
+    }
+  }
   const clientName=client=>client==='incy'?'INCY':'Happ';
   function setAccountHealth(message,state='checking'){
     write('account-dashboard-health',message);
@@ -116,6 +146,8 @@
     delivered:'Оплачено · выдано',paid:'Оплачено · выдаётся',
     issued:'Выдано без оплаты',verification_pending:'Проверка H1Cloud',
     pending:'Ожидает оплаты',created:'Ожидает оплаты',
+    reserved:'Счёт создаётся',claimed:'Оплачено · доступ готовится',
+    manual_review:'Требуется проверка',
     processing:'Обрабатывается',cancelled:'Отменён',canceled:'Отменён',
     expired:'Истёк',failed:'Ошибка обработки',
     needs_review:'Требуется проверка',
@@ -123,6 +155,9 @@
   };
   function orderStatus(value){
     return statusNames[safeString(value)]||'Статус уточняется';
+  }
+  function displayOrderStatus(order){
+    return order.paid===true&&order.status==='pending'?'paid':order.status;
   }
   function statusClass(value){
     return value==='delivered'?'success':
@@ -135,9 +170,9 @@
     const matched=historyOrders.filter(order=>{
       const title=safeString(order.title).toLocaleLowerCase('ru').replace(/ё/g,'е');
       if(query&&!title.includes(query))return false;
-      const status=safeString(order.status);
+      const status=safeString(displayOrderStatus(order));
       if(filter==='delivered'&&status!=='delivered')return false;
-      if(filter==='waiting'&&!['created','pending','paid','processing','needs_review'].includes(status))return false;
+      if(filter==='waiting'&&!['reserved','created','pending','paid','claimed','processing','needs_review','manual_review'].includes(status))return false;
       if(filter==='closed'&&!['cancelled','canceled','expired','failed','revoked','refunded','refund','chargeback'].includes(status))return false;
       return true;
     });
@@ -172,7 +207,7 @@
       ...rows.map(order=>[
         safeString(order.title)||'VPN-подписка',
         formatDate(order.created_at),
-        orderStatus(order.status)
+        orderStatus(displayOrderStatus(order))
       ].map(csvCell).join(','))
     ].join('\r\n');
     try{
@@ -220,12 +255,13 @@
       date.textContent=formatDate(order.created_at);
       const amount=document.createElement('div');
       amount.className='order-amount';
-      // Overview intentionally does not send a verified monetary total.
-      amount.textContent='—';
-      amount.title='Сумма не предоставлена сервером';
+      amount.textContent=/^[0-9]+\.[0-9]{2}$/.test(order.amount_rub)
+        ?new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(Number(order.amount_rub))+' ₽'
+        :'—';
       const state=document.createElement('div');
-      state.className='order-state '+statusClass(order.status);
-      state.textContent=orderStatus(order.status);
+      const status=displayOrderStatus(order);
+      state.className='order-state '+statusClass(status);
+      state.textContent=orderStatus(status);
       row.append(title,date,amount,state);
       history.append(row);
     }
@@ -505,6 +541,8 @@
       :'V');
     hide('account-email-form',!!emailUser);
     hide('account-email-verify',true);
+    hide('account-checkout-link',!emailUser);
+    hide('account-checkout-verify',!!emailUser);
     if(user)void refresh();
   }
   function errorMessage(error){
@@ -554,6 +592,8 @@
           ?'Подтверждённая почта: '+result.email.address
           :'Почта не подтверждена. Для получения подписки её нужно подтвердить.';
       }
+      hide('account-checkout-link',!result.email?.verified);
+      hide('account-checkout-verify',!!result.email?.verified);
       const orders=Array.isArray(result.orders)?result.orders.filter(order=>order&&typeof order==='object'):[];
       historyOrders=orders;
       write('account-history-count',String(orders.length));

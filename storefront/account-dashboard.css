@@ -249,3 +249,17 @@
 @media(prefers-reduced-motion:reduce){
   .account-shell .account-client-link{transition:none!important}
 }
+.account-purchase-panel:not([hidden]){
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px 16px;
+  margin:0 0 16px;
+  padding:14px 16px;
+  border:1px solid #736099;
+  border-radius:14px;
+  background:#211b36;
+}
+.account-purchase-panel p{font-size:.875rem;color:#c8bfd9;margin:4px 0 0}
+.account-purchase-panel [hidden]{display:none}

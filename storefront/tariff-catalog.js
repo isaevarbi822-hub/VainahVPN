@@ -1,4 +1,4 @@
-/* Vainah VPN: 75 live paid plans, smart discovery + local plan comparison.
+/* Vainah VPN: server catalog, filters and local plan comparison.
    The server owns all prices, eligibility, checkout and VPN fulfillment. */
 (() => {
   'use strict';
@@ -11,19 +11,6 @@
   const root=document.querySelector('[data-tariff-catalog]');
   const status=document.getElementById('tariff-catalog-status');
   if(!root||!status)return;
-  const paidIds=new Set([
-    '7','14','30','45','60','90','120','180','365','30-family','365-family',
-    'mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d',
-    'max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d'
-  ,
-    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d','personal-6d','personal-8d','personal-11d','personal-13d','personal-16d','personal-19d','personal-23d','personal-28d','personal-42d','personal-70d','personal-105d','personal-165d','personal-225d','personal-330d','personal-450d','family-3d','family-5d','family-10d','family-28d','family-35d','family-100d','family-135d','family-210d','family-300d','family-450d']);
-  const order=[
-    'trial-free','mini-3d','sprint-5d','7','14','start-plus-21d',
-    '30','45','60','balance-75d','90','120','comfort-150d','180',
-    'max-270d','365','legend-730d','30-family','family-plus-90d',
-    'family-pro-180d','365-family','family-max-730d'
-  ,
-    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d','personal-6d','personal-8d','personal-11d','personal-13d','personal-16d','personal-19d','personal-23d','personal-28d','personal-42d','personal-70d','personal-105d','personal-165d','personal-225d','personal-330d','personal-450d','family-3d','family-5d','family-10d','family-28d','family-35d','family-100d','family-135d','family-210d','family-300d','family-450d'];
   const filters=Array.from(document.querySelectorAll?.('[data-tariff-filter]')||[]);
   const search=document.querySelector('[data-tariff-search]');
   const sort=document.querySelector('[data-tariff-sort]');
@@ -63,6 +50,7 @@
   const selected=new Set();
   const publicFavoriteKey='vainah-public-plan-favorites-v1';
   const favorites=new Set();
+  const validId=id=>typeof id==='string'&&/^[a-z0-9-]{1,60}$/.test(id);
   const initialCompare=String(initial.get('compare')||'').split(',').slice(0,3);
   const storage=()=>{
     try{return typeof window!=='undefined'?window.localStorage:null;}
@@ -71,11 +59,11 @@
   try{
     const values=JSON.parse(storage()?.getItem(publicFavoriteKey)||'[]');
     if(Array.isArray(values))for(const id of values.slice(0,8)){
-      if(typeof id==='string'&&paidIds.has(id))favorites.add(id);
+      if(validId(id)&&id!=='trial-free')favorites.add(id);
     }
   }catch{/* Private browsing blocks storage: favorites still work for this page. */}
   if(search&&initial.get('q'))search.value=String(initial.get('q')).slice(0,80);
-  const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0});
+  const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
   const elem=(tag,text='',cls='')=>{
     const node=document.createElement(tag);
     node.textContent=String(text);
@@ -90,7 +78,7 @@
   }).format(amount)+' ₽';
   const label=plan=>plan.devices===6?'семейный':'личный';
   function safe(plan){
-    if(!plan||typeof plan!=='object'||!order.includes(plan.id)||
+    if(!plan||typeof plan!=='object'||!validId(plan.id)||
        typeof plan.title!=='string'||plan.title.length<1||plan.title.length>60||
        !Number.isInteger(plan.days)||plan.days<1||plan.days>730||
        !Number.isInteger(plan.devices)||![2,3,6].includes(plan.devices)||
@@ -99,7 +87,7 @@
     if(plan.id==='trial-free')
       return plan.status==='trial'&&plan.price_rub==='0.00'&&
         plan.traffic_gb===10&&plan.checkout_supported===false;
-    return paidIds.has(plan.id)&&plan.status==='existing'&&
+    return plan.status==='existing'&&priceValue(plan)>0&&[3,6].includes(plan.devices)&&
       plan.checkout_supported===true&&
       plan.checkout_path==='/checkout.html?plan='+plan.id&&
       ['short','standard','long','family'].includes(plan.segment);
@@ -202,7 +190,7 @@
       card.append(elem('small',p.days+' дней · '+p.devices+
         ' устройства · ≈'+moneyDaily(daily(p))+'/день'));
       const link=elem('a','Оформить ↗','btn btn-primary');
-      link.href='/checkout.html?plan='+p.id;
+      link.href=apiOrigin+p.checkout_path;
       card.append(link);
       const remove=elem('button','Убрать из сравнения','tariff-compare-remove');
       remove.type='button';
@@ -222,6 +210,8 @@
   function render(plans){
     paid=plans.filter(p=>p.status==='existing');
     cards=[];
+    for(const id of favorites)if(!paid.some(plan=>plan.id===id))favorites.delete(id);
+    for(const id of selected)if(!paid.some(plan=>plan.id===id))selected.delete(id);
     const frag=document.createDocumentFragment();
     for(const p of paid){
       const card=elem('article','','plan tariff-card');
@@ -235,7 +225,7 @@
       card.append(amount);
       card.append(elem('p','До '+p.devices+' устройств · VPN-доступ','plan-desc'));
       const link=elem('a','Выбрать тариф ↗','btn btn-primary');
-      link.href=p.checkout_path;
+      link.href=apiOrigin+p.checkout_path;
       card.append(link);
       const compareButton=elem('button','Сравнить','btn btn-border tariff-compare-toggle');
       compareButton.type='button';
@@ -261,9 +251,9 @@
     show();
     updateFavorites();
     updateCompare();
-    status.textContent='75 платных тарифов с подтверждёнными ценами. Оформление: RollyPay или Platega при готовности кассы. Бесплатный пробный день отдельно.';
+    status.textContent='Платных тарифов: '+paid.length+'. Цены загружены с сервера.';
     const counter=document.getElementById('tariff-compare-label');
-    if(counter)counter.textContent='Сравнить все 76 вариантов ↗';
+    if(counter)counter.textContent='Сравнить все '+plans.length+' вариантов ↗';
   }
   const update=()=>{displayLimit=12;show();};
   favoritesOnlyButton?.addEventListener('click',()=>{
@@ -345,9 +335,8 @@
       if(!response.ok)throw Error('CATALOG_UNAVAILABLE');
       const data=await response.json();
       const plans=Array.isArray(data.plans)?data.plans:[];
-      if(data.total!==76||plans.length!==76||
-        new Set(plans.map(p=>p.id)).size!==76||!plans.every(safe)||
-        plans.filter(p=>p.status==='existing').length!==75||
+      if(plans.length<2||data.total!==plans.length||!plans.every(safe)||
+        new Set(plans.map(p=>p.id)).size!==plans.length||
         plans.filter(p=>p.status==='trial').length!==1
       )throw Error('CATALOG_INVALID');
       render(plans);

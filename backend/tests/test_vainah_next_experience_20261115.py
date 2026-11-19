@@ -60,11 +60,11 @@ def test_home_plans_checkout_and_hub_have_real_navigation():
     hub = _read("command-hub.html")
     assert 'href="plans.html?devices=3&amp;sort=days"' in home
     assert 'href="index.html#vainah-route"' in plans
-    assert "76 вариантов:" in plans
+    assert "Подбери подписку по сроку, цене и числу устройств" in plans
     assert "вариантовова" not in plans
     assert "Умный подбор VPN" in hub
     assert 'href="index.html#vainah-route"' in hub
-    assert 'class="vx-next-checkout-steps"' in checkout
+    assert 'class="shop-gateways"' in checkout
     assert 'name="shop-gateway" value="platega" disabled' in checkout
     assert 'id="shop-buy"' in checkout
     assert "RollyPay" in checkout
