@@ -62,7 +62,9 @@ def test_qr_is_explicit_opt_in_and_revoked_on_logout():
     assert "function clearQR()" in js
     assert "URL.revokeObjectURL(privateQrUrl)" in js
     assert "fetch('/api/account/qr'" in js
-    assert "window.addEventListener('pagehide',clearQR)" in js
+    assert "window.addEventListener('pagehide',()=>" in js
+    assert "clearSubscription();" in js
+    assert "clearQR();" in js
     assert "function clearSubscription(){\n    clearQR();" in js
     assert "session!==sessionEpoch||revision!==refreshEpoch" in js
 
