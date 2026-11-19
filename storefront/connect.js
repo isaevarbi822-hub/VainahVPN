@@ -91,7 +91,7 @@
     done=new Set();
     manual.hidden=true;
     status.textContent='Отметки хранятся только на открытой странице и не передаются на сервер.';
-    if(window.history?.replaceState&&window.location){
+    if(typeof window!=='undefined'&&window.history?.replaceState&&window.location){
       // This parameter never includes subscription keys or personal data.
       const next=new URL(window.location.href);
       next.searchParams.set('device',platform);
