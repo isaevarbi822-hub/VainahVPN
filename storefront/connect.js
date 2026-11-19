@@ -7,13 +7,13 @@
   const flows={
     android:{name:'Android',note:'Понадобится совместимый клиент VLESS/Reality и разрешение Android на VPN-подключение.',steps:[
       'Войди в личный кабинет Vainah VPN с подтверждённым аккаунтом.',
-      'Получить VPN-ссылку или показать личный QR-код, если подписка оплачена и активна.',
+      'Получи личную VPN-ссылку после подтверждённой оплаты или ручной выдачи оператором.',
       'Импортируй ссылку или QR-код в совместимый VPN-клиент на Android.',
       'Разреши системное VPN-подключение, включи VPN и проверь работу сети в клиенте.'
     ]},
     ios:{name:'iPhone / iPad',note:'Нужен совместимый с VLESS/Reality VPN-клиент для iOS или iPadOS.',steps:[
       'Открой личный кабинет Vainah VPN в Safari и войди в аккаунт.',
-      'Получи личную VPN-ссылку или QR-код только после подтверждённой покупки.',
+      'Получи персональную VPN-ссылку после подтверждённой оплаты или ручной выдачи.',
       'Импортируй конфигурацию в совместимый клиент iOS/iPadOS.',
       'Подтверди системный запрос на установку VPN и проверь подключение в клиенте.'
     ]},
@@ -39,7 +39,17 @@
   // Shareable device-specific entry point; this is a local choice, not a login.
   const requested=typeof window!=='undefined' && window.location
     ?new URLSearchParams(window.location.search).get('device'):null;
-  let current=requested&&Object.hasOwn(flows,requested)?requested:'android';
+  function detectPlatform(){
+    const agent=typeof navigator!=='undefined'?String(navigator.userAgent||''):'';
+    if(/Android/i.test(agent))return 'android';
+    if(/iPad|iPhone|iPod/i.test(agent)||
+        (/Macintosh/i.test(agent)&&navigator.maxTouchPoints>1))return 'ios';
+    if(/Windows/i.test(agent))return 'windows';
+    if(/Macintosh|Mac OS X/i.test(agent))return 'macos';
+    if(/Linux/i.test(agent))return 'linux';
+    return 'android';
+  }
+  let current=requested&&Object.hasOwn(flows,requested)?requested:detectPlatform();
   let done=new Set();
   const info=$('vc-selected-note'),heading=$('vc-selected-title');
   const bar=$('vc-progress'),fill=$('vc-progress-fill'),count=$('vc-progress-text');
@@ -81,6 +91,12 @@
     done=new Set();
     manual.hidden=true;
     status.textContent='Отметки хранятся только на открытой странице и не передаются на сервер.';
+    if(window.history?.replaceState&&window.location){
+      // This parameter never includes subscription keys or personal data.
+      const next=new URL(window.location.href);
+      next.searchParams.set('device',platform);
+      window.history.replaceState(null,'',next.pathname+next.search+next.hash);
+    }
     render();
   }
   tabs.forEach((button,index)=>{
