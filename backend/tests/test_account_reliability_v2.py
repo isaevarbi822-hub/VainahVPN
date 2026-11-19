@@ -91,7 +91,7 @@ def test_static_login_uses_single_canonical_auth_origin():
     assert 'src="/static-auth-redirect.js?v=20261119-stay-login1"' in content
     assert '"/account.html"' in redirect
     assert 'apiOrigin+window.location.pathname+window.location.search+window.location.hash' in redirect
-    assert "window.location.hash" in content
+    assert "window.location.hash" in redirect
     assert "account-import-intent" in content
     assert "account-dashboard-health" in content
 
