@@ -33,7 +33,7 @@ def test_catalog_actions_are_complete_and_accessible():
     assert 'data-tariff-favorites-only aria-pressed="false"' in html
     assert 'data-tariff-retry hidden' in html
     assert 'data-tariff-feedback role="status" aria-live="polite"' in html
-    assert "RollyPay и Platega" in html
+    assert "data-checkout-readiness" in html
 
 
 def test_catalog_uses_only_verified_server_amounts_for_checkout():

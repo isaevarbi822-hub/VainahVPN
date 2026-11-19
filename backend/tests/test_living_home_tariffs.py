@@ -47,8 +47,9 @@ global.fetch=async(url,opts)=>{
  fetches++;
  if(!tamper)return {ok:true,json:async()=>data};
  const invalid=JSON.parse(JSON.stringify(data));
- const p=invalid.plans.find(x=>x.id==='mini-3d');
- p.checkout_path='https://evil.example/pay';
+ for(const p of invalid.plans){
+  if(tamper==='all'||p.id==='mini-3d')p.checkout_path='https://evil.example/pay';
+ }
  return {ok:true,json:async()=>invalid};
 };
 const tick=()=>new Promise(done=>setImmediate(done));
@@ -62,11 +63,16 @@ const deep=node=>[node,...node.children.flatMap(deep)];
  assert.equal(links.length,6);
  assert.ok(links.every(n=>n.href.startsWith('/checkout.html?plan=')));
  assert.ok(links.some(n=>n.href.endsWith('pulse-2d')));
- assert.ok(message.textContent.includes('Цены получены'));
+ assert.ok(message.textContent.includes('Цены загружены'));
  assert.equal(refresh.disabled,false);
  tamper=true;refresh.events.click();
  await tick();await tick();
  assert.equal(fetches,2);
+ assert.equal(root.children.length,5);
+ assert.ok(deep(root).filter(n=>n.tagName==='A').every(n=>n.href.startsWith('/checkout.html?plan=')));
+ tamper='all';refresh.events.click();
+ await tick();await tick();
+ assert.equal(fetches,3);
  assert.equal(root.children.length,1);
  const fallbackLinks=deep(root).filter(n=>n.tagName==='A');
  assert.equal(fallbackLinks.length,1);

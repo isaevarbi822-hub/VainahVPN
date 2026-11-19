@@ -20,7 +20,7 @@ def test_new_hero_journey_is_accessible_and_on_homepage():
     assert html.count('data-vx-next-choice="platform"') == 5
     assert html.count('data-vx-next-choice="devices"') == 2
     assert html.count('data-vx-next-choice="days"') == 3
-    assert 'vainah-next.js?v=20261115-reliable2' in html
+    assert 'vainah-next.js?v=20261119-catalog2' in html
     assert 'vainah-next.css?v=20261115-next1' in html
 
 
@@ -28,8 +28,8 @@ def test_next_journey_never_creates_payment_or_uses_fake_prices():
     script = _read("vainah-next.js")
     assert "apiOrigin+'/api/site/tariffs'" in script
     assert "checkout_supported===true" in script
-    assert "data.plans.length!==76" in script
-    assert "confirmed.length!==75" in script
+    assert "data.total!==data.plans.length" in script
+    assert "!confirmed.every(safe)" in script
     assert "money(Number(plan.price_rub))" in script
     assert "method:'GET'" in script
     assert "method:'POST'" not in script

@@ -12,6 +12,42 @@ def test_frontend_and_health():
     assert r.status_code == 200 and r.json()["ok"] is True
 
 
+def test_dashboard_accepts_trailing_slash_and_nested_errors_load_root_assets():
+    response = client.get("/app/", follow_redirects=False)
+    assert response.status_code == 307
+    assert response.headers["location"] == "/app"
+    assert client.get("/app").status_code == 200
+
+    response = client.get("/missing/path")
+    assert response.status_code == 404
+    assert 'src="/site-shell.js?' in response.text
+    assert 'src="/refresh.js?' in response.text
+
+
+def test_static_storefront_can_read_public_status_without_account_cors():
+    origin = "https://vainahvpn.onrender.com"
+    for endpoint in (
+        "/api/site/services", "/api/site/readiness",
+    ):
+        response = client.get(endpoint, headers={"Origin": origin})
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == origin
+        assert response.headers["vary"] == "Origin"
+        assert "access-control-allow-credentials" not in response.headers
+    flags = client.get("/api/site/readiness").json()
+    assert set(flags) == {"email", "google", "telegram", "telegram-classic",
+                          "support", "support_email"}
+    assert all(isinstance(value, bool) for value in flags.values())
+    for method, endpoint, caller in (
+        ("GET", "/api/account/overview", origin),
+        ("GET", "/api/email-auth/config", origin),
+        ("POST", "/api/google/config", origin),
+        ("GET", "/api/site/services", "https://other.example"),
+    ):
+        response = client.request(method, endpoint, headers={"Origin": caller})
+        assert "access-control-allow-origin" not in response.headers
+
+
 @pytest.mark.parametrize("commit, expected", [
     ("aB" * 20, "ab" * 20),
     (None, None),

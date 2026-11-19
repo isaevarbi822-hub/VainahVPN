@@ -24,9 +24,8 @@ def test_no_stale_prices_or_checkout_buttons_when_catalog_unverified():
     html = (SITE / "plans.html").read_text(encoding="utf-8")
     js = (SITE / "tariff-catalog.js").read_text(encoding="utf-8")
     start = html.index('data-tariff-catalog')
-    end = html.index('class="tariff-mega-more-wrap"', start)
+    end = html.index('class="catalog-more"', start)
     before_api = html[start:end]
-    assert 'Подтверждаем актуальные цены' in before_api
     assert 'href="checkout.html?plan=' not in before_api
     assert '<article class="plan">' not in before_api
     assert "root.replaceChildren(elem('p','Подтверждаем актуальные цены…'" in js

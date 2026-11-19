@@ -38,13 +38,15 @@ def main():
         page.locator('[data-tariff-compare-clear]').click()
         assert page.locator('[data-tariff-compare]').is_hidden()
         page.locator('[data-tariff-reset]').click()
-        page.locator('[data-tariff-filter="family"]').click()
+        page.locator('[data-tariff-devices]').select_option('6')
         assert page.locator('.tariff-card:visible').count() == 12
         page.locator('[data-tariff-more]').click()
         assert page.locator('.tariff-card:visible').count() == 24
         page.locator('[data-tariff-sort]').select_option("price")
-        assert page.locator('.tariff-card:visible .btn-primary').first.get_attribute('href') == '/checkout.html?plan=family-3d'
-        page.locator('[data-tariff-devices]').select_option("3")
+        assert page.locator('.tariff-card:visible .catalog-button-primary').first.get_attribute('href') == '/checkout.html?plan=family-3d'
+        page.locator('[data-tariff-filter="short"]').click()
+        assert page.locator('.tariff-card:visible').count() > 0
+        page.locator('[data-tariff-search]').fill('такого названия нет')
         assert page.locator('[data-tariff-empty]').is_visible()
         page.locator('[data-tariff-reset]').click()
         assert page.locator('.tariff-card:visible').count() == 12

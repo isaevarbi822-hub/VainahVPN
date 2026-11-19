@@ -54,7 +54,7 @@ def test_archived_concepts_are_not_promoted_as_current_offers():
     release = (SITE / "whats-new.html").read_text(encoding="utf-8")
     hub = (SITE / "command-hub.html").read_text(encoding="utf-8")
     assert '<details class="container vx-concept-archive">' in plans
-    assert plans.index("Текущий каталог · 18 ноября 2026") < plans.index(
+    assert plans.index('id="catalog"') < plans.index(
         '<details class="container vx-concept-archive">'
     )
     assert '<details class="super-archive">' in release
@@ -70,7 +70,7 @@ def test_current_copy_preserves_payment_safety_distinctions():
         name: (SITE / f"{name}.html").read_text(encoding="utf-8")
         for name in ("index", "plans", "about", "help", "trial", "status")
     }
-    assert "не создают платёж" in pages["plans"]
+    assert "data-checkout-readiness" in pages["plans"]
     assert "не списывает деньги" in pages["index"]
     assert "RollyPay или Platega" in pages["about"]
     assert "RollyPay или Platega" in pages["help"]

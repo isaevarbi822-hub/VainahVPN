@@ -39,7 +39,7 @@ def test_mega_site_has_complete_tools_and_no_fake_purchases():
     for token in (
         "data-tariff-search", "data-tariff-sort", "data-tariff-devices",
         "data-tariff-compare", "data-tariff-compare-clear",
-        "data-tariff-reset", "data-tariff-insight", "data-tariff-empty",
+        "data-tariff-reset", "data-tariff-compare-jump", "data-tariff-empty",
     ):
         assert token in plan
     for target in (
@@ -122,7 +122,8 @@ global.fetch=async(path)=>{
 };
 const tick=()=>new Promise(done=>setImmediate(done));
 const visible=()=>root.children.filter(c=>!c.hidden);
-const compareButton=card=>card.children.find(c=>c.className.includes('tariff-compare-toggle'));
+const deep=node=>[node,...node.children.flatMap(deep)];
+const compareButton=card=>deep(card).find(c=>c.className.includes('tariff-compare-toggle'));
 (async()=>{
  vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
  await tick();await tick();
@@ -134,10 +135,9 @@ const compareButton=card=>card.children.find(c=>c.className.includes('tariff-com
  assert.ok(status.textContent.includes('Платных тарифов: 75'));
  // Price sorting never changes the source catalog or checkout URLs.
  sort.value='price';sort.events.change();
- assert.equal(visible()[0].children[2].textContent,'Vainah Pulse');
+ assert.equal(visible()[0].children[0].children[0].textContent,'Vainah Pulse');
  search.value='730';search.events.input();
  assert.equal(visible().length,2);
- assert.ok(insight.textContent.includes('за день'));
  reset.events.click();
  assert.equal(visible().length,12);
  assert.equal(search.value,'');
@@ -149,6 +149,10 @@ const compareButton=card=>card.children.find(c=>c.className.includes('tariff-com
  assert.equal(compareItems.children[0].children[3].href.startsWith('/checkout.html?plan='),true);
  compareClear.events.click();
  assert.equal(compare.hidden,true);
+ device.value='6';device.events.change();
+ buttons.find(x=>x.dataset.tariffFilter==='short').events.click();
+ assert.ok(visible().length>0);
+ assert.ok(visible().every(card=>card.children[0].children[1].textContent.includes('До 6')));
  buttons.find(x=>x.dataset.tariffFilter==='family').events.click();
  assert.equal(visible().length,12);
  device.value='3';device.events.change();

@@ -50,6 +50,7 @@ function card(title,body,extra=""){return '<article class="card"><div class="car
 function empty(name,title,desc,button=""){return '<div class="empty"><div class="empty-mark">'+icon(name)+'</div><h3>'+title+'</h3><p>'+desc+'</p>'+button+'</div>'}
 function linkButton(label,to,primary=false){return '<a href="#'+to+'" class="btn '+(primary?'btn-primary':'')+'" data-nav="'+to+'">'+label+' '+icon("arrow-right")+'</a>'}
 const state={page:"overview",data:null,diagnostics:null,locations:null,platforms:null,security:null,error:null};
+let reloadRevision=0;
 
 async function getJson(path){
  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),8000);
@@ -57,13 +58,18 @@ async function getJson(path){
  finally{clearTimeout(timeout)}
 }
 async function reload(){
+ const revision=++reloadRevision;
  try{
   const [data,diagnostics,locations,platforms,security]=await Promise.all([
    getJson("/api/v1/overview"),getJson("/api/v1/diagnostics"),getJson("/api/v1/locations"),
    getJson("/api/v1/platforms"),getJson("/api/v1/security")
   ]);
+  if(revision!==reloadRevision)return;
   Object.assign(state,{data,diagnostics,locations,platforms,security,error:null});
- }catch(err){state.error=err.message||"Сеть недоступна"}
+ }catch(err){
+  if(revision!==reloadRevision)return;
+  state.error=err.message||"Сеть недоступна";
+ }
  render();
 }
 function notice(message){const parent=document.getElementById("toast-stack");const item=document.createElement("div");item.className="toast";item.textContent=message;parent.append(item);setTimeout(()=>item.remove(),4400)}
@@ -191,7 +197,7 @@ function closeMenu(){document.body.classList.remove("menu-open");document.getEle
 function toggleTheme(){
  const next=document.documentElement.dataset.theme==="light"?"dark":"light";
  document.documentElement.dataset.theme=next;
- localStorage.setItem("vainah-theme",next);
+ try{localStorage.setItem("vainah-theme",next)}catch{}
  document.getElementById("theme-toggle").innerHTML=icon(next==="light"?"moon":"sun");
  notice(next==="light"?"Светлая тема включена":"Тёмная тема включена");
 }
@@ -209,7 +215,9 @@ async function submitInspection(form){
 }
 function bind(){
  document.getElementById("menu-icon").innerHTML=icon("menu");
- const stored=localStorage.getItem("vainah-theme");document.documentElement.dataset.theme=stored==="light"?"light":"dark";
+ let stored=null;
+ try{stored=localStorage.getItem("vainah-theme")}catch{}
+ document.documentElement.dataset.theme=stored==="light"?"light":"dark";
  document.getElementById("theme-toggle").innerHTML=icon(stored==="light"?"moon":"sun");
  document.getElementById("theme-toggle").addEventListener("click",toggleTheme);
  document.getElementById("menu-toggle").addEventListener("click",()=>{const open=document.body.classList.toggle("menu-open");document.getElementById("menu-toggle").setAttribute("aria-expanded",String(open));document.getElementById("scrim").hidden=!open});
