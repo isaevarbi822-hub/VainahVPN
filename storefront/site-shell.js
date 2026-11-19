@@ -12,11 +12,8 @@
     // If the domain later moves from Render Static to Python, keep its
     // same-origin account and checkout pages instead of redirecting them away.
     const backendProbe=customOrigins.has(currentOrigin)
-      ? fetch('/api/health',{cache:'no-store',credentials:'omit'})
-          .then(async response=>response.ok &&
-            response.headers.get('content-type')?.includes('application/json') &&
-            (await response.json()).service==='vainahvpn-api')
-          .catch(()=>false)
+      ? import('./custom-origin-probe.mjs')
+          .then(module=>module.isPythonBackend()).catch(()=>false)
       : Promise.resolve(false);
     const backendPages=new Set([
       '/account.html','/checkout.html','/trial.html',

@@ -73,3 +73,13 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
         capture_output=True, text=True, timeout=12, check=False,
     )
     assert r.returncode == 0, r.stderr
+
+
+def test_shared_shell_delegates_read_only_probe_to_small_module():
+    shell = (ROOT / "site-shell.js").read_text(encoding="utf-8")
+    probe = (ROOT / "custom-origin-probe.mjs").read_text(encoding="utf-8")
+    assert "import('./custom-origin-probe.mjs')" in shell
+    assert "fetch(" not in shell
+    assert "credentials:'omit'" in probe
+    assert "method:'GET'" in probe
+    assert "method:'POST'" not in probe

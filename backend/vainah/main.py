@@ -176,12 +176,21 @@ async def security_headers(request: Request, call_next):
     }
     public_paths = {
         "/api/site/tariffs", "/api/site/locations", "/api/shop/config",
+    }
+    # Extra public configuration is only used by the new marketing host.
+    # Keep the original static origin's deliberately minimal CORS contract.
+    public_config_paths = {
         "/api/email-auth/config", "/api/google/config",
         "/api/telegram/config", "/api/telegram-oidc/config",
         "/api/support/config", "/api/site/services",
     }
     origin = request.headers.get("origin")
-    if request.method == "GET" and request.url.path in public_paths and origin in public_origins:
+    custom_origins = {"https://vainahvpn.online", "https://www.vainahvpn.online"}
+    allowed_public_read = (
+        request.url.path in public_paths
+        or (origin in custom_origins and request.url.path in public_config_paths)
+    )
+    if request.method == "GET" and allowed_public_read and origin in public_origins:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
     # Browser caches can preserve disabled Telegram Login JavaScript after deploy.
