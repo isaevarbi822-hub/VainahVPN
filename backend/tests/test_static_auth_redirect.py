@@ -100,7 +100,9 @@ def test_dashboard_does_not_treat_network_failure_as_logout():
     assert "let verificationUnavailable=false;" in js
     assert "if(verificationUnavailable){" in js
     assert "if(restoringSession||user)return;" in js
-    assert "if(sessionEpoch===session)showSession(null);" in js
-    assert js.index("await api('/api/email-auth/logout'") < js.index(
-        "if(sessionEpoch===session)showSession(null);"
+    assert "showSession(null);" in js
+    # Private data must be cleared immediately, not after a pending logout.
+    logout_start = js.index("if(logout)logout.addEventListener")
+    assert js.index("showSession(null);", logout_start) < js.index(
+        "await api('/api/email-auth/logout'", logout_start
     )
