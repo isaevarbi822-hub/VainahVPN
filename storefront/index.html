@@ -240,11 +240,15 @@ footer{border-top:1px solid #2a2e43;margin-top:95px;padding:49px 0 36px;backgrou
   $$('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{
     try {await navigator.clipboard.writeText(b.dataset.copy);const old=b.textContent;b.textContent='Скопировано ✓';setTimeout(()=>{b.textContent=old},1800);}catch{b.textContent='Не удалось скопировать';}
   }));
+  // Public read requests may reach Python from the separate static CDN.
+  const publicApi=['https://vainahvpn.onrender.com','https://vainahvpn.online',
+    'https://www.vainahvpn.online'].includes(window.location.origin)
+    ? 'https://vainahvpn-python-preview.onrender.com' : '';
   // Legacy pages without a location widget do not issue needless API requests.
   (async()=>{
     if (!$('[data-live-locations]')) return;
     try {
-      const response=await fetch('/api/site/locations',{headers:{Accept:'application/json'}});
+      const response=await fetch(publicApi+'/api/site/locations',{headers:{Accept:'application/json'}});
       if(!response.ok) return;
       const result=await response.json();
       const box=$('[data-live-locations]');

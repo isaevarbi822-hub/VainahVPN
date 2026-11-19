@@ -5,11 +5,24 @@
   // on the original same-origin Python backend. Do not proxy session cookies,
   // OAuth callbacks or payment requests through the static site.
   const staticOrigin='https://vainahvpn.onrender.com';
+  const customOrigins=new Set(['https://vainahvpn.online','https://www.vainahvpn.online']);
   const accountOrigin='https://vainahvpn-python-preview.onrender.com';
-  if(window.location.origin===staticOrigin){
+  if(window.location.origin===staticOrigin||customOrigins.has(window.location.origin)){
+    const currentOrigin=window.location.origin;
+    // If the domain later moves from Render Static to Python, keep its
+    // same-origin account and checkout pages instead of redirecting them away.
+    const backendProbe=customOrigins.has(currentOrigin)
+      ? fetch('/api/health',{cache:'no-store',credentials:'omit'})
+          .then(async response=>response.ok &&
+            response.headers.get('content-type')?.includes('application/json') &&
+            (await response.json()).service==='vainahvpn-api')
+          .catch(()=>false)
+      : Promise.resolve(false);
     const backendPages=new Set([
       '/account.html','/checkout.html','/trial.html',
       '/hub.html','/my-devices.html','/notifications.html',
+      '/operator-grants.html','/referrals.html','/rewards.html',
+      '/handoff.html','/contact.html',
       '/gifts.html','/gift-cards.html','/support-center.html',
       '/support-operator.html','/operator-pilot.html','/operations.html',
       '/payment-return.html','/checkout-return.html',
@@ -20,7 +33,9 @@
     const toBackend=url=>accountOrigin+url.pathname+url.search+url.hash;
     const currentUrl=new URL(window.location.href);
     if(backendPages.has(currentUrl.pathname)||currentUrl.pathname.startsWith('/api/')){
-      window.location.replace(toBackend(currentUrl));
+      void backendProbe.then(isBackend=>{
+        if(!isBackend)window.location.replace(toBackend(currentUrl));
+      });
       return;
     }
     document.addEventListener('click',event=>{
@@ -29,16 +44,18 @@
       const link=event.target.closest?.('a[href]');
       if(!link||link.target==='_blank'||link.hasAttribute('download'))return;
       const destination=new URL(link.href);
-      if(destination.origin!==staticOrigin||
+      if(destination.origin!==currentOrigin||
          !(backendPages.has(destination.pathname)||destination.pathname.startsWith('/api/')))return;
       event.preventDefault();
-      window.location.assign(toBackend(destination));
+      void backendProbe.then(isBackend=>window.location.assign(
+        isBackend?destination.href:toBackend(destination)
+      ));
     },true);
     // Canonical tags are set in HTML for the key landing pages. Update
     // remaining pages during rendering as a secondary SEO consistency measure.
     const canonical=document.querySelector('link[rel="canonical"]');
     if(canonical&&canonical.href.startsWith(accountOrigin+'/')){
-      canonical.href=staticOrigin+new URL(canonical.href).pathname;
+      canonical.href=currentOrigin+new URL(canonical.href).pathname;
     }
   }
   const pages=[

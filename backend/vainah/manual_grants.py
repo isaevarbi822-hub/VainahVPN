@@ -425,14 +425,38 @@ async def manual_grant_summary_for_email(
         client_name, days, devices, expiry, cipher = row
         if expiry is None or expiry.timestamp() <= time.time():
             return {"available": False}
-        checked = await read_h1_issued_client_status(client_name)
+        try:
+            checked = await read_h1_issued_client_status(client_name)
+        except H1PanelError as exc:
+            # A transient H1Cloud outage must not erase an already issued
+            # owner-bound, still-unexpired access URL stored in PostgreSQL.
+            # This NEVER creates access, extends expiry, or claims it is live.
+            transient_errors = {
+                "PANEL_UNREACHABLE", "PANEL_CONNECT_FAILED",
+                "PANEL_DNS_FAILED", "PANEL_TLS_FAILED",
+                "PANEL_CONNECT_TIMEOUT", "PANEL_RESPONSE_TIMEOUT",
+                "PANEL_PROTOCOL_ERROR", "PANEL_RATE_LIMITED",
+                "PANEL_SERVER_ERROR",
+            }
+            if exc.code not in transient_errors:
+                raise
+            result = {
+                "available": True, "days": days, "devices": devices,
+                "expires_at": expiry.isoformat(), "traffic": None,
+                "gifted": True, "paid": False, "provider_verified": False,
+            }
+            if include_secret:
+                result["subscription_url"] = _validate_subscription_url(
+                    unseal_live_secret(cipher)
+                )
+            return result
         if not checked.get("active"):
             return {"available": False}
         result = {
             "available": True, "days": days, "devices": devices,
             "expires_at": checked.get("expires_at"),
             "traffic": checked.get("traffic"),
-            "gifted": True, "paid": False,
+            "gifted": True, "paid": False, "provider_verified": True,
         }
         if include_secret:
             result["subscription_url"] = _validate_subscription_url(

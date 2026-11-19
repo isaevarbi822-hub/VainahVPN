@@ -135,3 +135,59 @@ def test_a_failed_email_does_not_undo_an_issued_grant(configured, monkeypatch):
     assert result["status"] == "issued"
     assert result["email_sent"] is False
     assert result["subscription_url"] == "https://example.com/private"
+
+
+def test_saved_issued_grant_recovers_link_during_temporary_panel_outage(configured, monkeypatch):
+    """Only the verified original owner may recover a pre-issued, unexpired link."""
+    from datetime import UTC, datetime
+    from vainah.h1_panel import H1PanelError
+
+    expiry = datetime.fromtimestamp(time.time() + 3600, UTC)
+    original_url = "https://example.com/previously-issued-access"
+    class FakeCursor:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, *args): pass
+        def fetchone(self): return ("vn" + "a" * 28, 30, 2, expiry, "sealed")
+    class FakeConn:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def cursor(self): return FakeCursor()
+    monkeypatch.setattr(manual_grants.psycopg, "connect", lambda *a, **kw: FakeConn())
+    async def temporarily_unavailable(*args, **kwargs):
+        raise H1PanelError("PANEL_CONNECT_TIMEOUT")
+    monkeypatch.setattr(manual_grants, "read_h1_issued_client_status", temporarily_unavailable)
+    monkeypatch.setattr(manual_grants, "unseal_live_secret", lambda cipher: original_url)
+    public = asyncio.run(manual_grants.manual_grant_summary_for_email("client@example.com"))
+    assert public["available"] is True
+    assert public["provider_verified"] is False
+    assert "subscription_url" not in public
+    private = asyncio.run(manual_grants.manual_grant_summary_for_email(
+        "client@example.com", include_secret=True
+    ))
+    assert private["subscription_url"] == original_url
+    assert private["provider_verified"] is False
+
+
+def test_saved_grant_never_claims_active_when_panel_reports_inactive(configured, monkeypatch):
+    from datetime import UTC, datetime
+
+    class FakeCursor:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, *args): pass
+        def fetchone(self):
+            return ("vn" + "a" * 28, 30, 2,
+                datetime.fromtimestamp(time.time() + 3600, UTC), "sealed")
+    class FakeConn:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def cursor(self): return FakeCursor()
+    monkeypatch.setattr(manual_grants.psycopg, "connect", lambda *a, **kw: FakeConn())
+    async def inactive(*args, **kwargs):
+        return {"active": False, "panel_ready": True}
+    monkeypatch.setattr(manual_grants, "read_h1_issued_client_status", inactive)
+    result = asyncio.run(manual_grants.manual_grant_summary_for_email(
+        "client@example.com", include_secret=True
+    ))
+    assert result == {"available": False}

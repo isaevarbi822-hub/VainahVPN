@@ -46,3 +46,14 @@ verification codes in the image URL, logo metadata, tracking pixels or
 subject lines. Do not change Resend authentication or the email delivery
 idempotency identifiers when making visual changes. Run the tests in
 backend/tests/test_email_branding.py and the existing email tests.
+
+## Domain cutover note
+
+Customer authentication, checkout, and private subscriptions are same-origin
+Python endpoints. If vainahvpn.online is attached to Render Static, browser
+navigation is temporarily routed to the Python service; public read-only
+endpoints use an explicitly enumerated CORS allowlist. To serve everything
+under the branded host, attach the custom domain to the Python Render web
+service instead of the static site, and point its DNS to that service. Never
+proxy authenticated POSTs or cookies across CDN origins. Preserve the old
+Render URL until payment callback and sign-in tests pass.

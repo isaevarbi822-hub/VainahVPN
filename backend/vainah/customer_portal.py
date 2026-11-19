@@ -388,8 +388,12 @@ async def overview(request: Request) -> dict:
         if subscription is None or subscription["status"] != "delivered":
             subscription = manual_sub
             state = {
-                "status": "active",
-                "message": "Ручная подписка подтверждена H1Cloud.",
+                "status": "active" if manual.get("provider_verified") is not False else "unverified",
+                "message": (
+                    "Ручная подписка подтверждена H1Cloud."
+                    if manual.get("provider_verified") is not False
+                    else "Ссылка сохранена, но H1Cloud временно недоступен для проверки."
+                ),
                 "expires_at": manual["expires_at"],
                 "traffic": manual.get("traffic"),
             }

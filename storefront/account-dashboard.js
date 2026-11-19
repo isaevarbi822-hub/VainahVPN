@@ -771,7 +771,9 @@
       hide('account-copy-vpn',false);
       const copy=$('account-copy-vpn');if(copy)copy.disabled=false;
       write('account-access-status',gifted
-        ?'Ручная подписка подтверждена. Выбери Happ или INCY. Никому не передавай свой ключ.'
+        ?(response.provider_verified===false
+          ?'Ссылка ранее выданной подписки восстановлена. H1Cloud временно не подтверждает её активность; попробуй импортировать в Happ или INCY.'
+          :'Ручная подписка подтверждена. Выбери Happ или INCY. Никому не передавай свой ключ.')
         :'Ссылка готова. Выбери Happ или INCY для импорта. Никому не передавай свой ключ.');
     }catch(error){
       if(sessionEpoch!==session||refreshEpoch!==revision)return;
@@ -810,8 +812,11 @@
       manualGrantUrl=url.href;
       hide('account-manual-copy',false);
       updateClientLinks(manualGrantUrl,true);
-      write('account-manual-status','Подписка без оплаты активна до '+
-        formatDate(result.expires_at)+'. Устройств: '+result.devices+'.');
+      write('account-manual-status',result.provider_verified===false
+        ?'Ссылка ранее выданной подписки доступна до '+formatDate(result.expires_at)+
+          '. Связь с H1Cloud временно недоступна: активность не подтверждена.'
+        :'Подписка без оплаты активна до '+
+          formatDate(result.expires_at)+'. Устройств: '+result.devices+'.');
     }catch(error){
       if(session===sessionEpoch&&revision===refreshEpoch)
         write('account-manual-status','Не удалось проверить подписку: '+error.message);

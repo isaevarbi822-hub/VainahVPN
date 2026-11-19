@@ -45,3 +45,31 @@ for(const [origin,pathname,search,hash,expected] of cases){
         capture_output=True, text=True, timeout=12, check=False,
     )
     assert r.returncode == 0, r.stderr
+
+
+def test_custom_domain_redirects_only_if_it_is_the_static_host():
+    js = ROOT / "static-auth-redirect.js"
+    harness = r"""
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync(process.argv[1],'utf8');
+const tick=()=>new Promise(resolve=>setImmediate(resolve));
+(async()=>{
+ for(const backend of [false,true]){
+  let actual=null;
+  global.window={location:{origin:'https://vainahvpn.online',
+    pathname:'/operator-grants.html',search:'?id=1',hash:'#details',
+    replace(url){actual=url;}}};
+  global.fetch=async()=>({ok:backend,headers:{get:()=>backend?'application/json':'text/html'},
+    json:async()=>({service:'vainahvpn-api'})});
+  vm.runInThisContext(source);
+  await tick();
+  assert.equal(actual,backend?null:
+    'https://vainahvpn-python-preview.onrender.com/operator-grants.html?id=1#details');
+ }
+})().catch(e=>{console.error(e);process.exitCode=1});
+""";
+    r = subprocess.run(
+        ["node", "-e", harness, str(js)],
+        capture_output=True, text=True, timeout=12, check=False,
+    )
+    assert r.returncode == 0, r.stderr

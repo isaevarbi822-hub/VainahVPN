@@ -167,19 +167,22 @@ async def security_headers(request: Request, call_next):
             "img-src 'self' data:; connect-src 'self'; object-src 'none'; "
             "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )
-    # Public pricing is readable from the static CDN, never authenticated API.
-    # Only bounded read-only public paths are exposed to the static origin.
-    # No cookies, wildcards, credentials or write methods cross origins.
-    if (
-        request.method == "GET"
-        and request.url.path in {
-            "/api/site/tariffs", "/api/site/locations", "/api/shop/config"
-        }
-        and request.headers.get("origin") == "https://vainahvpn.onrender.com"
-    ):
-        response.headers["Access-Control-Allow-Origin"] = (
-            "https://vainahvpn.onrender.com"
-        )
+    # Bounded public GET endpoints may be read by the marketing static site.
+    # No cookies, wildcard access, or cross-origin write requests.
+    public_origins = {
+        "https://vainahvpn.onrender.com",
+        "https://vainahvpn.online",
+        "https://www.vainahvpn.online",
+    }
+    public_paths = {
+        "/api/site/tariffs", "/api/site/locations", "/api/shop/config",
+        "/api/email-auth/config", "/api/google/config",
+        "/api/telegram/config", "/api/telegram-oidc/config",
+        "/api/support/config", "/api/site/services",
+    }
+    origin = request.headers.get("origin")
+    if request.method == "GET" and request.url.path in public_paths and origin in public_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
     # Browser caches can preserve disabled Telegram Login JavaScript after deploy.
     # Auth pages and scripts always need the currently deployed revision.
