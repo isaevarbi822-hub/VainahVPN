@@ -1,4 +1,5 @@
 """Resilient customer dashboard browser behavior without real account credentials."""
+
 import subprocess
 from pathlib import Path
 
