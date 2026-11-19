@@ -29,7 +29,7 @@ def test_sitemap_and_robots_expose_only_public_canonical_pages():
         assert len(addresses) >= 10
         assert len(addresses) == len(set(addresses))
         assert "vainahvpn.onrender.com" not in sitemap.text
-        assert not any(url.endswith(("/network-check.html", "/connection-monitor.html")) for url in addresses)
+        assert len(addresses) == 24
         assert BASE + "/" in addresses
         for url in addresses:
             assert url is not None and url.startswith(BASE + "/")

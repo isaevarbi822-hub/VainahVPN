@@ -8,7 +8,7 @@ from vainah.main import app
 
 ROOT = Path(__file__).resolve().parents[2]
 STORE = ROOT / "storefront"
-BASE = "https://vainahvpn.onrender.com"
+BASE = "https://vainahvpn.online"
 DOCS = (
     ("oferta.html", "Публичная оферта"),
     ("terms.html", "Пользовательское соглашение"),

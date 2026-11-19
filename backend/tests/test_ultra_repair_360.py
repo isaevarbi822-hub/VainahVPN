@@ -163,7 +163,7 @@ def test_related_pages_and_search_index_include_ultra_repair():
     for filename in ("index.html", "command-hub.html", "diagnostics.html", "whats-new.html"):
         assert 'ultra-repair.html' in read(filename)
     sitemap = read("sitemap.xml")
-    assert "https://vainahvpn.onrender.com/ultra-repair.html" in sitemap
+    assert "https://vainahvpn.online/ultra-repair.html" in sitemap
     css = read("ultra-360.css")
     assert "@media(max-width:650px)" in css
     assert "@media(prefers-reduced-motion:reduce)" in css

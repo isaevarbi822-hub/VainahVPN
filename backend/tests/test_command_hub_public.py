@@ -34,8 +34,8 @@ def test_public_sitemap_excludes_private_routes():
     tree = ET.parse(STOREFRONT / "sitemap.xml")
     namespace = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
     locations = [el.text for el in tree.findall(".//s:loc", namespace)]
-    assert "https://vainahvpn.onrender.com/command-hub.html" in locations
-    assert all(url.startswith("https://vainahvpn.onrender.com/") for url in locations)
+    assert "https://vainahvpn.online/command-hub.html" in locations
+    assert all(url.startswith("https://vainahvpn.online/") for url in locations)
     assert not any("support-center.html" in url for url in locations)
     assert not any("/api/" in url or "checkout.html" in url for url in locations)
 
