@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from vainah.main import app
-from vainah.telegram_auth import make_session, read_session, verify_login
+from vainah.telegram_auth import SESSION_TTL, make_session, read_session, verify_login
 
 ORIGIN = "https://vainahvpn-python-preview.onrender.com"
 BOT_TOKEN = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"
@@ -82,6 +82,7 @@ def test_secure_cookie_account_login_logout(env):
         assert "Secure" in cookie and "HttpOnly" in cookie
         assert "SameSite=lax" in cookie
         assert "__Host-vainah_session=" in cookie
+        assert f"Max-Age={SESSION_TTL}" in cookie
         assert client.get("/api/telegram/account").json()["authenticated"] is True
 
         assert client.post("/api/telegram/account",
@@ -102,7 +103,9 @@ def test_signed_session_cannot_be_modified(env):
     assert read_session(session, SESSION_SECRET, now=1700000001)["username"] == "real"
     assert read_session(session + "x", SESSION_SECRET, now=1700000001) is None
     assert read_session(session, "different-secret", now=1700000001) is None
-    assert read_session(session, SESSION_SECRET, now=1700000000 + 13 * 3600) is None
+    assert read_session(session, SESSION_SECRET, now=1700000000 + 13 * 3600)
+    assert read_session(session, SESSION_SECRET, now=1700000000 + SESSION_TTL - 1)
+    assert read_session(session, SESSION_SECRET, now=1700000000 + SESSION_TTL) is None
 
 
 def test_login_unavailable_when_token_unconfigured(monkeypatch, env):

@@ -18,7 +18,8 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict
 
 SESSION_COOKIE = "__Host-vainah_session"
-SESSION_TTL = 12 * 3600
+# The cookie remains HttpOnly/Secure and expires automatically after 30 days.
+SESSION_TTL = 30 * 24 * 3600
 LOGIN_TTL = 600
 BOT_USERNAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]{4,31}")
 BOT_TOKEN_RE = re.compile(r"[0-9]{5,15}:[A-Za-z0-9_-]{20,}")

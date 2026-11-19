@@ -29,6 +29,8 @@ const cases=[
   'https://vainahvpn-python-preview.onrender.com/trial.html?client=incy#token'],
  ['https://vainahvpn.onrender.com','/operator-grants.html','','',
   'https://vainahvpn-python-preview.onrender.com/operator-grants.html'],
+ ['https://vainahvpn.onrender.com','/account.html','?client=incy','#subscription',
+  'https://vainahvpn-python-preview.onrender.com/account.html?client=incy#subscription'],
  ['https://vainahvpn-python-preview.onrender.com','/trial.html','','',null],
  ['https://vainahvpn.onrender.com','/index.html','','',null],
  ['https://attacker.example','/trial.html','','',null]
@@ -83,3 +85,24 @@ def test_shared_shell_delegates_read_only_probe_to_small_module():
     assert "credentials:'omit'" in probe
     assert "method:'GET'" in probe
     assert "method:'POST'" not in probe
+
+
+def test_account_page_redirects_before_loading_login_and_keeps_query():
+    html = (ROOT / "account.html").read_text(encoding="utf-8")
+    assert 'src="/static-auth-redirect.js?v=20261119-stay-login1"' in html
+    assert html.index('src="/static-auth-redirect.js') < html.index('src="account-dashboard.js')
+    assert "Вход сохраняется до 30 дней" in html
+    assert "до 30 дней" in html
+
+
+def test_dashboard_does_not_treat_network_failure_as_logout():
+    js = (ROOT / "account-dashboard.js").read_text(encoding="utf-8")
+    assert "let verificationUnavailable=false;" in js
+    assert "if(verificationUnavailable){" in js
+    assert "if(restoringSession||user)return;" in js
+    assert "showSession(null);" in js
+    # Private data must be cleared immediately, not after a pending logout.
+    logout_start = js.index("if(logout)logout.addEventListener")
+    assert js.index("showSession(null);", logout_start) < js.index(
+        "await api('/api/email-auth/logout'", logout_start
+    )
