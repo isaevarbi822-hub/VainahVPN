@@ -59,6 +59,11 @@ async function getJson(path){
 }
 async function reload(){
  const revision=++reloadRevision;
+ if(state.error){
+  state.error=null;
+  state.data=null;
+  render();
+ }
  try{
   const [data,diagnostics,locations,platforms,security]=await Promise.all([
    getJson("/api/v1/overview"),getJson("/api/v1/diagnostics"),getJson("/api/v1/locations"),
@@ -185,11 +190,11 @@ function render(){
  const content=document.getElementById("content");
  if(state.error) {
   content.innerHTML=heading("СИСТЕМА","Не удалось загрузить данные","Python API временно недоступен.")+info('<strong>Ошибка сети:</strong> '+escapeHtml(state.error)+'. Проверьте запуск Python-сервера и повторите запрос.','error')+'<div class="spacer-18"></div><button class="btn btn-primary" data-action="refresh">'+icon("refresh")+' Повторить</button>';
- } else if(!state.data) content.innerHTML='<div class="loading-state">Загрузка данных…</div>';
- else content.innerHTML=(pages[state.page]||overview)();
+ } else if(!state.data) content.innerHTML='<div class="loading-state"><h1>Vainah VPN Next</h1><p role="status">Загрузка данных…</p></div>';
+ else content.innerHTML=pages[state.page]();
 }
 function setPage(p){
- if(!pages[p])p="overview";
+ if(!Object.hasOwn(pages,p))p="overview";
  state.page=p;render();closeMenu();
  window.scrollTo({top:0,behavior:"auto"});
 }

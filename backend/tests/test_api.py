@@ -1,3 +1,5 @@
+import shutil
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -22,6 +24,47 @@ def test_dashboard_accepts_trailing_slash_and_nested_errors_load_root_assets():
     assert response.status_code == 404
     assert 'src="/site-shell.js?' in response.text
     assert 'src="/refresh.js?' in response.text
+
+
+def test_preview_handles_unknown_sections_and_retries_load_errors():
+    browser_api = pytest.importorskip("playwright.sync_api")
+    binary = shutil.which("chromium") or shutil.which("google-chrome")
+    if binary is None:
+        pytest.skip("Chromium is required for the preview navigation check")
+
+    origin = "https://vainahvpn-python-preview.onrender.com"
+    fail_once = True
+
+    def serve(route):
+        nonlocal fail_once
+        path = route.request.url.removeprefix(origin)
+        if path == "/api/v1/overview" and fail_once:
+            fail_once = False
+            route.fulfill(status=503, json={"detail": "Temporary test failure"})
+            return
+        response = client.get(path)
+        route.fulfill(status=response.status_code, headers={"Content-Type": response.headers["content-type"]},
+                      body=response.content)
+
+    with browser_api.sync_playwright() as engine:
+        browser = engine.chromium.launch(executable_path=binary)
+        try:
+            page = browser.new_page(viewport={"width": 390, "height": 844}, is_mobile=True)
+            errors = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.route(origin + "/**", serve)
+            page.goto(origin + "/app#toString")
+            heading = page.locator("main h1")
+            browser_api.expect(heading).to_have_text("Не удалось загрузить данные")
+            page.get_by_role("button", name="Повторить").click()
+            browser_api.expect(heading).to_have_text("Обзор пространства")
+            page.evaluate("() => { location.hash = 'diagnostics'; }")
+            browser_api.expect(page.locator("#breadcrumb-current")).to_have_text("Диагностика")
+            page.evaluate("() => { location.hash = '__proto__'; }")
+            browser_api.expect(heading).to_have_text("Обзор пространства")
+            assert not errors, errors
+        finally:
+            browser.close()
 
 
 def test_static_storefront_can_read_public_status_without_account_cors():
