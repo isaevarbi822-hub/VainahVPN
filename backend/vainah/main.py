@@ -6,7 +6,7 @@ Do not put tokens, VLESS keys or subscription URLs in logs.
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -173,7 +173,8 @@ async def security_headers(request: Request, call_next):
     if (
         request.method == "GET"
         and request.url.path in {
-            "/api/site/tariffs", "/api/site/locations", "/api/shop/config"
+            "/api/site/tariffs", "/api/site/locations", "/api/site/services",
+            "/api/site/readiness", "/api/shop/config",
         }
         and request.headers.get("origin") == "https://vainahvpn.onrender.com"
     ):
@@ -257,6 +258,11 @@ class ImportRequest(BaseModel):
 @app.get("/app", include_in_schema=False)
 async def home():
     return FileResponse(WEB_DIR / "index.html", media_type="text/html")
+
+
+@app.get("/app/", include_in_schema=False)
+async def dashboard_alias():
+    return RedirectResponse("/app")
 
 
 @app.get("/api/health")
@@ -350,6 +356,26 @@ async def public_site_services():
 @app.get("/api/site/locations")
 async def public_site_locations():
     return public_locations()
+
+
+@app.get("/api/site/readiness")
+def public_site_readiness():
+    """Share readiness flags with the static storefront without raw config."""
+    from .email_auth import ready as email_ready
+    from .google_auth import config as google_config
+    from .support_tickets import config as support_config
+    from .telegram_auth import public_config as telegram_widget_config
+    from .telegram_oidc import config as telegram_config
+
+    support = support_config()
+    return {
+        "email": email_ready(),
+        "google": google_config()["available"],
+        "telegram": telegram_config()["available"],
+        "telegram-classic": telegram_widget_config()["available"],
+        "support": support["available"],
+        "support_email": support["email_notifications_available"],
+    }
 
 
 # Public historical website is mounted AFTER the API.

@@ -51,20 +51,14 @@ class El {
   }
 }
 const grid=new El('div'),table=new El('tbody'),count=new El('strong'),
-  empty=new El('p'),loading=new El('p');
-for(const [days,rub,devices] of [[30,9900,3],[60,16000,3],[90,21900,3],
-  [180,33900,3],[365,70000,3],[365,100000,6]]){
-  grid.append(new El('article',{
-    planDays:String(days),planKopeks:String(rub),planDevices:String(devices)
-  }));
-}
+  empty=new El('p'),loading=new El('p'),retry=new El('button');
 const device=new El('select'),duration=new El('select'),order=new El('select');
 device.value='all';duration.value='all';order.value='days';
 const map={
   '[data-devices-filter]':device,'[data-duration-filter]':duration,
   '[data-sort-filter]':order,'[data-compare-count]':count,
   '[data-compare-empty]':empty,'[data-compare-grid]':grid,
-  '.ux-table tbody':table,'[data-compare-loading]':loading
+  '.ux-table tbody':table,'[data-compare-loading]':loading,'[data-compare-retry]':retry
 };
 const compare=new El('main');
 compare.querySelector=s=>map[s]||null;
@@ -74,17 +68,26 @@ global.document={
 };
 const paid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d','pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d']);
 const data=__CATALOG__;
-global.fetch=async()=>({ok:true,json:async()=>({total:76,plans:data})});
+let available=false;
+global.fetch=async()=>available
+  ?{ok:true,json:async()=>({total:76,plans:data})}
+  :{ok:false,status:503};
 const tick=()=>new Promise(r=>setImmediate(r));
 function deep(node){return [node,...node.children.flatMap(deep)]}
 (async()=>{
   vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
   await tick();await tick();
+  assert.equal(grid.children.length,0);
+  assert.equal(table.children.length,0);
+  assert.equal(retry.hidden,false);
+  available=true;
+  await retry.events.click();
+  assert.equal(retry.hidden,true);
   assert.equal(grid.children.length,76);
   assert.equal(table.children.length,76);
   assert.equal(count.textContent,'76 из 76 вариантов');
   const links=deep(grid).filter(x=>x.tagName==='A');
-  assert.equal(links.length,76); // 21 paid, 1 trial
+  assert.equal(links.length,76); // 75 paid, 1 trial
   const paidLinks=links.filter(x=>x.href.startsWith('/checkout'));
   assert.equal(paidLinks.length,75);
   assert.ok(paidLinks.every(x=>x.href.startsWith('/checkout.html?plan=')));
@@ -95,8 +98,12 @@ function deep(node){return [node,...node.children.flatMap(deep)]}
   assert.equal(disabled.length,0);
   device.value='6';device.events.change();
   assert.equal(count.textContent,'26 из 76 вариантов');
+  assert.equal(table.children.length,26);
   duration.value='short';duration.events.change();
   assert.equal(count.textContent,'13 из 76 вариантов');
+  assert.equal(table.children.length,13);
+  order.value='total';order.events.change();
+  assert.equal(deep(table).filter(x=>x.tagName==='A')[0].href,'/checkout.html?plan=family-3d');
   device.value='2';device.events.change();
   assert.equal(count.textContent,'1 из 76 вариантов'); // free trial only
   assert.ok(loading.textContent.includes('76 предложений'));
@@ -178,7 +185,7 @@ def test_cross_page_links_and_copy_match_twelve_plan_catalog():
     toolkit = (SITE / "toolkit-ui.mjs").read_text(encoding="utf-8")
     experience = (SITE / "experience.js").read_text(encoding="utf-8")
     assert 'data-compare-loading' in compare
-    assert 'value="2">До 2 устройств' in compare
+    assert 'value="2">2 устройства · пробный' in compare
     assert 'value="medium"' in compare
     assert 'data-show-upcoming' not in assistant
     assert 'min="2"' in assistant

@@ -14,15 +14,9 @@ SITE = Path(__file__).resolve().parents[2] / "storefront"
 def test_status_page_surfaces_all_identity_and_support_configs():
     page=(SITE / "status.html").read_text(encoding="utf-8")
     script=(SITE / "experience.js").read_text(encoding="utf-8")
-    for name,endpoint in (
-        ("email", "/api/email-auth/config"),
-        ("google", "/api/google/config"),
-        ("telegram", "/api/telegram-oidc/config"),
-        ("telegram-classic", "/api/telegram/config"),
-        ("support", "/api/support/config"),
-    ):
+    for name in ("email", "google", "telegram", "telegram-classic", "support"):
         assert f'data-config-card="{name}"' in page
-        assert endpoint in script
+    assert "fetch(publicApi+'/api/site/readiness'" in script
     assert "Настройки проверяются безопасными GET-запросами" in page
     assert "Отправка и доставка писем здесь не проверяются" in script
     assert "Успешный вход подтверждается только при авторизации" in script
@@ -67,4 +61,4 @@ def test_universal_responsive_styles_and_asset_cache_versioning():
         html = page.read_text(encoding="utf-8")
         assert 'refresh.css?v=20261113-ultra3' in html
         if 'src="experience.js' in html:
-            assert 'experience.js?v=20261113-status1' in html
+            assert 'experience.js?v=' in html

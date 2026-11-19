@@ -10,12 +10,23 @@ import java.net.InetAddress
  * invalid inputs; the caller must refuse to advertise an invented DNS address.
  */
 object TunDnsFallback {
+    private val ipv4 = Regex("[0-9]{1,3}(\\.[0-9]{1,3}){3}")
+    private val ipv6 = Regex("[0-9A-Fa-f:.]+")
+
     fun nextAddress(rawAddress: String, prefixLength: Int): String? = runCatching {
         // Only numeric addresses are accepted; never resolve a hostname over
         // an underlying network while configuring the tunnel.
-        require(rawAddress.contains('.') || rawAddress.contains(':'))
-        require(rawAddress.matches(Regex("[0-9A-Fa-f:.]+")))
-        val input = InetAddress.getByName(rawAddress).address
+        val input = if (':' in rawAddress) {
+            require(rawAddress.matches(ipv6))
+            InetAddress.getByName(rawAddress).address
+        } else {
+            require(rawAddress.matches(ipv4))
+            rawAddress.split('.').map { octet ->
+                val value = octet.toInt()
+                require(value <= 255)
+                value.toByte()
+            }.toByteArray()
+        }
         require(prefixLength in 0..input.size * 8)
         val next = input.copyOf()
         var index = next.lastIndex
@@ -35,6 +46,6 @@ object TunDnsFallback {
             require(((input[offset].toInt() ushr shift) and 1) ==
                 ((next[offset].toInt() ushr shift) and 1)) { "Next IP exits prefix" }
         }
-        InetAddress.getByAddress(next).hostAddress.substringBefore('%')
+        InetAddress.getByAddress(next).hostAddress?.substringBefore('%')
     }.getOrNull()
 }

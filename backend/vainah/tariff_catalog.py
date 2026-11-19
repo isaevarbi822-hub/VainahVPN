@@ -79,7 +79,7 @@ def public_tariff_catalog() -> dict:
             "segment": _segment(plan["days"], category),
             "tag": LIVE_TAGS.get(plan["id"], (
                 "Семейный доступ" if category == "family"
-                else "Новый тариф")), 
+                else "Новый тариф")),
             "status": "existing", "checkout_supported": True,
             "checkout_path": "/checkout.html?plan=" + plan["id"],
         })
@@ -90,7 +90,10 @@ def public_tariff_catalog() -> dict:
         "checkout_supported": False, "checkout_path": "/trial.html",
     }
     order = {identifier: index for index, identifier in enumerate(ORDER)}
-    all_plans = sorted([trial, *paid], key=lambda p: order[p["id"]])
+    all_plans = sorted(
+        [trial, *paid],
+        key=lambda p: (order.get(p["id"], len(order)), p["days"], p["id"]),
+    )
     return {
         "plans": all_plans,
         "total": len(all_plans),
@@ -99,9 +102,9 @@ def public_tariff_catalog() -> dict:
         "newly_launched_count": len(NEW_PLAN_IDS | ADDED_PLAN_IDS | ULTRA_PLAN_IDS),
         "trial_count": 1,
         "note": (
-            "75 платных тарифов доступны для оформления при готовности кассы "
-            "RollyPay и H1Cloud. VPN выдаётся только после подтверждённого "
-            "платежа. Бесплатный пробный день без оплаты."
+            "Платные тарифы можно оформить через доступную кассу RollyPay "
+            "или Platega. Доступ выдаётся после подтверждённой оплаты. "
+            "Пробный день бесплатный."
         ),
     }
 

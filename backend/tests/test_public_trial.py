@@ -98,6 +98,12 @@ def test_h1_quota_verified_and_trial_one_time(trial):
         assert data["status"] == "delivered"
         assert data["can_claim"] is False
         assert data["subscription_url"] == delivered["subscription_url"]
+        with psycopg.connect(trial) as conn, conn.cursor() as cur:
+            cur.execute("UPDATE vainah_public_trials SET expires_at = now() - interval '1 hour'")
+        expired = client.get("/api/trial/status").json()
+        assert expired["status"] == "expired"
+        assert expired["can_claim"] is False
+        assert "subscription_url" not in expired
     with pytest.raises(HTTPException) as exc:
         asyncio.run(public_trial.issue_trial_once(EMAIL, transport=transport))
     assert exc.value.status_code == 409
@@ -132,6 +138,10 @@ def test_existing_paid_customer_cannot_claim_free_trial(trial):
         """, ("vainah_live_" + "f" * 32, owner,
               seal_live_secret(EMAIL)))
     transport, calls = provider_factory()
+    with TestClient(app, base_url=ORIGIN) as client:
+        assert client.get("/api/trial/status").json() == {
+            "status": "paid_customer", "can_claim": False,
+        }
     with pytest.raises(HTTPException) as exc:
         asyncio.run(public_trial.issue_trial_once(EMAIL, transport=transport))
     assert exc.value.status_code == 409

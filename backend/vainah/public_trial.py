@@ -107,15 +107,28 @@ def _schema(cur) -> None:
     """)
 
 
-def _row(owner_ref: str) -> tuple | None:
+def _has_paid_order(cur, owner_ref: str) -> bool:
+    cur.execute("""
+        SELECT 1 FROM vainah_live_orders
+        WHERE owner_ref = %s AND payment_state = 'paid' LIMIT 1
+    """, (owner_ref,))
+    return cur.fetchone() is not None
+
+
+def _read_state(owner_ref: str) -> tuple[str, str | None, datetime | None]:
     try:
         with psycopg.connect(_database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
+            PostgresLiveOrderLedger._schema(cur)
             _schema(cur)
             cur.execute("""
                 SELECT state, subscription_cipher, expires_at
                 FROM vainah_public_trials WHERE owner_ref = %s
             """, (owner_ref,))
-            return cur.fetchone()
+            row = cur.fetchone()
+            if row is not None:
+                return row
+            return ("paid_customer" if _has_paid_order(cur, owner_ref) else "eligible",
+                    None, None)
     except psycopg.Error:
         raise TrialError("TRIAL_STORAGE_UNAVAILABLE") from None
 
@@ -131,11 +144,7 @@ def _reserve(*, owner_ref: str, client_name: str) -> None:
             """, (owner_ref,))
             if cur.fetchone():
                 raise TrialError("TRIAL_ALREADY_CLAIMED")
-            cur.execute("""
-                SELECT 1 FROM vainah_live_orders
-                WHERE owner_ref = %s AND payment_state = 'paid' LIMIT 1
-            """, (owner_ref,))
-            if cur.fetchone():
+            if _has_paid_order(cur, owner_ref):
                 raise TrialError("TRIAL_FOR_NEW_CUSTOMERS_ONLY")
             cur.execute("""
                 SELECT COUNT(*) FROM vainah_public_trials
@@ -302,19 +311,20 @@ def status(request: Request) -> dict:
     if email is None:
         raise HTTPException(401, "VERIFIED_EMAIL_REQUIRED")
     try:
-        row = _row(owner_ref_for_email(email))
-        if row is None:
-            return {"status": "eligible", "can_claim": enabled()}
-        state, cipher, expires_at = row
-        result = {"status": state, "can_claim": False}
-        if (state == "delivered" and cipher and expires_at
-                and expires_at > datetime.now(UTC)):
-            result.update({
+        state, cipher, expires_at = _read_state(owner_ref_for_email(email))
+        if state == "delivered":
+            if not expires_at or not cipher:
+                raise TrialError("TRIAL_INCOMPLETE_RECORD")
+            if expires_at <= datetime.now(UTC):
+                return {"status": "expired", "can_claim": False,
+                        "expires_at": expires_at.isoformat()}
+            return {
+                "status": state, "can_claim": False,
                 "subscription_url": unseal_live_secret(cipher),
                 "expires_at": expires_at.isoformat(),
                 "devices": TRIAL_DEVICES, "traffic_gb": TRIAL_TRAFFIC_GB,
-            })
-        return result
+            }
+        return {"status": state, "can_claim": state == "eligible" and enabled()}
     except (TrialError, LiveLedgerError):
         raise HTTPException(503, "TRIAL_STATUS_UNAVAILABLE") from None
 

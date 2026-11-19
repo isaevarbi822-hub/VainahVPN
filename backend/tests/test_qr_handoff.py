@@ -66,12 +66,39 @@ def test_redemption_checks_same_account_and_consumes_once(monkeypatch):
                           json={"token": "A" * 32}).status_code == 404
 
 
-def test_expired_and_used_codes_cannot_be_reused_by_design():
-    import inspect
-    source = inspect.getsource(qr_handoff._consume)
-    assert "used_at IS NULL AND expires_at>now()" in source
-    assert "UPDATE vainah_qr_handoffs SET used_at=now()" in source
-    assert "owner_hash=%s" in source
+def test_token_that_expires_mid_transaction_is_rejected(monkeypatch, postgres_url):
+    monkeypatch.setenv("DATABASE_URL", postgres_url)
+    owner = "a" * 64
+    token = qr_handoff._issue(owner)
+    schema = qr_handoff._schema
+
+    def expire_during_request(cur):
+        schema(cur)
+        cur.execute("""
+            UPDATE vainah_qr_handoffs SET expires_at=now()+interval '100 milliseconds'
+            WHERE token_hash=%s
+        """, (qr_handoff._digest(token),))
+        cur.execute("SELECT pg_sleep(0.2)")
+
+    monkeypatch.setattr(qr_handoff, "_schema", expire_during_request)
+    assert qr_handoff._consume(owner, token) is False
+    monkeypatch.setattr(qr_handoff, "_schema", schema)
+    assert qr_handoff._consume(owner, token) is False
+
+
+def test_invalid_qr_origin_preserves_issuance_quota(monkeypatch):
+    monkeypatch.setenv("SESSION_SIGNING_KEY", SECRET)
+    monkeypatch.setenv("PUBLIC_SITE_ORIGIN", "https://[invalid")
+    monkeypatch.setattr(qr_handoff, "require_same_origin", lambda request: None)
+
+    def forbidden(_owner):
+        raise AssertionError("Invalid QR destination must be rejected before issuing a token")
+
+    monkeypatch.setattr(qr_handoff, "_issue", forbidden)
+    with client("alice@example.com") as owner:
+        response = owner.post("/api/account/handoff/qr", headers={"Origin": ORIGIN})
+    assert response.status_code == 503
+    assert response.json()["detail"] == "HANDOFF_PUBLIC_ORIGIN_INVALID"
 
 
 def test_handoff_never_logs_token_in_path_and_removes_fragment():

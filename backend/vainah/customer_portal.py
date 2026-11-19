@@ -226,6 +226,7 @@ def live_paid_email_orders(email: str) -> list[dict]:
         {
             "order_id": row["order_id"], "plan_id": row["plan_id"],
             "title": _plan_details(row["plan_id"])[0],
+            "amount_rub": row["amount_rub"],
             "status": (
                 "delivered" if row["payment_state"] == "paid"
                 and row["delivery_state"] == "delivered"
@@ -446,9 +447,11 @@ def test_subscriptions(request: Request) -> dict:
 
 @router.get("/access")
 async def access(request: Request) -> dict:
-    telegram_id, _, _ = portal_identity(request, include_email=False)
-    # An email session can have a live purchase independently from Telegram.
-    email = current_email(request)
+    from .live_checkout import live_account_ready
+
+    telegram_id, email, _ = portal_identity(
+        request, include_email=live_account_ready(),
+    )
     if email is not None:
         owned_link = live_paid_email_access(email)
         if owned_link is not None:

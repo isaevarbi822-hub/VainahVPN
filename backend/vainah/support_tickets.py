@@ -208,7 +208,7 @@ def _owned(owner: str) -> list[dict]:
                        created_at, updated_at, notify_email,
                        notification_state
                 FROM vainah_support_tickets
-                WHERE owner_hash=%s ORDER BY created_at DESC LIMIT 25
+                WHERE owner_hash=%s ORDER BY updated_at DESC, ticket_id DESC LIMIT 25
             """, (owner,))
             return [_ticket(row) for row in cur.fetchall()]
     except psycopg.Error:
@@ -224,7 +224,7 @@ def _operator_list() -> list[dict]:
                        created_at, updated_at, owner_hash,
                        notify_email, notification_state
                 FROM vainah_support_tickets
-                ORDER BY created_at DESC LIMIT 100
+                ORDER BY (status='open') DESC, updated_at DESC, ticket_id DESC LIMIT 100
             """)
             return [_ticket(row, operator=True) for row in cur.fetchall()]
     except psycopg.Error:

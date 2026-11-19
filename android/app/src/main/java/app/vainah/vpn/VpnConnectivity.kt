@@ -80,6 +80,7 @@ object VpnConnectivity {
                 .getOrNull()?.sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
                 ?: continue
             for (ip in addresses) {
+                val numericAddress = ip.hostAddress?.substringBefore('%') ?: continue
                 // Real TCP connect measurements, not ICMP ping or a synthetic
                 // timer. Use the median to reduce one-off cellular jitter.
                 val measurements = ArrayList<Int>(3)
@@ -98,8 +99,7 @@ object VpnConnectivity {
                     if (latency != null) measurements.add(latency)
                 }
                 val median = TcpLatency.median(measurements)
-                if (median != null) return UpstreamProbe(
-                    ip.hostAddress.substringBefore('%'), median)
+                if (median != null) return UpstreamProbe(numericAddress, median)
             }
         }
         // No network, server address, UUID or credential in error diagnostics.

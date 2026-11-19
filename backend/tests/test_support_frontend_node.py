@@ -24,12 +24,13 @@ const $=id=>{if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id)}
 global.document={getElementById:$,createElement:()=>new Element()};
 $('vs-category').value='connection';
 const scenario=process.argv[2];
+let sessionExpired=false;
 const calls=[];
 const reply=body=>({ok:true,json:async()=>body});
 global.fetch=async(path,options={})=>{
   calls.push({path,options});
   if(path==='/api/support/config')
-    return reply({available:scenario==='ready',email_notifications_available:true});
+    return reply({available:scenario!=='disabled',email_notifications_available:scenario!=='mail-outage'});
   if(path==='/api/email-auth/account')
     return reply({authenticated:true});
   if(path==='/api/telegram/account')
@@ -38,10 +39,13 @@ global.fetch=async(path,options={})=>{
     return reply({updated:true,email_notifications:true});
   if(path==='/api/support/tickets'&&options.method==='POST')
     return reply({id:'ticketabc',status:'open'});
+  if(path==='/api/support/tickets'&&sessionExpired)
+    return {ok:false,status:401,json:async()=>({detail:'SUPPORT_LOGIN_REQUIRED'})};
   if(path==='/api/support/tickets')
     return reply({items:[{id:'ticketabc',category:'connection',
       message:'Cannot connect <script>alert(1)</script>',
       status:'answered',reply:'Please check your client version.',
+      email_notifications:scenario==='mail-outage',
       created_at:'2026-11-06T00:00:00Z'}]});
   throw Error('Unexpected request '+path);
 };
@@ -72,6 +76,19 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
     assert.equal(posted.options.credentials,'same-origin');
     assert.equal(JSON.parse(posted.options.body).category,'connection');
     assert.equal(JSON.parse(posted.options.body).notify_email,true);
+    sessionExpired=true;
+    await $('vs-refresh').events.click();
+    assert.equal($('vs-submit').disabled,true);
+    assert.equal($('vs-tickets').children.length,0);
+    assert.equal($('vs-status').children.at(-1).href,'account.html');
+  }else if(scenario==='mail-outage'){
+    assert.equal($('vs-notify-email').disabled,true);
+    const ticket=$('vs-tickets').children[0];
+    const toggle=ticket.children.at(-1).children.at(-1);
+    assert.equal(toggle.textContent,'Выключить письма');
+    await toggle.events.click();
+    const preference=calls.find(c=>c.path.includes('/email-notifications'));
+    assert.equal(JSON.parse(preference.options.body).enabled,false);
   }else{
     assert.equal($('vs-submit').disabled,true);
     assert.ok($('vs-status').textContent.includes('не настроен'));
@@ -79,7 +96,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   }
 })().catch(error=>{console.error(error);process.exitCode=1});
 """
-    for scenario in ("ready", "disabled"):
+    for scenario in ("ready", "disabled", "mail-outage"):
         result = subprocess.run(
             ["node", "-e", harness, str(SITE / "support-center.js"), scenario],
             check=False, capture_output=True, text=True, timeout=15,

@@ -31,7 +31,7 @@ object SubscriptionPayloadParser {
             }
         }
         val supported = ArrayList<VainahNode>()
-        for (url in urls) {
+        for (url in urls.distinct()) {
             if (url.length > 8192 || !url.startsWith("vless://")) continue
             if (runCatching { VlessRealityConfig.outbound(url) }.isFailure) continue
             supported.add(VainahNode(
@@ -39,9 +39,8 @@ object SubscriptionPayloadParser {
             ))
             require(supported.size <= MAX_NODES) { "Too many supported servers" }
         }
-        val unique = ServerListReconciler.unique(supported)
-        require(unique.isNotEmpty()) { "No supported VLESS REALITY TCP servers" }
-        return unique
+        require(supported.isNotEmpty()) { "No supported VLESS REALITY TCP servers" }
+        return supported
     }
 
     private fun plainLinks(input: String): List<String> =
@@ -53,7 +52,7 @@ object SubscriptionPayloadParser {
             !compact.matches(Regex("[A-Za-z0-9+/_=-]+"))) return null
         for (decoder in listOf(Base64.getDecoder(), Base64.getUrlDecoder())) {
             val decoded = runCatching {
-                String(decoder.decode(compact), Charsets.UTF_8).trim()
+                String(decoder.decode(compact), Charsets.UTF_8).trim().removePrefix("\uFEFF").trim()
             }.getOrNull() ?: continue
             if (decoded.contains("vless://") || decoded.startsWith("{") ||
                 decoded.startsWith("[")) return decoded
@@ -78,7 +77,7 @@ object SubscriptionPayloadParser {
             else -> throw IllegalArgumentException("Unsupported JSON subscription")
         }
         require(items.length() <= 200) { "Too many subscription entries" }
-        val result = ArrayList<String>()
+        val result = LinkedHashSet<String>()
         for (i in 0 until items.length()) {
             when (val item = items.opt(i)) {
                 is String -> if (item.startsWith("vless://")) result.add(item)
@@ -108,7 +107,7 @@ object SubscriptionPayloadParser {
             }
             require(result.size <= MAX_NODES) { "Too many subscription nodes" }
         }
-        return result
+        return result.toList()
     }
 
     private fun xrayLinks(item: JSONObject): List<String> {

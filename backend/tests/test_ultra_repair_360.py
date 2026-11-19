@@ -29,7 +29,7 @@ def test_ultra_repair_is_public_and_accessible():
     assert 'data-ultra-manual' in page
     assert 'data-ultra-copy-status role="status" aria-live="polite"' in page
     assert 'ultra-repair.js?v=20261115-u360' in page
-    assert 'ultra-360.css?v=20261115-u360' in page
+    assert 'ultra-360.css?v=20261119-contrast' in page
     with TestClient(app) as client:
         response = client.get("/ultra-repair.html")
     assert response.status_code == 200

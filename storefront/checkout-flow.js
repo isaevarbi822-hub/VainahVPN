@@ -5,8 +5,15 @@
   const cards = $("shop-plans");
   if (!cards) return;
   const state = { plans: [], selected: null, config: null, gateway: "rollypay", busy: false, testOrder: null };
-  const money = amount => Number(amount).toLocaleString("ru-RU", {maximumFractionDigits: 0}) + " ₽";
-  function message(text) { $("shop-config-status").textContent = text; }
+  const requested = new URLSearchParams(location.search);
+  if (requested.get("gateway") === "platega") state.gateway = "platega";
+  const money = amount => Number(amount).toLocaleString("ru-RU", {maximumFractionDigits: 2}) + " ₽";
+  const dayForm = new Intl.PluralRules("ru");
+  const duration = days => days + " " + ({one: "день", few: "дня", many: "дней"})[dayForm.select(days)];
+  const gateways = ["rollypay", "platega"];
+  let selectionRevision = 0;
+
+  function message(text) { $("shop-payment-status").textContent = text; }
   function testMessage(text) { $("shop-test-result").textContent = text; }
   function clearIssuedLink() {
     $("shop-h1-issued-link").value = "";
@@ -76,19 +83,19 @@
       radio.disabled = !gatewayReady(radio.value) || state.busy;
       radio.checked = radio.value === state.gateway;
     });
-    const availability = $("platega-availability");
-    if (availability)
-      availability.textContent = gatewayReady("platega")
-        ? "Касса Platega готова к созданию счёта."
-        : "Касса Platega недоступна: проверь настройки подключения.";
+    for (const gateway of gateways) {
+      $(gateway + "-availability").textContent = state.config === null
+        ? "Доступность уточняется"
+        : gatewayReady(gateway) ? "Доступна" : "Временно недоступна";
+    }
   }
-  const intentKeyName = planId => "vainah-live-checkout-intent-v1-" +
-    (state.gateway === "platega" ? "platega-" : "") + planId;
+  const intentKeyName = (planId, gateway) => "vainah-live-checkout-intent-v1-" +
+    (gateway === "platega" ? "platega-" : "") + planId;
 
-  async function checkExistingCheckout(planId) {
+  async function checkExistingCheckout(planId, gateway) {
     // The token is tied to a verified email on the server; never use it as
     // evidence of payment by itself or erase an uncertain gateway request.
-    const name = intentKeyName(planId);
+    const name = intentKeyName(planId, gateway);
     const key = sessionStorage.getItem(name);
     if (!key) return {found: false};
     const result = await api("/api/shop/checkout-intent?plan=" +
@@ -99,20 +106,53 @@
     if (result.renewal_ready === true &&
         result.payment_state === "paid" &&
         result.delivery_state === "delivered") {
-      sessionStorage.removeItem(name);
-      if (state.selected?.id === planId)
-        message("Предыдущая оплата подтверждена и VPN выдан. " +
-          "Теперь можно оформить новое продление этого тарифа.");
-    } else if (result.found === true && state.selected?.id === planId) {
-      if (result.payment_state === "created") {
-        message("Уже есть неоплаченный счёт этого тарифа. " +
-          "Кнопка оплаты откроет тот же счёт без нового списания.");
-      } else {
-        message("Предыдущий заказ ещё обрабатывается или требует проверки. " +
-          "Новый счёт не создаём. Проверь историю в личном кабинете.");
-      }
+      if (sessionStorage.getItem(name) === key) sessionStorage.removeItem(name);
     }
     return result;
+  }
+
+  function updatePaymentButton() {
+    const button = $("shop-buy");
+    const ready = gatewayReady();
+    button.disabled = state.busy || !ready || !state.selected;
+    button.textContent = state.busy ? "Открываем кассу…" :
+      !ready ? "Оплата пока недоступна" :
+      !state.selected ? "Выбери тариф" : "Перейти к оплате";
+  }
+
+  function authenticationRequired() {
+    message("Войди по email или через Google. Если используешь Telegram, подтверди почту в кабинете. Счёт ещё не создан.");
+    $("shop-login").hidden = false;
+  }
+
+  function updateCheckoutLinks() {
+    if (!state.selected) return;
+    const params = new URLSearchParams({plan: state.selected.id, gateway: state.gateway});
+    if (history.replaceState) history.replaceState(null, "", "?" + params + (location.hash || ""));
+    $("shop-login").href = "account.html?" + params + "#account-auth-panel";
+  }
+
+  async function showExistingCheckout() {
+    const revision = ++selectionRevision;
+    message("");
+    $("shop-login").hidden = true;
+    if (!state.selected || !gatewayReady()) return;
+    const { id } = state.selected;
+    try {
+      const result = await checkExistingCheckout(id, state.gateway);
+      if (revision !== selectionRevision || state.busy) return;
+      if (result.renewal_ready) {
+        message("Предыдущий заказ оплачен и доступ выдан. Можно оформить продление.");
+      } else if (result.payment_state === "created") {
+        message("Счёт уже создан. Кнопка оплаты откроет этот же счёт.");
+      } else if (result.found) {
+        message("Предыдущий заказ ещё обрабатывается. Проверь его статус в кабинете.");
+      }
+    } catch (err) {
+      if (revision !== selectionRevision || state.busy) return;
+      if (err.message === "VERIFIED_EMAIL_REQUIRED") authenticationRequired();
+      else message("Не удалось проверить предыдущий счёт. Проверь историю заказов в кабинете.");
+    }
   }
 
   function displayTestOrder(order) {
@@ -158,10 +198,11 @@
       el.setAttribute("aria-pressed", String(el.dataset.plan === id));
     });
     $("shop-selected-title").textContent = plan.title;
-    $("shop-selected-days").textContent = plan.days + " дней";
-    $("shop-selected-devices").textContent = plan.devices + " устройства";
+    $("shop-selected-days").textContent = duration(plan.days);
+    $("shop-selected-devices").textContent = String(plan.devices);
     $("shop-total").textContent = money(plan.priceRub);
-    if (history.replaceState) history.replaceState(null, "", "?plan=" + encodeURIComponent(id));
+    updateCheckoutLinks();
+    $("shop-to-payment").hidden = false;
     filterPlans();
     state.testOrder = null;
     $("shop-test-simulate").hidden = true;
@@ -171,6 +212,8 @@
     $("shop-test-link").hidden = true;
     $("shop-test-link").removeAttribute("href");
     testMessage("");
+    updatePaymentButton();
+    void showExistingCheckout();
   }
   // Filtering is display-only. Payment IDs, prices and checkout intents
   // remain exclusively server controlled and the selected order is unchanged.
@@ -185,7 +228,7 @@
       if (!plan) continue;
       const matchesDevice = kind === "all" ||
         (kind === "family" ? plan.devices === 6 : plan.devices === 3);
-      const matchesText = (plan.title + " " + plan.days + " " +
+      const matchesText = (plan.title + " " + duration(plan.days) + " " +
         plan.devices + " " + (plan.devices === 6 ? "семейный" : "личный"))
         .toLocaleLowerCase("ru").includes(query);
       const match = matchesDevice && matchesText;
@@ -227,71 +270,77 @@
       price.textContent = money(plan.priceRub);
       const note = document.createElement("span");
       note.className = "price-note";
-      note.textContent = "На " + plan.days + " дней";
+      note.textContent = duration(plan.days);
       button.append(title, subtitle, price, note);
       button.addEventListener("click", () => select(plan.id));
       cards.append(button);
     }
-    const requested = new URLSearchParams(location.search).get("plan");
-    select(state.plans.some(p => p.id === requested) ? requested : "30");
+    const planId = requested.get("plan");
+    if (planId === null) select(state.plans.find(p => p.id === "30")?.id || state.plans[0].id);
+    else select(planId);
     filterPlans();
-    updateGatewayControls();
-    $("shop-buy").disabled = !gatewayReady();
-    $("shop-buy").textContent = gatewayReady() ? "Перейти к оплате ↗" : "Оплата пока недоступна";
-    $("shop-test-create").disabled = !state.config?.sandbox_available;
-    if (gatewayReady() && state.selected) {
-      const selectedPlanId = state.selected.id;
-      void checkExistingCheckout(selectedPlanId).catch(err => {
-        if (state.selected?.id === selectedPlanId) {
-          if (err.message === "VERIFIED_EMAIL_REQUIRED") {
-            message("Чтобы оплатить через Telegram, подтверди почту один раз в кабинете (раздел «Получать VPN-подписку на email»). " +
-              "Через Google или email просто войди в кабинет. Счёт не создан.");
-          } else {
-            message("Не удалось проверить предыдущий счёт. " +
-              "Пока его статус неизвестен, новый счёт не создавай.");
-          }
-        }
-      });
+    if (!state.selected) {
+      $("shop-plan-results").textContent = "Тариф из ссылки недоступен. Выбери другой тариф.";
+    } else if (planId !== null) {
+      const selectedCard = cards.querySelector?.('[aria-pressed="true"]');
+      if (selectedCard) cards.scrollTop = Math.max(0,
+        selectedCard.getBoundingClientRect().top - cards.getBoundingClientRect().top - 4);
     }
   }
-  async function load() {
+  async function loadPlans() {
+    $("shop-plan-retry").hidden = true;
+    $("shop-plan-results").textContent = "Загружаем тарифы…";
     try {
-      const [plans, config] = await Promise.all([
-        api("/api/shop/plans"), api("/api/shop/config")
-      ]);
+      const plans = await api("/api/shop/plans");
       if (!Array.isArray(plans.items) || !plans.items.length) throw Error("Каталог пуст");
       state.plans = plans.items;
-      state.config = config;
       draw();
-      message(gatewayReady()
-        ? "Оплата включена для авторизованных покупателей."
-        : "Оформление новых платежей сейчас не разрешено сервером (checkout_ready=false). Это не означает, что сайт или backend недоступен.");
-      if (!config.sandbox_available) {
-        testMessage("Sandbox отключён на сервере. Для теста требуется включить режим и задать секретный токен.");
-      }
-    } catch (err) {
-      message("Не удалось загрузить каталог или настройки: " + (err.message || "Ошибка сети"));
-      $("shop-buy").disabled = true;
-      $("shop-test-create").disabled = true;
+    } catch {
+      $("shop-plan-results").textContent = "Не удалось загрузить тарифы.";
+      $("shop-plan-retry").hidden = false;
     }
   }
+  async function loadConfig() {
+    $("shop-config-retry").hidden = true;
+    $("shop-config-status").textContent = "Проверяем доступность оплаты…";
+    try {
+      const config = await api("/api/shop/config");
+      if (typeof config?.checkout_ready !== "boolean") throw Error("Некорректные настройки оплаты");
+      state.config = config;
+      updateGatewayControls();
+      updateCheckoutLinks();
+      $("shop-config-status").textContent = gatewayReady()
+        ? "Для оплаты понадобится подтверждённый email."
+        : "Оформление временно недоступно. Тарифы можно посмотреть, а существующие заказы — проверить в кабинете.";
+      $("shop-test-create").disabled = !config.sandbox_available;
+      if (!config.sandbox_available) testMessage("Тестовая касса отключена.");
+      void showExistingCheckout();
+    } catch {
+      $("shop-config-status").textContent = "Не удалось проверить доступность оплаты.";
+      $("shop-config-retry").hidden = false;
+    }
+    updatePaymentButton();
+  }
+  $("shop-plan-retry").addEventListener("click", loadPlans);
+  $("shop-config-retry").addEventListener("click", loadConfig);
+
   document.querySelectorAll('input[name="shop-gateway"]').forEach(radio => {
     radio.addEventListener("change", () => {
       if (state.busy || !radio.checked || !gatewayReady(radio.value)) return;
       state.gateway = radio.value;
       updateGatewayControls();
-      $("shop-buy").disabled = !gatewayReady();
-      message("Выбрана касса " + (state.gateway === "platega" ? "Platega" : "RollyPay") + ".");
-      if (state.selected)
-        void checkExistingCheckout(state.selected.id).catch(() =>
-          message("Не удалось проверить предыдущий счёт. Новый счёт не создавай до проверки истории.")
-        );
+      updateCheckoutLinks();
+      updatePaymentButton();
+      void showExistingCheckout();
     });
   });
   $("shop-buy").addEventListener("click", async () => {
     if (state.busy || !gatewayReady() || !state.selected) return;
     state.busy = true;
-    $("shop-buy").disabled = true;
+    ++selectionRevision;
+    message("");
+    $("shop-login").hidden = true;
+    updatePaymentButton();
     updateGatewayControls();
     try {
       // Reuse the same server-side intent if network timeouts or repeated
@@ -301,8 +350,8 @@
       }
       const planId = state.selected.id;
       const selectedGateway = state.gateway;
-      const intentName = intentKeyName(planId);
-      const previous = await checkExistingCheckout(planId);
+      const intentName = intentKeyName(planId, selectedGateway);
+      const previous = await checkExistingCheckout(planId, selectedGateway);
       if (previous.found === true && previous.payment_state !== "created" &&
           previous.renewal_ready !== true) {
         message("Предыдущий заказ не завершён. Новый счёт не создан. " +
@@ -339,19 +388,18 @@
             url.pathname.includes(".."))
           throw Error("Недопустимый адрес Platega");
       } else throw Error("Неизвестная касса");
+      try { sessionStorage.setItem("vainah-checkout-return", "1"); } catch {}
       location.assign(url.href);
     } catch (err) {
       if (err.message === "VERIFIED_EMAIL_REQUIRED") {
-        message("Оплата не запущена: нужен подтверждённый аккаунт. Через Telegram " +
-          "один раз привяжи email в личном кабинете; через Google или email войди снова. " +
-          "Новый счёт не создан.");
+        authenticationRequired();
       } else {
-        message("Оплата не запущена: " + (err.message || "Неизвестная ошибка"));
+        message("Не удалось открыть кассу. Проверь статус в кабинете. При повторной попытке выбери тот же тариф и кассу.");
       }
     } finally {
       state.busy = false;
       updateGatewayControls();
-      $("shop-buy").disabled = !gatewayReady();
+      updatePaymentButton();
     }
   });
   $("shop-test-diagnose").addEventListener("click", async () => {
@@ -730,5 +778,6 @@
       state.busy = false;
     }
   });
-  load();
+  void loadPlans();
+  void loadConfig();
 })();

@@ -176,3 +176,13 @@
 .vx-pick-link:focus-visible{outline:3px solid #e5eeff;outline-offset:3px}
 @media(max-width:920px){.vx-picks-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:570px){.vx-picks-grid{grid-template-columns:1fr}.vx-pick{padding:17px}.vx-pick-price{font-size:25px}}
+
+[data-compare] .compare-card-view { display: none !important; }
+[data-compare] .compare-table-view[hidden] { display: none; }
+[data-compare] .compare-table-view tbody th { text-align: start; font-weight: 700; }
+[data-compare] .compare-table-view .btn { min-height: 44px; white-space: nowrap; }
+@media (max-width: 680px) {
+  [data-compare] .compare-card-view { display: grid !important; }
+  [data-compare] .compare-table-view { display: none; }
+  [data-compare] .ux-compare-item h3 { margin: 0; }
+}

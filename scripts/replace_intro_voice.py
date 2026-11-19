@@ -18,6 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ORIGINAL = ROOT / "storefront/assets/video/vainah-orbit-30.mp4"
 OUTPUT = ROOT / "storefront/assets/video/vainah-orbit-30.elevenlabs.mp4"
+LEAD_MS = 350
 
 
 def probe_seconds(file: Path) -> float:
@@ -49,10 +50,11 @@ def main() -> None:
         parser.error("Audio has no valid duration")
     # Keep the natural ElevenLabs voice pace. For a 25-26 second narration,
     # pad the remaining seconds with silence instead of stretching the voice.
-    if audio_duration > video_duration - 0.2:
+    max_narration_seconds = video_duration - LEAD_MS / 1000 - 0.2
+    if audio_duration > max_narration_seconds:
         parser.error(
             f"Audio is {audio_duration:.1f}s, longer than the video safe limit "
-            f"({video_duration - 0.2:.1f}s). Regenerate a shorter narration."
+            f"({max_narration_seconds:.1f}s). Regenerate a shorter narration."
         )
     if args.output.exists():
         parser.error(f"Output already exists: {args.output}")
@@ -61,7 +63,7 @@ def main() -> None:
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-n",
          "-i", str(args.video), "-i", str(args.audio),
          "-map", "0:v:0", "-map", "1:a:0",
-         "-c:v", "copy", "-af", "aresample=48000,apad",
+         "-c:v", "copy", "-af", f"aresample=48000,adelay={LEAD_MS}:all=1,apad",
          "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
          "-ac", "2", "-t", f"{video_duration:.3f}",
          "-movflags", "+faststart", str(args.output)],

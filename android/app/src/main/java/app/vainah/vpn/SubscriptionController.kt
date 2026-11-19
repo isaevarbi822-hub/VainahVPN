@@ -39,8 +39,9 @@ class SubscriptionController(context: Context) {
 
     fun saveLink(value: String): Boolean {
         val valid = SubscriptionInput.validate(value) ?: return false
+        if (!runCatching { vault.save(valid) }.getOrDefault(false)) return false
         invalidate()
-        return vault.save(valid)
+        return true
     }
 
     fun clear() {

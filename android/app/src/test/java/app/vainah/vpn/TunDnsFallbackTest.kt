@@ -25,6 +25,9 @@ class TunDnsFallbackTest {
         assertNull(TunDnsFallback.nextAddress("192.0.2.1", 32))
         assertNull(TunDnsFallback.nextAddress("255.255.255.255", 0))
         assertNull(TunDnsFallback.nextAddress("example.org", 24))
+        assertNull(TunDnsFallback.nextAddress("dead.beef", 24))
+        assertNull(TunDnsFallback.nextAddress("127.1", 24))
+        assertNull(TunDnsFallback.nextAddress("127.0.0.256", 24))
         assertNull(TunDnsFallback.nextAddress("172.19.0.1", 33))
         assertNull(TunDnsFallback.nextAddress("fd00:19::3", 126))
     }

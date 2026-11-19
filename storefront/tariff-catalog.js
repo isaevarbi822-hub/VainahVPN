@@ -1,4 +1,4 @@
-/* Vainah VPN: 75 live paid plans, smart discovery + local plan comparison.
+/* Vainah VPN: server catalog, filters and local plan comparison.
    The server owns all prices, eligibility, checkout and VPN fulfillment. */
 (() => {
   'use strict';
@@ -11,20 +11,10 @@
   const root=document.querySelector('[data-tariff-catalog]');
   const status=document.getElementById('tariff-catalog-status');
   if(!root||!status)return;
-  const paidIds=new Set([
-    '7','14','30','45','60','90','120','180','365','30-family','365-family',
-    'mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d',
-    'max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d'
-  ,
-    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d','personal-6d','personal-8d','personal-11d','personal-13d','personal-16d','personal-19d','personal-23d','personal-28d','personal-42d','personal-70d','personal-105d','personal-165d','personal-225d','personal-330d','personal-450d','family-3d','family-5d','family-10d','family-28d','family-35d','family-100d','family-135d','family-210d','family-300d','family-450d']);
-  const order=[
-    'trial-free','mini-3d','sprint-5d','7','14','start-plus-21d',
-    '30','45','60','balance-75d','90','120','comfort-150d','180',
-    'max-270d','365','legend-730d','30-family','family-plus-90d',
-    'family-pro-180d','365-family','family-max-730d'
-  ,
-    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d','personal-6d','personal-8d','personal-11d','personal-13d','personal-16d','personal-19d','personal-23d','personal-28d','personal-42d','personal-70d','personal-105d','personal-165d','personal-225d','personal-330d','personal-450d','family-3d','family-5d','family-10d','family-28d','family-35d','family-100d','family-135d','family-210d','family-300d','family-450d'];
   const filters=Array.from(document.querySelectorAll?.('[data-tariff-filter]')||[]);
+  const presets=Array.from(document.querySelectorAll?.('[data-tariff-preset]')||[]);
+  const showAll=document.querySelector('[data-tariff-show-all]');
+  const browseTitle=document.getElementById('catalog-browse-title');
   const search=document.querySelector('[data-tariff-search]');
   const sort=document.querySelector('[data-tariff-sort]');
   const device=document.querySelector('[data-tariff-devices]');
@@ -34,17 +24,22 @@
   const checkoutReadiness=document.querySelector('[data-checkout-readiness]');
   const count=document.getElementById('tariff-filter-count');
   const empty=document.querySelector('[data-tariff-empty]');
-  const insight=document.querySelector('[data-tariff-insight]');
   const compareBox=document.querySelector('[data-tariff-compare]');
   const compareItems=document.querySelector('[data-tariff-compare-items]');
   const compareMessage=document.querySelector('[data-tariff-compare-message]');
   const compareClear=document.querySelector('[data-tariff-compare-clear]');
+  const compareJump=document.querySelector('[data-tariff-compare-jump]');
   const favoritesOnlyButton=document.querySelector('[data-tariff-favorites-only]');
   const favoriteCount=document.querySelector('[data-tariff-favorite-count]');
   const shareButton=document.querySelector('[data-tariff-share]');
   const retryButton=document.querySelector('[data-tariff-retry]');
   const feedback=document.querySelector('[data-tariff-feedback]');
   let selectedFilter='all';
+  const scenarios={
+    trip:{period:'short',devices:'all',sort:'price'},
+    regular:{period:'standard',devices:'3',sort:'days'},
+    family:{period:'all',devices:'6',sort:'price'}
+  };
   // Allow the homepage's guided flow to open a pre-filtered *public* catalog.
   // URL params never choose a plan for purchase or set prices.
   const initial=new URLSearchParams(typeof window!=='undefined'?window.location.search:'');
@@ -54,8 +49,9 @@
     sort.value=initial.get('sort');
   if(budget&&['100','250','500','1000','2000'].includes(initial.get('budget')))
     budget.value=initial.get('budget');
-  if(['all','short','standard','long','family'].includes(initial.get('segment')))
+  if(['short','standard','long'].includes(initial.get('segment')))
     selectedFilter=initial.get('segment');
+  if(device&&initial.get('segment')==='family'&&!initial.has('devices'))device.value='6';
   let displayLimit=12;
   let paid=[];
   let cards=[];
@@ -63,6 +59,7 @@
   const selected=new Set();
   const publicFavoriteKey='vainah-public-plan-favorites-v1';
   const favorites=new Set();
+  const validId=id=>typeof id==='string'&&/^[a-z0-9-]{1,60}$/.test(id);
   const initialCompare=String(initial.get('compare')||'').split(',').slice(0,3);
   const storage=()=>{
     try{return typeof window!=='undefined'?window.localStorage:null;}
@@ -71,11 +68,12 @@
   try{
     const values=JSON.parse(storage()?.getItem(publicFavoriteKey)||'[]');
     if(Array.isArray(values))for(const id of values.slice(0,8)){
-      if(typeof id==='string'&&paidIds.has(id))favorites.add(id);
+      if(validId(id)&&id!=='trial-free')favorites.add(id);
     }
   }catch{/* Private browsing blocks storage: favorites still work for this page. */}
-  if(search&&initial.get('q'))search.value=String(initial.get('q')).slice(0,80);
-  const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0});
+  const savedSearch=typeof window!=='undefined'?window.history?.state?.tariffSearch:null;
+  if(search)search.value=String(initial.get('q')??savedSearch??'').slice(0,80);
+  const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
   const elem=(tag,text='',cls='')=>{
     const node=document.createElement(tag);
     node.textContent=String(text);
@@ -85,12 +83,15 @@
   const priceValue=plan=>Number(plan.price_rub);
   const daily=plan=>priceValue(plan)/plan.days;
   const money=amount=>fmt.format(amount)+' ₽';
-  const moneyDaily=amount=>new Intl.NumberFormat('ru-RU',{
+  const dailyFormat=new Intl.NumberFormat('ru-RU',{
     minimumFractionDigits:2,maximumFractionDigits:2
-  }).format(amount)+' ₽';
+  });
+  const moneyDaily=amount=>dailyFormat.format(amount)+' ₽';
+  const daysPlural=new Intl.PluralRules('ru');
+  const term=days=>days+' '+{one:'день',few:'дня',many:'дней'}[daysPlural.select(days)];
   const label=plan=>plan.devices===6?'семейный':'личный';
   function safe(plan){
-    if(!plan||typeof plan!=='object'||!order.includes(plan.id)||
+    if(!plan||typeof plan!=='object'||!validId(plan.id)||
        typeof plan.title!=='string'||plan.title.length<1||plan.title.length>60||
        !Number.isInteger(plan.days)||plan.days<1||plan.days>730||
        !Number.isInteger(plan.devices)||![2,3,6].includes(plan.devices)||
@@ -99,24 +100,29 @@
     if(plan.id==='trial-free')
       return plan.status==='trial'&&plan.price_rub==='0.00'&&
         plan.traffic_gb===10&&plan.checkout_supported===false;
-    return paidIds.has(plan.id)&&plan.status==='existing'&&
+    return plan.status==='existing'&&priceValue(plan)>0&&[3,6].includes(plan.devices)&&
       plan.checkout_supported===true&&
       plan.checkout_path==='/checkout.html?plan='+plan.id&&
       ['short','standard','long','family'].includes(plan.segment);
   }
   function filtered(){
     const q=String(search?.value||'').toLocaleLowerCase('ru').trim();
-    const terms=q.split(/\s+/).filter(Boolean).slice(0,7);
+    const exactTerm=q.match(/^(\d+)\s*(?:день|дня|дней|дн\.?)?$/);
+    const terms=q.replace(/ё/g,'е').replace(/,/g,'.').split(/\s+/).filter(Boolean).slice(0,7);
     const byDevices=device?.value||'all';
     const maxBudget=Number(budget?.value)||Infinity;
     const result=cards.filter(({plan})=>{
-      if(selectedFilter!=='all'&&plan.segment!==selectedFilter)return false;
+      const period=plan.days<=21?'short':plan.days<=120?'standard':'long';
+      if(selectedFilter==='family'?plan.devices!==6:
+        selectedFilter!=='all'&&period!==selectedFilter)return false;
       if(favoritesOnly&&!favorites.has(plan.id))return false;
       if(byDevices==='3'&&plan.devices!==3)return false;
       if(byDevices==='6'&&plan.devices!==6)return false;
       if(priceValue(plan)>maxBudget)return false;
-      const haystack=(plan.title+' '+plan.days+' дней '+plan.devices+
-        ' устройств '+label(plan)+' '+plan.price_rub+' ₽').toLocaleLowerCase('ru');
+      if(exactTerm)return plan.days===Number(exactTerm[1]);
+      const haystack=(plan.title+' '+term(plan.days)+' '+plan.devices+
+        ' устройств '+label(plan)+' '+plan.price_rub+' ₽').toLocaleLowerCase('ru')
+        .replace(/ё/g,'е').replace(',','.');
       return terms.every(t=>haystack.includes(t));
     });
     const mode=sort?.value||'days';
@@ -144,22 +150,18 @@
     for(const b of filters){
       b.setAttribute('aria-pressed',String(b.dataset.tariffFilter===selectedFilter));
     }
+    for(const b of presets){
+      const preset=scenarios[b.dataset.tariffPreset];
+      const active=preset&&selectedFilter===preset.period&&device?.value===preset.devices&&
+        sort?.value===preset.sort&&budget?.value==='all'&&!search?.value.trim()&&!favoritesOnly;
+      b.setAttribute('aria-pressed',String(Boolean(active)));
+    }
     if(count)count.textContent='Найдено '+matching.length+' из '+cards.length+
       ' · показано '+Math.min(displayLimit,matching.length)+
       (favoritesOnly?' · только избранное':''); 
     if(more){more.hidden=matching.length<=displayLimit;
-      more.textContent='Показать ещё '+Math.min(12,matching.length-displayLimit)+' тарифов ↓';}
+      more.textContent=more.hidden?'Показать ещё':'Показать ещё '+Math.min(12,matching.length-displayLimit)+' ↓';}
     if(empty)empty.hidden=matching.length!==0;
-    if(insight){
-      const cheapest=matching.slice().sort((a,b)=>priceValue(a.plan)-priceValue(b.plan))[0];
-      const bestDaily=matching.slice().sort((a,b)=>daily(a.plan)-daily(b.plan))[0];
-      insight.textContent=cheapest&&bestDaily?
-        'Самый доступный в выборке: '+cheapest.plan.title+' · '+money(priceValue(cheapest.plan))+
-        '. Минимальная цена за день: '+bestDaily.plan.title+' · ≈'+
-        moneyDaily(daily(bestDaily.plan))+' за день'+
-        '. Сравнение стоимости не означает сравнение скорости серверов.':
-        'Ничего не найдено. Измени запрос или сбрось фильтры.';
-    }
   }
   function updateFavorites(){
     if(favoriteCount)favoriteCount.textContent=String(favorites.size);
@@ -186,27 +188,41 @@
     }
     persistFavorites();
     updateFavorites();
-    if(favoritesOnly)show();
+    if(favoritesOnly){
+      show();
+      const visible=cards.find(item=>!item.card.hidden);
+      (visible?.favoriteButton||favoritesOnlyButton)?.focus?.();
+    }
     if(feedback)feedback.textContent=favorites.has(plan.id)
       ?'Тариф сохранён в этом браузере.':'Тариф убран из избранного.';
   }
   function updateCompare(){
     if(!compareBox||!compareItems)return;
     compareBox.hidden=selected.size===0;
+    if(compareJump){
+      compareJump.hidden=compareBox.hidden;
+      compareJump.textContent='Сравнить ('+selected.size+')';
+    }
     compareItems.replaceChildren();
     const chosen=paid.filter(p=>selected.has(p.id));
     for(const p of chosen){
       const card=elem('article','','tariff-compare-card');
       card.append(elem('strong',p.title));
       card.append(elem('span',money(priceValue(p))));
-      card.append(elem('small',p.days+' дней · '+p.devices+
-        ' устройства · ≈'+moneyDaily(daily(p))+'/день'));
-      const link=elem('a','Оформить ↗','btn btn-primary');
-      link.href='/checkout.html?plan='+p.id;
+      card.append(elem('small',term(p.days)+' · До '+p.devices+
+        ' устройств · '+moneyDaily(daily(p))+'/день'));
+      const link=elem('a','Оформить ↗','catalog-button catalog-button-primary');
+      link.href=apiOrigin+p.checkout_path;
       card.append(link);
-      const remove=elem('button','Убрать из сравнения','tariff-compare-remove');
+      const remove=elem('button','Убрать','catalog-text-link tariff-compare-remove');
       remove.type='button';
-      remove.addEventListener?.('click',()=>{selected.delete(p.id);updateCompare();});
+      remove.setAttribute('aria-label','Убрать '+p.title+' из сравнения');
+      remove.addEventListener?.('click',()=>{
+        selected.delete(p.id);
+        updateCompare();
+        rememberSelection();
+        (selected.size?compareClear:search)?.focus?.();
+      });
       card.append(remove);
       compareItems.append(card);
     }
@@ -217,40 +233,41 @@
       compareButton.disabled=!active&&selected.size>=3;
     }
     if(compareMessage)compareMessage.textContent=
-      'Выбрано '+chosen.length+' из 3. Сравнение локальное — заказ не создаётся.';
+      'Выбрано '+chosen.length+' из 3 тарифов';
   }
   function render(plans){
     paid=plans.filter(p=>p.status==='existing');
     cards=[];
+    for(const id of favorites)if(!paid.some(plan=>plan.id===id))favorites.delete(id);
+    for(const id of selected)if(!paid.some(plan=>plan.id===id))selected.delete(id);
     const frag=document.createDocumentFragment();
     for(const p of paid){
-      const card=elem('article','','plan tariff-card');
-      card.append(elem('div',p.days+' ДНЕЙ','duration'));
-      card.append(elem('span',String(p.tag||'ДОСТУПЕН'),'tariff-label'));
-      card.append(elem('h3',p.title));
-      const amount=elem('div','','price');
-      amount.append(elem('span',money(priceValue(p))));
-      amount.append(elem('small','≈'+moneyDaily(daily(p))+
-        ' за день · ≈'+money(Math.round(priceValue(p)*30/p.days))+' за 30 дней'));
-      card.append(amount);
-      card.append(elem('p','До '+p.devices+' устройств · VPN-доступ','plan-desc'));
-      const link=elem('a','Выбрать тариф ↗','btn btn-primary');
-      link.href=p.checkout_path;
-      card.append(link);
-      const compareButton=elem('button','Сравнить','btn btn-border tariff-compare-toggle');
+      const card=elem('article','','tariff-card');
+      const name=elem('div','','catalog-card-name');
+      name.append(elem('h3',p.title),elem('p',term(p.days)+' · До '+p.devices+' устройств'));
+      const amount=elem('div','','catalog-card-total');
+      amount.append(elem('strong',money(priceValue(p))),elem('small',moneyDaily(daily(p))+' / день'));
+      const actions=elem('div','','catalog-card-actions');
+      const secondary=elem('div','','catalog-card-secondary');
+      const link=elem('a','Выбрать тариф ↗','catalog-button catalog-button-primary');
+      link.href=apiOrigin+p.checkout_path;
+      const compareButton=elem('button','Сравнить','tariff-compare-toggle');
       compareButton.type='button';
+      compareButton.setAttribute('aria-label','Сравнить '+p.title);
       compareButton.setAttribute('aria-pressed','false');
       compareButton.addEventListener?.('click',()=>{
         if(selected.has(p.id))selected.delete(p.id);
         else if(selected.size<3)selected.add(p.id);
         updateCompare();
+        rememberSelection();
       });
-      card.append(compareButton);
-      const favoriteButton=elem('button','☆ В избранное','btn btn-border vx5-favorite-toggle');
+      const favoriteButton=elem('button','☆ В избранное','vx5-favorite-toggle');
       favoriteButton.type='button';
       favoriteButton.setAttribute('aria-pressed','false');
       favoriteButton.addEventListener?.('click',()=>toggleFavorite(p));
-      card.append(favoriteButton);
+      secondary.append(compareButton,favoriteButton);
+      actions.append(link,secondary);
+      card.append(name,amount,actions);
       cards.push({plan:p,card,compareButton,favoriteButton});
       frag.append(card);
     }
@@ -261,11 +278,29 @@
     show();
     updateFavorites();
     updateCompare();
-    status.textContent='75 платных тарифов с подтверждёнными ценами. Оформление: RollyPay или Platega при готовности кассы. Бесплатный пробный день отдельно.';
+    status.textContent='Платных тарифов: '+paid.length+'. Цены загружены с сервера.';
     const counter=document.getElementById('tariff-compare-label');
-    if(counter)counter.textContent='Сравнить все 76 вариантов ↗';
+    if(counter)counter.textContent='Таблица тарифов ↗';
   }
-  const update=()=>{displayLimit=12;show();};
+  function selectionParams(includeSearch=false){
+    const params=new URLSearchParams();
+    if(includeSearch&&search?.value.trim())params.set('q',search.value.trim().slice(0,80));
+    if(device&&device.value!=='all')params.set('devices',device.value);
+    if(sort&&sort.value!=='days')params.set('sort',sort.value);
+    if(budget&&budget.value!=='all')params.set('budget',budget.value);
+    if(selectedFilter!=='all')params.set('segment',selectedFilter);
+    if(selected.size)params.set('compare',[...selected].join(','));
+    return params;
+  }
+  function rememberSelection(){
+    if(typeof window==='undefined'||!window.history?.replaceState)return;
+    const url=new URL('plans.html',window.location.href);
+    url.search=selectionParams();
+    url.hash=window.location.hash;
+    const browserState={...window.history.state,tariffSearch:search?.value.slice(0,80)||''};
+    try{window.history.replaceState(browserState,'',url.href);}catch{}
+  }
+  const update=()=>{displayLimit=12;show();rememberSelection();};
   favoritesOnlyButton?.addEventListener('click',()=>{
     favoritesOnly=!favoritesOnly;
     updateFavorites();
@@ -274,15 +309,8 @@
   shareButton?.addEventListener('click',async()=>{
     // Share only validated public plan identifiers and catalog filters.
     // Never transmit account, payment, subscription or authentication data.
-    const url=new URL(window.location.href);
-    const params=url.searchParams;
-    for(const name of ['q','devices','sort','budget','segment','compare'])params.delete(name);
-    if(search?.value.trim())params.set('q',search.value.trim().slice(0,80));
-    if(device?.value!=='all')params.set('devices',device.value);
-    if(sort?.value!=='days')params.set('sort',sort.value);
-    if(budget?.value!=='all')params.set('budget',budget.value);
-    if(selectedFilter!=='all')params.set('segment',selectedFilter);
-    if(selected.size)params.set('compare',[...selected].join(','));
+    const url=new URL('plans.html',window.location.href);
+    url.search=selectionParams(true);
     // Favorites are browser-only and are intentionally not included.
     try{
       if(!navigator.clipboard?.writeText)throw Error('clipboard');
@@ -304,15 +332,39 @@
   sort?.addEventListener('change',update);
   device?.addEventListener('change',update);
   budget?.addEventListener('change',update);
-  more?.addEventListener('click',()=>{displayLimit+=12;show();});
-  clear?.addEventListener('click',()=>{
-    selectedFilter='all';if(search)search.value='';
-    if(sort)sort.value='days';if(device)device.value='all';
-    if(budget)budget.value='all';
-    favoritesOnly=false;updateFavorites();
-    update();search?.focus?.();
+  more?.addEventListener('click',()=>{
+    const firstNew=filtered()[displayLimit]?.card;
+    displayLimit+=12;
+    show();
+    firstNew?.querySelector?.('a')?.focus();
   });
-  compareClear?.addEventListener('click',()=>{selected.clear();updateCompare();});
+  function chooseFilters({period='all',devices='all',sort:sortBy='days'}={}){
+    selectedFilter=period;
+    if(search)search.value='';
+    if(sort)sort.value=sortBy;
+    if(device)device.value=devices;
+    if(budget)budget.value='all';
+    favoritesOnly=false;
+    updateFavorites();
+    update();
+  }
+  for(const button of presets)button.addEventListener('click',()=>{
+    const preset=scenarios[button.dataset.tariffPreset];
+    if(!preset)return;
+    chooseFilters(preset);
+    browseTitle?.focus?.();
+  });
+  showAll?.addEventListener('click',()=>{
+    chooseFilters();
+    browseTitle?.focus?.();
+  });
+  clear?.addEventListener('click',()=>{chooseFilters();search?.focus?.();});
+  compareClear?.addEventListener('click',()=>{
+    selected.clear();
+    updateCompare();
+    rememberSelection();
+    search?.focus?.();
+  });
   function unavailable(){
     // Never leave legacy prices and purchase buttons on screen after an
     // unverified / failed API response.
@@ -326,8 +378,8 @@
     if(more)more.hidden=true;
     if(empty)empty.hidden=true;
     if(compareBox)compareBox.hidden=true;
+    if(compareJump)compareJump.hidden=true;
     if(count)count.textContent='Цены не подтверждены';
-    if(insight)insight.textContent='Ни один тариф не считается проверенным до ответа Python API.';
     if(retryButton)retryButton.hidden=false;
   }
   async function load(){
@@ -345,9 +397,8 @@
       if(!response.ok)throw Error('CATALOG_UNAVAILABLE');
       const data=await response.json();
       const plans=Array.isArray(data.plans)?data.plans:[];
-      if(data.total!==76||plans.length!==76||
-        new Set(plans.map(p=>p.id)).size!==76||!plans.every(safe)||
-        plans.filter(p=>p.status==='existing').length!==75||
+      if(plans.length<2||data.total!==plans.length||!plans.every(safe)||
+        new Set(plans.map(p=>p.id)).size!==plans.length||
         plans.filter(p=>p.status==='trial').length!==1
       )throw Error('CATALOG_INVALID');
       render(plans);

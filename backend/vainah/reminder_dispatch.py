@@ -23,7 +23,8 @@ from .production_contracts import LiveContractError, h1_provision_intent
 from .reminder_preferences import _schema as preference_schema
 
 router = APIRouter(prefix="/api/internal/reminders", tags=["Scheduled reminders"])
-WINDOWS = (7, 3, 1)
+PAGE_SIZE = 40
+MAX_PROVIDER_CHECKS = 15
 
 
 def enabled() -> bool:
@@ -66,7 +67,7 @@ def _schema(cur) -> None:
     """)
 
 
-def _candidates() -> list[tuple]:
+def _candidates(after_expiry: datetime | None, after_owner: str) -> list[tuple]:
     """Only latest paid, delivered, non-reversed live orders can qualify."""
     with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
         PostgresLiveOrderLedger._schema(cur)
@@ -85,14 +86,27 @@ def _candidates() -> list[tuple]:
             FROM newest_delivery AS orders
             WHERE orders.h1_expires_at > now()
               AND orders.h1_expires_at <= now()+interval '7 days'
+              AND (%s::timestamptz IS NULL OR
+                   (orders.h1_expires_at, orders.owner_ref) > (%s, %s))
               AND NOT EXISTS (
                 SELECT 1 FROM vainah_live_orders AS reversal
                 WHERE reversal.owner_ref=orders.owner_ref
                   AND reversal.payment_state IN ('refunded','chargeback')
               )
-            ORDER BY orders.h1_expires_at ASC LIMIT 15
-        """)
+            ORDER BY orders.h1_expires_at, orders.owner_ref LIMIT %s
+        """, (after_expiry, after_expiry, after_owner, PAGE_SIZE))
         return cur.fetchall()
+
+
+async def _candidate_rows():
+    expiry, owner_ref = None, ""
+    while True:
+        rows = await run_in_threadpool(_candidates, expiry, owner_ref)
+        for row in rows:
+            yield row
+        if len(rows) < PAGE_SIZE:
+            return
+        owner_ref, _, expiry = rows[-1]
 
 
 def _claim(owner_hash: str, expiry: datetime, days: int) -> bool:
@@ -123,7 +137,8 @@ def _complete(owner_hash: str, expiry: datetime, days: int) -> None:
         """, (owner_hash, expiry, days))
 
 
-def _eligible(owner_hash: str, owner_ref: str, expiry: datetime) -> bool:
+def _eligible(owner_hash: str, owner_ref: str, expiry: datetime,
+              unclaimed_day: int | None = None) -> bool:
     """Recheck consent and paid, delivered, non-reversed live order before IO."""
     with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
         _schema(cur)
@@ -138,8 +153,11 @@ def _eligible(owner_hash: str, owner_ref: str, expiry: datetime) -> bool:
             ) AND NOT EXISTS (
                 SELECT 1 FROM vainah_live_orders WHERE owner_ref=%s
                   AND payment_state IN ('refunded','chargeback')
+            ) AND NOT EXISTS (
+                SELECT 1 FROM vainah_reminder_deliveries
+                WHERE owner_hash=%s AND expiry_at=%s AND threshold_days=%s
             )
-        """, (owner_hash, owner_ref, expiry, owner_ref))
+        """, (owner_hash, owner_ref, expiry, owner_ref, owner_hash, expiry, unclaimed_day))
         return bool(cur.fetchone()[0])
 
 
@@ -152,8 +170,10 @@ async def run_batch() -> dict:
     if len(signing) < 32:
         raise HTTPException(503, "REMINDER_SERVICE_NOT_CONFIGURED")
 
-    checked = sent = 0
-    for owner_ref, cipher, expiry in await run_in_threadpool(_candidates):
+    checked = sent = provider_checks = 0
+    async for owner_ref, cipher, expiry in _candidate_rows():
+        if provider_checks >= MAX_PROVIDER_CHECKS:
+            break
         checked += 1
         try:
             recipient = unseal_live_secret(cipher).strip().lower()
@@ -168,12 +188,13 @@ async def run_batch() -> dict:
             ).hexdigest()
             day = threshold(expiry, datetime.now(UTC))
             if day is None or not await run_in_threadpool(
-                _eligible, owner_hash, owner_ref, expiry
+                _eligible, owner_hash, owner_ref, expiry, day
             ):
                 continue
             name = h1_provision_intent(
                 email=recipient, plan_id="30", signing_key=signing,
             ).client_name
+            provider_checks += 1
             state = await read_h1_issued_client_status(name)
             if not state.get("found") or not state.get("active"):
                 continue

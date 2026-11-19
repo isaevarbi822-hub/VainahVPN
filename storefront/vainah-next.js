@@ -15,7 +15,7 @@
     budget:'all'
   };
   let paid=null;
-  const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0});
+  const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
   const money=value=>fmt.format(value)+' ₽';
   const staticOrigin='https://vainahvpn.onrender.com';
   const backend='https://vainahvpn-python-preview.onrender.com';
@@ -101,7 +101,7 @@
         minimumFractionDigits:2,maximumFractionDigits:2
       }).format(Number(plan.price_rub)/plan.days)+' ₽ за день');
       const link=make('a','Выбрать подписку ↗','vx-next-offer-link');
-      link.href=plan.checkout_path;
+      link.href=apiOrigin+plan.checkout_path;
       card.append(caption,title,details,price,perDay,link);
       results.append(card);
     }
@@ -124,20 +124,19 @@
     try{
       const controller=new AbortController();
       const timeout=window.setTimeout(()=>controller.abort(),12000);
-      let response;
+      let data;
       try{
-        response=await fetch(apiOrigin+'/api/site/tariffs',{
+        const response=await fetch(apiOrigin+'/api/site/tariffs',{
           method:'GET',cache:'no-store',credentials:'omit',
           headers:{Accept:'application/json'},signal:controller.signal
         });
+        if(!response.ok)throw Error('CATALOG_UNAVAILABLE');
+        data=await response.json();
       }finally{window.clearTimeout(timeout);}
-      if(!response.ok)throw Error('CATALOG_UNAVAILABLE');
-      const data=await response.json();
-      if(data.total!==76||!Array.isArray(data.plans)||data.plans.length!==76||
-         new Set(data.plans.map(p=>p?.id)).size!==76)throw Error('CATALOG_INVALID');
-      const confirmed=data.plans.filter(p=>p.status==='existing');
-      if(confirmed.length!==75||!confirmed.every(safe)||
-         data.plans.filter(p=>p.status==='trial').length!==1)
+      if(!Array.isArray(data.plans)||data.total!==data.plans.length||
+         new Set(data.plans.map(p=>p?.id)).size!==data.plans.length)throw Error('CATALOG_INVALID');
+      const confirmed=data.plans.filter(p=>p?.status==='existing');
+      if(!confirmed.length||!confirmed.every(safe))
         throw Error('CATALOG_INVALID');
       paid=confirmed;
       render();

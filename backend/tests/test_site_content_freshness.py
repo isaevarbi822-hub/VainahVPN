@@ -48,12 +48,17 @@ def test_public_prices_and_marketing_describe_the_actual_fifty_plan_backend():
         assert response.json()["total"] == 76
         paid = client.get("/api/shop/plans")
         assert paid.status_code == 200
-        assert len(paid.json()["items"]) == 75
+        checkout = {plan["id"]: (plan["title"], plan["days"], plan["devices"], plan["priceRub"])
+                    for plan in paid.json()["items"]}
+        storefront = {plan["id"]: (plan["title"], plan["days"], plan["devices"], plan["price_rub"])
+                      for plan in response.json()["plans"] if plan["checkout_supported"]}
+        assert len(checkout) == 75
+        assert storefront == checkout
 
 
 def test_shop_and_help_no_longer_advertise_legacy_rates_or_telegram_checkout():
     expected = {
-        "checkout.html": ("75 платных тарифов", "RollyPay"),
+        "checkout.html": ("Оформление подписки", "RollyPay", "Platega"),
         "help.html": ("75 платных тарифов", "серверного каталога"),
         "hub.html": ("Срок от 2 до 730 дней", "RollyPay"),
         "trial.html": ("Актуальные цены загружаются с сервера", "10 ГБ"),
@@ -88,7 +93,7 @@ def test_final_fifty_plan_copy_and_live_support_are_consistent():
         "help.html": ("support-center.html", "серверного каталога"),
         "hub.html": ("75 платных тарифов", "Здесь отображаются заказы"),
         "compare.html": (
-            "75 платных тарифов доступны к оформлению",
+            "Сопоставь срок, число устройств и полную стоимость",
             "Загружаем актуальные тарифы",
         ),
         "terms.html": ("18 ноября 2026", "75 платных тарифов"),

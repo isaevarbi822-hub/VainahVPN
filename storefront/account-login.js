@@ -16,8 +16,11 @@
   const emailField=$('#auth-email-input');
   const codeField=$('#auth-email-code');
   const emailMsg=$('[data-auth-message="email"]');
+  const requestButton=emailForm?.querySelector('button[type="submit"]');
+  const verifyButton=verifyForm?.querySelector('button[type="submit"]');
   let requestedEmail='';
   let ready=false;
+  let emailBusy=false;
   let telegramLoading=false;
   let telegramMounted=false;
   let telegramOidcReady=false;
@@ -31,6 +34,11 @@
     INVALID_ORIGIN:'Некорректный адрес сайта. Открой кабинет на Render.'
   };
   function say(message){if(emailMsg)emailMsg.textContent=message;}
+  function setEmailBusy(busy){
+    emailBusy=busy;
+    if(requestButton)requestButton.disabled=busy||!ready;
+    if(verifyButton)verifyButton.disabled=busy||!ready;
+  }
   function select(method){
     for(const tab of tabs){
       const chosen=tab.dataset.authTab===method;
@@ -51,36 +59,50 @@
     });
   }
   async function api(path,body){
-    const response=await fetch(path,{
-      method:'POST',credentials:'same-origin',cache:'no-store',
-      headers:{'Content-Type':'application/json','Accept':'application/json'},
-      body:JSON.stringify(body)
-    });
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw Error(data.detail||'Сервер недоступен');
-    return data;
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),15000);
+    try{
+      const response=await fetch(path,{
+        method:'POST',credentials:'same-origin',cache:'no-store',
+        headers:{'Content-Type':'application/json','Accept':'application/json'},
+        body:JSON.stringify(body),signal:controller.signal
+      });
+      const data=await response.json().catch(error=>{
+        if(controller.signal.aborted)throw error;
+        return {};
+      });
+      if(!response.ok)throw Error(data.detail||'Сервер недоступен');
+      return data;
+    }catch(error){
+      if(controller.signal.aborted)throw Error('Сервер не ответил вовремя. Повтори попытку.');
+      throw error;
+    }finally{clearTimeout(timer);}
   }
   if(emailForm)emailForm.addEventListener('submit',async event=>{
     event.preventDefault();
-    if(!ready||!emailField?.value)return;
-    const button=emailForm.querySelector('button[type="submit"]');
-    button.disabled=true;
+    const email=emailField?.value.trim();
+    if(!ready||emailBusy||!email)return;
+    setEmailBusy(true);
     try{
-      requestedEmail=emailField.value.trim();
-      await api('/api/email-auth/request',{email:requestedEmail});
+      const result=await api('/api/email-auth/request',{email});
+      if(result.sent!==true)throw Error('Сервер не подтвердил отправку.');
+      requestedEmail=email;
       verifyForm.hidden=false;
       codeField.hidden=false;
+      codeField.value='';
       codeField.focus();
-      say('Код отправлен. Проверь входящие и спам. Он действует 10 минут.');
+      say('Код отправлен на '+email+'. Он действует 10 минут.');
     }catch(error){
-      say(errorMessages[error.message]||'Не удалось отправить код: '+error.message);
-    }finally{button.disabled=false;}
+      const message=errorMessages[error.message]||'Не удалось отправить код: '+error.message;
+      say(requestedEmail&&requestedEmail!==email
+        ?message+' Последний отправленный код относится к '+requestedEmail+'.'
+        :message);
+    }finally{setEmailBusy(false);}
   });
   if(verifyForm)verifyForm.addEventListener('submit',async event=>{
     event.preventDefault();
-    if(!ready||!requestedEmail||!codeField?.value)return;
-    const button=verifyForm.querySelector('button[type="submit"]');
-    button.disabled=true;
+    if(!ready||emailBusy||!requestedEmail||!codeField?.value)return;
+    setEmailBusy(true);
     try{
       const result=await api('/api/email-auth/verify',{
         email:requestedEmail,code:codeField.value.trim()
@@ -95,7 +117,7 @@
       }
     }catch(error){
       say(errorMessages[error.message]||'Не удалось подтвердить код: '+error.message);
-    }finally{button.disabled=false;}
+    }finally{setEmailBusy(false);}
   });
   async function initTelegram(){
     if(telegramOidcReady||telegramMounted||telegramLoading)return;

@@ -43,5 +43,6 @@ def test_storefront_does_not_hide_trial_or_declare_payment_available_without_api
     assert 'href="trial.html"' in home
     assert "data-checkout-message" in home
     assert "/api/shop/config" in js
-    assert "checkout_ready===true" in js
-    assert "Онлайн-оформление доступно после подтверждения email" in js
+    assert "typeof data?.checkout_ready!=='boolean'" in js
+    assert "typeof data?.platega_ready!=='boolean'" in js
+    assert "Для оплаты подтверди email" in js
