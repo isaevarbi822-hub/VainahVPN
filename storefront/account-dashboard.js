@@ -734,10 +734,13 @@
       clearQR();
     });
     window.addEventListener('pageshow',event=>{
-      if(event?.persisted&&user)void refresh();
+      if(!event?.persisted)return;
+      if(user)void refresh();
+      else void resumeSession();
     });
     window.addEventListener('online',()=>{
       if(user&&!currentData)void refresh();
+      else if(!user)void resumeSession();
     });
   }
   const get=$('account-get-vpn');
@@ -840,17 +843,24 @@
   ])registerImportFallback(id,client,manual);
   const logout=$('account-exit');
   if(logout)logout.addEventListener('click',async()=>{
-    // Clear private links immediately, even while the logout request is pending.
-    showSession(null);
+    if(!user||logout.disabled)return;
+    logout.disabled=true;
     const session=sessionEpoch;
+    // Hide private URLs and QR immediately, but don't claim logout succeeded
+    // until the server has actually cleared both authentication cookies.
+    clearSubscription();
+    clearQR();
+    setAccountHealth('Завершаем выход из аккаунта…');
     try{
       await api('/api/email-auth/logout',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({})
       });
+      if(sessionEpoch===session)showSession(null);
     }catch{
-      if(sessionEpoch===session)write('account-auth-status','Не удалось завершить выход. Повтори попытку.');
-    }
+      if(sessionEpoch===session)setAccountHealth(
+        'Не удалось завершить выход. Проверь соединение и нажми «Выйти из аккаунта» ещё раз.','error');
+    }finally{logout.disabled=false;}
   });
   function downloadCalendar(){
     const date=validExpiry(currentData?.subscription?.expires_at);
@@ -983,28 +993,41 @@
     }
     finally{button.disabled=false;}
   });
+  let restoringSession=false;
   async function resumeSession(){
+    if(restoringSession||user)return;
+    restoringSession=true;
     const session=sessionEpoch;
-    // Email purchases and operator grants are tied to verified mailboxes.
-    // Prefer a valid email session when both legacy cookies are present.
+    // A network error is NOT proof that cookies are invalid. Only show the
+    // guest state after both identity endpoints answer successfully.
+    let verificationUnavailable=false;
     try{
-      const email=await api('/api/email-auth/account');
+      // Email purchases and operator grants are tied to verified mailboxes.
+      // Prefer a valid email session when both legacy cookies are present.
+      try{
+        const email=await api('/api/email-auth/account');
+        if(sessionEpoch!==session)return;
+        if(email.authenticated&&email.user){
+          showSession(email.user);
+          return;
+        }
+      }catch{verificationUnavailable=true;}
       if(sessionEpoch!==session)return;
-      if(email.authenticated&&email.user){
-        showSession(email.user);
+      try{
+        const tg=await api('/api/telegram/account');
+        if(sessionEpoch!==session)return;
+        if(tg.authenticated&&tg.user){
+          showSession({...tg.user,auth_method:'telegram'});
+          return;
+        }
+      }catch{verificationUnavailable=true;}
+      if(sessionEpoch!==session)return;
+      if(verificationUnavailable){
+        setAccountHealth('Не удалось проверить сохранённый вход. Подключись к интернету и открой кабинет снова.','error');
         return;
       }
-    }catch{ /* Telegram can still restore independently. */ }
-    if(sessionEpoch!==session)return;
-    try{
-      const tg=await api('/api/telegram/account');
-      if(sessionEpoch!==session)return;
-      if(tg.authenticated&&tg.user){
-        showSession({...tg.user,auth_method:'telegram'});
-        return;
-      }
-    }catch{ /* No active Telegram session. */ }
-    if(sessionEpoch===session)showSession(null);
+      showSession(null);
+    }finally{restoringSession=false;}
   }
   // Fail closed before the first async authentication check resolves.
   updatePrivateActions();
