@@ -12,15 +12,26 @@
   const statusNames={open:'Открыто',answered:'Есть ответ',closed:'Закрыто'};
   let ready=false,authenticated=false,loading=false;
   let emailNotificationsAvailable=false;
+  let listRevision=0;
   const note=value=>{status.textContent=value};
   async function request(url,options={}){
-    const response=await fetch(url,{credentials:'same-origin',cache:'no-store',
-      headers:{Accept:'application/json',...(options.headers||{})},...options});
-    const body=await response.json().catch(()=>({}));
-    if(!response.ok)throw Error(
-      typeof body.detail==='string'?body.detail:'Ошибка сервера ('+response.status+')'
-    );
-    return body;
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),20000);
+    try{
+      const response=await fetch(url,{credentials:'same-origin',cache:'no-store',...options,
+        headers:{Accept:'application/json',...(options.headers||{})},signal:controller.signal});
+      const body=await response.json().catch(()=>null);
+      if(!response.ok){
+        const error=Error(typeof body?.detail==='string'?body.detail:'Ошибка сервера ('+response.status+')');
+        error.status=response.status;
+        throw error;
+      }
+      if(!body||typeof body!=='object')throw Error('Некорректный ответ сервера');
+      return body;
+    }catch(error){
+      if(controller.signal.aborted)throw Error('Сервер не ответил вовремя');
+      throw error;
+    }finally{clearTimeout(timeout);}
   }
   const label=(tag,cls,text)=>{
     const element=document.createElement(tag);element.className=cls;
@@ -31,6 +42,14 @@
     return Number.isFinite(date.getTime())?
       new Intl.DateTimeFormat('ru-RU',{dateStyle:'medium',timeStyle:'short'}).format(date):'Дата неизвестна';
   };
+  function requireLogin(){
+    authenticated=false;
+    submit.disabled=true;
+    list.replaceChildren();
+    note('Для создания и просмотра обращений сначала войди в личный кабинет.');
+    const signIn=label('a','vs-strong-link','Войти в кабинет');
+    signIn.href='account.html';status.append(' ',signIn);
+  }
   function render(tickets){
     list.replaceChildren();
     if(!tickets.length){
@@ -57,7 +76,7 @@
       notices.append(label('span','vs-muted',ticket.email_notifications===true
         ?'Уведомления о следующих ответах включены.'
         :'Уведомления на почту выключены.'));
-      if(emailNotificationsAvailable){
+      if(emailNotificationsAvailable||ticket.email_notifications===true){
         const toggle=label('button','vs-notification-button',
           ticket.email_notifications===true?'Выключить письма':'Уведомлять по email');
         toggle.type='button';
@@ -154,15 +173,21 @@
   }
   async function load(){
     if(!authenticated)return;
+    const revision=++listRevision;
     refresh.disabled=true;
     try{
       const response=await request('/api/support/tickets');
-      render(Array.isArray(response.items)?response.items:[]);
+      if(revision!==listRevision)return;
+      if(!Array.isArray(response.items))throw Error('Сервер не вернул список обращений');
+      render(response.items);
     }catch(error){
-      list.replaceChildren(label('p','vs-muted','Не удалось получить историю: '+error.message));
-    }finally{refresh.disabled=false;}
+      if(revision!==listRevision)return;
+      if(error.status===401)requireLogin();
+      else list.replaceChildren(label('p','vs-muted','Не удалось получить историю: '+error.message));
+    }finally{if(revision===listRevision)refresh.disabled=false;}
   }
   async function init(){
+    refresh.disabled=true;
     try{
       const [config,telegram,email]=await Promise.all([
         request('/api/support/config'),
@@ -179,21 +204,18 @@
       if(notifyHint&&!emailNotificationsAvailable)
         notifyHint.textContent='Почтовая доставка временно не настроена. Ответы можно читать в истории заявок.';
       if(!authenticated){
-        note('Для создания и просмотра обращений сначала войди в личный кабинет.');
-        const signIn=label('a','vs-strong-link','Войти в кабинет');
-        signIn.href='account.html';status.append(' ',signIn);
+        requireLogin();
       }else if(!ready){
         note('Центр заявок ещё не настроен оператором. Используй Telegram @VainahSupport.');
       }else note('Вход подтверждён. Можно создать обращение и просмотреть историю.');
       submit.disabled=!ready||!authenticated;
-      refresh.disabled=!authenticated;
       if(authenticated)void load();
     }catch(error){
       note('Не удалось проверить настройки поддержки: '+error.message);
-    }
+    }finally{if(!authenticated)refresh.disabled=false;}
   }
   message.addEventListener('input',()=>{counter.textContent=message.value.length+' / 1500'});
-  refresh.addEventListener('click',load);
+  refresh.addEventListener('click',()=>authenticated?load():init());
   form.addEventListener('submit',async event=>{
     event.preventDefault();
     if(!ready||!authenticated||loading)return;
@@ -209,8 +231,8 @@
         (notifyToggle?.checked?'Если почта подтверждена, придёт уведомление.':''));
       await load();
     }catch(error){
-      note('Обращение не отправлено: '+error.message+
-        '. Не повторяй отправку, если не уверен в результате — сначала обнови историю.');
+      if(error.status===401)requireLogin();
+      else note('Сервер не подтвердил отправку: '+error.message+'. Сначала обнови историю.');
     }finally{
       loading=false;submit.disabled=!ready||!authenticated;
     }

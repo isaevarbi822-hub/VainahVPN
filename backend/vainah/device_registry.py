@@ -176,6 +176,7 @@ def devices(request: Request) -> dict:
 @router.get("/limits")
 async def verified_device_limits(request: Request) -> dict:
     """Paid plan limit is distinct from saved labels and live device sessions."""
+    from .billing import get_plan
     from .customer_portal import PLAN_LABELS
     from .customer_portal import overview as customer_overview
     owner = _owner(request)
@@ -191,9 +192,16 @@ async def verified_device_limits(request: Request) -> dict:
         orders = data.get("orders") if isinstance(data.get("orders"), list) else []
         for order in orders:
             if isinstance(order, dict) and order.get("paid") is True and order.get("delivered") is True:
-                plan = PLAN_LABELS.get(order.get("plan_id"))
-                if plan:
-                    limit = plan[1]
+                plan_id = order.get("plan_id")
+                if not isinstance(plan_id, str):
+                    continue
+                plan = get_plan(plan_id)
+                if plan is not None:
+                    limit = plan["devices"]
+                    break
+                legacy_plan = PLAN_LABELS.get(plan_id)
+                if legacy_plan:
+                    limit = legacy_plan[1]
                     break
     return {
         "plan_device_limit": limit,
@@ -202,7 +210,10 @@ async def verified_device_limits(request: Request) -> dict:
         "saved_labels": len(labels),
         "label_registry_limit": MAX_DEVICES,
         "device_disconnect_supported": False,
-        "message": "Лимит тарифа подтверждён заказом, но H1Cloud не предоставляет список активных устройств и освобождение слотов.",
+        "message": (
+            "Лимит тарифа подтверждён заказом. " if limit is not None
+            else "Лимит оплаченного тарифа не подтверждён. "
+        ) + "Список активных устройств и свободных слотов H1Cloud недоступен.",
     }
 
 

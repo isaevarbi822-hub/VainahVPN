@@ -38,11 +38,16 @@ def _origin() -> str:
     origin = os.environ.get(
         "PUBLIC_SITE_ORIGIN", "https://vainahvpn-python-preview.onrender.com"
     ).rstrip("/")
-    parsed = urlsplit(origin)
-    if (parsed.scheme != "https" or not parsed.netloc
-            or parsed.username or parsed.password
-            or parsed.path or parsed.query or parsed.fragment):
-        raise HTTPException(503, "HANDOFF_PUBLIC_ORIGIN_INVALID")
+    try:
+        parsed = urlsplit(origin)
+        port = parsed.port
+        if (parsed.scheme != "https" or not parsed.hostname or len(origin) > 300
+                or parsed.username is not None or parsed.password is not None
+                or parsed.path or parsed.query or parsed.fragment
+                or port == 0):
+            raise ValueError
+    except ValueError:
+        raise HTTPException(503, "HANDOFF_PUBLIC_ORIGIN_INVALID") from None
     return origin
 
 
@@ -97,9 +102,9 @@ def _consume(owner: str, token: str) -> bool:
         with psycopg.connect(database_url(), connect_timeout=4) as conn, conn.cursor() as cur:
             _schema(cur)
             cur.execute("""
-                UPDATE vainah_qr_handoffs SET used_at=now()
+                UPDATE vainah_qr_handoffs SET used_at=clock_timestamp()
                 WHERE token_hash=%s AND owner_hash=%s
-                  AND used_at IS NULL AND expires_at>now()
+                  AND used_at IS NULL AND expires_at>clock_timestamp()
                 RETURNING token_hash
             """, (_digest(token), owner))
             return cur.fetchone() is not None
@@ -111,10 +116,11 @@ def _consume(owner: str, token: str) -> bool:
 async def create_handoff_qr(request: Request) -> Response:
     require_same_origin(request)
     owner = _owner(_email(request))
+    origin = _origin()
     # Do not create transferable tokens for unpaid or unprovisioned users.
     await access(request)
     token = _issue(owner)
-    destination = _origin() + "/handoff.html#t=" + token
+    destination = origin + "/handoff.html#t=" + token
     try:
         qr = qrcode.QRCode(error_correction=ERROR_CORRECT_M, box_size=5, border=4)
         qr.add_data(destination)

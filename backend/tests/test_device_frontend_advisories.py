@@ -28,6 +28,8 @@ global.document={getElementById:$,createElement:()=>new Node()};
 global.window={confirm:()=>true};
 $('vd-platform').value='android';
 let registered=[];
+let listStatus=503;
+const pendingLimits=[];
 const secret='user-private-key-NOT-FOR-DEVICE-REGISTRY';
 const requests=[];
 global.fetch=async(url,options={})=>{
@@ -39,9 +41,12 @@ global.fetch=async(url,options={})=>{
     registered.push({id:'a'.repeat(24),...body});
     return {ok:true,json:async()=>({id:'a'.repeat(24)})};
   }
-  if(url==='/api/account/devices'&&options.method==='GET')
+  if(url==='/api/account/devices'&&options.method==='GET'){
+    if(listStatus!==200)return {ok:false,status:listStatus,json:async()=>({})};
     return {ok:true,json:async()=>({items:[...registered],source:'customer_managed_labels',
       live_sessions_available:false})};
+  }
+  if(url==='/api/account/devices/limits')return new Promise(resolve=>pendingLimits.push(resolve));
   if(url==='/api/account/devices/'+'a'.repeat(24)&&options.method==='DELETE'){
     registered=[];return {ok:true,json:async()=>({removed:true,vpn_disconnected:false})};
   }
@@ -50,6 +55,11 @@ global.fetch=async(url,options={})=>{
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
   vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
+  await tick();await tick();
+  assert.equal($('vd-add').disabled,true);
+  assert.equal($('vd-refresh').disabled,false);
+  listStatus=200;
+  $('vd-refresh').events.click();
   await tick();await tick();
   assert.equal($('vd-add').disabled,false);
   assert.equal($('vd-list').children.length,1);
@@ -67,6 +77,14 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   assert.ok($('vd-status').textContent.includes('не изменено'));
   assert.equal(requests.filter(r=>r.options.method==='DELETE').length,1);
   assert.equal(requests.filter(r=>r.url.includes('/api/create')).length,0);
+  listStatus=401;
+  $('vd-refresh').events.click();
+  await tick();
+  for(const resolve of pendingLimits)resolve({ok:true,json:async()=>({plan_device_limit:6})});
+  await tick();
+  assert.equal($('vd-list').children[1].href,'account.html');
+  assert.equal($('vd-add').disabled,true);
+  assert.equal($('vd-plan-limit').textContent,'Лимит тарифа не подтверждён.');
 })().catch(error=>{console.error(error);process.exitCode=1});
 """
     result=subprocess.run(["node", "-e", harness, str(SITE / "my-devices.js")],

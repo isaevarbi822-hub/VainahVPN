@@ -39,9 +39,23 @@ def _schema(cur):
     """)
 
 
+def _preserve_legacy_reply(cur, ticket_id: str) -> None:
+    cur.execute("""
+        INSERT INTO vainah_support_messages(ticket_id, sender, content, created_at)
+        SELECT ticket.ticket_id, 'operator', ticket.operator_reply, ticket.updated_at
+        FROM vainah_support_tickets AS ticket
+        WHERE ticket.ticket_id=%s AND char_length(ticket.operator_reply) BETWEEN 2 AND 1500
+          AND NOT EXISTS (
+            SELECT 1 FROM vainah_support_messages AS history
+            WHERE history.ticket_id=ticket.ticket_id AND history.sender='operator'
+          )
+    """, (ticket_id,))
+
+
 def append_operator_reply(cur, ticket_id: str, message: str) -> None:
     """Runs within the existing operator update transaction."""
     _schema(cur)
+    _preserve_legacy_reply(cur, ticket_id)
     cur.execute("""
         INSERT INTO vainah_support_messages(ticket_id, sender, content)
         VALUES (%s, 'operator', %s)
@@ -68,20 +82,22 @@ def _history(ticket_id: str, owner: str | None) -> list[dict]:
                 raise HTTPException(404, "SUPPORT_TICKET_NOT_FOUND")
             cur.execute("""
                 SELECT sender, content, created_at
-                FROM vainah_support_messages
-                WHERE ticket_id=%s ORDER BY message_id ASC LIMIT 50
+                FROM (
+                    SELECT sender, content, created_at, message_id
+                    FROM vainah_support_messages
+                    WHERE ticket_id=%s ORDER BY message_id DESC LIMIT 50
+                ) AS recent
+                ORDER BY created_at ASC, message_id ASC
             """, (ticket_id,))
             records=cur.fetchall()
             result=[{"sender":"customer","message":ticket[0],
                      "created_at":ticket[2].isoformat()}]
-            result.extend({"sender":row[0],"message":row[1],
-                           "created_at":row[2].isoformat()} for row in records)
             # Existing pre-migration replies did not create message records.
-            if ticket[1] and not any(
-                row[0] == "operator" and row[1] == ticket[1] for row in records
-            ):
+            if ticket[1] and not any(row[0] == "operator" for row in records):
                 result.append({"sender":"operator","message":ticket[1],
                                "created_at":ticket[3].isoformat()})
+            result.extend({"sender":row[0],"message":row[1],
+                           "created_at":row[2].isoformat()} for row in records)
             return result
     except psycopg.Error:
         raise HTTPException(503, "SUPPORT_DATABASE_UNAVAILABLE") from None
@@ -115,6 +131,7 @@ def _followup(owner: str, ticket_id: str, message: str) -> None:
             recent=cur.fetchone()
             if recent and recent[0]:
                 raise HTTPException(429, "SUPPORT_FOLLOWUP_COOLDOWN")
+            _preserve_legacy_reply(cur, ticket_id)
             cur.execute("""
                 INSERT INTO vainah_support_messages(ticket_id, sender, content)
                 VALUES (%s,'customer',%s)

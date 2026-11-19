@@ -1,4 +1,5 @@
 """Support followups stay owner-bound, private and secret-free."""
+import psycopg
 from fastapi.testclient import TestClient
 
 from vainah import email_auth, support_thread
@@ -67,3 +68,42 @@ def test_conversation_views_only_use_safe_dom_text():
         assert "textContent" in script
         assert "innerHTML" not in script
         assert "localStorage" not in script
+
+
+def test_legacy_reply_is_preserved_when_customer_and_operator_continue(monkeypatch, postgres_url):
+    monkeypatch.setenv("SESSION_SIGNING_KEY", SIGN)
+    monkeypatch.setenv("VAINAH_SUPPORT_OPERATOR_KEY", OP)
+    monkeypatch.setenv("DATABASE_URL", postgres_url)
+    with _client("alice@example.com") as customer:
+        created = customer.post("/api/support/tickets", headers={"Origin": ORIGIN},
+                                json={"category": "account", "message": "Первое сообщение клиента"})
+        assert created.status_code == 201
+        ticket = created.json()["id"]
+        path = f"/api/support/tickets/{ticket}/messages"
+        with psycopg.connect(postgres_url) as conn:
+            conn.execute("""
+                UPDATE vainah_support_tickets
+                SET operator_reply='Старый ответ', status='answered' WHERE ticket_id=%s
+            """, (ticket,))
+        sent = customer.post(path, headers={"Origin": ORIGIN}, json={"message": "Новое уточнение"})
+        assert sent.status_code == 201
+        response = customer.post(f"/api/support/operator/tickets/{ticket}/reply",
+                                 headers={"Origin": ORIGIN, "X-Vainah-Support-Key": OP},
+                                 json={"reply": "Новый ответ"})
+        assert response.status_code == 200
+        assert [row["message"] for row in customer.get(path).json()["items"]] == [
+            "Первое сообщение клиента", "Старый ответ", "Новое уточнение", "Новый ответ",
+        ]
+
+        with psycopg.connect(postgres_url) as conn, conn.cursor() as cur:
+            cur.executemany("""
+                INSERT INTO vainah_support_messages(ticket_id, sender, content)
+                VALUES (%s,'operator',%s)
+            """, [(ticket, f"Ответ {index}") for index in range(51)])
+            cur.execute("UPDATE vainah_support_messages SET created_at=now()-interval '2 minutes' WHERE sender='customer'")
+        assert customer.post(path, headers={"Origin": ORIGIN},
+                             json={"message": "Самое новое уточнение"}).status_code == 201
+        history = [row["message"] for row in customer.get(path).json()["items"]]
+        assert len(history) == 51
+        assert history[0] == "Первое сообщение клиента"
+        assert history[-2:] == ["Ответ 50", "Самое новое уточнение"]
