@@ -6,7 +6,6 @@ These checks never contact payment providers or access account credentials.
 import subprocess
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2] / "storefront"
 PAGES = ["trial.html","my-devices.html","notifications.html","gifts.html","referrals.html","rewards.html","handoff.html","operator-grants.html","operator-pilot.html","operations.html","support-operator.html"]
 
