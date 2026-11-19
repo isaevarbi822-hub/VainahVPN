@@ -91,7 +91,7 @@ def test_account_page_redirects_before_loading_login_and_keeps_query():
     html = (ROOT / "account.html").read_text(encoding="utf-8")
     assert 'src="/static-auth-redirect.js?v=20261119-stay-login1"' in html
     assert html.index('src="/static-auth-redirect.js') < html.index('src="account-dashboard.js')
-    assert "После входа" in html
+    assert "Вход сохраняется до 30 дней" in html
     assert "до 30 дней" in html
 
 
