@@ -104,4 +104,18 @@ class SubscriptionPayloadParserTest {
                 .map { it.uri }
         )
     }
+
+    @Test fun repeatedEntriesDoNotUseMultipleServerSlots() {
+        val repeated = List(54) { node } + other
+        assertEquals(listOf(node, other),
+            SubscriptionPayloadParser.nodes(repeated.joinToString("\n")).map { it.uri })
+        val json = JSONObject().put("links", JSONArray(repeated))
+        assertEquals(listOf(node, other),
+            SubscriptionPayloadParser.nodes(json.toString()).map { it.uri })
+    }
+
+    @Test fun acceptsUtf8BomInsideBase64Subscription() {
+        val encoded = Base64.getEncoder().encodeToString(("\uFEFF" + node).toByteArray())
+        assertEquals(node, SubscriptionPayloadParser.nodes(encoded).single().uri)
+    }
 }

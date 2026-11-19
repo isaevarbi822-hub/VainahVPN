@@ -45,6 +45,30 @@ assert.equal(fetches,0);
     _node("connection-check.js", harness)
 
 
+def test_standalone_pages_route_to_backend_before_page_scripts():
+    pages = ("gifts", "handoff", "my-devices", "notifications", "operations", "operator-grants",
+             "operator-pilot", "referrals", "rewards", "support-operator", "trial")
+    with TestClient(app) as client:
+        assert client.get("/backend-page.js").status_code == 200
+        for page in pages:
+            response = client.get(f"/{page}.html")
+            assert response.status_code == 200
+            scripts = response.text.split("<script", 2)
+            assert scripts[1].startswith(' src="/backend-page.js?'), page
+    _node("backend-page.js", r"""
+const assert=require('node:assert/strict'), fs=require('node:fs'), vm=require('node:vm');
+const source=fs.readFileSync(process.argv[1],'utf8');
+const staticOrigin='https://vainahvpn.onrender.com';
+const backend='https://vainahvpn-python-preview.onrender.com';
+for(const origin of [staticOrigin, backend, 'http://localhost:8000']){
+ const path='/handoff.html?mode=test#t=fixture';
+ const redirects=[];
+ vm.runInNewContext(source,{URL,location:{origin,href:origin+path,replace(url){redirects.push(url)}}});
+ assert.deepEqual(redirects,origin===staticOrigin?[backend+path]:[]);
+}
+""")
+
+
 def test_public_control_checks_only_cors_allowed_catalog_not_checkout():
     script=(SITE/"command-hub.js").read_text(encoding="utf-8")
     assert "isPublicSite?'/api/site/tariffs':'/api/health'" in script

@@ -11,12 +11,20 @@
     return element;
   };
   const api=async(path,options={})=>{
-    const response=await fetch(path,{
-      method:'GET',cache:'no-store',credentials:'same-origin',
-      headers:{Accept:'application/json',...(options.headers||{})},
-      ...options,
-    });
-    const data=await response.json().catch(()=>({}));
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),30000);
+    let response,data;
+    try{
+      response=await fetch(path,{
+        method:'GET',cache:'no-store',credentials:'same-origin',
+        ...options,headers:{Accept:'application/json',...(options.headers||{})},
+        signal:controller.signal,
+      });
+      if(response.ok)data=await response.json();
+    }catch{
+      if(controller.signal.aborted)throw Error('Сервер не ответил вовремя. Проверь статус и повтори попытку.');
+      throw Error('Сервис подарков не ответил. Проверь соединение и повтори попытку.');
+    }finally{clearTimeout(timer);}
     if(!response.ok){
       const error=new Error(response.status===401?
         'Войди через подтверждённую почту в личном кабинете.':
@@ -30,6 +38,7 @@
       error.status=response.status;
       throw error;
     }
+    if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Некорректный ответ сервиса подарков.');
     return data;
   };
   const say=text=>{status.textContent=text;};
@@ -48,8 +57,8 @@
     section.append(node('strong',title),node('p',description));
     return section;
   };
-  let checkoutNonce=null;
-  let checkoutPlan=null;
+  const checkoutNonces=new Map();
+  let listRevision=0;
   function paidPageReady(info){
     root.replaceChildren();
     root.append(node('h2','Купить настоящую подарочную подписку'));
@@ -61,19 +70,12 @@
     root.append(explanation);
     const plan=node('select');
     plan.setAttribute('aria-label','Тариф подарочной карты');
-    const titles=new Map([
-      ['30','1 месяц'],['60','2 месяца'],['90','3 месяца'],
-      ['180','6 месяцев'],['365','1 год'],['365-family','Семейный год']
-    ]);
-    const offered=Array.isArray(info.plans)?info.plans:[];
-    const catalog=offered.length?offered:[
-      ...titles.entries()].map(([id,title])=>({id,title}));
+    const planIds=new Set(['30','60','90','180','365','365-family']);
+    const catalog=Array.isArray(info.plans)?info.plans:[];
     for(const offer of catalog){
-      if(!offer||!titles.has(offer.id))continue;
-      const price=typeof offer.price_rub==='string'&&
-        /^\d{1,6}\.\d{2}$/.test(offer.price_rub)
-          ?' · '+offer.price_rub+' ₽':'';
-      const option=node('option',titles.get(offer.id)+price);
+      if(!offer||!planIds.has(offer.id)||typeof offer.price_rub!=='string'||
+         !/^\d{1,6}\.\d{2}$/.test(offer.price_rub)||typeof offer.title!=='string'||!offer.title.trim())continue;
+      const option=node('option',offer.title+' · '+offer.price_rub+' ₽');
       option.value=offer.id;plan.append(option);
     }
     const planBox=node('div','','row');
@@ -81,14 +83,13 @@
       if(!window.crypto||typeof window.crypto.randomUUID!=='function'){
         throw Error('Браузер не поддерживает безопасное создание номера заказа.');
       }
-      if(checkoutPlan!==plan.value){
-        checkoutPlan=plan.value;
-        checkoutNonce=window.crypto.randomUUID();
-      }
+      const planId=plan.value;
+      if(!planId)throw Error('Выбери тариф подарочной карты.');
+      if(!checkoutNonces.has(planId))checkoutNonces.set(planId,window.crypto.randomUUID());
       const result=await api('/api/account/gift-cards/checkout',{
         method:'POST',headers:{'Content-Type':'application/json',
-          'Idempotency-Key':checkoutNonce},
-        body:JSON.stringify({plan_id:plan.value}),
+          'Idempotency-Key':checkoutNonces.get(planId)},
+        body:JSON.stringify({plan_id:planId}),
       });
       const link=new URL(String(result.pay_url||''));
       if(link.protocol!=='https:'||link.host!=='pay.rollypay.io'||
@@ -98,7 +99,10 @@
       }
       window.location.assign(link.href);
     });
-    checkout.disabled=info.purchase_enabled!==true;
+    checkout.disabled=info.purchase_enabled!==true||plan.options.length===0;
+    if(info.purchase_enabled===true&&!plan.options.length){
+      explanation.textContent='Цены подарочных тарифов не загрузились. Обнови страницу.';
+    }
     planBox.append(plan,checkout);root.append(planBox);
     root.append(node('h2','Активировать подарочный код'));
     root.append(node('p','Код действителен только после подтверждения оплаты. Войди в аккаунт получателя.','note'));
@@ -133,14 +137,16 @@
     const recipientSection=node('div');recipientSection.id='gift-recipient-list';
     root.append(recipientSection);
     root.append(action('Обновить статусы подарков',async()=>{
-      await refreshLists();
-      say('Статусы купленных и полученных подарков обновлены.');
+      const loaded=await refreshLists();
+      if(loaded===true)say('Статусы купленных и полученных подарков обновлены.');
+      if(loaded===false)say('Часть статусов не загрузилась. Подробности указаны рядом со списками.');
     },true));
   }
   async function refreshLists(){
     const buyer=document.getElementById('gift-buyer-list');
     const recipient=document.getElementById('gift-recipient-list');
     if(!buyer||!recipient)return;
+    const revision=++listRevision;
     buyer.replaceChildren(node('h2','Мои купленные подарки'));
     recipient.replaceChildren(node('h2','Полученные подарки'));
     try{
@@ -148,10 +154,11 @@
         api('/api/account/gift-cards/mine'),
         api('/api/account/gift-cards/received'),
       ]);
+      if(revision!==listRevision)return;
       const purchases=purchaseResult.status==='fulfilled'?purchaseResult.value:null;
       const received=receivedResult.status==='fulfilled'?receivedResult.value:null;
       const cards=Array.isArray(purchases?.items)?purchases.items:[];
-      if(purchaseResult.status==='rejected'){
+      if(!Array.isArray(purchases?.items)){
         buyer.append(node('p',purchaseResult.reason?.message||
           'Не удалось получить список купленных подарков.','warning'));
       }else if(!cards.length){
@@ -176,13 +183,14 @@
         buyer.append(card);
       }
       const receivedItems=Array.isArray(received?.items)?received.items:[];
-      if(receivedResult.status==='rejected'){
+      if(!Array.isArray(received?.items)){
         recipient.append(node('p',receivedResult.reason?.message||
           'Не удалось загрузить полученные подарки.','warning'));
       }else if(!receivedItems.length){
         recipient.append(node('p','Полученных подарков ещё нет.','note'));
       }
       for(const record of receivedItems){
+        if(!record||typeof record!=='object')continue;
         const card=item('Полученный тариф '+String(record.plan_id||''),
           'Выдача: '+String(record.delivery_state||'проверяется')+'.');
         if(record.can_finish===true&&typeof record.order_id==='string'&&
@@ -200,9 +208,11 @@
         }
         recipient.append(card);
       }
+      return Array.isArray(purchases?.items)&&Array.isArray(received?.items);
     }catch(error){
       buyer.append(node('p',error.message,'note'));
       recipient.append(node('p','Список недоступен. Обнови страницу после входа.','note'));
+      return false;
     }
   }
   async function initialize(){

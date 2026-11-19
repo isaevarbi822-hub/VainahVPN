@@ -8,13 +8,15 @@
   const linkBox = byId("trial-link-box");
   const copy = byId("copy");
   const open = byId("open");
+  const refreshButton = byId("refresh");
   let currentUrl = null;
   let busy = false;
   const messages = {
     eligible: "Можно активировать пробный доступ. Нужна только подтверждённая почта.",
     claimed: "Запрос принят, проверяется H1Cloud. Повторный запрос не создаст второй пробник.",
-    manual_review: "Активация требует проверки оператором. Не повторяй заявку — напиши в поддержку.",
-    delivered: "Пробная VPN-подписка выдана. Используй кнопку копирования ниже."
+    manual_review: "Активация требует проверки оператором. Обратись в поддержку.",
+    expired: "Срок пробной подписки закончился. Выбери тариф, чтобы продолжить пользоваться VPN.",
+    paid_customer: "Пробный доступ доступен новым клиентам. Активные подписки находятся в личном кабинете."
   };
   async function request(path, options = {}) {
     const ctrl = new AbortController();
@@ -44,79 +46,98 @@
       return url.href;
     } catch { return null; }
   }
+  function clearLink() {
+    currentUrl = null;
+    linkBox.hidden = true;
+    open.removeAttribute("href");
+    byId("trial-expiry").textContent = "";
+    copy.textContent = "Скопировать VPN-ссылку";
+  }
   function showLink(data) {
-    currentUrl = safeUrl(data.subscription_url);
-    linkBox.hidden = !currentUrl;
-    if (currentUrl) {
-      open.href = currentUrl;
-      open.referrerPolicy = "no-referrer";
-      const date = Date.parse(data.expires_at);
-      byId("trial-expiry").textContent = Number.isNaN(date)
-        ? "Действует 24 часа после выдачи."
-        : "Срок действия: " + new Date(date).toLocaleString("ru-RU");
-    } else {
-      open.removeAttribute("href");
-    }
+    const url = safeUrl(data.subscription_url);
+    const date = Date.parse(data.expires_at);
+    if (!url || !Number.isFinite(date)) throw new Error("Invalid trial access response");
+    currentUrl = url;
+    open.href = url;
+    byId("trial-expiry").textContent = "Срок действия: " + new Date(date).toLocaleString("ru-RU");
+    linkBox.hidden = false;
+  }
+  function promptLogin() {
+    login.hidden = false;
+    status.textContent = "Войди по email и подтверди его кодом, чтобы получить пробный VPN.";
+    claim.textContent = "Сначала войди";
+  }
+  function setBusy(value) {
+    busy = value;
+    refreshButton.disabled = value;
   }
   async function refresh() {
     if (busy) return;
-    busy = true;
+    setBusy(true);
     claim.disabled = true;
-    currentUrl = null;
-    linkBox.hidden = true;
+    clearLink();
     status.textContent = "Проверяем статус пробного доступа…";
     try {
-      const config = await request("/api/trial/config");
       const auth = await request("/api/email-auth/account");
       if (!auth.authenticated || !auth.user?.email) {
-        login.hidden = false;
-        status.textContent = "Войди по email и подтверди его кодом, чтобы получить пробный VPN.";
-        claim.textContent = "Сначала войди";
+        promptLogin();
         return;
       }
       login.hidden = true;
       const state = await request("/api/trial/status");
       status.textContent = messages[state.status] ||
         "Статус: " + String(state.status || "неизвестен");
-      if (state.status === "eligible" && state.can_claim === true &&
-          config.available === true) {
+      if (state.status === "eligible" && state.can_claim === true) {
         claim.disabled = false;
         claim.textContent = "Активировать бесплатно";
       } else if (state.status === "eligible") {
         claim.textContent = "Пробник временно недоступен";
         status.textContent = "Новые пробные подключения пока не включены. Платные тарифы работают отдельно.";
       } else {
-        claim.textContent = "Пробный доступ уже использован";
-        if (state.status === "delivered") showLink(state);
+        const labels = {claimed: "Активация проверяется", manual_review: "Нужна проверка",
+          delivered: "Пробник активирован", expired: "Пробник закончился",
+          paid_customer: "Пробник для новых клиентов"};
+        claim.textContent = labels[state.status] || "Активация недоступна";
+        if (state.status === "delivered") {
+          showLink(state);
+          status.textContent = "Пробная VPN-подписка выдана. Используй кнопку копирования ниже.";
+        }
       }
     } catch (error) {
-      claim.textContent = "Проверка недоступна";
-      status.textContent = "Не удалось проверить пробник. Повтори позже: " +
-        (error.status === 401 ? "войти в аккаунт." : "сервер временно недоступен.");
+      if (error.status === 401) promptLogin();
+      else {
+        claim.textContent = "Проверка недоступна";
+        status.textContent = "Не удалось проверить пробник. Обнови статус чуть позже.";
+      }
     } finally {
-      busy = false;
+      setBusy(false);
     }
   }
   claim.addEventListener("click", async () => {
     if (busy || claim.disabled) return;
-    busy = true;
+    setBusy(true);
     claim.disabled = true;
     status.textContent = "Проверяем параметры VPN на H1Cloud. Не отправляй повторную заявку.";
     try {
       const data = await request("/api/trial/claim", {method: "POST", headers: {"Content-Type": "application/json"}});
+      if (data.status !== "delivered") throw new Error("Trial delivery unconfirmed");
+      showLink(data);
       status.textContent = "Готово! Пробный VPN активирован на 24 часа, 2 устройства и 10 ГБ.";
       claim.textContent = "Пробник активирован";
-      showLink(data);
     } catch (error) {
+      if (error.status === 401) {
+        promptLogin();
+        return;
+      }
       status.textContent = error.status === 409
         ? "Пробник уже использован или доступен только новым клиентам. Обнови статус."
         : error.status === 429
           ? "Сегодня закончился лимит новых пробных подключений. Попробуй позднее."
-          : "Активация не подтверждена. Возможно, нужна ручная проверка H1Cloud. Не нажимай повторно — напиши в поддержку.";
-      claim.textContent = "Проверить статус";
-    } finally { busy = false; }
+          : "Активация пока не подтверждена. Обнови статус и, если нужна проверка, обратись в поддержку.";
+      claim.textContent = "Активация не подтверждена";
+    } finally { setBusy(false); }
   });
-  byId("refresh").addEventListener("click", refresh);
+  refreshButton.addEventListener("click", refresh);
   copy.addEventListener("click", async () => {
     if (!currentUrl) return;
     try {
