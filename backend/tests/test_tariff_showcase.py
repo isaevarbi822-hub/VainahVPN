@@ -45,6 +45,18 @@ def test_twenty_two_options_have_unique_ids_and_no_payment_secrets():
                for p in plans)
 
 
+def test_new_billing_plan_does_not_break_public_sort_order(monkeypatch):
+    from vainah import tariff_catalog
+
+    new_plan = {"id": "new-personal", "title": "Тестовый тариф", "days": 5,
+                "devices": 3, "kopeks": 4200}
+    monkeypatch.setattr(tariff_catalog, "CATALOG", (*CATALOG, new_plan))
+    plans = public_tariff_catalog()["plans"]
+    assert tuple(plan["id"] for plan in plans[:-1]) == ORDER
+    assert plans[-1]["checkout_path"] == "/checkout.html?plan=new-personal"
+    assert plans[-1]["price_rub"] == "42.00"
+
+
 def test_existing_tariffs_repriced_and_paid_links_allowlisted():
     data = public_tariff_catalog()
     actual = {p["id"]: p for p in CATALOG}

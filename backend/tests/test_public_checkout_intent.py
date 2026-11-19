@@ -121,12 +121,13 @@ def test_intent_status_requires_verified_email_and_uuid(account, monkeypatch):
         assert login.status_code == 401
 
 
-def test_operator_pilot_intent_is_not_public(account):
+@pytest.mark.parametrize("intent_type", ["pilot", "gift"])
+def test_other_intent_types_are_not_regular_checkout(account, intent_type):
     key = str(uuid4())
     owner = live_checkout.owner_ref_for_email(EMAIL)
     account.reserve_checkout(
         owner_ref=owner, verified_email=EMAIL, plan_id="30",
-        idempotency_key=key, pilot=True,
+        idempotency_key=key, **{intent_type: True},
     )
     with TestClient(app, base_url=ORIGIN) as client:
         response = client.get("/api/shop/checkout-intent?plan=30",

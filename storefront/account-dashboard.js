@@ -70,17 +70,31 @@
     }
   }
   async function api(path,options={}){
-    const response=await fetch(path,{
-      credentials:'same-origin',
-      cache:'no-store',
-      headers:{Accept:'application/json',...(options.headers||{})},
-      ...options
-    });
-    const body=await response.json().catch(()=>({}));
-    if(!response.ok)throw Error(
-      typeof body.detail==='string'?body.detail:'Ошибка сервера ('+response.status+')'
-    );
-    return body;
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),25000);
+    try{
+      const response=await fetch(path,{
+        credentials:'same-origin',
+        cache:'no-store',
+        ...options,
+        headers:{Accept:'application/json',...(options.headers||{})},
+        signal:controller.signal
+      });
+      const body=await response.json().catch(error=>{
+        if(controller.signal.aborted)throw error;
+        return null;
+      });
+      if(!response.ok){
+        const error=Error(typeof body?.detail==='string'?body.detail:'Ошибка сервера ('+response.status+')');
+        error.status=response.status;
+        throw error;
+      }
+      if(body===null)throw Error('Сервер вернул некорректный ответ.');
+      return body;
+    }catch(error){
+      if(controller.signal.aborted)throw Error('Сервер не ответил вовремя.');
+      throw error;
+    }finally{clearTimeout(timer);}
   }
   function clientImportLink(client,rawUrl){
     // Happ and INCY use different actions for an HTTPS subscription.
@@ -529,6 +543,7 @@
       window.dispatchEvent(new Event('vainah-account-session'));
     }
     hide('account-auth-panel',!!user);
+    hide('account-session-expired',true);
     hide('account-private',!user);
     hide('account-alt-private',true);
     hide('account-exit',!user);
@@ -658,6 +673,12 @@
         '. Состояние VPN-туннеля проверяй непосредственно в Happ или INCY.','verified');
     }catch(error){
       if(sessionEpoch!==session||refreshEpoch!==revision)return;
+      if(error.status===401){
+        if(refreshButton)refreshButton.disabled=false;
+        showSession(null);
+        hide('account-session-expired',false);
+        return;
+      }
       setAccountHealth(navigator.onLine===false
         ?'Нет интернета. Данные не обновлены; повтори проверку после восстановления связи.'
         :'Не удалось обновить кабинет. Сведения о подписке сейчас не подтверждены — попробуй ещё раз.','error');

@@ -168,16 +168,16 @@
 }
 
 .checkout-next {
-  --shop-ink: #18291f;
-  --shop-muted: #465b4c;
-  --shop-sheet: #fffef9;
-  --shop-line: #cbd6c9;
-  --shop-accent: #d5ef8b;
-  --shop-deep: #254532;
-  --sky: #316341;
-  background: #edf1e7;
+  --shop-ink: #f2f5fc;
+  --shop-muted: #a9b6d2;
+  --shop-sheet: #151d32;
+  --shop-line: #3a4a6d;
+  --shop-accent: #ffd178;
+  --shop-deep: #ffc76b;
+  --sky: #ffc76b;
+  background: #0d1426;
   color: var(--shop-ink);
-  color-scheme: light;
+  color-scheme: dark;
 }
 .checkout-next .checkout-intro > p,
 .checkout-next .shop-heading p,
@@ -190,13 +190,13 @@ body .checkout-next .checkout-columns :is(.shop-panel,.shop-plan) {
   color: var(--shop-ink);
 }
 body .checkout-next .shop-plan:is(:hover,:focus-visible) {
-  border-color: #829d86 !important;
+  border-color: #95b4f1 !important;
   transform: none;
 }
 body .checkout-next .shop-plan[aria-pressed="true"] {
-  background: #e5f0d8 !important;
-  border-color: #64836e !important;
-  box-shadow: inset 0 0 0 1px #64836e !important;
+  background: #263755 !important;
+  border-color: #a6baf0 !important;
+  box-shadow: inset 0 0 0 1px #a6baf0 !important;
 }
 body .checkout-next .shop-plan .price,
 body .checkout-next .shop-total strong,
@@ -204,44 +204,44 @@ body .checkout-next .shop-total strong,
   color: var(--shop-deep);
 }
 .checkout-next .shop-line { border-color: var(--shop-line); }
-body .checkout-next .shop-total { background: #e5f0d8; }
+body .checkout-next .shop-total { background: #263755; }
 .checkout-next .shop-filter-controls label { color: var(--shop-ink); }
 body main.checkout-next .shop-filter-controls :is(input,select) {
   background: var(--shop-sheet) !important;
-  border-color: #9db2a2 !important;
+  border-color: #61779e !important;
   color: var(--shop-ink) !important;
 }
-.checkout-next .shop-filter-controls input::placeholder { color: #526559; }
+.checkout-next .shop-filter-controls input::placeholder { color: #a9b6d2; }
 .checkout-next .payment-method {
   margin: 0;
-  background: #f5f8ef;
+  background: #19243c;
   border-color: var(--shop-line);
 }
 .checkout-next .payment-method:has(:checked:not(:disabled)) {
-  background: #e5f0d8;
-  border-color: #64836e;
+  background: #263755;
+  border-color: #a6baf0;
 }
 .checkout-next .payment-method input { accent-color: var(--shop-deep); }
 .checkout-next .shop-submit {
   background: var(--shop-deep);
   border-color: var(--shop-deep);
-  color: #fff;
+  color: #291c08;
 }
-.checkout-next .shop-submit:hover:not(:disabled) { background: #335c43; }
+.checkout-next .shop-submit:hover:not(:disabled) { background: #ffda9c; }
 .checkout-next .shop-submit:disabled {
-  background: #e1e8dc;
+  background: #222c46;
   border-color: var(--shop-line);
   color: var(--shop-muted);
   opacity: 1;
 }
 .checkout-next :is(.shop-to-payment-link,.shop-secondary) {
   background: var(--shop-sheet);
-  border-color: #829d86;
+  border-color: #95b4f1;
   color: var(--shop-deep);
 }
-.checkout-next .shop-to-payment-link:hover { background: #e5f0d8; }
+.checkout-next .shop-to-payment-link:hover { background: #263755; }
 .checkout-next .shop-legal-links {
-  background: #f0f5e9;
+  background: #18233b;
   border-color: var(--shop-line);
   box-shadow: none;
 }
@@ -252,14 +252,14 @@ body main.checkout-next .shop-filter-controls :is(input,select) {
   border-color: var(--shop-line);
   color: var(--shop-deep) !important;
 }
-.checkout-next .shop-legal-links a:hover { background: #e5f0d8; border-color: #829d86; }
+.checkout-next .shop-legal-links a:hover { background: #263755; border-color: #95b4f1; }
 .checkout-next .shop-operator { color-scheme: dark; }
 .checkout-next .shop-operator details { color: #f5f6ff; }
-.checkout-next .checkout-columns :is(.shop-plans,.shop-summary) { scrollbar-color: #79937f #edf1e7; }
-.checkout-next .checkout-columns :is(.shop-plans,.shop-summary)::-webkit-scrollbar-track { background: #edf1e7; }
+.checkout-next .checkout-columns :is(.shop-plans,.shop-summary) { scrollbar-color: #6e86b6 #0d1426; }
+.checkout-next .checkout-columns :is(.shop-plans,.shop-summary)::-webkit-scrollbar-track { background: #0d1426; }
 .checkout-next .checkout-columns :is(.shop-plans,.shop-summary)::-webkit-scrollbar-thumb {
-  background: #79937f;
-  border-color: #edf1e7;
+  background: #6e86b6;
+  border-color: #0d1426;
 }
 .checkout-next .checkout-columns :is(#shop-plans,#shop-payment-panel):focus-visible {
   outline-color: var(--shop-deep) !important;

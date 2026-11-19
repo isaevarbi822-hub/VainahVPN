@@ -413,7 +413,7 @@ class PostgresLiveOrderLedger:
                     FROM vainah_live_orders
                     WHERE checkout_nonce_hash = %s AND owner_ref = %s
                       AND plan_id = %s
-                      AND is_pilot = FALSE AND is_discount_pilot = FALSE
+                      AND is_pilot = FALSE AND is_discount_pilot = FALSE AND is_gift = FALSE
                     LIMIT 1
                 """, (nonce_hash, owner_ref, plan_id))
                 row = cur.fetchone()

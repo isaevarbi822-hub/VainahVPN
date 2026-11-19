@@ -79,7 +79,7 @@ def public_tariff_catalog() -> dict:
             "segment": _segment(plan["days"], category),
             "tag": LIVE_TAGS.get(plan["id"], (
                 "Семейный доступ" if category == "family"
-                else "Новый тариф")), 
+                else "Новый тариф")),
             "status": "existing", "checkout_supported": True,
             "checkout_path": "/checkout.html?plan=" + plan["id"],
         })
@@ -90,7 +90,10 @@ def public_tariff_catalog() -> dict:
         "checkout_supported": False, "checkout_path": "/trial.html",
     }
     order = {identifier: index for index, identifier in enumerate(ORDER)}
-    all_plans = sorted([trial, *paid], key=lambda p: order[p["id"]])
+    all_plans = sorted(
+        [trial, *paid],
+        key=lambda p: (order.get(p["id"], len(order)), p["days"], p["id"]),
+    )
     return {
         "plans": all_plans,
         "total": len(all_plans),

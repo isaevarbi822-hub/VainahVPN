@@ -5,7 +5,7 @@ import json
 import shutil
 import time
 from types import SimpleNamespace
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
@@ -128,9 +128,12 @@ def test_purchase_from_static_catalog_to_paid_subscription(
     page.on("pageerror", lambda error: errors.append(str(error)))
     config_failure = True
     checkout_loaded = False
+    dropped_invoice_reply = False
+    session_expired = False
+    endpoint = "/api/shop/checkout" + ("/platega" if gateway == "platega" else "")
 
     def serve(route):
-        nonlocal config_failure, checkout_loaded
+        nonlocal config_failure, checkout_loaded, dropped_invoice_reply
         request = route.request
         url = urlsplit(request.url)
         if url.hostname in {"pay.rollypay.io", "pay.platega.io"}:
@@ -147,12 +150,23 @@ def test_purchase_from_static_catalog_to_paid_subscription(
             config_failure = False
             route.fulfill(status=503, json={"detail": "Temporary fixture failure"})
             return
+        if (url.path == "/api/email-auth/request"
+                and request.post_data_json["email"] == "second@example.com"):
+            route.fulfill(status=503, json={"detail": "EMAIL_DELIVERY_UNAVAILABLE"})
+            return
+        if url.path == "/api/account/overview" and session_expired:
+            route.fulfill(status=401, json={"detail": "ACCOUNT_LOGIN_REQUIRED"})
+            return
         # Cookies come from Chromium. TestClient must not supply its own.
         client.cookies.clear()
         response = client.request(
             request.method, request.url, headers=request.all_headers(),
             content=request.post_data_buffer,
         )
+        if url.path == endpoint and response.is_success and not dropped_invoice_reply:
+            dropped_invoice_reply = True
+            route.abort()
+            return
         headers = dict(response.headers)
         if "set-cookie" in headers:
             headers["set-cookie"] = "\n".join(response.headers.get_list("set-cookie"))
@@ -165,7 +179,14 @@ def test_purchase_from_static_catalog_to_paid_subscription(
     page.route("**/*", serve)
     page.goto(SITE + "/plans.html")
     search = page.locator("[data-tariff-search]")
-    search.fill("Семейный месяц")
+    page.locator('[data-tariff-preset="family"]').click()
+    expect(page.locator("[data-tariff-devices]")).to_have_value("6")
+    search.fill("30")
+    expect(page.locator(".tariff-card:visible")).to_have_count(1)
+    assert "q" not in parse_qs(urlsplit(page.url).query)
+    page.reload()
+    expect(search).to_have_value("30")
+    expect(page.locator(".tariff-card:visible")).to_have_count(1)
     offer = page.locator(".tariff-card").filter(has_text="Семейный месяц")
     expect(offer).to_be_visible()
     expect(offer).to_contain_text("289 ₽")
@@ -189,6 +210,10 @@ def test_purchase_from_static_catalog_to_paid_subscription(
     page.locator("#auth-email-input").fill(EMAIL)
     page.locator('[data-auth-form="email"] button').click()
     expect(page.locator("#auth-email-code")).to_be_visible()
+    page.locator("#auth-email-input").fill("second@example.com")
+    page.locator('[data-auth-form="email"] button').click()
+    expect(page.locator('[data-auth-message="email"]')).to_contain_text("Последний отправленный код")
+    expect(page.locator('[data-auth-message="email"]')).to_contain_text(EMAIL)
     page.locator("#auth-email-code").fill(codes[EMAIL])
     page.locator('[data-auth-verify="email"] button').click()
     page.get_by_role("link", name="Продолжить оформление").click()
@@ -197,7 +222,9 @@ def test_purchase_from_static_catalog_to_paid_subscription(
     assert page.evaluate(
         "fetch('/api/email-auth/account').then(r => r.json()).then(data => data.authenticated)"
     ), [cookie["name"] for cookie in context.cookies(BACKEND)]
-    endpoint = "/api/shop/checkout" + ("/platega" if gateway == "platega" else "")
+    page.locator("#shop-buy").click()
+    expect(page.locator("#shop-payment-status")).to_contain_text("Не удалось открыть кассу")
+    assert len(invoices) == 1
     with page.expect_response(lambda response: urlsplit(response.url).path == endpoint) as checkout:
         page.locator("#shop-buy").click()
     assert checkout.value.ok, checkout.value.text()
@@ -231,5 +258,10 @@ def test_purchase_from_static_catalog_to_paid_subscription(
     expect(page.locator("#account-order-list")).to_contain_text("Оплачено · выдано")
     expect(page.locator("#account-open-vpn")).to_have_attribute("href", SUBSCRIPTION)
     assert page.evaluate("document.documentElement.scrollWidth === innerWidth")
+    session_expired = True
+    page.locator("#account-refresh").click()
+    expect(page.locator("#account-session-expired")).to_be_visible()
+    expect(page.locator("#account-private")).to_be_hidden()
+    assert page.locator("#account-open-vpn").get_attribute("href") is None
     assert not errors, errors
     context.close()
