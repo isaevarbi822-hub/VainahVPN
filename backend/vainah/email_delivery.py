@@ -12,12 +12,18 @@ import os
 import re
 import secrets
 from datetime import UTC, datetime
-from email.utils import parseaddr
 
 import httpx
 import psycopg
 from fastapi import HTTPException
 from psycopg.errors import UniqueViolation
+
+from .email_design import (
+    plaintext_version,
+    render_email,
+    reply_to_identity,
+    sender_identity,
+)
 
 CODE_TTL_MINUTES = 10
 COOLDOWN_SECONDS = 90
@@ -29,11 +35,14 @@ STATEMENT_TIMEOUT_MS = 8000
 def email_service_ready() -> bool:
     api_key = os.environ.get("RESEND_API_KEY", "")
     address = os.environ.get("VAINAH_EMAIL_FROM", "")
-    return (
-        len(api_key) >= 16
-        and 5 <= len(address) <= 254
-        and parseaddr(address)[1].count("@") == 1
-    )
+    if len(api_key) < 16 or not 5 <= len(address) <= 254:
+        return False
+    try:
+        sender_identity(address)
+        reply_to_identity()
+    except ValueError:
+        return False
+    return True
 
 
 def database_url() -> str:
@@ -203,7 +212,9 @@ async def send_email(to: str, subject: str, body: str, *,
                      idempotency_key: str | None = None) -> None:
     if not email_service_ready():
         raise HTTPException(503, "EMAIL_DELIVERY_NOT_CONFIGURED")
-    sender = os.environ["VAINAH_EMAIL_FROM"]
+    # Preserve the verified sending mailbox. Only the display name changes.
+    sender = sender_identity(os.environ["VAINAH_EMAIL_FROM"])
+    reply_to = reply_to_identity()
     if idempotency_key is not None and (
         len(idempotency_key) > 180
         or re.fullmatch(r"[A-Za-z0-9/_-]{1,180}", idempotency_key) is None
@@ -215,6 +226,13 @@ async def send_email(to: str, subject: str, body: str, *,
     }
     if idempotency_key:
         headers["Idempotency-Key"] = idempotency_key
+    payload = {
+        "from": sender, "to": [to], "subject": subject,
+        "html": render_email(subject, body),
+        "text": plaintext_version(body),
+    }
+    if reply_to:
+        payload["reply_to"] = reply_to
     try:
         async with httpx.AsyncClient(
             timeout=10, follow_redirects=False, trust_env=False,
@@ -223,11 +241,7 @@ async def send_email(to: str, subject: str, body: str, *,
             response = await client.post(
                 "https://api.resend.com/emails",
                 headers=headers,
-                json={
-                    "from": sender, "to": [to],
-                    "subject": subject,
-                    "html": "<html><body>" + body + "</body></html>",
-                },
+                json=payload,
             )
     except (httpx.RequestError, httpx.TimeoutException):
         raise HTTPException(503, "EMAIL_DELIVERY_UNAVAILABLE") from None
@@ -240,8 +254,13 @@ async def send_verification_code(email: str, code: str, *,
     await send_email(
         email,
         "Vainah VPN — подтверждение почты",
-        "<p>Твой код подтверждения:</p><h2>" + html.escape(code) +
-        "</h2><p>Код действует 10 минут. Никому его не передавай.</p>",
+        "<p>Привет! Используй этот код для подтверждения входа в Vainah VPN:</p>"
+        '<div style="margin:20px 0;padding:20px 14px;border-radius:14px;'
+        'background:#f0f3ff;border:1px solid #d8dcff;text-align:center">'
+        '<span style="font-size:34px;font-weight:800;letter-spacing:8px;'
+        'color:#282b8e;font-family:Arial,Helvetica,sans-serif">' +
+        html.escape(code) + "</span></div>"
+        "<p>Код действует 10 минут. Никому его не передавай.</p>",
         transport=transport,
     )
 
