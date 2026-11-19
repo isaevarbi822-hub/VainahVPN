@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -10,6 +11,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from vainah import manual_grants
+from vainah.h1_panel import H1PanelError
 from vainah.main import app
 
 
@@ -139,8 +141,6 @@ def test_a_failed_email_does_not_undo_an_issued_grant(configured, monkeypatch):
 
 def test_saved_issued_grant_recovers_link_during_temporary_panel_outage(configured, monkeypatch):
     """Only the verified original owner may recover a pre-issued, unexpired link."""
-    from datetime import UTC, datetime
-    from vainah.h1_panel import H1PanelError
 
     expiry = datetime.fromtimestamp(time.time() + 3600, UTC)
     original_url = "https://example.com/previously-issued-access"
@@ -170,7 +170,6 @@ def test_saved_issued_grant_recovers_link_during_temporary_panel_outage(configur
 
 
 def test_saved_grant_never_claims_active_when_panel_reports_inactive(configured, monkeypatch):
-    from datetime import UTC, datetime
 
     class FakeCursor:
         def __enter__(self): return self
