@@ -845,21 +845,23 @@
   if(logout)logout.addEventListener('click',async()=>{
     if(!user||logout.disabled)return;
     logout.disabled=true;
+    // Clear all personal links, QR and past order details BEFORE waiting for
+    // the response, even if the user switches apps or the network stalls.
+    showSession(null);
     const session=sessionEpoch;
-    // Hide private URLs and QR immediately, but don't claim logout succeeded
-    // until the server has actually cleared both authentication cookies.
-    clearSubscription();
-    clearQR();
     setAccountHealth('Завершаем выход из аккаунта…');
     try{
       await api('/api/email-auth/logout',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({})
       });
-      if(sessionEpoch===session)showSession(null);
+      if(sessionEpoch===session)setAccountHealth('Выход выполнен.');
     }catch{
-      if(sessionEpoch===session)setAccountHealth(
-        'Не удалось завершить выход. Проверь соединение и нажми «Выйти из аккаунта» ещё раз.','error');
+      if(sessionEpoch===session){
+        write('account-auth-status','Выход не подтверждён сервером. Проверь интернет и повтори попытку.');
+        setAccountHealth('Не удалось подтвердить выход. Проверяем сохранённую сессию…','error');
+        void resumeSession();
+      }
     }finally{logout.disabled=false;}
   });
   function downloadCalendar(){
