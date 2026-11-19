@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from vainah.main import app
 
-BASE = "https://vainahvpn.onrender.com"
+BASE = "https://vainahvpn.online"
 NS = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
 
@@ -28,6 +28,8 @@ def test_sitemap_and_robots_expose_only_public_canonical_pages():
         ]
         assert len(addresses) >= 10
         assert len(addresses) == len(set(addresses))
+        assert "vainahvpn.onrender.com" not in sitemap.text
+        assert not any(url.endswith(("/network-check.html", "/connection-monitor.html")) for url in addresses)
         assert BASE + "/" in addresses
         for url in addresses:
             assert url is not None and url.startswith(BASE + "/")

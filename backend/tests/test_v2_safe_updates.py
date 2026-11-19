@@ -50,7 +50,7 @@ def test_homepage_has_valid_public_jsonld_and_video_stays_on_demand():
     assert {node["@type"] for node in graph["@graph"]} == {
         "Organization", "WebSite", "WebPage"
     }
-    assert all("vainahvpn.onrender.com" in node["url"] for node in graph["@graph"])
+    assert all("vainahvpn.online" in node["url"] for node in graph["@graph"])
     assert 'preload="none"' in html
     assert 'data-intro-video' in html
 
