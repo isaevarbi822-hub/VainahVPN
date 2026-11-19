@@ -68,8 +68,8 @@ def test_home_plans_checkout_and_hub_have_real_navigation():
     assert 'name="shop-gateway" value="platega" disabled' in checkout
     assert 'id="shop-buy"' in checkout
     assert "RollyPay" in checkout
-    assert 'href="https://vainahvpn.onrender.com/refund.html"' in checkout
-    assert 'href="https://vainahvpn.onrender.com/terms.html"' in checkout
+    assert 'href="https://vainahvpn.online/refund.html"' in checkout
+    assert 'href="https://vainahvpn.online/terms.html"' in checkout
 
 
 def test_global_design_loads_purple_styles_without_js_checkout_changes():
