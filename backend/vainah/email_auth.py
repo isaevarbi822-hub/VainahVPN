@@ -26,7 +26,8 @@ from .email_delivery import database_url, email_service_ready, send_verification
 from .telegram_auth import SESSION_COOKIE, require_same_origin
 
 EMAIL_SESSION_COOKIE = "__Host-vainah_email_session"
-SESSION_SECONDS = 12 * 3600
+# Persist verified email/Google sign-in across browser restarts (30-day cap).
+SESSION_SECONDS = 30 * 24 * 3600
 CODE_SECONDS = 600
 RESEND_COOLDOWN = 90
 HOUR_LIMIT = 5
