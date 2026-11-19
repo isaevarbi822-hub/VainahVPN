@@ -13,6 +13,32 @@
   let historyOrders=[];
   let sessionEpoch=0;
   let refreshEpoch=0;
+  // A connection guide may suggest a client, but cannot trigger an import
+  // without the subscriber's own click on the installed application.
+  const requestedClient=new URLSearchParams(window.location?.search||'').get('client');
+  const selectedClient=['happ','incy'].includes(requestedClient)?requestedClient:null;
+  const clientName=client=>client==='incy'?'INCY':'Happ';
+  function setAccountHealth(message,state='checking'){
+    write('account-dashboard-health',message);
+    $('account-dashboard-health')?.setAttribute?.('data-state',state);
+  }
+  function showImportIntent(available=false){
+    const hint=$('account-import-intent');
+    if(!hint)return;
+    if(!selectedClient){hint.hidden=true;return;}
+    hint.hidden=false;
+    hint.textContent=available
+      ?'Ты выбрал '+clientName(selectedClient)+'. Нажми выделенную кнопку «Подключиться через '+
+        clientName(selectedClient)+'». Браузер может спросить разрешение открыть приложение.'
+      :'Ты выбрал '+clientName(selectedClient)+'. Проверяем наличие подписки перед импортом.';
+    for(const [id,client] of [
+      ['account-open-happ','happ'],['account-open-incy','incy'],
+      ['account-manual-happ','happ'],['account-manual-incy','incy']
+    ]){
+      const link=$(id);
+      link?.classList?.toggle('account-client-preferred',available&&client===selectedClient);
+    }
+  }
   async function api(path,options={}){
     const response=await fetch(path,{
       credentials:'same-origin',
@@ -49,6 +75,7 @@
       link.referrerPolicy='no-referrer';
       link.hidden=false;
     }
+    showImportIntent(true);
   }
   function registerImportFallback(id,client,manual=false){
     const link=$(id);
@@ -61,13 +88,14 @@
       // A direct link click (not async navigation) retains the user gesture
       // needed by mobile browsers to launch an installed VPN client.
       // Copy in the same gesture as a fallback if the handler is unavailable.
-      write(target,'Открываем '+(client==='happ'?'Happ':'INCY')+
-        ' для импорта подписки. Подтверди открытие приложения, если браузер спросит.');
+      write(target,'Пробуем открыть '+clientName(client)+
+        ' для импорта подписки. Подтверди переход в приложение, если браузер спросит.');
       if(navigator.clipboard?.writeText){
         void navigator.clipboard.writeText(url).then(()=>{
           if(session!==sessionEpoch||revision!==refreshEpoch)return;
-          write(target,'Отправили ссылку в '+(client==='happ'?'Happ':'INCY')+
-            '. Резервная копия ссылки также в буфере обмена. Если импорт не появился — вставь её через «+» в клиенте.');
+          write(target,'Переход в '+clientName(client)+
+            ' запрошен, а личная ссылка скопирована в буфер обмена. '+
+            'Если импорт не появился — добавь её через «+» в клиенте.');
         }).catch(()=>{
           if(session!==sessionEpoch||revision!==refreshEpoch)return;
           write(target,'Открываем приложение. Если импорт не появился, вернись сюда и нажми «Скопировать ссылку».');
@@ -397,6 +425,7 @@
     clearQR();
     subscriptionUrl=null;
     manualGrantUrl=null;
+    showImportIntent(false);
     hide('account-manual-copy',true);
     for(const id of ['account-manual-happ','account-manual-incy']){
       const element=$(id);
@@ -452,6 +481,7 @@
       const input=$(id);if(input)input.value='';
     }
     write('account-history-count','0');
+    setAccountHealth(user?'Проверяем актуальные данные подписки…':'Войди в аккаунт, чтобы проверить подписку.');
     write('account-history-hint','В истории отображаются только подтверждённые покупки.');
     const history=$('account-order-list');
     if(history)history.textContent='Пока нет подтверждённых покупок.';
@@ -504,6 +534,7 @@
     const revision=++refreshEpoch;
     currentData=null;
     historyOrders=[];
+    setAccountHealth('Обновляем данные подписки и проверяем H1Cloud…');
     showHistory();
     clearSubscription();
     hide('account-test-vpn',true);
@@ -582,8 +613,14 @@
         write('account-manual-status','Активной ручной подписки для подтверждённого email нет.');
       }
       updatePrivateActions();
+      const moment=new Intl.DateTimeFormat('ru-RU',{hour:'2-digit',minute:'2-digit'}).format(new Date());
+      setAccountHealth('Данные кабинета проверены в '+moment+
+        '. Состояние VPN-туннеля проверяй непосредственно в Happ или INCY.','verified');
     }catch(error){
       if(sessionEpoch!==session||refreshEpoch!==revision)return;
+      setAccountHealth(navigator.onLine===false
+        ?'Нет интернета. Данные не обновлены; повтори проверку после восстановления связи.'
+        :'Не удалось обновить кабинет. Сведения о подписке сейчас не подтверждены — попробуй ещё раз.','error');
       write('account-h1-state','Не удалось загрузить кабинет: '+error.message);
       const history=$('account-order-list');
       if(history)history.textContent='Не удалось получить историю покупок. Нажми «Обновить данные».';
@@ -687,7 +724,22 @@
       if(session===sessionEpoch&&revision===refreshEpoch)getQR.disabled=false;
     }
   });
-  if(window.addEventListener)window.addEventListener('pagehide',clearQR);
+  if(window.addEventListener){
+    window.addEventListener('pagehide',()=>{
+      // The browser may keep this page in BFCache when opening an external app.
+      // Do not leave a previously verified private URL in its retained DOM.
+      ++refreshEpoch;
+      clearSubscription();
+      currentData=null;
+      clearQR();
+    });
+    window.addEventListener('pageshow',event=>{
+      if(event?.persisted&&user)void refresh();
+    });
+    window.addEventListener('online',()=>{
+      if(user&&!currentData)void refresh();
+    });
+  }
   const get=$('account-get-vpn');
   if(get)get.addEventListener('click',async()=>{
     const subscription=currentData?.subscription;
@@ -928,15 +980,8 @@
   });
   async function resumeSession(){
     const session=sessionEpoch;
-    try{
-      const tg=await api('/api/telegram/account');
-      if(sessionEpoch!==session)return;
-      if(tg.authenticated&&tg.user){
-        showSession({...tg.user,auth_method:'telegram'});
-        return;
-      }
-    }catch{ /* Email is independent of Telegram availability. */ }
-    if(sessionEpoch!==session)return;
+    // Email purchases and operator grants are tied to verified mailboxes.
+    // Prefer a valid email session when both legacy cookies are present.
     try{
       const email=await api('/api/email-auth/account');
       if(sessionEpoch!==session)return;
@@ -944,7 +989,16 @@
         showSession(email.user);
         return;
       }
-    }catch{ /* No active email session. */ }
+    }catch{ /* Telegram can still restore independently. */ }
+    if(sessionEpoch!==session)return;
+    try{
+      const tg=await api('/api/telegram/account');
+      if(sessionEpoch!==session)return;
+      if(tg.authenticated&&tg.user){
+        showSession({...tg.user,auth_method:'telegram'});
+        return;
+      }
+    }catch{ /* No active Telegram session. */ }
     if(sessionEpoch===session)showSession(null);
   }
   // Fail closed before the first async authentication check resolves.
