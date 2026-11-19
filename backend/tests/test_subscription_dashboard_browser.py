@@ -84,5 +84,9 @@ def test_static_account_uses_canonical_python_origin():
     account = (Path(__file__).resolve().parents[2] / "storefront/account.html").read_text(
         encoding="utf-8"
     )
-    assert "window.location.hostname==='vainahvpn.onrender.com'" in account
-    assert "https://vainahvpn-python-preview.onrender.com/account.html" in account
+    redirect = (Path(__file__).resolve().parents[2] / "storefront/static-auth-redirect.js").read_text(
+        encoding="utf-8"
+    )
+    assert 'src="/static-auth-redirect.js?v=20261119-stay-login1"' in account
+    assert '"/account.html"' in redirect
+    assert "https://vainahvpn-python-preview.onrender.com" in redirect
