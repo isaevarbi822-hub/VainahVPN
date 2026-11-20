@@ -18,7 +18,8 @@ def test_ultra6_is_integrated_into_existing_site_not_checkout_logic():
     release = (STORE / "whats-new.html").read_text(encoding="utf-8")
     assert "ultra6-workspace.css?v=20261118-u6a" in shell
     assert "ultra6-workspace.js?v=20261118-u6a" in shell
-    assert "site-shell.js?v=20261118-ultra6" in home
+    assert ("site-shell.js?v=20261118-ultra6" in home or
+            "site-shell.js?v=20261120-seo-route1" in home)
     assert "site-shell.js?v=20261118-ultra6" in control
     assert 'data-vx6-home-continue' in home
     assert 'data-vx6-home-link' in home
@@ -177,4 +178,4 @@ def test_ultra6_browser_pin_accessibility_and_mobile_fit(tmp_path, width, height
 def test_every_public_shell_has_cache_busting():
     for name in ("index", "command-hub", "plans", "devices", "help", "about"):
         page = (STORE / f"{name}.html").read_text(encoding="utf-8")
-        assert re.search(r"site-shell\.js\?v=20261118-ultra6", page), name
+        assert re.search(r"site-shell\.js\?v=(?:20261118-ultra6|20261120-seo-route1)", page), name
