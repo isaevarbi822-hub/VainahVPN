@@ -103,3 +103,15 @@ def test_public_contact_page_is_not_redirected_away_from_indexed_domain():
     assert '<link rel="canonical" href="https://vainahvpn.online/contact.html">' in contact.text
     assert 'href="/"' in contact.text
     assert "site-shell.js?v=20261120-seo-route1" in contact.text
+
+
+def test_contact_search_listing_has_clear_purpose_and_home_link():
+    with TestClient(app) as client:
+        contact = client.get("/contact.html")
+    assert contact.status_code == 200
+    assert "<title>Поддержка Vainah VPN — помощь с подключением и подпиской</title>" in contact.text
+    assert '<meta name="description" content="Поддержка Vainah VPN:' in contact.text
+    assert '<link rel="canonical" href="https://vainahvpn.online/contact.html">' in contact.text
+    assert 'aria-label="Vainah VPN — главная страница, тарифы и подключение"' in contact.text
+    assert 'href="/" aria-label="Vainah VPN' in contact.text
+    assert "noindex" not in contact.headers.get("x-robots-tag", "").lower()
