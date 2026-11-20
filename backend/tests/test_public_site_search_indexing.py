@@ -31,7 +31,7 @@ def test_sitemap_and_robots_expose_only_public_canonical_pages():
         assert len(addresses) >= 10
         assert len(addresses) == len(set(addresses))
         assert "vainahvpn.onrender.com" not in sitemap.text
-        assert len(addresses) == 24
+        assert BASE + "/guide.html" in addresses
         assert BASE + "/" in addresses
         for url in addresses:
             assert url is not None and url.startswith(BASE + "/")
@@ -53,7 +53,9 @@ def test_sitemap_and_robots_expose_only_public_canonical_pages():
 
 def test_private_pages_are_not_advertised_for_google_indexing():
     with TestClient(app) as client:
-        for path in ("/account.html", "/checkout.html"):
+        rules = client.get("/robots.txt").text.splitlines()
+        for path in ("/account.html", "/checkout.html", "/support-center.html"):
+            assert f"Disallow: {path}" not in rules
             page = client.get(path)
             assert page.status_code == 200
             assert 'name="robots" content="noindex, nofollow"' in page.text

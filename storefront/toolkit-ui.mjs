@@ -95,7 +95,11 @@
       });
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),9000);
-    fetch('/api/site/tariffs',{
+    const publicOrigins=['https://vainahvpn.online','https://www.vainahvpn.online',
+      'https://vainahvpn.onrender.com'];
+    const apiOrigin=publicOrigins.includes(globalThis.location?.origin)
+      ?'https://vainahvpn-python-preview.onrender.com':'';
+    fetch(apiOrigin+'/api/site/tariffs',{
       method:'GET',cache:'no-store',credentials:'omit',
       headers:{Accept:'application/json'},signal:controller.signal
     }).then(async response=>{

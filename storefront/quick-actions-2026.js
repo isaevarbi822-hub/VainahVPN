@@ -3,7 +3,7 @@
 if(document.documentElement.dataset.vx2026Ready)return;
 document.documentElement.dataset.vx2026Ready='1';
 const backend='https://vainahvpn-python-preview.onrender.com';
-const publicHost='https://vainahvpn.onrender.com';
+const publicHost='https://vainahvpn.online';
 const paths=[
   ['Тарифы','/plans.html','Сравнить подписки'],
   ['Подключение','/connect.html','Настроить устройство'],

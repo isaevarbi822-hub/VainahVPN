@@ -60,7 +60,7 @@ def test_ultra6_uses_public_whitelist_and_has_no_data_leak():
             assert needed in script
     assert "state.recent=[page,...state.recent.filter" in script
     assert "location.pathname.split('/').pop()" in script
-    assert "a.href=id;" in script
+    assert "a.href=id==='index.html'?'/':id;" in script
     assert "textContent" in script
     assert ".innerHTML" not in script
     assert "fetch(" not in script

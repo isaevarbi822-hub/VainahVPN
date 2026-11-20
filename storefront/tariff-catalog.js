@@ -3,10 +3,10 @@
 (() => {
   'use strict';
   // The public CDN is a static site. Its catalog lives on the read-only Python API.
-  // That endpoint explicitly allows this origin; checkout config and payment
-  // requests MUST remain same-origin on the backend.
-  const staticOrigin='https://vainahvpn.onrender.com';
-  const apiOrigin=typeof window!=='undefined'&&window.location.origin===staticOrigin
+  // Only public GETs use this origin. Payments run on the account backend.
+  const publicOrigins=['https://vainahvpn.online','https://www.vainahvpn.online',
+    'https://vainahvpn.onrender.com'];
+  const apiOrigin=publicOrigins.includes(globalThis.window?.location?.origin)
     ?'https://vainahvpn-python-preview.onrender.com':'';
   const root=document.querySelector('[data-tariff-catalog]');
   const status=document.getElementById('tariff-catalog-status');

@@ -20,7 +20,7 @@ def test_connection_monitor_page_is_available_and_indexable():
         assert js.status_code == 200
         assert 'src="connection-monitor.js"' in page.text
         assert ('<link rel="canonical" href="'
-                'https://vainahvpn.online/connection-monitor.html">'
+                'https://vainahvpn-python-preview.onrender.com/connection-monitor.html">'
                 ) in page.text
         for element in ("monitor-start", "monitor-stop", "monitor-copy",
                         "monitor-average", "monitor-failures", "monitor-chart"):
@@ -39,7 +39,7 @@ def test_connection_monitor_is_findable_and_bounded():
     assert "pagehide" in script and "visibilitychange" in script
     assert "connection-monitor.html" in shell
     assert 'href="connection-monitor.html"' in tools
-    assert "/connection-monitor.html" in sitemap
+    assert "/connection-monitor.html" not in sitemap  # Redirects to the backend on the static site.
     assert "localStorage" not in script
     assert "sessionStorage" not in script
 

@@ -41,7 +41,7 @@ def test_next_journey_never_creates_payment_or_uses_fake_prices():
 
 def test_plans_catalog_reads_cross_origin_readonly_api_on_static_site():
     script = _read("tariff-catalog.js")
-    assert "window.location.origin===staticOrigin" in script
+    assert "publicOrigins.includes(globalThis.window?.location?.origin)" in script
     assert "fetch(apiOrigin+'/api/site/tariffs'" in script
     # Public readiness now has explicit read-only CORS, with no checkout writes.
     assert "async function checkCheckoutReadiness()" in script
@@ -59,11 +59,11 @@ def test_home_plans_checkout_and_hub_have_real_navigation():
     checkout = _read("checkout.html")
     hub = _read("command-hub.html")
     assert 'href="plans.html?devices=3&amp;sort=days"' in home
-    assert 'href="index.html#vainah-route"' in plans
+    assert 'href="/#vainah-route"' in plans
     assert "76 вариантов:" in plans
     assert "вариантовова" not in plans
     assert "Умный подбор VPN" in hub
-    assert 'href="index.html#vainah-route"' in hub
+    assert 'href="/#vainah-route"' in hub
     assert 'class="vx-next-checkout-steps"' in checkout
     assert 'name="shop-gateway" value="platega" disabled' in checkout
     assert 'id="shop-buy"' in checkout

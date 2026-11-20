@@ -59,11 +59,14 @@ global.document={
    key==='tariff-filter-count'?count:null,
  createElement:tag=>new El(tag),createDocumentFragment:()=>new El('fragment')
 };
-global.fetch=async()=>{throw Error('NETWORK_UNAVAILABLE')};
+global.window={location:{origin:'https://vainahvpn.online',search:''}};
+const requested=[];
+global.fetch=async(url,options)=>{requested.push([url,options.credentials]);throw Error('NETWORK_UNAVAILABLE')};
 vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  await tick();await tick();
+ assert.deepEqual(requested,[['https://vainahvpn-python-preview.onrender.com/api/site/tariffs','omit']]);
  assert.ok(status.textContent.includes('Непроверенные цены скрыты'));
  assert.equal(root.children.length,1);
  const card=root.children[0];

@@ -36,6 +36,8 @@ def test_every_static_storefront_page_resolves_local_assets_and_links():
             if split.scheme or split.netloc or raw.startswith("//"):
                 continue
             route = unquote(split.path)
+            if _kind == "href" and route.lstrip("/") in {"index", "index.html"}:
+                errors.append(f"{page.name}: homepage link should point to /: {raw}")
             if not route or route.endswith("/"):
                 continue
             route = route.lstrip("/")

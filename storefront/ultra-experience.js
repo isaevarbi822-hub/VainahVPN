@@ -12,7 +12,7 @@
   });
   const storageKey = 'vainah-ultra-appearance-v1';
   const safePages = Object.freeze([
-    ['index.html', 'Главная'],
+    ['/', 'Главная'],
     ['plans.html', 'Тарифы'],
     ['account.html', 'Мой VPN'],
     ['notifications.html', 'Уведомления'],
@@ -28,7 +28,8 @@
     ['diagnostics.html', 'Диагностика'],
     ['referrals.html', 'Приглашения'],
   ]);
-  const pathname = location.pathname.split('/').pop() || 'index.html';
+  const filename = location.pathname.split('/').pop();
+  const pathname = filename && filename !== 'index.html' ? filename : '/';
   const section = safePages.find(item => item[0] === pathname);
   const create = (tag, text, klass) => {
     const node = document.createElement(tag);
@@ -209,7 +210,8 @@
     results.replaceChildren(create('p', 'Проверяем веб-сервисы…'));
     // The static site does not host authenticated APIs; never mislabel
     // an absent static route as a payment or VPN outage.
-    if (location.hostname === 'vainahvpn.onrender.com') {
+    if (['https://vainahvpn.online','https://www.vainahvpn.online',
+    'https://vainahvpn.onrender.com'].includes(location.origin)) {
       results.replaceChildren(create('p',
         'Статусы API проверяются на backend-домене, а не на статическом сайте.'));
       const link = create('a', 'Открыть технический статус ↗');

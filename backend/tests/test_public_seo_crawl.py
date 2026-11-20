@@ -32,3 +32,12 @@ def test_homepage_is_not_marked_noindex():
         assert response.status_code == 200
         assert "noindex" not in response.headers.get("x-robots-tag", "").lower()
         assert '<link rel="canonical" href="https://vainahvpn.online/">' in response.text
+
+
+def test_backend_home_aliases_redirect_to_root_without_losing_query():
+    with TestClient(app, follow_redirects=False) as client:
+        for alias in ("/index.html", "/index"):
+            assert client.head(alias).headers["location"] == "/"
+            response = client.get(alias + "?utm_source=brand%20search&tag=1&tag=2")
+            assert response.status_code == 308
+            assert response.headers["location"] == "/?utm_source=brand%20search&tag=1&tag=2"

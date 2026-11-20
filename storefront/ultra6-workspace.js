@@ -84,7 +84,7 @@
   };
   const createLink=(id,additionalClass='')=>{
     const a=node('a','vx6-link '+additionalClass);
-    a.href=id; // Fixed, whitelisted first-party filenames only.
+    a.href=id==='index.html'?'/':id;
     a.append(node('span','vx6-link-icon',allowed[id][1]));
     const label=node('span','vx6-link-text');
     label.append(node('strong','',allowed[id][0]));

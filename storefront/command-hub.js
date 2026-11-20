@@ -95,8 +95,9 @@
   const note = $('#vx-hub-status-note');
   const button = $('#vx-hub-check');
   const backendOrigin = 'https://vainahvpn-python-preview.onrender.com';
-  const publicOrigin = 'https://vainahvpn.onrender.com';
-  const isPublicSite=window.location.origin===publicOrigin;
+  const publicOrigins = ['https://vainahvpn.online','https://www.vainahvpn.online',
+    'https://vainahvpn.onrender.com'];
+  const isPublicSite=publicOrigins.includes(window.location.origin);
   const setStatus = (node, message, state) => {
     if (!node) return;
     node.textContent = message; node.dataset.state = state;
@@ -111,7 +112,7 @@
 
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   async function safeGet(path) {
-    const url = backendOrigin + path;
+    const url = (isPublicSite ? backendOrigin : '') + path;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       if (attempt) await sleep(2500);
       const controller = new AbortController();
@@ -159,7 +160,7 @@
         :'Не удалось подтвердить ответ API',apiConfirmed?'ok':'unknown');
       if(isPublicSite){
         setStatus(checkoutStatus,'Проверка доступна на странице оформления','unknown');
-        if(note)note.textContent='Каталог API проверен отдельно от оплаты. Статус кассы нельзя прочитать с публичного домена из-за защиты браузера. Это не означает сбой оплаты. Проверь доступность оформления на защищённой странице.';
+        if(note)note.textContent='Каталог API проверен отдельно от оплаты. Актуальные способы оплаты указаны на странице оформления.';
         return;
       }
       const configResponse = await safeGet('/api/shop/config');

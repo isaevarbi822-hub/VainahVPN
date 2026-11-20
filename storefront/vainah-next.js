@@ -17,9 +17,10 @@
   let paid=null;
   const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0});
   const money=value=>fmt.format(value)+' ₽';
-  const staticOrigin='https://vainahvpn.onrender.com';
+  const publicOrigins=['https://vainahvpn.online','https://www.vainahvpn.online',
+    'https://vainahvpn.onrender.com'];
   const backend='https://vainahvpn-python-preview.onrender.com';
-  const apiOrigin=window.location.origin===staticOrigin?backend:'';
+  const apiOrigin=publicOrigins.includes(window.location.origin)?backend:'';
   const make=(tag,text,cls)=>{
     const element=document.createElement(tag);
     element.textContent=String(text);

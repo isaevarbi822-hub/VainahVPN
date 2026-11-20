@@ -12,7 +12,7 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 
-SITE = "https://vainahvpn.onrender.com"
+SITE = "https://vainahvpn.online"
 BACKEND = "https://vainahvpn-python-preview.onrender.com"
 CHECKS = (
     (SITE + "/", "html"),
@@ -36,12 +36,19 @@ def validate(kind: str, data: bytes, content_type: str) -> str | None:
             root = ET.fromstring(data)
         except ET.ParseError:
             return "Invalid sitemap XML"
-        if not any((node.text or "").startswith(SITE + "/")
-                   for node in root.iter() if node.tag.endswith("loc")):
-            return "Sitemap has no public site URL"
+        ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+        urls = [node.text or "" for node in root.findall("sm:url/sm:loc", ns)]
+        if SITE + "/" not in urls:
+            return "Sitemap is missing the canonical homepage"
+        if any(not url.startswith(SITE + "/") for url in urls):
+            return "Sitemap contains a URL outside the public site"
     elif kind == "health":
-        if not data.strip():
-            return "Empty health response"
+        try:
+            health = json.loads(data)
+        except (ValueError, UnicodeDecodeError):
+            return "Invalid health JSON"
+        if not isinstance(health, dict) or health.get("ok") is not True or health.get("service") != "vainahvpn-api":
+            return "Unexpected health response"
     elif kind == "config":
         try:
             config = json.loads(data)

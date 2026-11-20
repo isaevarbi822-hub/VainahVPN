@@ -33,6 +33,8 @@ const cases=[
   'https://vainahvpn-python-preview.onrender.com/account.html?client=incy#subscription'],
  ['https://vainahvpn-python-preview.onrender.com','/trial.html','','',null],
  ['https://vainahvpn.onrender.com','/index.html','','',null],
+ ['https://vainahvpn.onrender.com','/account','?view=orders','#history',
+  'https://vainahvpn-python-preview.onrender.com/account.html?view=orders#history'],
  ['https://attacker.example','/trial.html','','',null]
 ];
 for(const [origin,pathname,search,hash,expected] of cases){
@@ -106,3 +108,28 @@ def test_dashboard_does_not_treat_network_failure_as_logout():
     assert js.index("showSession(null);", logout_start) < js.index(
         "await api('/api/email-auth/logout'", logout_start
     )
+
+
+def test_static_home_aliases_converge_without_routing_account_or_api_through_home():
+    harness = r"""
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const code=fs.readFileSync(process.argv[1],'utf8');
+const canonical='https://vainahvpn.online', legacy='https://vainahvpn.onrender.com';
+(async()=>{
+  for (const [input, expected] of [
+    [legacy+'/', canonical+'/'],
+    [legacy+'/index.html?ref=search#intro-film', canonical+'/?ref=search#intro-film'],
+    [canonical+'/index?x=1&x=2#plans', canonical+'/?x=1&x=2#plans'],
+    [legacy+'/checkout?plan=30', 'https://vainahvpn-python-preview.onrender.com/checkout.html?plan=30'],
+    [legacy+'/api/health', 'https://vainahvpn-python-preview.onrender.com/api/health']
+  ]) {
+    let target;
+    const location=new URL(input);
+    location.replace=value=>{target=value};
+    vm.runInNewContext(code,{window:{location},URL});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(target,expected);
+  }
+})().catch(error=>{console.error(error);process.exitCode=1});
+"""
+    subprocess.run(["node", "-e", harness, str(ROOT / "site-shell.js")], check=True)

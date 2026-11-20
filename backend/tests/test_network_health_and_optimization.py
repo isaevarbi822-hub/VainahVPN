@@ -41,7 +41,7 @@ def test_network_health_is_linked_from_navigation_and_tools():
     sitemap = (ROOT / "sitemap.xml").read_text(encoding="utf-8")
     assert "['network-check.html','Проверка соединения'" in shell
     assert 'href="network-check.html"' in catalog
-    assert "/network-check.html" in sitemap
+    assert "/network-check.html" not in sitemap  # Redirects to the backend on the static site.
 
 
 def test_speed_comparison_is_session_only_and_stays_client_side():

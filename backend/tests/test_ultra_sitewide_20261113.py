@@ -72,7 +72,7 @@ def test_release_notes_distinguish_website_work_from_vpn_payment_system():
     release = (SITE / "whats-new.html").read_text(encoding="utf-8")
     assert "13 НОЯБРЯ 2026" in release
     assert "Реальные платежи, существующие подписки, RollyPay, H1Cloud" in release
-    assert "index.html#choose-device" in release
+    assert "/#choose-device" in release
 
 
 def test_sitewide_ultra_control_is_navigational_and_private():

@@ -18,7 +18,7 @@
 - **Clerk**: нативная авторизация; никаких секретных ключей в APK.
 - **Python/Render**: единый сервер для кабинета и подписок после полного
   переноса и тестирования. Веб-сайт и Python API развёрнуты на Render;
-  публичный адрес: https://vainahvpn-python-preview.onrender.com/.
+  публичный адрес сайта: https://vainahvpn.online/.
 - **Оплата**: отключена до отдельной проверки RollyPay, базы, прав доступа,
   вебхуков и подтверждённой выдачи VPN.
 - **iOS, Windows и macOS**: отдельные последующие этапы с платформенными
@@ -60,9 +60,9 @@ The combined Android libbox client and Python/FastAPI cabinet live on
 
 Never publish user subscription URLs, UUIDs, API tokens or live payment keys.
 
-## Текущие адреса и развёртывание (2026-11-14)
+## Текущие адреса и развёртывание
 
-- Публичный сайт: https://vainahvpn.onrender.com/
+- Публичный сайт: https://vainahvpn.online/
 - Python backend: https://vainahvpn-python-preview.onrender.com/
 - Оба сервиса Render используют ветку `feat/restore-site-rollypay-checkout`; `main` не является источником действующей публикации.
 - Новая интерактивная страница: `/command-hub.html`. Поиск разделов, подбор устройства и тарифа не обрабатывают платежи.

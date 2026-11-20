@@ -6,7 +6,7 @@ Do not put tokens, VLESS keys or subscription URLs in logs.
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -240,6 +240,13 @@ async def security_headers(request: Request, call_next):
         # Private account, operator and API routes above remain no-store.
         response.headers["Cache-Control"] = "public, max-age=0, must-revalidate"
     return response
+
+
+@app.api_route("/index", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/index.html", methods=["GET", "HEAD"], include_in_schema=False)
+async def canonical_homepage(request: Request):
+    query = request.url.query
+    return RedirectResponse("/?" + query if query else "/", status_code=308)
 
 
 @app.get("/robots.txt", include_in_schema=False)

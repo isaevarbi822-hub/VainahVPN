@@ -65,7 +65,8 @@
     delivery:dialog.querySelector('[data-live-delivery]')
   };
   let controller=null,requestId=0;
-  const apiOrigin=location.origin==='https://vainahvpn.onrender.com'
+  const apiOrigin=['https://vainahvpn.online','https://www.vainahvpn.online',
+    'https://vainahvpn.onrender.com'].includes(location.origin)
     ?'https://vainahvpn-python-preview.onrender.com':'';
   function write(label,ready){
     label.textContent=ready?'Готова':'Недоступна';

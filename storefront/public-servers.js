@@ -8,8 +8,8 @@
   const message=document.getElementById('server-directory-status');
   const refresh=document.getElementById('server-refresh');
   if(!root||!input||!favoritesButton||!sort||!message||!refresh)return;
-  const apiOrigin=typeof window!=='undefined'&&window.location?.origin===
-    'https://vainahvpn.onrender.com'
+  const apiOrigin=['https://vainahvpn.online','https://www.vainahvpn.online',
+    'https://vainahvpn.onrender.com'].includes(globalThis.window?.location?.origin)
     ?'https://vainahvpn-python-preview.onrender.com':'';
   const storageKey='vainah-public-location-favorites-v1';
   const text=(tag,value,cls='')=>{

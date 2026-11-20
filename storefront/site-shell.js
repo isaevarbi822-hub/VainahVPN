@@ -11,10 +11,16 @@
     const currentOrigin=window.location.origin;
     // If the domain later moves from Render Static to Python, keep its
     // same-origin account and checkout pages instead of redirecting them away.
-    const backendProbe=customOrigins.has(currentOrigin)
-      ? import('./custom-origin-probe.mjs')
-          .then(module=>module.isPythonBackend()).catch(()=>false)
-      : Promise.resolve(false);
+    // The marketing homepage has no API on the static host. Probe only when
+    // a visitor actually needs a backend route, and share the result.
+    let backendProbe;
+    function checkBackend(){
+      backendProbe??=customOrigins.has(currentOrigin)
+        ? import('./custom-origin-probe.mjs')
+            .then(module=>module.isPythonBackend()).catch(()=>false)
+        : Promise.resolve(false);
+      return backendProbe;
+    }
     const backendPages=new Set([
       '/account.html','/checkout.html','/trial.html',
       '/hub.html','/my-devices.html','/notifications.html',
@@ -27,11 +33,25 @@
       '/status.html','/speed.html','/diagnostics.html',
       '/connection-check.html'
     ]);
-    const toBackend=url=>accountOrigin+url.pathname+url.search+url.hash;
+    function backendPath(pathname){
+      if(backendPages.has(pathname)||pathname.startsWith('/api/'))return pathname;
+      const filename=pathname+'.html';
+      return backendPages.has(filename)?filename:null;
+    }
+    const backendDestination=(url,path,isBackend)=>
+      (isBackend?currentOrigin:accountOrigin)+path+url.search+url.hash;
     const currentUrl=new URL(window.location.href);
-    if(backendPages.has(currentUrl.pathname)||currentUrl.pathname.startsWith('/api/')){
-      void backendProbe.then(isBackend=>{
-        if(!isBackend)window.location.replace(toBackend(currentUrl));
+    const homeAlias=['/index.html','/index'].includes(currentUrl.pathname);
+    if(homeAlias || (currentOrigin===staticOrigin && currentUrl.pathname==='/')){
+      const homeOrigin=currentOrigin===staticOrigin?'https://vainahvpn.online':currentOrigin;
+      window.location.replace(homeOrigin+'/'+currentUrl.search+currentUrl.hash);
+      return;
+    }
+    const currentBackendPath=backendPath(currentUrl.pathname);
+    if(currentBackendPath){
+      void checkBackend().then(isBackend=>{
+        const target=backendDestination(currentUrl,currentBackendPath,isBackend);
+        if(target!==currentUrl.href)window.location.replace(target);
       });
       return;
     }
@@ -41,22 +61,17 @@
       const link=event.target.closest?.('a[href]');
       if(!link||link.target==='_blank'||link.hasAttribute('download'))return;
       const destination=new URL(link.href);
-      if(destination.origin!==currentOrigin||
-         !(backendPages.has(destination.pathname)||destination.pathname.startsWith('/api/')))return;
+      if(destination.origin!==currentOrigin)return;
+      const path=backendPath(destination.pathname);
+      if(!path)return;
       event.preventDefault();
-      void backendProbe.then(isBackend=>window.location.assign(
-        isBackend?destination.href:toBackend(destination)
+      void checkBackend().then(isBackend=>window.location.assign(
+        backendDestination(destination,path,isBackend)
       ));
     },true);
-    // Canonical tags are set in HTML for the key landing pages. Update
-    // remaining pages during rendering as a secondary SEO consistency measure.
-    const canonical=document.querySelector('link[rel="canonical"]');
-    if(canonical&&canonical.href.startsWith(accountOrigin+'/')){
-      canonical.href=currentOrigin+new URL(canonical.href).pathname;
-    }
   }
   const pages=[
-    ['index.html','Главная','Начало, новости сайта, навигация','главная'],
+    ['/','Главная','Начало, новости сайта, навигация','главная'],
     ['command-hub.html','Vainah Control','Новый центр: поиск, устройства, подбор тарифов и публичная диагностика','центр главная новое функции dashboard живой'],
     ['hub.html','Центр управления','Подписки, подарки, напоминания, поддержка и статус сервисов','аккаунт управление сервисы центр'],
     ['whats-new.html','Что нового','Темы, личный кабинет, тарифы, устройства, подарки и обновления','обновление новые функции'],
@@ -112,7 +127,8 @@
     if(text!==undefined)e.textContent=String(text);
     return e;
   };
-  const path=window.location.pathname.split('/').pop()||'index.html';
+  const filename=window.location.pathname.split('/').pop();
+  const path=filename && filename!=='index.html' ? filename : '/';
   document.body.id=document.body.id||'vainah-top';
   const active=pages.find(p=>p[0]===path);
   const header=document.querySelector('body > header, body > .site-header');
@@ -188,7 +204,7 @@
     const rail=el('nav','vx-utility-rail');
     rail.setAttribute('aria-label','Основные разделы Vainah VPN');
     const links=[
-      ['index.html','⌂ Главная'],
+      ['/','⌂ Главная'],
       ['trial.html','✦ Бесплатно'],
       ['plans.html','▤ Тарифы'],
       ['account.html','▣ Мой VPN'],
@@ -227,7 +243,7 @@
       desktop.append(a);
     }
   }
-  if(path === 'index.html' && !document.body.hasAttribute('data-refresh-home')){
+  if(path === '/' && !document.body.hasAttribute('data-refresh-home')){
     const mainForTrial=document.querySelector('main');
     if(mainForTrial && !mainForTrial.querySelector('.vx-trial-banner')){
       const banner=el('section','vx-trial-banner');
@@ -245,7 +261,7 @@
   }
   // Product entry points: visible even when an API endpoint is temporarily slow.
   // All links are ordinary first-party page navigations; no payment requests here.
-  if(path === 'index.html' && !document.body.hasAttribute('data-refresh-home')){
+  if(path === '/' && !document.body.hasAttribute('data-refresh-home')){
     const home=document.querySelector('main');
     if(home&&!home.querySelector('.vx-journeys')){
       const journeys=el('section','vx-journeys');
@@ -465,10 +481,10 @@
     'account.html','checkout.html','support-operator.html','operator-pilot.html',
     'operations.html','my-devices.html','notifications.html','gifts.html'
   ]);
-  if(main&&path!=='index.html'&&!privatePaths.has(path)&&active){
+  if(main&&path!=='/'&&!privatePaths.has(path)&&active){
     const trail=el('nav','vx-breadcrumbs');
     trail.setAttribute('aria-label','Путь по сайту');
-    const home=el('a','','Главная');home.href='index.html';
+    const home=el('a','','Главная');home.href='/';
     const divider=el('span','','/');
     divider.setAttribute('aria-hidden','true');
     trail.append(home,divider,el('span','vx-breadcrumb-current',active[1]));
@@ -564,7 +580,7 @@
     rail.dataset.vxUltraRail='true';
     rail.setAttribute('aria-label','Быстрая навигация на телефоне');
     const links=[
-      ['⌂','Главная','index.html'],
+      ['⌂','Главная','/'],
       ['◈','Тарифы','plans.html'],
       ['✦','Помощь','ultra-repair.html'],
       ['▣','Кабинет','account.html']
