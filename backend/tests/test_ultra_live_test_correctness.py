@@ -27,7 +27,6 @@ def test_speed_test_and_diagnostics_route_to_python_origin():
     html = (SITE / "speed.html").read_text(encoding="utf-8")
     diagnostics = (SITE / "diagnostics.html").read_text(encoding="utf-8")
     assert "'/status.html','/speed.html','/diagnostics.html'" in shell
-    assert "window.location.replace(toBackend(currentUrl))" in shell
     assert ("site-shell.js?v=20261115-fixspeed1" in html or
             "site-shell.js?v=20261118-ultra6" in html)
     assert ("site-shell.js?v=20261115-fixspeed1" in diagnostics or

@@ -33,6 +33,8 @@ const cases=[
   'https://vainahvpn-python-preview.onrender.com/account.html?client=incy#subscription'],
  ['https://vainahvpn-python-preview.onrender.com','/trial.html','','',null],
  ['https://vainahvpn.onrender.com','/index.html','','',null],
+ ['https://vainahvpn.onrender.com','/account.html','?view=orders','#history',
+  'https://vainahvpn-python-preview.onrender.com/account.html?view=orders#history'],
  ['https://vainahvpn.onrender.com','/account','?view=orders','#history',
   'https://vainahvpn-python-preview.onrender.com/account.html?view=orders#history'],
  ['https://attacker.example','/trial.html','','',null]
@@ -121,6 +123,8 @@ const canonical='https://vainahvpn.online', legacy='https://vainahvpn.onrender.c
     [legacy+'/index.html?ref=search#intro-film', canonical+'/?ref=search#intro-film'],
     [canonical+'/index?x=1&x=2#plans', canonical+'/?x=1&x=2#plans'],
     [legacy+'/checkout?plan=30', 'https://vainahvpn-python-preview.onrender.com/checkout.html?plan=30'],
+    [legacy+'/speed.html#results', 'https://vainahvpn-python-preview.onrender.com/speed.html#results'],
+    [legacy+'/diagnostics.html', 'https://vainahvpn-python-preview.onrender.com/diagnostics.html'],
     [legacy+'/api/health', 'https://vainahvpn-python-preview.onrender.com/api/health']
   ]) {
     let target;
