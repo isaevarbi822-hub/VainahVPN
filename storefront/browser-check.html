@@ -4,7 +4,7 @@
 <meta name="description" content="Проверь возможности браузера для сайта Vainah VPN: HTTPS, копирование, диалоги и адаптивный интерфейс.">
 <link rel="canonical" href="https://vainahvpn.online/browser-check.html">
 <title>Проверка браузера — Vainah VPN</title>
-<link rel="stylesheet" href="site-shell.css"><script src="site-shell.js?v=20261118-ultra6" defer></script><script src="browser-check.js" defer></script>
+<link rel="stylesheet" href="site-shell.css"><script src="site-shell.js?v=20261118-ultra6-ui2" defer></script><script src="browser-check.js" defer></script>
 <style>
 :root{color-scheme:dark}*{box-sizing:border-box}
 body{margin:0;background:#0a1120;color:#f1f3ff;font:15px/1.6 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -29,8 +29,33 @@ a{color:inherit;text-decoration:none}
 .b-note a{color:#d8bfff;text-decoration:underline;text-underline-offset:3px}
 .b-footer{text-align:center;border-top:1px solid #343e58;padding:22px;color:#a4b6cf;font-size:12px}
 @media(max-width:620px){.b-grid{grid-template-columns:1fr}.b-wrap{padding:35px 15px 55px}}
-</style><link rel="stylesheet" href="refresh.css?v=20261113-ultra3"><script src="refresh.js?v=20261108-2" defer></script></head><body>
-<header class="b-header"><a href="/"><strong>VAINAH <span>VPN</span></strong></a><nav aria-label="Меню"><a href="tools.html">Все функции</a><a href="account.html">Мой VPN</a><a href="contact.html">Поддержка</a></nav></header>
+</style><link rel="stylesheet" href="refresh.css?v=20261113-ultra3"><script src="refresh.js?v=20261108-2" defer></script><link rel="stylesheet" href="/interface.css?v=20261120"><meta name="color-scheme" content="dark"><script src="/navigation.js?v=20261120" defer></script></head><body data-vv-interface>
+<header class="vv-header">
+  <div class="vv-bar">
+    <a href="/" class="vv-brand" aria-label="Vainah VPN — Главная"><span class="vv-mark" aria-hidden="true">V</span><span>Vainah <b>VPN</b></span></a>
+    <nav class="vv-primary" aria-label="Основная навигация"><a href="plans.html">Тарифы</a>
+<a href="connect.html">Подключение</a>
+<a href="servers.html">Серверы</a>
+<a href="contact.html">Поддержка</a></nav>
+    <div class="vv-actions">
+      <a class="vv-account" href="account.html">Кабинет</a>
+      <details class="vv-menu"><summary aria-label="Меню сайта"><span class="vv-burger" aria-hidden="true"></span><span>Меню</span></summary>
+        <nav class="vv-drawer" aria-label="Все разделы"><div class="vv-drawer-links"><a href="plans.html">Тарифы</a>
+<a href="connect.html">Подключение</a>
+<a href="servers.html">Серверы</a>
+<a href="contact.html">Поддержка</a>
+<a href="trial.html">Пробный период</a>
+<a href="account.html">Личный кабинет</a>
+<a href="gifts.html">Подарочные карты</a>
+<a href="my-devices.html">Мои устройства</a>
+<a href="support-center.html">Мои обращения</a>
+<a href="tools.html">Инструменты</a>
+<a href="command-hub.html">Центр управления</a>
+<a href="about.html">О сервисе</a></div><div class="vv-menu-tools"></div></nav>
+      </details>
+    </div>
+  </div>
+</header>
 <main class="b-wrap"><span class="b-kicker">VAINAH VPN · СОВМЕСТИМОСТЬ</span><h1>Проверка возможностей браузера</h1>
 <p class="b-intro">Этот инструмент проверит поддержку функций нашего веб-сайта на твоём устройстве. Он не определяет личность, не собирает характеристики устройства на сервере и не проверяет работу VPN-туннеля.</p>
 <div id="browser-tools"><button id="browser-run" type="button">Проверить мой браузер</button>

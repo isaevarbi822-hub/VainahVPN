@@ -53,23 +53,23 @@ def main():
             page.set_viewport_size({"width": width, "height": 950})
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
         page.set_viewport_size({"width": 390, "height": 844})
-        menu = page.locator('[data-menu-button]')
+        menu = page.locator('.vv-menu summary')
+        drawer = page.locator('.vv-drawer')
         menu.click()
-        assert menu.get_attribute('aria-expanded') == 'true'
-        assert page.locator('[data-mobile-nav]').is_visible()
-        # Rotation / resizing must not leave the mobile navigation open on desktop.
+        assert drawer.is_visible()
         page.set_viewport_size({'width': 1024, 'height': 844})
-        assert menu.get_attribute('aria-expanded') == 'false'
-        assert page.locator('[data-mobile-nav]').is_hidden()
+        drawer.wait_for(state="hidden")
         page.set_viewport_size({'width': 390, 'height': 844})
         menu.click()
+        assert drawer.get_by_role('link', name='Тарифы', exact=True).is_visible()
+        page.keyboard.press('Escape')
+        assert drawer.is_hidden()
         menu.click()
-        assert menu.get_attribute('aria-expanded') == 'false'
         page.get_by_role('button', name='Настроить оформление Vainah VPN').click()
         preferences = page.locator('dialog.vx-ultra-dialog')
         assert preferences.is_visible()
         preferences.get_by_label('Уменьшить анимации и эффекты').check()
-        assert page.locator('.refresh-globe').evaluate('(e) => getComputedStyle(e).animationName') == 'none'
+        assert page.locator('html').evaluate('(e) => getComputedStyle(e).scrollBehavior') == 'auto'
         preferences.get_by_role('button', name='Вернуть настройки по умолчанию').click()
         preferences.get_by_role('button', name='Закрыть настройки').click()
         page.locator('.refresh-more [data-vx-open-search]').click()
@@ -104,7 +104,7 @@ def main():
         assert .01 < audio['rms'] and audio['peak'] < .99, audio
         assert audio['lead'] < .001, audio
         page.emulate_media(reduced_motion="reduce")
-        assert page.locator('.refresh-globe').evaluate('(e) => getComputedStyle(e).animationName') == 'none'
+        assert page.locator('html').evaluate('(e) => getComputedStyle(e).scrollBehavior') == 'auto'
         assert not errors, errors
         browser.close()
     print("PASS: responsive layouts, 75 tariffs, search, filters, menu, 30s video, decoded stereo audio, reduced motion")

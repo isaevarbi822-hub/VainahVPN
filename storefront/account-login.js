@@ -16,7 +16,15 @@
   const emailField=$('#auth-email-input');
   const codeField=$('#auth-email-code');
   const emailMsg=$('[data-auth-message="email"]');
+  const recipientLabel=$('[data-auth-recipient]');
   let requestedEmail='';
+  let pending=false;
+  function setPending(value){
+    pending=value;
+    emailField.disabled=value;
+    emailForm.querySelector('button[type="submit"]').disabled=value;
+    verifyForm.querySelector('button[type="submit"]').disabled=value;
+  }
   let ready=false;
   let telegramLoading=false;
   let telegramMounted=false;
@@ -28,7 +36,7 @@
     EMAIL_LOGIN_NOT_CONFIGURED:'Вход по почте пока не настроен на сервере.',
     EMAIL_DELIVERY_UNAVAILABLE:'Письмо не отправлено. Проверь настройку отправителя.',
     EMAIL_LOGIN_DATABASE_UNAVAILABLE:'Временная проблема с базой данных.',
-    INVALID_ORIGIN:'Некорректный адрес сайта. Открой кабинет на Render.'
+    INVALID_ORIGIN:'Открой личный кабинет с главной страницы Vainah VPN и попробуй ещё раз.'
   };
   function say(message){if(emailMsg)emailMsg.textContent=message;}
   function select(method){
@@ -62,25 +70,26 @@
   }
   if(emailForm)emailForm.addEventListener('submit',async event=>{
     event.preventDefault();
-    if(!ready||!emailField?.value)return;
-    const button=emailForm.querySelector('button[type="submit"]');
-    button.disabled=true;
+    if(!ready||pending||!emailField?.value)return;
+    setPending(true);
     try{
-      requestedEmail=emailField.value.trim();
-      await api('/api/email-auth/request',{email:requestedEmail});
+      const recipient=emailField.value.trim();
+      await api('/api/email-auth/request',{email:recipient});
+      requestedEmail=recipient;
+      if(recipientLabel)recipientLabel.textContent=recipient;
+      codeField.value='';
       verifyForm.hidden=false;
       codeField.hidden=false;
       codeField.focus();
       say('Код отправлен. Проверь входящие и спам. Он действует 10 минут.');
     }catch(error){
       say(errorMessages[error.message]||'Не удалось отправить код: '+error.message);
-    }finally{button.disabled=false;}
+    }finally{setPending(false);}
   });
   if(verifyForm)verifyForm.addEventListener('submit',async event=>{
     event.preventDefault();
-    if(!ready||!requestedEmail||!codeField?.value)return;
-    const button=verifyForm.querySelector('button[type="submit"]');
-    button.disabled=true;
+    if(!ready||pending||!requestedEmail||!codeField?.value)return;
+    setPending(true);
     try{
       const result=await api('/api/email-auth/verify',{
         email:requestedEmail,code:codeField.value.trim()
@@ -95,7 +104,7 @@
       }
     }catch(error){
       say(errorMessages[error.message]||'Не удалось подтвердить код: '+error.message);
-    }finally{button.disabled=false;}
+    }finally{setPending(false);}
   });
   async function initTelegram(){
     if(telegramOidcReady||telegramMounted||telegramLoading)return;

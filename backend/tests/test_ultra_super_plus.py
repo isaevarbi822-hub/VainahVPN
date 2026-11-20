@@ -173,6 +173,9 @@ global.fetch=async path=>{
  const cards=get('shop-plans');
  assert.equal(cards.children.length,3);
  assert.equal(get('shop-selected-title').textContent,'Family Max');
+ assert.equal(get('shop-account-link').href,'account.html?checkout_plan=family-max-730d#account-auth-panel');
+ assert.equal(get('shop-selected-devices').textContent,'6 устройств');
+ assert.equal(get('shop-operator-panel').hidden,true);
  const search=get('shop-plan-search'),kind=get('shop-plan-kind');
  search.value='mini';search.events.input();
  assert.equal(cards.children.filter(x=>x.hidden!==true).length,1);

@@ -138,9 +138,10 @@
     link.setAttribute('aria-label','Войти в личный кабинет Vainah VPN');
   });
   // A visible search entry on every page; it opens the same local command finder.
-  const navTools=header?.querySelector('.nav-side,.header-actions');
+  const menuTools=header?.querySelector('.vv-menu-tools');
+  const navTools=menuTools||header?.querySelector('.nav-side,.header-actions');
   if(navTools&&!navTools.querySelector('.vx-header-search')){
-    const search=el('button','vx-header-search','⌕');
+    const search=el('button','vx-header-search',menuTools?'Поиск по сайту':'⌕');
     search.type='button';
     search.dataset.vxOpenSearch='';
     search.setAttribute('aria-label','Искать по сайту');
@@ -200,7 +201,7 @@
   }
   // A compact always-visible navigation rail exposes important pages even
   // when legacy desktop navigation is hidden at tablet/mobile widths.
-  if(header && !document.querySelector('.vx-utility-rail')){
+  if(header && !menuTools && !document.querySelector('.vx-utility-rail')){
     const rail=el('nav','vx-utility-rail');
     rail.setAttribute('aria-label','Основные разделы Vainah VPN');
     const links=[
@@ -333,7 +334,7 @@
 
   const footer=document.querySelector('body > footer');
   const main=document.querySelector('main');
-  if(main&&footer){
+  if(main&&footer&&!menuTools){
     const section=el('section','vx-explore');
     section.setAttribute('aria-label','Быстрые переходы по Vainah VPN');
     const inner=el('div','vx-explore-inner');
@@ -546,7 +547,7 @@
   }
   if (!document.querySelector('script[data-vx-ultra]')) {
     const script=document.createElement('script');
-    script.src='ultra-experience.js?v=20261113-ultra4';
+    script.src='ultra-experience.js?v=20261113-ultra4-ui2';
     script.dataset.vxUltra='script';
     script.defer=true;
     document.head.append(script);
@@ -562,7 +563,7 @@
   }
   if (!document.querySelector('script[data-vx-control]')) {
     const script = document.createElement('script');
-    script.src = 'ultra-control.js?v=20261114-chat1';
+    script.src = 'ultra-control.js?v=20261114-chat1-ui2';
     script.defer = true;
     script.dataset.vxControl = 'script';
     document.head.append(script);
@@ -575,7 +576,7 @@
     'operations.html','support-operator.html','support-center.html',
     'my-devices.html','gifts.html','gift-cards.html','trial.html'
   ]);
-  if(!noMobileRail.has(path)&&!document.querySelector('[data-vx-ultra-rail]')){
+  if(!menuTools&&!noMobileRail.has(path)&&!document.querySelector('[data-vx-ultra-rail]')){
     const rail=el('nav','vx-ultra-mobile-rail');
     rail.dataset.vxUltraRail='true';
     rail.setAttribute('aria-label','Быстрая навигация на телефоне');
@@ -646,7 +647,7 @@
   }
   if(!document.querySelector('script[data-vx-quality]')){
     const script=document.createElement('script');
-    script.src='site-health.js?v=20261118-ipad2';
+    script.src='site-health.js?v=20261118-ipad2-ui2';
     script.defer=true;
     script.dataset.vxQuality='js';
     document.head.append(script);

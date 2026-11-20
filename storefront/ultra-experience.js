@@ -2,7 +2,7 @@
    Preferences store solely theme + layout density in localStorage. */
 (() => {
   'use strict';
-  if (!document.body || document.getElementById('vx-ultra-ribbon')) return;
+  if (!document.body || document.getElementById('vx-ultra-ribbon') || document.getElementById('vx-appearance-dialog')) return;
   const THEMES = Object.freeze({
     aurora: ['Лесной свет', 'Лайм и глубокий зелёный'],
     ocean: ['Океан', 'Синий и бирюзовый'],
@@ -98,15 +98,20 @@
   ribbon.append(identity, actions);
   // The home page hides the duplicate ribbon; keep its settings reachable.
   const homeActions = document.querySelector('[data-refresh-home] .refresh-more');
-  if (homeActions) homeActions.append(settingsButton);
+  const menuTools = document.querySelector('.vv-menu-tools');
+  if (menuTools) menuTools.append(settingsButton);
+  else if (homeActions) homeActions.append(settingsButton);
 
   const header = document.querySelector('body > header, body > .site-header');
   const rail = document.querySelector('.vx-utility-rail');
-  if (rail) rail.after(ribbon);
-  else if (header) header.after(ribbon);
-  else document.body.prepend(ribbon);
+  if (!menuTools) {
+    if (rail) rail.after(ribbon);
+    else if (header) header.after(ribbon);
+    else document.body.prepend(ribbon);
+  }
 
   const dialog = create('dialog', null, 'vx-ultra-dialog');
+  dialog.id = 'vx-appearance-dialog';
   dialog.setAttribute('aria-labelledby', 'vx-ultra-title');
   const body = create('div', null, 'vx-ultra-dialog-body');
   const top = create('div', null, 'vx-ultra-dialog-heading');

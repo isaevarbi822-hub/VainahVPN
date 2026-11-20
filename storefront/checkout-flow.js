@@ -88,6 +88,7 @@
   async function checkExistingCheckout(planId) {
     // The token is tied to a verified email on the server; never use it as
     // evidence of payment by itself or erase an uncertain gateway request.
+    const gateway = state.gateway;
     const name = intentKeyName(planId);
     const key = sessionStorage.getItem(name);
     if (!key) return {found: false};
@@ -100,10 +101,10 @@
         result.payment_state === "paid" &&
         result.delivery_state === "delivered") {
       sessionStorage.removeItem(name);
-      if (state.selected?.id === planId)
+      if (state.selected?.id === planId && state.gateway === gateway)
         message("Предыдущая оплата подтверждена и VPN выдан. " +
           "Теперь можно оформить новое продление этого тарифа.");
-    } else if (result.found === true && state.selected?.id === planId) {
+    } else if (result.found === true && state.selected?.id === planId && state.gateway === gateway) {
       if (result.payment_state === "created") {
         message("Уже есть неоплаченный счёт этого тарифа. " +
           "Кнопка оплаты откроет тот же счёт без нового списания.");
@@ -148,20 +149,31 @@
         "Показан последний подписанный статус, а не свежая проверка у провайдера.");
     }
   }
+  const pluralRules = new Intl.PluralRules("ru");
+  function formatCount(value, forms) {
+    const category = pluralRules.select(value);
+    return value + " " + forms[category === "one" ? 0 : category === "few" ? 1 : 2];
+  }
   function select(id) {
     if(state.busy)return;
     const plan = state.plans.find(p => p.id === id);
     if (!plan) return;
     clearIssuedLink();
+    const hadSelection = state.selected !== null;
     state.selected = plan;
+    $("shop-buy").disabled = !gatewayReady();
+    $("shop-test-create").disabled = !state.config?.sandbox_available;
+    if (!hadSelection) message(gatewayReady() ? "Оплата доступна после входа в аккаунт." : "Оформление временно недоступно.");
     document.querySelectorAll(".shop-plan").forEach(el => {
       el.setAttribute("aria-pressed", String(el.dataset.plan === id));
     });
+    const accountLink = $("shop-account-link");
+    if (accountLink) accountLink.href = "account.html?checkout_plan=" + encodeURIComponent(id) + "#account-auth-panel";
     $("shop-selected-title").textContent = plan.title;
-    $("shop-selected-days").textContent = plan.days + " дней";
-    $("shop-selected-devices").textContent = plan.devices + " устройства";
+    $("shop-selected-days").textContent = formatCount(plan.days, ["день", "дня", "дней"]);
+    $("shop-selected-devices").textContent = formatCount(plan.devices, ["устройство", "устройства", "устройств"]);
     $("shop-total").textContent = money(plan.priceRub);
-    if (history.replaceState) history.replaceState(null, "", "?plan=" + encodeURIComponent(id));
+    if (history.replaceState) history.replaceState(null, "", "?plan=" + encodeURIComponent(id) + (location.hash || ""));
     filterPlans();
     state.testOrder = null;
     $("shop-test-simulate").hidden = true;
@@ -227,18 +239,19 @@
       price.textContent = money(plan.priceRub);
       const note = document.createElement("span");
       note.className = "price-note";
-      note.textContent = "На " + plan.days + " дней";
+      note.textContent = "На " + formatCount(plan.days, ["день", "дня", "дней"]);
       button.append(title, subtitle, price, note);
       button.addEventListener("click", () => select(plan.id));
       cards.append(button);
     }
     const requested = new URLSearchParams(location.search).get("plan");
-    select(state.plans.some(p => p.id === requested) ? requested : "30");
+    const defaultPlan = state.plans.find(plan => plan.id === "30") || state.plans[0];
+    select(requested === null ? defaultPlan.id : requested);
     filterPlans();
     updateGatewayControls();
-    $("shop-buy").disabled = !gatewayReady();
+    $("shop-buy").disabled = !state.selected || !gatewayReady();
     $("shop-buy").textContent = gatewayReady() ? "Перейти к оплате ↗" : "Оплата пока недоступна";
-    $("shop-test-create").disabled = !state.config?.sandbox_available;
+    $("shop-test-create").disabled = !state.selected || !state.config?.sandbox_available;
     if (gatewayReady() && state.selected) {
       const selectedPlanId = state.selected.id;
       void checkExistingCheckout(selectedPlanId).catch(err => {
@@ -262,10 +275,14 @@
       if (!Array.isArray(plans.items) || !plans.items.length) throw Error("Каталог пуст");
       state.plans = plans.items;
       state.config = config;
+      const operatorPanel = $("shop-operator-panel");
+      if (operatorPanel) operatorPanel.hidden = config.sandbox_available !== true;
       draw();
-      message(gatewayReady()
+      if (!state.selected) {
+        message("Тариф по этой ссылке недоступен. Выбери другой тариф в списке.");
+      } else message(gatewayReady()
         ? "Оплата включена для авторизованных покупателей."
-        : "Оформление новых платежей сейчас не разрешено сервером (checkout_ready=false). Это не означает, что сайт или backend недоступен.");
+        : "Оформление временно недоступно. Попробуй позже или обратись в поддержку.");
       if (!config.sandbox_available) {
         testMessage("Sandbox отключён на сервере. Для теста требуется включить режим и задать секретный токен.");
       }
@@ -280,7 +297,7 @@
       if (state.busy || !radio.checked || !gatewayReady(radio.value)) return;
       state.gateway = radio.value;
       updateGatewayControls();
-      $("shop-buy").disabled = !gatewayReady();
+      $("shop-buy").disabled = !state.selected || !gatewayReady();
       message("Выбрана касса " + (state.gateway === "platega" ? "Platega" : "RollyPay") + ".");
       if (state.selected)
         void checkExistingCheckout(state.selected.id).catch(() =>
@@ -351,7 +368,7 @@
     } finally {
       state.busy = false;
       updateGatewayControls();
-      $("shop-buy").disabled = !gatewayReady();
+      $("shop-buy").disabled = !state.selected || !gatewayReady();
     }
   });
   $("shop-test-diagnose").addEventListener("click", async () => {

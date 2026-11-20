@@ -8,7 +8,7 @@
   ]);
   const path=location.pathname.split('/').pop()||'index.html';
   if(privatePages.has(path))return;
-  const nav=document.querySelector('body > header .nav-side,body > header .header-actions');
+  const nav=document.querySelector('body > header .vv-menu-tools,body > header .nav-side,body > header .header-actions');
   if(!nav||nav.querySelector('[data-vx-live-status]'))return;
   const button=document.createElement('button');
   button.type='button';

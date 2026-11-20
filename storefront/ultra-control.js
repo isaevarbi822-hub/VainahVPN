@@ -156,7 +156,7 @@
   launcher.setAttribute('aria-label', 'Открыть чат с помощником Vainah');
   // Floating launcher stays available even where a legacy navigation rail
   // is intentionally hidden on mobile or on the refreshed homepage.
-  document.body.append(launcher);
+  (document.querySelector('.vv-menu-tools') || document.body).append(launcher);
   const dialog = make('dialog', 'vx-control-dialog');
   dialog.id = 'vx-control-dialog';
   dialog.setAttribute('aria-labelledby', 'vx-control-title');
