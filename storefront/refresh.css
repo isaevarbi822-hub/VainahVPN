@@ -319,3 +319,6 @@ body .refresh-device-option:focus-visible{
 @media(prefers-reduced-motion:reduce){
   body .vx-header-search,body .refresh-device-option{transition:none!important;transform:none!important}
 }
+
+/* Homepage brand name stays visible to readers and search engines without altering the hero layout. */
+body[data-refresh-home] .refresh-hero h1 .refresh-home-brand{display:block;margin:0 0 12px;color:#d8e3fb;font-size:clamp(17px,2vw,22px);line-height:1.3;font-weight:750;letter-spacing:.04em}

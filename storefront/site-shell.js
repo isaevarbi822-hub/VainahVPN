@@ -19,7 +19,7 @@
       '/account.html','/checkout.html','/trial.html',
       '/hub.html','/my-devices.html','/notifications.html',
       '/operator-grants.html','/referrals.html','/rewards.html',
-      '/handoff.html','/contact.html',
+      '/handoff.html',
       '/gifts.html','/gift-cards.html','/support-center.html',
       '/support-operator.html','/operator-pilot.html','/operations.html',
       '/payment-return.html','/checkout-return.html',
