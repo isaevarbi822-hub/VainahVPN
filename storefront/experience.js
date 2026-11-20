@@ -275,8 +275,9 @@
     fetch(publicApi+'/api/shop/config',{cache:'no-store',credentials:'omit'})
       .then(r=>r.ok?r.json():Promise.reject(Error('plans')))
       .then(data=>{
-        launch.textContent=data.checkout_ready===true?
-          'Онлайн-оформление доступно после подтверждения email. Оплата через RollyPay.':
+        const gateways = [data.checkout_ready === true && 'RollyPay', data.platega_ready === true && 'Platega'].filter(Boolean);
+        launch.textContent=gateways.length?
+          'Онлайн-оформление доступно после подтверждения email. Оплата через '+gateways.join(' или ')+'.':
           'Сейчас новые платежи временно недоступны. Попробуй позже или обратись в поддержку.';
       })
       .catch(()=>{

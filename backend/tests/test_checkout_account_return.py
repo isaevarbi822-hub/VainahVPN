@@ -8,7 +8,7 @@ SITE = Path(__file__).resolve().parents[2] / "storefront"
 def run_node(script, harness):
     result = subprocess.run(
         ["node", "-e", harness, str(SITE / script)],
-        capture_output=True, text=True, timeout=10,
+        check=False, capture_output=True, text=True, timeout=10,
     )
     assert result.returncode == 0, result.stderr
 

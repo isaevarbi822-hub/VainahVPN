@@ -2,6 +2,7 @@
    Never create invoices, fake prices, change accounts, or claim VPN connection. */
 (() => {
   'use strict';
+  const duration = new Intl.NumberFormat('ru-RU', {style:'unit', unit:'day', unitDisplay:'long'});
   const root=document.querySelector('[data-vx-next-journey]');
   if(!root)return;
   const status=root.querySelector('[data-vx-next-status]');
@@ -96,7 +97,7 @@
       const card=make('article','','vx-next-offer');
       const caption=make('span',i===0?'БЛИЖЕ К СРОКУ':i===1?'АЛЬТЕРНАТИВА':'ЕЩЁ ВАРИАНТ','vx-next-offer-tag');
       const title=make('h3',plan.title);
-      const details=make('p',plan.days+' дней · до '+plan.devices+' устройств');
+      const details=make('p',duration.format(plan.days)+' · до '+plan.devices+' устройств');
       const price=make('strong',money(Number(plan.price_rub)),'vx-next-price');
       const perDay=make('small','≈ '+new Intl.NumberFormat('ru-RU',{
         minimumFractionDigits:2,maximumFractionDigits:2

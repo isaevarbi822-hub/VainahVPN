@@ -58,6 +58,7 @@ const deep=node=>[node,...node.children.flatMap(deep)];
  await tick();await tick();
  assert.equal(fetches,1);
  assert.equal(root.children.length,6);
+ assert.ok(deep(root).some(n=>n.textContent.startsWith('2 дня ·')));
  const links=deep(root).filter(n=>n.tagName==='A');
  assert.equal(links.length,6);
  assert.ok(links.every(n=>n.href.startsWith('/checkout.html?plan=')));

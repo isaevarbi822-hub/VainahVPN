@@ -2,6 +2,7 @@
    The server owns all prices, eligibility, checkout and VPN fulfillment. */
 (() => {
   'use strict';
+  const duration = new Intl.NumberFormat('ru-RU', {style:'unit', unit:'day', unitDisplay:'long'});
   // The public CDN is a static site. Its catalog lives on the read-only Python API.
   // Only public GETs use this origin. Payments run on the account backend.
   const publicOrigins=['https://vainahvpn.online','https://www.vainahvpn.online',
@@ -199,8 +200,8 @@
       const card=elem('article','','tariff-compare-card');
       card.append(elem('strong',p.title));
       card.append(elem('span',money(priceValue(p))));
-      card.append(elem('small',p.days+' дней · '+p.devices+
-        ' устройства · ≈'+moneyDaily(daily(p))+'/день'));
+      card.append(elem('small',duration.format(p.days)+' · до '+p.devices+
+        ' устройств · ≈'+moneyDaily(daily(p))+'/день'));
       const link=elem('a','Оформить ↗','btn btn-primary');
       link.href='/checkout.html?plan='+p.id;
       card.append(link);
@@ -225,7 +226,7 @@
     const frag=document.createDocumentFragment();
     for(const p of paid){
       const card=elem('article','','plan tariff-card');
-      card.append(elem('div',p.days+' ДНЕЙ','duration'));
+      card.append(elem('div',duration.format(p.days).toLocaleUpperCase('ru'),'duration'));
       card.append(elem('span',String(p.tag||'ДОСТУПЕН'),'tariff-label'));
       card.append(elem('h3',p.title));
       const amount=elem('div','','price');

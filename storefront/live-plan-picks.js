@@ -2,6 +2,7 @@
    Only public GET requests; no payment, auth or H1Cloud writes. */
 (() => {
   'use strict';
+  const duration = new Intl.NumberFormat('ru-RU', {style:'unit', unit:'day', unitDisplay:'long'});
   const root=document.querySelector('[data-live-plan-picks]');
   const message=document.querySelector('[data-live-plan-message]');
   const refresh=document.querySelector('[data-live-plan-refresh]');
@@ -11,9 +12,6 @@
     ['https://vainahvpn.onrender.com','https://vainahvpn.online',
       'https://www.vainahvpn.online'].includes(location.origin);
   const publicApi=staticSite?'https://vainahvpn-python-preview.onrender.com':'';
-  const checkoutMessage=document.querySelector('[data-checkout-message]');
-  if(checkoutMessage)checkoutMessage.textContent=
-    'Статус RollyPay проверяется на странице оформления. До подтверждения заказа деньги не списываются.';
   const escape=(tag,value,cls='')=>{
     const node=document.createElement(tag);node.textContent=String(value);
     if(cls)node.className=cls;return node;
@@ -60,7 +58,7 @@
         const top=escape('div',plan.devices===6?'СЕМЕЙНЫЙ':'ЛИЧНЫЙ','vx-pick-label');
         const title=escape('h3',plan.title);
         const price=escape('strong',rub.format(Number(plan.price_rub))+' ₽','vx-pick-price');
-        const subtitle=escape('p',plan.days+' дней · до '+plan.devices+' устройств',
+        const subtitle=escape('p',duration.format(plan.days)+' · до '+plan.devices+' устройств',
           'vx-pick-details');
         const btn=escape('a','Выбрать тариф ↗','vx-pick-link');
         btn.href=plan.checkout_path;
@@ -68,7 +66,7 @@
         fragment.append(card);
       }
       root.replaceChildren(fragment);
-      message.textContent='Цены получены из сервера. Выбор тарифа не списывает деньги; готовность RollyPay проверяется при оформлении.';
+      message.textContent='Цены получены из каталога. На странице оформления можно проверить сумму и выбрать кассу.';
     }catch{
       if(turn===generation){
         const fallback=document.createElement('article');
