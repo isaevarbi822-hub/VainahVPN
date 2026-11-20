@@ -78,7 +78,7 @@ def test_homepage_brand_metadata_matches_visible_heading():
     assert '<meta name="description" content="Vainah VPN — VPN-сервис' in html
     assert '<h1 id="home-title"><small class="refresh-home-brand">Vainah VPN</small>' in html
     assert '<link rel="canonical" href="https://vainahvpn.online/">' in html
-    match = re.search(r'<script type="application/ld[+]json">(.*?)</script>', html, re.S)
+    match = re.search(r'<script type="application/ld[+]json">(.*?)</script>', html, re.DOTALL)
     assert match is not None
     markup = json.loads(match.group(1))
     websites = [node for node in markup.get("@graph", [])
