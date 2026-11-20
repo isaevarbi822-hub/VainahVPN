@@ -14,7 +14,8 @@ def test_all_shared_pages_use_the_new_assets():
     assert len(pages) >= 48
     for page in pages:
         html = page.read_text(encoding="utf-8")
-        assert 'refresh.css?v=20261113-ultra3' in html, page.name
+        assert ('refresh.css?v=20261113-ultra3' in html or
+                'refresh.css?v=20261120-seo-home1' in html), page.name
         if 'src="site-shell.js' in html:
             assert ('site-shell.js?v=20261113-ultra4' in html or
                     'site-shell.js?v=20261114-chat1' in html or
@@ -23,7 +24,8 @@ def test_all_shared_pages_use_the_new_assets():
                     'site-shell.js?v=20261118-quality1' in html or
                     'site-shell.js?v=20261118-ipad2' in html or
                     'site-shell.js?v=20261118-mega1' in html or
-                    'site-shell.js?v=20261118-ultra6' in html), page.name
+                    'site-shell.js?v=20261118-ultra6' in html or
+                    'site-shell.js?v=20261120-seo-route1' in html), page.name
     connect_page = (SITE / "connect.html").read_text(encoding="utf-8")
     assert 'connect.js?v=20261113-device3' in connect_page
 
