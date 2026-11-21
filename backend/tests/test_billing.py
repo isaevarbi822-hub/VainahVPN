@@ -20,31 +20,20 @@ from vainah.main import app
 client = TestClient(app)
 
 
-def test_catalog_includes_all_fifty_paid_plans():
-    from vainah.billing import CATALOG, price_rub
-    from vainah.expanded_tariffs import EXTRA_CATALOG
-
-    r = client.get("/api/shop/plans")
-    assert r.status_code == 200
-    rows = r.json()["items"]
-    assert len(rows) == 75
-    assert len({x["id"] for x in rows}) == 75
-    assert [x["id"] for x in rows] == [p["id"] for p in CATALOG]
-    assert [x["priceRub"] for x in rows] == [price_rub(p) for p in CATALOG]
-    assert [x["priceRub"] for x in rows[:21]] == [
-        "59.00", "99.00", "149.00", "209.00", "239.00", "329.00",
-        "419.00", "509.00", "1050.00", "289.00", "1499.00",
-        "29.00", "45.00", "119.00", "289.00", "469.00",
-        "749.00", "1790.00", "599.00", "979.00", "2690.00"
+def test_shop_lists_only_the_curated_plans_at_their_existing_prices():
+    response = client.get("/api/shop/plans")
+    assert response.status_code == 200
+    assert [
+        (p["id"], p["days"], p["devices"], p["priceRub"])
+        for p in response.json()["items"]
+    ] == [
+        ("mini-3d", 3, 3, "29.00"), ("7", 7, 3, "59.00"),
+        ("14", 14, 3, "99.00"), ("30", 30, 3, "149.00"),
+        ("60", 60, 3, "239.00"), ("90", 90, 3, "329.00"),
+        ("180", 180, 3, "509.00"), ("365", 365, 3, "1050.00"),
+        ("30-family", 30, 6, "289.00"), ("family-plus-90d", 90, 6, "599.00"),
+        ("family-pro-180d", 180, 6, "979.00"), ("365-family", 365, 6, "1499.00"),
     ]
-    assert rows[20]["devices"] == 6
-    assert rows[20]["days"] == 730
-    assert rows[11]["days"] == 3
-    assert next(p for p in rows if p["id"] == "30-family")["devices"] == 6
-    assert rows[0]["devices"] == 3
-    assert len(EXTRA_CATALOG) == 54
-    assert all(row["devices"] in (3, 6) and row["days"] <= 730
-               for row in rows[21:])
 
 
 def test_original_website_is_home_and_next_dashboard_still_available():

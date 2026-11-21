@@ -235,9 +235,9 @@
         const response=await fetch('/api/shop/plans',{credentials:'omit',cache:'no-store'});
         if(!response.ok)throw Error('CATALOG');
         const body=await response.json();
-        if(!Array.isArray(body?.items)||body.items.length!==50||
-           new Set(body.items.map(p=>p?.id)).size!==50)throw Error('CATALOG');
-        const featured=['mini-3d','30','90','365','family-plus-90d','family-max-730d'];
+        if(!Array.isArray(body?.items)||body.items.length!==12||
+           new Set(body.items.map(p=>p?.id)).size!==12)throw Error('CATALOG');
+        const featured=['mini-3d','30','90','365','family-plus-90d','365-family'];
         const planById=new Map(body.items.map(p=>[p.id,p]));
         const verified=featured.map(id=>{
           const p=planById.get(id);
@@ -261,7 +261,7 @@
           card.append(name,price,desc,link);planGrid?.append(card);
         }
         set(plansMessage,
-          '6 примеров из 75 платных тарифов. Цены получены из API; '+
+          '6 примеров из 12 платных тарифов. Цены получены из API; '+
           'доступность оплаты проверяется отдельно при оформлении.');
       }catch{set(plansMessage,'Каталог тарифов не загрузился. Открой страницу «Тарифы».');}
     })();

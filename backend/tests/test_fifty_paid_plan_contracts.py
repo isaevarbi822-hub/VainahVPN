@@ -9,7 +9,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from vainah.billing import CATALOG, get_plan, price_rub
+from vainah.billing import CATALOG, SALE_PLAN_IDS, get_plan, price_rub
 from vainah.expanded_tariffs import EXTRA_CATALOG, EXTRA_PLAN_IDS
 from vainah.gift_cards import ALLOWED_GIFT_PLANS
 from vainah.h1_live_provision import LiveH1CloudNode, LiveH1Error
@@ -27,20 +27,24 @@ SIGNING = "superplus50-test-" + "s" * 50
 KEY = "superplus50-test-" + "k" * 50
 
 
-def test_full_fifty_plan_catalog_is_a_single_authoritative_source():
+def test_historical_contracts_survive_catalog_reduction():
     assert len(EXTRA_CATALOG) == 54
     assert len(CATALOG) == 75
     assert len({p["id"] for p in CATALOG}) == 75
     assert len({(p["days"], p["devices"]) for p in CATALOG}) == 75
     assert EXTRA_PLAN_IDS.isdisjoint(ALLOWED_GIFT_PLANS)
     data = public_tariff_catalog()
-    assert len(data["plans"]) == data["total"] == 76
-    assert data["existing_paid_count"] == 75
+    assert len(data["plans"]) == data["total"] == 13
+    assert data["existing_paid_count"] == 12
     assert data["trial_count"] == 1
     for plan in CATALOG:
         assert plan["kopeks"] > 0 and plan["kopeks"] % 100 == 0
         assert 2 <= plan["days"] <= 730
         assert plan["devices"] in (3, 6)
+        assert get_plan(plan["id"]) == plan
+        if plan["id"] not in SALE_PLAN_IDS:
+            assert all(p["id"] != plan["id"] for p in data["plans"])
+            continue
         exposed = next(p for p in data["plans"] if p["id"] == plan["id"])
         assert exposed["price_rub"] == price_rub(plan)
         assert exposed["checkout_path"] == "/checkout.html?plan=" + plan["id"]

@@ -28,8 +28,8 @@ def test_next_journey_never_creates_payment_or_uses_fake_prices():
     script = _read("vainah-next.js")
     assert "apiOrigin+'/api/site/tariffs'" in script
     assert "checkout_supported===true" in script
-    assert "data.plans.length!==76" in script
-    assert "confirmed.length!==75" in script
+    assert "data.plans.length!==13" in script
+    assert "confirmed.length!==12" in script
     assert "money(Number(plan.price_rub))" in script
     assert "method:'GET'" in script
     assert "method:'POST'" not in script
@@ -60,7 +60,7 @@ def test_home_plans_checkout_and_hub_have_real_navigation():
     hub = _read("command-hub.html")
     assert 'href="plans.html?devices=3&amp;sort=days"' in home
     assert 'href="/#vainah-route"' in plans
-    assert "76 вариантов:" in plans
+    assert "8 личных тарифов" in plans
     assert "вариантовова" not in plans
     assert "Умный подбор VPN" in hub
     assert 'href="/#vainah-route"' in hub
@@ -84,11 +84,11 @@ def test_global_design_loads_purple_styles_without_js_checkout_changes():
     assert '@media(prefers-reduced-motion:reduce)' in css
 
 
-def test_existing_server_catalog_is_unchanged_and_still_75_paid():
+def test_public_catalog_has_twelve_paid_options_and_trial():
     with TestClient(app) as client:
         response = client.get("/api/site/tariffs")
     assert response.status_code == 200
     catalog = response.json()
-    assert catalog["total"] == 76
-    assert len(catalog["plans"]) == 76
-    assert sum(plan.get("status") == "existing" for plan in catalog["plans"]) == 75
+    assert catalog["total"] == 13
+    assert len(catalog["plans"]) == 13
+    assert sum(plan.get("status") == "existing" for plan in catalog["plans"]) == 12

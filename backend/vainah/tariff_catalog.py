@@ -1,4 +1,4 @@
-"""Public catalog of 75 priced paid plans and one free trial.
+"""Public catalog of subscriptions currently on sale and the free trial.
 
 All paid plans share the server billing catalog, signed RollyPay webhook
 validation, durable order ledger, and H1Cloud post-write verification.
@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from .billing import CATALOG, price_rub
-from .expanded_tariffs import EXTRA_CATALOG, EXTRA_PLAN_IDS
+from .billing import SALE_CATALOG, SALE_PLAN_IDS, price_rub
+from .expanded_tariffs import EXTRA_PLAN_IDS
 
 router = APIRouter(prefix="/api/site", tags=["Public tariff catalog"])
 
@@ -27,35 +27,20 @@ UPCOMING_IDS = frozenset()
 UPCOMING = ()
 
 LIVE_TAGS = {
-    "7": "На короткий срок",
-    "14": "Гибкий старт",
-    "45": "Больше месяца",
-    "120": "Длинный срок",
-    "30-family": "Для семьи",
-    "30": "Популярный",
-    "60": "На каждый день",
-    "90": "На три месяца",
-    "180": "Экономный",
-    "365": "На год",
-    "365-family": "Семья на год",
     "mini-3d": "На три дня",
-    "sprint-5d": "Быстрый старт",
-    "start-plus-21d": "Три недели",
-    "balance-75d": "Гибкий срок",
-    "comfort-150d": "Пять месяцев",
-    "max-270d": "Девять месяцев",
-    "legend-730d": "Два года",
+    "7": "На неделю",
+    "14": "На две недели",
+    "30": "На месяц",
+    "60": "На два месяца",
+    "90": "На три месяца",
+    "180": "На полгода",
+    "365": "На год",
+    "30-family": "Для семьи",
     "family-plus-90d": "Семейный на три месяца",
     "family-pro-180d": "Семейный на полгода",
-    "family-max-730d": "Семейный на два года",
+    "365-family": "Семья на год",
 }
-ORDER = (
-    "trial-free", "mini-3d", "sprint-5d", "7", "14", "start-plus-21d",
-    "30", "45", "60", "balance-75d", "90", "120", "comfort-150d",
-    "180", "max-270d", "365", "legend-730d", "30-family",
-    "family-plus-90d", "family-pro-180d", "365-family",
-    "family-max-730d",
-) + tuple(plan["id"] for plan in EXTRA_CATALOG)
+ORDER = ("trial-free", *SALE_PLAN_IDS)
 
 
 def _segment(days: int, category: str) -> str:
@@ -70,16 +55,14 @@ def _segment(days: int, category: str) -> str:
 
 def public_tariff_catalog() -> dict:
     paid = []
-    for plan in CATALOG:
+    for plan in SALE_CATALOG:
         category = "family" if plan["devices"] == 6 else "personal"
         paid.append({
             "id": plan["id"], "title": plan["title"],
             "days": plan["days"], "devices": plan["devices"],
             "price_rub": price_rub(plan), "category": category,
             "segment": _segment(plan["days"], category),
-            "tag": LIVE_TAGS.get(plan["id"], (
-                "Семейный доступ" if category == "family"
-                else "Новый тариф")), 
+            "tag": LIVE_TAGS[plan["id"]],
             "status": "existing", "checkout_supported": True,
             "checkout_path": "/checkout.html?plan=" + plan["id"],
         })
@@ -89,18 +72,17 @@ def public_tariff_catalog() -> dict:
         "category": "trial", "segment": "trial", "status": "trial",
         "checkout_supported": False, "checkout_path": "/trial.html",
     }
-    order = {identifier: index for index, identifier in enumerate(ORDER)}
-    all_plans = sorted([trial, *paid], key=lambda p: order[p["id"]])
+    all_plans = [trial, *paid]
     return {
         "plans": all_plans,
         "total": len(all_plans),
-        "existing_paid_count": len(CATALOG),
+        "existing_paid_count": len(paid),
         "upcoming_count": 0,
-        "newly_launched_count": len(NEW_PLAN_IDS | ADDED_PLAN_IDS | ULTRA_PLAN_IDS),
+        "newly_launched_count": 0,
         "trial_count": 1,
         "note": (
-            "75 платных тарифов доступны для оформления при готовности кассы "
-            "RollyPay и H1Cloud. VPN выдаётся только после подтверждённого "
+            "Платные тарифы доступны для оформления при готовности кассы "
+            "и сервиса выдачи. VPN выдаётся только после подтверждённого "
             "платежа. Бесплатный пробный день без оплаты."
         ),
     }

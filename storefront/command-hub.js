@@ -151,7 +151,7 @@
         try{
           const data=await health.json();
           apiConfirmed=isPublicSite
-            ? data.total===76&&Array.isArray(data.plans)&&data.plans.length===76
+            ? data.total===13&&Array.isArray(data.plans)&&data.plans.length===13
             : data&&typeof data==='object'&&!Array.isArray(data);
         }catch(_){apiConfirmed=false;}
       }

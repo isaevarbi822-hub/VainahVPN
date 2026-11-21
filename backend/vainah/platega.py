@@ -219,6 +219,8 @@ async def start_checkout(
         ):
             raise LiveLedgerError("LIVE_CHECKOUT_RECONCILIATION_REQUIRED")
     except LiveLedgerError as exc:
+        if str(exc) == "LIVE_PLAN_INVALID":
+            raise HTTPException(422, str(exc)) from None
         if str(exc) in {
             "LIVE_IDEMPOTENCY_CONFLICT",
             "LIVE_CHECKOUT_RECONCILIATION_REQUIRED",

@@ -22,7 +22,14 @@ from uuid import uuid4
 import psycopg
 from cryptography.fernet import Fernet, InvalidToken
 
-from .billing import CATALOG, PAYMENT_ID_RE, get_plan, price_rub, verify_signature
+from .billing import (
+    CATALOG,
+    PAYMENT_ID_RE,
+    SALE_PLAN_IDS,
+    get_plan,
+    price_rub,
+    verify_signature,
+)
 from .production_contracts import (
     LIVE_ORDER_RE,
     LiveContractError,
@@ -337,6 +344,8 @@ class PostgresLiveOrderLedger:
                         """, (nonce_hash, owner_ref))
                         if cur.fetchone() is None:
                             raise LiveLedgerError("LIVE_DISCOUNT_PILOT_LIMIT_REACHED")
+                # A retired plan may resume its existing invoice, but cannot reserve a new one.
+                can_create = plan_id in SALE_PLAN_IDS or discounted_pilot
                 cur.execute("""
                     INSERT INTO vainah_live_orders (
                         order_id, owner_ref, plan_id, amount_rub,
@@ -344,13 +353,14 @@ class PostgresLiveOrderLedger:
                         is_pilot, is_discount_pilot, is_gift,
                         gift_buyer_ref, gift_code_hash, gift_code_cipher,
                         gateway
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ) SELECT %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    WHERE %s
                     ON CONFLICT DO NOTHING
                     RETURNING order_id
                 """, (order_id, owner_ref, plan_id, price_rub(plan),
                       recipient, nonce_hash, pilot, discounted_pilot,
                       gift, owner_ref if gift else None, gift_code_hash,
-                      gift_cipher, gateway))
+                      gift_cipher, gateway, can_create))
                 created = cur.fetchone()
                 if created:
                     return created[0], None
@@ -362,6 +372,8 @@ class PostgresLiveOrderLedger:
                     WHERE checkout_nonce_hash = %s
                 """, (nonce_hash,))
                 existing = cur.fetchone()
+                if not existing and not can_create:
+                    raise LiveLedgerError("LIVE_PLAN_INVALID")
                 if not existing and pilot:
                     raise LiveLedgerError("LIVE_PILOT_ALREADY_RESERVED")
                 if not existing and discounted_pilot:

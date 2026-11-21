@@ -5,8 +5,8 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
-from vainah import live_checkout
-from vainah.live_ledger import PostgresLiveOrderLedger
+from vainah import live_checkout, live_ledger
+from vainah.live_ledger import LiveLedgerError, PostgresLiveOrderLedger
 from vainah.main import app
 
 ORIGIN = "https://vainahvpn-python-preview.onrender.com"
@@ -133,3 +133,23 @@ def test_operator_pilot_intent_is_not_public(account):
                               headers=headers(key))
         assert response.status_code == 200
         assert response.json() == {"found": False, "renewal_ready": False}
+
+@pytest.mark.parametrize("gateway,pay_url", [
+    ("rollypay", "https://pay.rollypay.io/pay/retired_plan"),
+    ("platega", "https://pay.platega.io/?test-order"),
+])
+def test_retired_plan_only_resumes_its_original_invoice(account, monkeypatch, gateway, pay_url):
+    plan = "legend-730d"
+    args = {
+        "owner_ref": "v1_" + "a" * 64, "verified_email": EMAIL,
+        "plan_id": plan, "idempotency_key": str(uuid4()), "gateway": gateway,
+    }
+    with monkeypatch.context() as previous_catalog:
+        previous_catalog.setattr(live_ledger, "SALE_PLAN_IDS", (*live_ledger.SALE_PLAN_IDS, plan))
+        order_id, original_url = account.reserve_checkout(**args)
+        assert original_url is None
+        assert account.attach_hosted_invoice(order_id=order_id, payment_id=str(uuid4()),
+                                             pay_url=pay_url, gateway=gateway)
+    assert account.reserve_checkout(**args) == (order_id, pay_url)
+    with pytest.raises(LiveLedgerError, match="^LIVE_PLAN_INVALID$"):
+        account.reserve_checkout(**{**args, "idempotency_key": str(uuid4())})

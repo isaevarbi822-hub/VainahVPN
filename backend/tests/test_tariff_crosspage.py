@@ -72,34 +72,33 @@ global.document={
   querySelector:s=>s==='[data-compare]'?compare:null,
   createElement:t=>new El(t),
 };
-const paid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d','pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d']);
 const data=__CATALOG__;
-global.fetch=async()=>({ok:true,json:async()=>({total:76,plans:data})});
+global.fetch=async()=>({ok:true,json:async()=>({total:13,plans:data})});
 const tick=()=>new Promise(r=>setImmediate(r));
 function deep(node){return [node,...node.children.flatMap(deep)]}
 (async()=>{
   vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
   await tick();await tick();
-  assert.equal(grid.children.length,76);
-  assert.equal(table.children.length,76);
-  assert.equal(count.textContent,'76 из 76 вариантов');
+  assert.equal(grid.children.length,13);
+  assert.equal(table.children.length,13);
+  assert.equal(count.textContent,'13 из 13 вариантов');
   const links=deep(grid).filter(x=>x.tagName==='A');
-  assert.equal(links.length,76); // 21 paid, 1 trial
+  assert.equal(links.length,13); // 12 paid, 1 trial
   const paidLinks=links.filter(x=>x.href.startsWith('/checkout'));
-  assert.equal(paidLinks.length,75);
+  assert.equal(paidLinks.length,12);
   assert.ok(paidLinks.every(x=>x.href.startsWith('/checkout.html?plan=')));
-  assert.ok(paidLinks.some(x=>x.href.endsWith('legend-730d')));
-  assert.ok(paidLinks.some(x=>x.href.endsWith('family-max-730d')));
+  assert.ok(paidLinks.some(x=>x.href.endsWith('365')));
+  assert.ok(paidLinks.some(x=>x.href.endsWith('365-family')));
   assert.ok(links.some(x=>x.href.includes('30-family')));
   const disabled=deep(grid).filter(x=>x.tagName==='BUTTON'&&x.disabled);
   assert.equal(disabled.length,0);
   device.value='6';device.events.change();
-  assert.equal(count.textContent,'26 из 76 вариантов');
+  assert.equal(count.textContent,'4 из 13 вариантов');
   duration.value='short';duration.events.change();
-  assert.equal(count.textContent,'13 из 76 вариантов');
+  assert.equal(count.textContent,'1 из 13 вариантов');
   device.value='2';device.events.change();
-  assert.equal(count.textContent,'1 из 76 вариантов'); // free trial only
-  assert.ok(loading.textContent.includes('76 предложений'));
+  assert.equal(count.textContent,'1 из 13 вариантов'); // free trial only
+  assert.ok(loading.textContent.includes('13 предложений'));
 })().catch(e=>{console.error(e);process.exitCode=1});
 """
     _node(harness, "experience.js")
@@ -129,9 +128,8 @@ const advisor={
  querySelectorAll:()=>[]
 };
 global.document={querySelector:s=>s==='[data-tariff-advisor]'?advisor:null};
-const paid=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d','pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d']);
 const plans=__CATALOG__;
-global.fetch=async()=>({ok:true,json:async()=>({total:76,plans})});
+global.fetch=async()=>({ok:true,json:async()=>({total:13,plans})});
 const tick=()=>new Promise(r=>setImmediate(r));
 (async()=>{
  vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
@@ -162,11 +160,11 @@ def test_five_new_plans_are_in_live_checkout_contract():
     for plan_id in NEW_IDS:
         assert get_plan(plan_id) == plans[plan_id]
     all_plans = public_tariff_catalog()["plans"]
-    assert len(all_plans) == 76
-    assert sum(p["checkout_supported"] for p in all_plans) == 75
+    assert len(all_plans) == 13
+    assert sum(p["checkout_supported"] for p in all_plans) == 12
     assert UPCOMING_IDS == frozenset()
     assert ADDED_PLAN_IDS == ADDED_IDS
-    assert sum(p["status"] == "existing" for p in all_plans) == 75
+    assert sum(p["status"] == "existing" for p in all_plans) == 12
     assert sum(p["status"] == "upcoming" for p in all_plans) == 0
     assert all(p["checkout_supported"] for p in all_plans
                if p["id"] in ADDED_IDS)
@@ -181,7 +179,7 @@ def test_cross_page_links_and_copy_match_twelve_plan_catalog():
     assert 'value="2">До 2 устройств' in compare
     assert 'value="medium"' in compare
     assert 'data-show-upcoming' not in assistant
-    assert 'min="2"' in assistant
+    assert 'min="3"' in assistant
     assert "/api/site/tariffs" in experience
     assert "/api/site/tariffs" in toolkit
     assert "checkout_supported===false" in toolkit

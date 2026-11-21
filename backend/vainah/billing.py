@@ -49,6 +49,7 @@ DISCOUNT_PILOT_PLAN = {
     "id": "pilot-1d", "title": "Проверка оплаты на 1 день",
     "days": 1, "kopeks": 1000, "devices": 3,
 }
+# Historical definitions remain available for receipts, webhooks and fulfillment.
 CATALOG = (
     {"id": "7", "title": "Неделя", "days": 7, "kopeks": 5900, "devices": 3},
     {"id": "14", "title": "Две недели", "days": 14, "kopeks": 9900, "devices": 3},
@@ -86,10 +87,18 @@ CATALOG = (
 ) + EXTRA_CATALOG
 
 
+_PLANS_BY_ID = {p["id"]: p for p in CATALOG}
+SALE_PLAN_IDS = (
+    "mini-3d", "7", "14", "30", "60", "90", "180", "365",
+    "30-family", "family-plus-90d", "family-pro-180d", "365-family",
+)
+SALE_CATALOG = tuple(_PLANS_BY_ID[plan_id] for plan_id in SALE_PLAN_IDS)
+
+
 def get_plan(plan_id: str) -> dict | None:
     if plan_id == DISCOUNT_PILOT_PLAN["id"]:
         return DISCOUNT_PILOT_PLAN
-    return next((p for p in CATALOG if p["id"] == plan_id), None)
+    return _PLANS_BY_ID.get(plan_id) if isinstance(plan_id, str) else None
 
 
 def price_rub(plan: dict) -> str:
@@ -97,7 +106,7 @@ def price_rub(plan: dict) -> str:
 
 
 def public_plans() -> list[dict]:
-    return [{**p, "priceRub": price_rub(p)} for p in CATALOG]
+    return [{**p, "priceRub": price_rub(p)} for p in SALE_CATALOG]
 
 
 def safe_pay_url(value: object) -> str:
@@ -509,7 +518,7 @@ class BillingSandbox:
                      receipt_email: str | None = None) -> dict:
         self._ensure_loaded()
         plan = get_plan(plan_id)
-        if not plan:
+        if not plan or plan_id not in SALE_PLAN_IDS:
             raise HTTPException(422, "PLAN_UNKNOWN")
         order_id = "vainah_test_" + uuid4().hex
         amount = price_rub(plan)

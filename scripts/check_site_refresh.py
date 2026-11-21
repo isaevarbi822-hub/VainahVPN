@@ -22,7 +22,7 @@ def main():
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto("http://127.0.0.1:8000/plans.html", wait_until="networkidle")
         page.wait_for_selector(".tariff-card")
-        assert page.locator(".tariff-card").count() == 75
+        assert page.locator(".tariff-card").count() == 12
         for width in [320, 375, 390, 600, 768, 1024, 1440, 1920]:
             page.set_viewport_size({"width": width, "height": 950})
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
@@ -30,7 +30,7 @@ def main():
                 box = card.bounding_box()
                 assert 0 <= box["x"] and box["x"] + box["width"] <= width + 1, width
         page.set_viewport_size({"width": 1440, "height": 1000})
-        page.locator('[data-tariff-search]').fill("четыре недели")
+        page.locator('[data-tariff-search]').fill("365")
         assert page.locator('.tariff-card:visible').count() == 2
         for button in page.locator('.tariff-card:visible .tariff-compare-toggle').all():
             button.click()
@@ -39,11 +39,10 @@ def main():
         assert page.locator('[data-tariff-compare]').is_hidden()
         page.locator('[data-tariff-reset]').click()
         page.locator('[data-tariff-filter="family"]').click()
-        assert page.locator('.tariff-card:visible').count() == 12
-        page.locator('[data-tariff-more]').click()
-        assert page.locator('.tariff-card:visible').count() == 24
+        assert page.locator('.tariff-card:visible').count() == 4
+        assert page.locator('[data-tariff-more]').is_hidden()
         page.locator('[data-tariff-sort]').select_option("price")
-        assert page.locator('.tariff-card:visible .btn-primary').first.get_attribute('href') == '/checkout.html?plan=family-3d'
+        assert page.locator('.tariff-card:visible .btn-primary').first.get_attribute('href') == '/checkout.html?plan=30-family'
         page.locator('[data-tariff-devices]').select_option("3")
         assert page.locator('[data-tariff-empty]').is_visible()
         page.locator('[data-tariff-reset]').click()
@@ -107,7 +106,7 @@ def main():
         assert page.locator('html').evaluate('(e) => getComputedStyle(e).scrollBehavior') == 'auto'
         assert not errors, errors
         browser.close()
-    print("PASS: responsive layouts, 75 tariffs, search, filters, menu, 30s video, decoded stereo audio, reduced motion")
+    print("PASS: responsive layouts, 12 paid tariffs, search, filters, menu, 30s video, decoded stereo audio, reduced motion")
 
 
 if __name__ == "__main__":

@@ -50,7 +50,7 @@ def test_public_control_checks_only_cors_allowed_catalog_not_checkout():
     assert "isPublicSite?'/api/site/tariffs':'/api/health'" in script
     assert "if(isPublicSite){" in script
     assert "Проверка доступна на странице оформления" in script
-    assert "src=\"command-hub.js?v=20261115-reliable2\"" in (SITE/"command-hub.html").read_text(encoding="utf-8")
+    assert "src=\"command-hub.js?v=20261115-reliable2-catalog13\"" in (SITE/"command-hub.html").read_text(encoding="utf-8")
     harness=r"""
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 class El {
@@ -68,7 +68,7 @@ global.fetch=async(url,opt)=>{
  assert.equal(opt.method,'GET');
  assert.equal(opt.credentials,'omit');
  if(url.endsWith('/api/site/tariffs'))
-   return {ok:true,json:async()=>({total:76,plans:Array(76).fill({})})};
+   return {ok:true,json:async()=>({total:13,plans:Array(13).fill({})})};
  throw Error('Forbidden cross-origin call: '+url);
 };
 vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
@@ -111,13 +111,13 @@ const root={
 };
 global.document={querySelector:k=>k==='[data-vx-next-journey]'?root:null,createElement:k=>new El(k)};
 global.window={location:{origin:'https://vainahvpn.onrender.com',href:'https://vainahvpn.onrender.com/index.html'},setTimeout,clearTimeout};
-const plans=Array.from({length:75},(_,i)=>({
+const plans=Array.from({length:12},(_,i)=>({
  id:'plan-'+i,title:'Тариф '+i,days:7,devices:3,price_rub:'100.00',
  category:'personal',status:'existing',checkout_supported:true,
  checkout_path:'/checkout.html?plan=plan-'+i
 }));
 plans.push({id:'trial-free',status:'trial'});
-global.fetch=async()=>({ok:true,json:async()=>({total:76,plans})});
+global.fetch=async()=>({ok:true,json:async()=>({total:13,plans})});
 vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
 (async()=>{
  for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));

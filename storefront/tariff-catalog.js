@@ -1,4 +1,4 @@
-/* Vainah VPN: 75 live paid plans, smart discovery + local plan comparison.
+/* Vainah VPN: 12 live paid plans, smart discovery + local plan comparison.
    The server owns all prices, eligibility, checkout and VPN fulfillment. */
 (() => {
   'use strict';
@@ -12,19 +12,8 @@
   const root=document.querySelector('[data-tariff-catalog]');
   const status=document.getElementById('tariff-catalog-status');
   if(!root||!status)return;
-  const paidIds=new Set([
-    '7','14','30','45','60','90','120','180','365','30-family','365-family',
-    'mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d',
-    'max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d'
-  ,
-    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d','personal-6d','personal-8d','personal-11d','personal-13d','personal-16d','personal-19d','personal-23d','personal-28d','personal-42d','personal-70d','personal-105d','personal-165d','personal-225d','personal-330d','personal-450d','family-3d','family-5d','family-10d','family-28d','family-35d','family-100d','family-135d','family-210d','family-300d','family-450d']);
-  const order=[
-    'trial-free','mini-3d','sprint-5d','7','14','start-plus-21d',
-    '30','45','60','balance-75d','90','120','comfort-150d','180',
-    'max-270d','365','legend-730d','30-family','family-plus-90d',
-    'family-pro-180d','365-family','family-max-730d'
-  ,
-    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d','personal-6d','personal-8d','personal-11d','personal-13d','personal-16d','personal-19d','personal-23d','personal-28d','personal-42d','personal-70d','personal-105d','personal-165d','personal-225d','personal-330d','personal-450d','family-3d','family-5d','family-10d','family-28d','family-35d','family-100d','family-135d','family-210d','family-300d','family-450d'];
+  const paidIds=new Set(['mini-3d','7','14','30','60','90','180','365','30-family','family-plus-90d','family-pro-180d','365-family']);
+  const order=['trial-free',...paidIds];
   const filters=Array.from(document.querySelectorAll?.('[data-tariff-filter]')||[]);
   const search=document.querySelector('[data-tariff-search]');
   const sort=document.querySelector('[data-tariff-sort]');
@@ -262,9 +251,9 @@
     show();
     updateFavorites();
     updateCompare();
-    status.textContent='75 платных тарифов с подтверждёнными ценами. Оформление: RollyPay или Platega при готовности кассы. Бесплатный пробный день отдельно.';
+    status.textContent='12 платных тарифов с подтверждёнными ценами. Оформление: RollyPay или Platega при готовности кассы. Бесплатный пробный день отдельно.';
     const counter=document.getElementById('tariff-compare-label');
-    if(counter)counter.textContent='Сравнить все 76 вариантов ↗';
+    if(counter)counter.textContent='Сравнить все 13 вариантов ↗';
   }
   const update=()=>{displayLimit=12;show();};
   favoritesOnlyButton?.addEventListener('click',()=>{
@@ -346,9 +335,9 @@
       if(!response.ok)throw Error('CATALOG_UNAVAILABLE');
       const data=await response.json();
       const plans=Array.isArray(data.plans)?data.plans:[];
-      if(data.total!==76||plans.length!==76||
-        new Set(plans.map(p=>p.id)).size!==76||!plans.every(safe)||
-        plans.filter(p=>p.status==='existing').length!==75||
+      if(data.total!==13||plans.length!==13||
+        new Set(plans.map(p=>p.id)).size!==13||!plans.every(safe)||
+        plans.filter(p=>p.status==='existing').length!==12||
         plans.filter(p=>p.status==='trial').length!==1
       )throw Error('CATALOG_INVALID');
       render(plans);

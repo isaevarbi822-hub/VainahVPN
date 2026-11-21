@@ -48,6 +48,9 @@ def test_exact_catalog_and_no_gift_side_effects():
     for plan_id, (days, devices, rub) in EXPECTED.items():
         assert (catalog[plan_id]["days"], catalog[plan_id]["devices"],
                 catalog[plan_id]["kopeks"]) == (days, devices, rub * 100)
+        if plan_id not in {"mini-3d", "family-plus-90d", "family-pro-180d"}:
+            assert plan_id not in exposed
+            continue
         assert exposed[plan_id]["price_rub"] == f"{rub:.2f}"
         assert exposed[plan_id]["category"] == (
             "family" if devices == 6 else "personal"

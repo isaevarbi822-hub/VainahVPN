@@ -53,10 +53,8 @@ def test_archived_concepts_are_not_promoted_as_current_offers():
     plans = (SITE / "plans.html").read_text(encoding="utf-8")
     release = (SITE / "whats-new.html").read_text(encoding="utf-8")
     hub = (SITE / "command-hub.html").read_text(encoding="utf-8")
-    assert '<details class="container vx-concept-archive">' in plans
-    assert plans.index("Текущий каталог · 18 ноября 2026") < plans.index(
-        '<details class="container vx-concept-archive">'
-    )
+    assert "8 личных тарифов" in plans
+    assert "vx-concept-archive" not in plans
     assert '<details class="super-archive">' in release
     assert release.index('id="vx-mega-20261118"') < release.index(
         '<details class="super-archive">'

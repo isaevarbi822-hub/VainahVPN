@@ -17,8 +17,8 @@ def test_mega_routes_and_catalog_stay_server_authoritative():
     with TestClient(app) as client:
         data = client.get("/api/site/tariffs").json()
         rows = client.get("/api/shop/plans").json()["items"]
-    assert data["total"] == 76
-    assert len(rows) == data["existing_paid_count"] == 75
+    assert data["total"] == 13
+    assert len(rows) == data["existing_paid_count"] == 12
     assert data["upcoming_count"] == 0
     for plan in data["plans"]:
         if plan["status"] == "trial":
@@ -48,7 +48,7 @@ def test_mega_site_has_complete_tools_and_no_fake_purchases():
     ):
         assert f'href="{target}"' in hub
         assert f"['{target}'" in index or target in ("plans.html", "account.html")
-    assert "Срок от 2 до 730 дней" in hub
+    assert "Срок от 3 до 365 дней" in hub
     assert "Шесть вариантов с фильтрами" not in hub
     assert "/api/site/tariffs" in js
     assert "document.createElement" in js
@@ -69,7 +69,7 @@ def test_mega_site_has_complete_tools_and_no_fake_purchases():
 
 def test_live_tariff_search_sort_and_compare_in_browser():
     catalog = public_tariff_catalog()
-    assert len(catalog["plans"]) == 76
+    assert len(catalog["plans"]) == 13
     harness = r"""
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 class N {
@@ -127,15 +127,13 @@ const compareButton=card=>card.children.find(c=>c.className.includes('tariff-com
  vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
  await tick();await tick();
  assert.equal(visible().length,12);
- assert.equal(root.children.length,75);
- assert.equal(more.hidden,false);
- more.events.click();
- assert.equal(visible().length,24);
- assert.ok(status.textContent.includes('75 платных'));
+ assert.equal(root.children.length,12);
+ assert.equal(more.hidden,true);
+ assert.ok(status.textContent.includes('12 платных'));
  // Price sorting never changes the source catalog or checkout URLs.
  sort.value='price';sort.events.change();
- assert.equal(visible()[0].children[2].textContent,'Vainah Pulse');
- search.value='730';search.events.input();
+ assert.equal(visible()[0].children[2].textContent,'Vainah Mini');
+ search.value='365';search.events.input();
  assert.equal(visible().length,2);
  assert.ok(insight.textContent.includes('за день'));
  reset.events.click();
@@ -150,7 +148,7 @@ const compareButton=card=>card.children.find(c=>c.className.includes('tariff-com
  compareClear.events.click();
  assert.equal(compare.hidden,true);
  buttons.find(x=>x.dataset.tariffFilter==='family').events.click();
- assert.equal(visible().length,12);
+ assert.equal(visible().length,4);
  device.value='3';device.events.change();
  assert.equal(visible().length,0);
  assert.equal(empty.hidden,false);

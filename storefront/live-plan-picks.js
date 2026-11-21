@@ -7,7 +7,7 @@
   const message=document.querySelector('[data-live-plan-message]');
   const refresh=document.querySelector('[data-live-plan-refresh]');
   if(!root||!message)return;
-  const ids=['pulse-2d','mini-3d','30','90','family-plus-90d','legend-730d'];
+  const ids=['30','90','365','7','30-family','365-family'];
   const staticSite=typeof location!=='undefined' &&
     ['https://vainahvpn.onrender.com','https://vainahvpn.online',
       'https://www.vainahvpn.online'].includes(location.origin);
@@ -34,10 +34,10 @@
       }finally{clearTimeout(timer);}
       if(!response.ok)throw Error('UNAVAILABLE');
       const result=await response.json();
-      if(result.total!==76||!Array.isArray(result.plans)||result.plans.length!==76)
+      if(result.total!==13||!Array.isArray(result.plans)||result.plans.length!==13)
         throw Error('CATALOG_MISMATCH');
       const byId=new Map(result.plans.map(p=>[p?.id,p]));
-      if(byId.size!==76)throw Error('ID_MISMATCH');
+      if(byId.size!==13)throw Error('ID_MISMATCH');
       const picks=ids.map(id=>{
         const plan=byId.get(id);
         if(!plan||plan.id!==id||plan.status!=='existing'||

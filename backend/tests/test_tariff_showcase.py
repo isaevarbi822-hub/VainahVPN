@@ -1,4 +1,4 @@
-"""All 50 paid plans must use the verified checkout path and immutable prices."""
+"""All active paid plans must use the verified checkout path and immutable prices."""
 from __future__ import annotations
 
 import json
@@ -25,17 +25,20 @@ NEW_IDS = {"7", "14", "45", "120", "30-family"}
 ADDED_IDS = {"mini-3d", "sprint-5d", "start-plus-21d", "balance-75d", "comfort-150d", "max-270d", "legend-730d", "family-plus-90d", "family-pro-180d", "family-max-730d"}
 
 
-def test_twenty_two_options_have_unique_ids_and_no_payment_secrets():
+def test_curated_options_have_unique_ids_and_no_payment_secrets():
     data = public_tariff_catalog()
-    assert data["total"] == 76
-    assert data["existing_paid_count"] == 75
+    assert data["total"] == 13
+    assert data["existing_paid_count"] == 12
     assert data["upcoming_count"] == 0
-    assert data["newly_launched_count"] == 69
+    assert data["newly_launched_count"] == 0
     assert data["trial_count"] == 1
     plans = data["plans"]
-    assert len(plans) == len({p["id"] for p in plans}) == 76
+    assert len(plans) == len({p["id"] for p in plans}) == 13
     assert tuple(p["id"] for p in plans) == ORDER
-    assert {p["id"] for p in plans} == LEGACY | NEW_IDS | ADDED_IDS | EXTRA_PLAN_IDS | {"trial-free"}
+    assert {p["id"] for p in plans} == {
+        "trial-free", "mini-3d", "7", "14", "30", "60", "90", "180", "365",
+        "30-family", "family-plus-90d", "family-pro-180d", "365-family",
+    }
     assert DISCOUNT_PILOT_PLAN["id"] not in {p["id"] for p in plans}
     assert plans[0]["status"] == "trial"
     assert plans[0]["price_rub"] == "0.00"
@@ -97,18 +100,11 @@ def test_new_prices_allowed_in_paid_checkout_not_added_to_gift_cards():
 def test_new_tariffs_have_exact_prices_and_paid_checkout_path():
     data = public_tariff_catalog()
     future = {p["id"]: p for p in data["plans"] if p["id"] in ADDED_IDS}
-    assert set(future) == ADDED_IDS
+    assert set(future) == {"mini-3d", "family-plus-90d", "family-pro-180d"}
     expected = {
         "mini-3d": ("29.00", 3, 3),
-        "sprint-5d": ("45.00", 5, 3),
-        "start-plus-21d": ("119.00", 21, 3),
-        "balance-75d": ("289.00", 75, 3),
-        "comfort-150d": ("469.00", 150, 3),
-        "max-270d": ("749.00", 270, 3),
-        "legend-730d": ("1790.00", 730, 3),
         "family-plus-90d": ("599.00", 90, 6),
         "family-pro-180d": ("979.00", 180, 6),
-        "family-max-730d": ("2690.00", 730, 6),
     }
     for plan_id, (price, days, devices) in expected.items():
         plan = future[plan_id]
@@ -134,7 +130,7 @@ def test_landing_uses_live_prices_instead_of_stale_static_offers():
     assert 'data-live-plan-picks' in html
     assert 'data-live-plan-message' in html
     assert 'href="plans.html"' in html
-    assert "75 тарифов + пробник" in html
+    assert "12 тарифов + пробник" in html
     script = (SITE / "live-plan-picks.js").read_text(encoding="utf-8")
     assert "/api/site/tariffs" in script
     assert "root.replaceChildren(fallback)" in script  # failed prices are removed
@@ -185,25 +181,25 @@ global.document={
  createDocumentFragment:()=>new El('fragment')
 };
 const plans=__CATALOG__;
-global.fetch=async()=>({ok:true,json:async()=>({total:76,plans})});
+global.fetch=async()=>({ok:true,json:async()=>({total:13,plans})});
 function all(el){return [el,...el.children.flatMap(all)]}
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
  await tick();await tick();
  const items=all(root).filter(x=>x.tag==='article');
- assert.equal(items.length,75);
+ assert.equal(items.length,12);
  const links=all(root).filter(x=>x.tag==='a');
  const upcoming=items.filter(x=>all(x).some(n=>n.textContent==='В подготовке'));
- assert.equal(links.length,75);
+ assert.equal(links.length,12);
  assert.equal(upcoming.length,0);
  assert.equal(all(root).filter(x=>x.tag==='button'&&x.disabled).length,0);
  assert.ok(links.every(x=>x.href.startsWith('/checkout.html?plan=')));
  assert.ok(links.some(x=>x.href.endsWith('mini-3d')));
- assert.ok(links.some(x=>x.href.endsWith('legend-730d')));
- assert.ok(links.some(x=>x.href.endsWith('family-max-730d')));
+ assert.ok(links.some(x=>x.href.endsWith('365')));
+ assert.ok(links.some(x=>x.href.endsWith('365-family')));
  assert.ok(links.some(x=>x.href.includes('30-family')));
- assert.ok(status.textContent.includes('75 платных'));
+ assert.ok(status.textContent.includes('12 платных'));
 })().catch(e=>{console.error(e);process.exitCode=1});
 """
     harness = harness.replace("__CATALOG__", json.dumps(public_tariff_catalog()["plans"]))

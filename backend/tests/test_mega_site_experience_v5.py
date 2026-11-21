@@ -38,7 +38,7 @@ def test_catalog_actions_are_complete_and_accessible():
 def test_catalog_uses_only_verified_server_amounts_for_checkout():
     js = (SITE / "tariff-catalog.js").read_text(encoding="utf-8")
     for required in (
-        "new Set(plans.map(p=>p.id)).size!==76",
+        "new Set(plans.map(p=>p.id)).size!==13",
         "plans.every(safe)", "plan.checkout_path",
         "const publicFavoriteKey=", "storage()?.setItem",
         "favoritesOnly&&!favorites.has(plan.id)",
@@ -80,7 +80,7 @@ def _catalog_fixture() -> str:
     match = re.search(r"const paidIds=new Set\(\[(.*?)\]\);", js, re.DOTALL)
     assert match
     ids = re.findall(r"'([a-z0-9-]+)'", match.group(1))
-    assert len(ids) == 75
+    assert len(ids) == 12
     items = [
         {
             "id": plan_id, "title": "Тариф " + plan_id,
@@ -97,7 +97,7 @@ def _catalog_fixture() -> str:
         "devices": 2, "price_rub": "0.00", "status": "trial",
         "traffic_gb": 10, "checkout_supported": False, "segment": "short",
     })
-    payload = json.dumps({"total": 76, "plans": items}, ensure_ascii=False)
+    payload = json.dumps({"total": 13, "plans": items}, ensure_ascii=False)
     document = """<!doctype html><html lang="ru"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     </head><body>
@@ -151,7 +151,7 @@ def _catalog_fixture() -> str:
         const filterOk=document.getElementById('tariff-filter-count').textContent.includes('Найдено 1');
         compare?.click();
         const comparison=document.querySelector('[data-tariff-compare]');
-        const good=wasHiddenPrice&&retryVisible&&cards.length===75 &&
+        const good=wasHiddenPrice&&retryVisible&&cards.length===12 &&
           favorite?.getAttribute('aria-pressed')==='true'&&
           document.querySelector('[data-tariff-favorite-count]').textContent==='1'&&
           filterOk&&comparison.hidden===false&&

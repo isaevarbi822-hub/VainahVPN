@@ -10,7 +10,7 @@ from vainah.main import app
 SITE = Path(__file__).resolve().parents[2] / "storefront"
 
 
-def test_refresh_adds_twenty_five_distinct_personal_and_family_options():
+def test_archived_options_resolve_only_for_existing_customers():
     assert len(REFRESH_CATALOG) == 25
     assert sum(p["devices"] == 3 for p in REFRESH_CATALOG) == 15
     assert sum(p["devices"] == 6 for p in REFRESH_CATALOG) == 10
@@ -18,17 +18,13 @@ def test_refresh_adds_twenty_five_distinct_personal_and_family_options():
     with TestClient(app) as client:
         public = client.get("/api/site/tariffs").json()
         prices = {p["id"]: p for p in client.get("/api/shop/plans").json()["items"]}
-    assert public["total"] == 76
-    assert public["existing_paid_count"] == 75
+    assert public["total"] == 13
+    assert public["existing_paid_count"] == 12
     assert public["trial_count"] == 1
     for plan in REFRESH_CATALOG:
-        card = next(p for p in public["plans"] if p["id"] == plan["id"])
         assert get_plan(plan["id"]) == plan
-        assert prices[plan["id"]]["kopeks"] == plan["kopeks"]
-        assert card["days"] == plan["days"]
-        assert card["devices"] == plan["devices"]
-        assert card["price_rub"] == prices[plan["id"]]["priceRub"]
-        assert card["checkout_path"] == "/checkout.html?plan=" + plan["id"]
+        assert plan["id"] not in prices
+        assert all(p["id"] != plan["id"] for p in public["plans"])
 
 
 def test_intro_video_supports_mobile_streaming_and_russian_captions():

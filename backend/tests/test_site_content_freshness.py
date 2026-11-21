@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from vainah.billing import CATALOG, get_plan, price_rub
+from vainah.billing import SALE_CATALOG, get_plan, price_rub
 from vainah.main import app
 from vainah.tariff_catalog import public_tariff_catalog
 
@@ -32,32 +32,32 @@ def test_all_public_pages_remove_outdated_purchase_footer_and_login_label():
             assert old not in text, (page.name, old)
 
 
-def test_public_prices_and_marketing_describe_the_actual_fifty_plan_backend():
+def test_public_prices_and_marketing_describe_the_active_catalog():
     catalog = public_tariff_catalog()
-    assert catalog["existing_paid_count"] == len(CATALOG) == 75
-    assert catalog["total"] == 76
-    assert len({plan["id"] for plan in CATALOG}) == 75
-    assert min(plan["days"] for plan in CATALOG) == 2
-    assert max(plan["days"] for plan in CATALOG) == 730
-    assert min(plan["kopeks"] for plan in CATALOG) == 2500
+    assert catalog["existing_paid_count"] == len(SALE_CATALOG) == 12
+    assert catalog["total"] == 13
+    assert len({plan["id"] for plan in SALE_CATALOG}) == 12
+    assert min(plan["days"] for plan in SALE_CATALOG) == 3
+    assert max(plan["days"] for plan in SALE_CATALOG) == 365
+    assert min(plan["kopeks"] for plan in SALE_CATALOG) == 2900
     assert price_rub(get_plan("30")) == "149.00"
     assert price_rub(get_plan("365-family")) == "1499.00"
     with TestClient(app) as client:
         response = client.get("/api/site/tariffs")
         assert response.status_code == 200
-        assert response.json()["total"] == 76
+        assert response.json()["total"] == 13
         paid = client.get("/api/shop/plans")
         assert paid.status_code == 200
-        assert len(paid.json()["items"]) == 75
+        assert len(paid.json()["items"]) == 12
 
 
 def test_shop_and_help_no_longer_advertise_legacy_rates_or_telegram_checkout():
     expected = {
-        "checkout.html": ("75 платных тарифов", "RollyPay"),
-        "help.html": ("75 платных тарифов", "серверного каталога"),
-        "hub.html": ("Срок от 2 до 730 дней", "RollyPay"),
+        "checkout.html": ("12 платных тарифов", "RollyPay"),
+        "help.html": ("12 платных тарифов", "серверного каталога"),
+        "hub.html": ("Срок от 3 до 365 дней", "RollyPay"),
         "trial.html": ("Актуальные цены загружаются с сервера", "10 ГБ"),
-        "terms.html": ("75 платных тарифов", "RollyPay"),
+        "terms.html": ("12 платных тарифов", "RollyPay"),
         "contact.html": ("центр поддержки", "@VainahSupport"),
         "troubleshooting.html": ("личный кабинет", "повторный платёж"),
     }
@@ -74,24 +74,24 @@ def test_shop_and_help_no_longer_advertise_legacy_rates_or_telegram_checkout():
     assert "/api/shop/checkout" not in (SITE / "site-shell.js").read_text("utf-8")
 
 
-def test_final_fifty_plan_copy_and_live_support_are_consistent():
+def test_current_catalog_copy_and_live_support_are_consistent():
     """A previous content refresh left a few stale footer and fallback labels."""
     expected = {
         "index.html": (
-            "75 тарифов + пробник", "24 часа · 10 ГБ · 2 устройства · без карты",
+            "12 тарифов + пробник", "24 часа · 10 ГБ · 2 устройства · без карты",
         ),
         "features.html": (
-            "75 платных тарифов", "фильтры по бюджету",
+            "12 платных тарифов", "фильтры по бюджету",
         ),
-        "about.html": ("75 платными тарифами", "H1Cloud"),
-        "start.html": ("75 платных тарифов", "10 ГБ"),
+        "about.html": ("12 платными тарифами", "H1Cloud"),
+        "start.html": ("12 платных тарифов", "10 ГБ"),
         "help.html": ("support-center.html", "серверного каталога"),
-        "hub.html": ("75 платных тарифов", "Здесь отображаются заказы"),
+        "hub.html": ("12 платных тарифов", "Здесь отображаются заказы"),
         "compare.html": (
-            "75 платных тарифов доступны к оформлению",
+            "12 платных тарифов доступны к оформлению",
             "Загружаем актуальные тарифы",
         ),
-        "terms.html": ("18 ноября 2026", "75 платных тарифов"),
+        "terms.html": ("18 ноября 2026", "12 платных тарифов"),
     }
     for filename, phrases in expected.items():
         html = (SITE / filename).read_text(encoding="utf-8")

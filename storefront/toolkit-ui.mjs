@@ -46,14 +46,13 @@
     const explanation=one('[data-advisor-explanation]',root);
     const payment=one('[data-advisor-payment]',root);
     const link=one('[data-advisor-link]',root);
-    const paidIds=new Set(['7','14','30','45','60','90','120','180','365','30-family','365-family','mini-3d','sprint-5d','start-plus-21d','balance-75d','comfort-150d','max-270d','legend-730d','family-plus-90d','family-pro-180d','family-max-730d',
-    'pulse-2d','flash-4d','weekend-9d','jump-10d','express-12d','boost-17d','start-25d','flex-35d','focus-40d','smart-50d','steady-55d','stream-65d','prime-100d','flow-135d','power-210d','advance-240d','ultra-300d','horizon-540d','family-week-7d','family-14d','family-21d','family-45d','family-60d','family-75d','family-120d','family-150d','family-240d','family-270d','family-540d','personal-6d','personal-8d','personal-11d','personal-13d','personal-16d','personal-19d','personal-23d','personal-28d','personal-42d','personal-70d','personal-105d','personal-165d','personal-225d','personal-330d','personal-450d','family-3d','family-5d','family-10d','family-28d','family-35d','family-100d','family-135d','family-210d','family-300d','family-450d']);
+    const paidIds=new Set(['mini-3d','7','14','30','60','90','180','365','30-family','family-plus-90d','family-pro-180d','365-family']);
     const futureIds=new Set([]);
     const catalogIds=new Set(['trial-free',...paidIds,...futureIds]);
     let catalogue=null;
     const currency=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
     function render(){
-      const wantedDays=Math.max(2,Math.min(730,Number(days?.value)||30));
+      const wantedDays=Math.max(3,Math.min(365,Number(days?.value)||30));
       const wantedDevices=Math.max(1,Math.min(6,Number(devices?.value)||3));
       const allowUpcoming=pending?.checked===true;
       set(dayLabel,wantedDays+' дн.');
@@ -82,7 +81,7 @@
       }
       set(info,isFuture?
         'Предварительный подбор из каталога тарифов.':
-        'Самый доступный подходящий тариф из 75 платных вариантов.');
+        'Самый доступный подходящий тариф из 12 платных вариантов.');
       if(output)output.hidden=false;
     }
     days?.addEventListener('input',render);
@@ -105,11 +104,11 @@
     }).then(async response=>{
       if(!response.ok)throw Error('API '+response.status);
       const data=await response.json();
-      if(data.total!==76||!Array.isArray(data.plans)||data.plans.length!==76)
+      if(data.total!==13||!Array.isArray(data.plans)||data.plans.length!==13)
         throw Error('INVALID_CATALOG');
       const valid=data.plans.every(p=>
         p&&catalogIds.has(p.id)&&typeof p.title==='string'&&p.title.length<=60&&
-        Number.isInteger(p.days)&&p.days>=1&&p.days<=730&&
+        Number.isInteger(p.days)&&p.days>=1&&p.days<=365&&
         Number.isInteger(p.devices)&&p.devices>=2&&p.devices<=6&&
         typeof p.price_rub==='string'&&
         /^(0|[1-9][0-9]{0,5})\.[0-9]{2}$/.test(p.price_rub)&&
@@ -119,8 +118,8 @@
         p.status==='upcoming'&&futureIds.has(p.id)&&p.checkout_supported===false&&
           p.checkout_path===null)
       );
-      if(!valid||new Set(data.plans.map(p=>p.id)).size!==76||
-        data.plans.filter(p=>p.status==='existing').length!==75||
+      if(!valid||new Set(data.plans.map(p=>p.id)).size!==13||
+        data.plans.filter(p=>p.status==='existing').length!==12||
         data.plans.filter(p=>p.status==='upcoming').length!==0||
         data.plans.filter(p=>p.status==='trial').length!==1
       )throw Error('INVALID_CATALOG');

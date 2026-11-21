@@ -33,7 +33,7 @@
       /^[a-z0-9-]{1,64}$/.test(p.id)&&p.status==='existing'&&
       p.checkout_supported===true&&p.checkout_path==='/checkout.html?plan='+p.id&&
       [3,6].includes(p.devices)&&Number.isInteger(p.days)&&
-      p.days>=2&&p.days<=730&&typeof p.title==='string'&&
+      p.days>=3&&p.days<=365&&typeof p.title==='string'&&
       p.title.length>0&&p.title.length<=60&&
       typeof p.price_rub==='string'&&/^[1-9][0-9]{0,5}\.[0-9]{2}$/.test(p.price_rub);
   }
@@ -62,7 +62,7 @@
     // A seven-day request must not silently recommend a distant 365-day
     // plan just because it fits a low budget. If no term is close, say so.
     const range=options.filter(p=>p.days>=Math.max(2,Math.floor(target*.65))&&
-      p.days<=Math.min(730,Math.ceil(target*1.6)));
+      p.days<=Math.min(365,Math.ceil(target*1.6)));
     const closest=range.slice().sort((a,b)=>
       Math.abs(a.days-target)-Math.abs(b.days-target)||
       a.days-b.days||Number(a.price_rub)-Number(b.price_rub));
@@ -135,10 +135,10 @@
       }finally{window.clearTimeout(timeout);}
       if(!response.ok)throw Error('CATALOG_UNAVAILABLE');
       const data=await response.json();
-      if(data.total!==76||!Array.isArray(data.plans)||data.plans.length!==76||
-         new Set(data.plans.map(p=>p?.id)).size!==76)throw Error('CATALOG_INVALID');
+      if(data.total!==13||!Array.isArray(data.plans)||data.plans.length!==13||
+         new Set(data.plans.map(p=>p?.id)).size!==13)throw Error('CATALOG_INVALID');
       const confirmed=data.plans.filter(p=>p.status==='existing');
-      if(confirmed.length!==75||!confirmed.every(safe)||
+      if(confirmed.length!==12||!confirmed.every(safe)||
          data.plans.filter(p=>p.status==='trial').length!==1)
         throw Error('CATALOG_INVALID');
       paid=confirmed;

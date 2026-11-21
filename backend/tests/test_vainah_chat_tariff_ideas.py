@@ -30,8 +30,8 @@ def test_chat_and_dashboard_match_violet_theme():
 def test_twelve_new_concepts_cannot_be_purchased():
     page = (STOREFRONT / "plans.html").read_text(encoding="utf-8")
     js = (STOREFRONT / "next-tariffs.js").read_text(encoding="utf-8")
-    assert 'id="vx-new-offers"' in page
-    assert 'next-tariffs.js?v=20261114-1' in page
+    assert 'id="vx-new-offers"' not in page
+    assert 'next-tariffs.js' not in page
     assert js.count("name:'Vainah") == 12
     assert "button.disabled=true" in js
     assert "/api/shop/checkout" not in js
@@ -45,4 +45,4 @@ def test_chat_and_ideas_work_in_core_navigation():
     assert 'id="vx-hub-open-chat"' in hub
     assert '<strong>Избранное и сравнение</strong>' in hub
     assert 'href="plans.html#vx-new-offers"' not in hub
-    assert '<details class="container vx-concept-archive">' in (STOREFRONT / "plans.html").read_text(encoding="utf-8")
+    assert '<details class="container vx-concept-archive">' not in (STOREFRONT / "plans.html").read_text(encoding="utf-8")

@@ -20,7 +20,7 @@ def test_static_origin_can_read_only_public_tariff_catalog():
         assert result.headers["access-control-allow-origin"] == STATIC
         assert result.headers["vary"] == "Origin"
         assert "access-control-allow-credentials" not in result.headers
-        assert result.json()["total"] == 76
+        assert result.json()["total"] == 13
 
         untrusted = client.get("/api/site/tariffs", headers={
             "Origin": "https://example.com"
