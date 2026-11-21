@@ -1,0 +1,101 @@
+import pytest
+from fastapi.testclient import TestClient
+
+from vainah.main import app
+
+client = TestClient(app)
+
+
+def test_frontend_and_health():
+    assert client.get("/").status_code == 200
+    r = client.get("/api/health")
+    assert r.status_code == 200 and r.json()["ok"] is True
+
+
+@pytest.mark.parametrize("commit, expected", [
+    ("aB" * 20, "ab" * 20),
+    (None, None),
+    ("abc1234", None),
+    ("PRIVATE_CONFIGURATION_MUST_NOT_BE_ECHOED", None),
+])
+def test_health_reports_only_valid_deployment_revision(monkeypatch, commit, expected):
+    if commit is None:
+        monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
+    else:
+        monkeypatch.setenv("RENDER_GIT_COMMIT", commit)
+    response = client.get("/api/health")
+    assert response.status_code == 200
+    assert response.json()["commit_sha"] == expected
+    assert "PRIVATE_CONFIGURATION" not in response.text
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_headers_are_safe():
+    r = client.get("/api/v1/overview")
+    assert r.headers["cache-control"] == "no-store"
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.json()["vpn"]["connected"] is False
+    assert r.json()["subscription"]["expires_at"] is None
+
+
+def test_no_fake_locations():
+    r = client.get("/api/v1/locations")
+    assert r.status_code == 200
+    assert r.json()["items"] == []
+
+
+def test_import_no_echo_credentials():
+    token = "THIS_MUST_NOT_APPEAR_IN_ERROR"
+    r = client.post("/api/v1/import/inspect", json={"content": token})
+    assert r.status_code == 422
+    assert token not in r.text
+
+
+def test_http_local_url_blocked():
+    r = client.post("/api/v1/import/inspect", json={"content": "http://127.0.0.1/admin"})
+    assert r.status_code == 422
+
+
+def test_oversized_payload_rejected():
+    r = client.post("/api/v1/import/inspect", json={"content": "A" * 65537})
+    assert r.status_code == 422
+
+
+def test_preview_status_does_not_claim_h1cloud_is_down():
+    r = client.get("/api/site/services")
+    assert r.status_code == 200
+    services = r.json()["services"]
+    assert services["api"]["status"] == "ok"
+    assert services["h1"]["status"] == "not_connected"
+    assert services["database"]["status"] == "not_connected"
+    assert services["rollypay"]["status"] in {"sandbox", "not_verified"}
+    assert "server" not in services["h1"]
+
+
+def test_locations_return_explicit_empty_unconnected_list():
+    r = client.get("/api/site/locations")
+    assert r.status_code == 200
+    assert r.json()["locations"] == []
+    assert r.json()["source"] == "not_connected"
+
+
+def test_live_status_is_read_only_and_does_not_expose_provider_secrets(monkeypatch):
+    from vainah import main
+
+    async def safe_checks():
+        return {
+            "h1": {"status": "ok", "message": "GET only"},
+            "rollypay": {"status": "ok", "message": "GET only"},
+            "webhook": {"status": "configured", "message": "Only handler installed"},
+        }
+
+    monkeypatch.setattr(main, "integration_status", safe_checks)
+    result = client.get("/api/site/services")
+    assert result.status_code == 200
+    services = result.json()["services"]
+    assert services["h1"]["status"] == "ok"
+    assert services["rollypay"]["status"] == "ok"
+    assert services["webhook"]["status"] == "configured"
+    for item in services.values():
+        assert "subscription_url" not in str(item)
+        assert "payment_id" not in str(item)

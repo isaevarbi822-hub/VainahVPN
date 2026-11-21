@@ -1,0 +1,407 @@
+<!doctype html><html lang="ru"><head><link rel="icon" type="image/png" sizes="64x64" href="/email-avatar.png"><script src="/static-auth-redirect.js?v=20261119-stay-login1"></script><meta name="robots" content="noindex, nofollow"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#080b15"><meta name="description" content="Личный кабинет Vainah VPN: вход через email, Google или Telegram, управление подпиской, заказами и устройствами."><title>Моя подписка — Vainah VPN</title><link rel="stylesheet" href="/assets/storefront-base.css?v=20261120"><style>.nav-side .vainah-login{white-space:nowrap;min-width:76px;text-align:center}@media(max-width:1040px){.nav-side a[href="contact.html"]{display:none}}@media(max-width:780px){.nav-side .btn.vainah-login{display:inline-flex;padding:10px 13px;min-height:40px;font-size:12px}}@media(max-width:420px){.nav-wrap{gap:10px}.nav-side{gap:9px}.nav-side .btn.vainah-login{min-width:62px;padding:9px 11px}}</style><link rel="stylesheet" href="account-dashboard.css?v=20261119-account-reliability1"><link rel="stylesheet" href="account-login.css"><script src="telegram-login-widget.js?v=20261104-email-diagnostics-2" defer></script><script src="account-dashboard.js?v=20261119-stay-login1" defer></script><script src="handoff-creator.js?v=20261106-1" defer></script><script defer src="/account-checkout-return.js?v=20261120"></script><script src="account-login.js?v=20261106-telegram-oidc-google-v2-ui2" defer></script><link rel="stylesheet" href="site-shell.css?v=20261107-superplus2"><script src="site-shell.js?v=20261118-ultra6-ui2" defer></script><link rel="stylesheet" href="refresh.css?v=20261113-ultra3"><script src="refresh.js?v=20261108-2" defer></script><link rel="stylesheet" href="/interface.css?v=20261120"><meta name="color-scheme" content="dark"><script src="/navigation.js?v=20261120" defer></script></head><body data-vv-interface><a class="skip" href="#main">Перейти к содержимому</a><header class="vv-header">
+  <div class="vv-bar">
+    <a href="/" class="vv-brand" aria-label="Vainah VPN — Главная"><span class="vv-mark" aria-hidden="true">V</span><span>Vainah <b>VPN</b></span></a>
+    <nav class="vv-primary" aria-label="Основная навигация"><a href="plans.html">Тарифы</a>
+<a href="connect.html">Подключение</a>
+<a href="servers.html">Серверы</a>
+<a href="contact.html">Поддержка</a></nav>
+    <div class="vv-actions">
+      <a class="vv-account" href="account.html">Кабинет</a>
+      <details class="vv-menu"><summary aria-label="Меню сайта"><span class="vv-burger" aria-hidden="true"></span><span>Меню</span></summary>
+        <nav class="vv-drawer" aria-label="Все разделы"><div class="vv-drawer-links"><a href="plans.html">Тарифы</a>
+<a href="connect.html">Подключение</a>
+<a href="servers.html">Серверы</a>
+<a href="contact.html">Поддержка</a>
+<a href="trial.html">Пробный период</a>
+<a href="account.html" aria-current="page">Личный кабинет</a>
+<a href="gifts.html">Подарочные карты</a>
+<a href="my-devices.html">Мои устройства</a>
+<a href="support-center.html">Мои обращения</a>
+<a href="tools.html">Инструменты</a>
+<a href="command-hub.html">Центр управления</a>
+<a href="about.html">О сервисе</a></div><div class="vv-menu-tools"></div></nav>
+      </details>
+    </div>
+  </div>
+</header><main id="main" class="account-shell container">
+  <section class="account-hero" aria-labelledby="dashboard-heading">
+    <div>
+      <div class="hero-eyebrow">VAINAH VPN / ЛИЧНЫЙ КАБИНЕТ</div>
+      <h1 id="dashboard-heading">Личный кабинет</h1>
+      <p>Здесь хранятся твои подписки, заказы и личная ссылка для подключения.</p>
+    </div>
+    <div class="account-profile">
+      <span class="account-avatar" id="account-avatar" aria-hidden="true">V</span>
+      <div style="flex:1;min-width:0">
+        <strong id="account-user">Гость</strong>
+        <small>Подписки и заказы</small>
+        <button id="account-exit" type="button" hidden>Выйти из аккаунта</button>
+      </div>
+    </div>
+  </section>
+
+  <aside id="account-checkout-resume" class="vv-resume" hidden>
+    <span>Тариф выбран. После входа можно продолжить оформление.</span>
+    <a id="account-checkout-link" href="checkout.html">Вернуться к оформлению</a>
+  </aside>
+  <section data-auth-version="20261104-email-diagnostics-2" id="account-auth-panel" class="account-auth" aria-labelledby="account-login-heading">
+    <div class="eyebrow">БЕЗОПАСНЫЙ ВХОД</div>
+    <h2 id="account-login-heading">Войти в Vainah VPN</h2>
+    <p>Выбери способ входа, которым пользовался при покупке.</p><p>Вход сохраняется до 30 дней, даже если закрыть браузер. Можно выйти в любой момент кнопкой «Выйти из аккаунта». В приватном режиме и после очистки cookie вход потребуется повторить.</p>
+    <div class="account-auth-choice" role="tablist" aria-label="Способ входа">
+      <button type="button" role="tab" aria-controls="account-pane-telegram" aria-selected="false" data-auth-tab="telegram">✈ Telegram</button>
+      <button type="button" role="tab" aria-controls="account-pane-email" aria-selected="true" data-auth-tab="email">✉ Почта</button>
+      <button type="button" role="tab" aria-controls="account-pane-google" aria-selected="false" data-auth-tab="google">G Google</button>
+    </div>
+    <div id="account-pane-telegram" class="account-auth-method" role="tabpanel" data-auth-pane="telegram" hidden>
+      <h3>Войти через Telegram</h3>
+      <p>Новый Telegram-вход использует защищённое подтверждение на стороне Telegram. Старый виджет доступен только как резервный способ.</p>
+      <div class="account-auth-buttons">
+        <a id="account-telegram-oidc-start" href="/api/telegram-oidc/start" class="auth-primary" hidden>✈ Продолжить с Telegram</a>
+      </div>
+      <div id="account-telegram-legacy" hidden>
+        <p>Резервный способ входа (старый виджет Telegram):</p>
+        <div id="account-widget"></div>
+      </div>
+      <div class="account-auth-buttons">
+        <button id="account-telegram-retry" type="button">↻ Проверить доступность Telegram</button>
+      </div>
+      <div id="account-auth-status" class="account-auth-message" role="status" aria-live="polite">Открой вкладку «Telegram», чтобы загрузить кнопку входа.</div>
+      <p>Для нового входа через Telegram зарегистрируй адрес сайта и callback в разделе Login Widget у BotFather. Если настройки ещё не готовы, используй вход через почту.</p>
+    </div>
+    <div id="account-pane-google" class="account-auth-method" role="tabpanel" data-auth-pane="google" hidden>
+      <h3>Войти с Google</h3>
+      <p>Продолжи с подтверждённым Google-аккаунтом. Мы используем Google OpenID Connect для проверки личности. Пароль от Google на сайте Vainah VPN не вводится.</p>
+      <div class="account-auth-buttons">
+        <a id="account-google-start" href="/api/google/start" class="auth-primary" hidden>G · Продолжить с Google</a>
+      </div>
+      <div id="account-google-status" class="account-auth-message" role="status" aria-live="polite">Проверяем настройки Google-входа…</div>
+      <p>Если Google не настроен, войди через email. Google-вход использует подтверждённый email для доступа к уже принадлежащим ему заказам.</p>
+    </div>
+    <div id="account-pane-email" class="account-auth-method" role="tabpanel" data-auth-pane="email">
+      <h3>Войти по электронной почте</h3>
+      <p>Введи адрес, получи шестизначный код и войди без пароля. Подтверждённый email можно использовать независимо от Telegram.</p>
+      <form data-auth-form="email">
+        <label for="auth-email-input">Электронная почта</label>
+        <input id="auth-email-input" data-auth-contact="email" type="email" autocomplete="email" placeholder="you@example.com" maxlength="254" disabled required>
+        <div class="account-auth-buttons"><button class="auth-primary" type="submit" disabled>Отправить код на почту</button></div>
+      </form>
+      <form data-auth-verify="email" hidden>
+        <label for="auth-email-code">Код из письма на <strong data-auth-recipient></strong></label>
+        <input id="auth-email-code" data-auth-code="email" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+        <div class="account-auth-buttons"><button class="auth-primary" type="submit">Подтвердить почту</button></div>
+      </form>
+      <div class="account-auth-message" data-auth-message="email" role="status" aria-live="polite">Проверяем доступность почтового входа…</div>
+    </div>
+    <div class="account-auth-why" data-auth-availability role="status" aria-live="polite">Проверяем доступные способы входа…</div>
+    <div class="account-auth-why">Доступ к заказам привязан к подтверждённому аккаунту. Никому не сообщай код из письма или личную VPN-ссылку. Оплата новых заказов проверяется на странице оформления.</div>
+  </section>
+
+  <section id="account-alt-private" class="account-alt-private" hidden aria-labelledby="account-alt-title">
+    <div class="eyebrow">ДОПОЛНИТЕЛЬНЫЙ СПОСОБ ВХОДА</div>
+    <h2 id="account-alt-title">Ты вошёл в Vainah VPN</h2>
+    <p id="account-alt-provider">Способ входа подтверждён.</p>
+    <p>Это отдельный подтверждённый аккаунт. Подписки разных способов входа не объединяются автоматически. Используй тот аккаунт, к которому привязана покупка.</p>
+    <div class="account-auth-buttons">
+      <button id="account-alt-exit" type="button">Выйти</button>
+      <a href="plans.html">Смотреть тарифы ↗</a>
+    </div>
+  </section>
+
+  <div id="account-private" class="account-main" hidden>
+  <section class="vx-ultra-account-actions" data-vx-account-actions aria-labelledby="vx-account-actions-title">
+    <div class="vx-ultra-account-intro">
+      <span class="vx-ultra-kicker">ЛИЧНЫЙ КАБИНЕТ</span>
+      <h2 id="vx-account-actions-title">Управление подпиской</h2>
+      <p>Выбери заказ, открой настройки подписки или напиши в поддержку.</p>
+    </div>
+    <div class="vx-ultra-account-grid">
+      <a href="#account-sub-heading"><strong>▣ Моя подписка</strong><small>Проверить срок и параметры VPN</small></a>
+      <a href="#account-history-heading"><strong>◇ Мои заказы</strong><small>История оплаченных и ожидающих заказов</small></a>
+      <a href="notifications.html"><strong>✉ Напоминания</strong><small>Срок, предупреждения, настройки email</small></a>
+      <a href="gifts.html"><strong>✦ Подарочные карты</strong><small>Купить или активировать подарочный код</small></a>
+      <a href="support-center.html"><strong>◈ Поддержка</strong><small>Заявки и ответы оператора</small></a>
+      <a href="my-devices.html"><strong>▧ Мои устройства</strong><small>Управление списком устройств</small></a>
+      <a href="plans.html"><strong>↻ Продлить VPN</strong><small>Выбрать новый срок и перейти к оформлению</small></a>
+      <a href="#account-email-panel"><strong>✉ Почта для подписок</strong><small>Проверить адрес для получения VPN и квитанций</small></a>
+    </div>
+  </section>
+    <nav class="account-quick-nav" aria-label="Быстрые действия в кабинете">
+      <a href="#account-sub-heading">◈ Моя подписка</a>
+      <a href="#account-device-heading">▣ Лимит устройств</a>
+      <a href="#account-alerts">◉ Предупреждения</a>
+      <a href="my-devices.html">▤ Мои устройства</a>
+      <a href="#account-history-heading">≡ Заказы</a>
+      <a href="trial.html">✦ Пробный VPN</a>
+      <a href="support-center.html">✉ Мои обращения</a>
+      <a href="contact.html">? Контакты</a>
+    </nav>
+    <div class="account-session-health" id="account-dashboard-health" role="status" aria-live="polite">Проверяем актуальные данные VPN…</div>
+    <div class="account-metrics" aria-label="Краткая информация о подписке">
+      <div class="account-metric"><small>Твой тариф</small><strong id="metric-plan">Загружаем…</strong><span>Только подтверждённая сервером подписка</span></div>
+      <div class="account-metric"><small>Действует до</small><strong id="metric-expiry">—</strong><span id="account-expiry-note">Срок проверяется по данным H1Cloud</span></div>
+      <div class="account-metric"><small>Устройства</small><strong id="metric-devices">—</strong><span>Количество разрешённых устройств</span></div>
+    </div>
+
+    <section class="account-panel account-traffic" id="account-traffic" aria-labelledby="account-traffic-heading">
+      <div class="account-panel-head">
+        <div>
+          <div class="eyebrow">ТРАФИК И ЛИМИТЫ</div>
+          <h2 id="account-traffic-heading">Использование VPN</h2>
+        </div>
+        <span id="account-traffic-badge" class="account-chip dim">Проверяем данные</span>
+      </div>
+      <div class="account-traffic-grid">
+        <div class="account-traffic-stat"><small>Использовано</small><strong id="account-traffic-used">—</strong></div>
+        <div class="account-traffic-stat"><small>Лимит</small><strong id="account-traffic-limit">—</strong></div>
+        <div class="account-traffic-stat"><small>Осталось</small><strong id="account-traffic-left">—</strong></div>
+      </div>
+      <div id="account-traffic-progress" class="account-traffic-progress" role="progressbar"
+        aria-label="Доля использованного трафика" aria-valuemin="0" aria-valuemax="100"
+        aria-valuenow="0" hidden><span id="account-traffic-fill"></span></div>
+      <p id="account-traffic-note" role="status" aria-live="polite">Данные о расходе появятся, если VPN-провайдер предоставляет проверенные счётчики.</p>
+    </section>
+
+    <section class="account-panel account-advisories" id="account-alerts" aria-labelledby="account-alerts-heading">
+      <div class="account-panel-head">
+        <div>
+          <div class="eyebrow">УМНЫЕ ПРЕДУПРЕЖДЕНИЯ</div>
+          <h2 id="account-alerts-heading">Состояние моей подписки</h2>
+        </div>
+        <span id="account-alerts-badge" class="account-chip dim">Ждём данные</span>
+      </div>
+      <p class="muted" style="font-size:12px">Предупреждения формируются только из подтверждённых данных оплаты и H1Cloud при обновлении этого кабинета. Это не email-рассылка, не фоновый мониторинг и не проверка самого VPN-туннеля.</p>
+      <div id="account-alert-list" role="status" aria-live="polite"><p>Выполни вход, чтобы увидеть состояние подписки.</p></div>
+      <a class="account-secondary-link" href="my-devices.html">Мои устройства →</a>
+    </section>
+
+    <section class="account-panel" id="account-reminder-panel" aria-label="Email-напоминания о подписке" style="margin-top:22px">
+      <div class="account-panel-head"><h2>Напоминания о подписке по email</h2></div>
+      <p>Разреши письма о сроке подписки на подтверждённую почту. Отправка начнётся только после настройки защищённого расписания; на сайте напоминания за 7, 3 и 1 день доступны уже сейчас. <a href="notifications.html">Мои уведомления →</a></p>
+      <label style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <input type="checkbox" id="account-reminder-optin" disabled>
+        Разрешить напоминания на подтверждённую почту
+      </label>
+      <p id="account-reminder-status" class="muted" role="status" aria-live="polite">Войди в аккаунт с подтверждённой почтой.</p>
+      <script src="account-reminder-preference.js?v=20261107-2" defer></script>
+    </section>
+    <section class="account-panel" id="account-email-panel" aria-label="Подтверждённая почта" style="margin-top:22px">
+  <div class="account-panel-head"><h2>Получать VPN-подписку на email</h2></div>
+  <p id="account-email-status" role="status" aria-live="polite">Проверяем подтверждение почты…</p>
+  <p>После подтверждённой оплаты и выдачи подписки письмо с VPN-доступом отправляется на подтверждённый адрес. Также доступ остаётся в личном кабинете.</p>
+  <form id="account-email-form" autocomplete="on">
+    <label for="account-email-input">Электронная почта</label>
+    <input id="account-email-input" type="email" name="email" maxlength="254" placeholder="you@example.com" required>
+    <div class="account-auth-buttons"><button type="submit" class="auth-primary">Отправить код подтверждения</button></div>
+  </form>
+  <form id="account-email-verify" hidden>
+    <label for="account-email-code">Код из письма</label>
+    <input id="account-email-code" type="text" inputmode="numeric" autocomplete="one-time-code"
+       maxlength="6" pattern="[0-9]{6}" placeholder="6 цифр" required>
+    <div class="account-auth-buttons"><button type="submit" class="auth-primary">Подтвердить email</button></div>
+  </form>
+</section>
+<section class="account-panel account-manual-grant" id="account-manual-grant-panel" aria-labelledby="account-manual-grant-heading" style="margin-top:22px">
+  <div class="account-panel-head"><h2 id="account-manual-grant-heading">Подписка от оператора</h2><span class="account-chip dim">Без оплаты</span></div>
+  <p>Если Vainah VPN выдал тебе подписку вручную, войди через подтверждённую почту получателя и нажми «Проверить». Это отдельный доступ, не оплаченный заказ.</p>
+  <div id="account-manual-status" role="status" aria-live="polite" class="account-access-status">Подарочная подписка ещё не проверена.</div>
+  <div class="account-access-actions" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:13px">
+    <button id="account-manual-get" type="button" class="btn btn-primary">Проверить подписку</button>
+    <button id="account-manual-copy" type="button" class="btn btn-border" hidden>Скопировать личную ссылку</button>
+    <a id="account-manual-happ" class="btn btn-border" hidden rel="noopener noreferrer nofollow" referrerpolicy="no-referrer">Импортировать в Happ ↗</a>
+    <a id="account-manual-incy" class="btn btn-border" hidden rel="noopener noreferrer nofollow" referrerpolicy="no-referrer">Импортировать в INCY ↗</a>
+  </div>
+</section>
+<div class="account-layout">
+      <section class="account-panel" aria-labelledby="account-sub-heading">
+        <div class="account-panel-head">
+          <h2 id="account-sub-heading">Моя подписка</h2>
+          <span id="account-plan-chip" class="account-chip dim">Проверяем…</span>
+        </div>
+        <div class="account-summary">
+          <div>
+            <div id="account-plan-name" class="account-summary-name">Загружаем…</div>
+            <div id="account-plan-sub" class="muted" style="font-size:12px;margin-top:9px">Проверяем покупки</div>
+          </div>
+          <div class="account-price">
+            <small>Подробности покупки</small>
+            <b id="account-plan-price">—</b>
+          </div>
+        </div>
+        <div class="account-access">
+          <strong style="font-size:15px">Твоя персональная VPN-ссылка</strong>
+          <div id="account-access-status" class="account-access-status" role="status" aria-live="polite">Проверяем доступ…</div>
+          <p id="account-import-intent" class="account-import-intent" role="status" aria-live="polite" hidden></p>
+          <div class="account-access-actions">
+            <button id="account-get-vpn" class="btn btn-primary" type="button" disabled>Получить VPN-ссылку</button>
+            <a id="account-open-happ" class="btn btn-primary account-client-link" rel="noopener noreferrer nofollow" referrerpolicy="no-referrer" hidden>Подключиться через Happ ↗</a>
+            <a id="account-open-incy" class="btn btn-primary account-client-link" rel="noopener noreferrer nofollow" referrerpolicy="no-referrer" hidden>Подключиться через INCY ↗</a>
+            <a id="account-open-vpn" class="btn btn-border" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden>Открыть подписку ↗</a>
+            <button id="account-copy-vpn" class="btn btn-border" type="button" hidden>Скопировать ссылку</button>
+            <button id="account-get-qr" class="btn btn-border" type="button" disabled>Показать QR для подключения</button>
+            <button id="account-handoff-create" class="btn btn-border" type="button">Создать одноразовый QR · 5 минут</button>
+          </div>
+          <p class="account-client-hint"><strong>Импорт в один клик.</strong> Открой этот кабинет на устройстве, где установлен Happ или INCY, и нажми кнопку нужного клиента. При запросе браузера подтверди открытие приложения — появится предложение добавить подписку. Для совместимости сайт также попробует заранее скопировать ссылку в буфер обмена. Если клиент открылся без импорта, используй «+» → импорт из буфера обмена. <a href="https://www.happ.su/main" target="_blank" rel="noopener noreferrer">Скачать Happ</a> · <a href="https://incy.cc/" target="_blank" rel="noopener noreferrer">Скачать INCY</a></p>
+          <div id="account-handoff-panel" class="account-qr-panel" hidden>
+            <p><strong>Одноразовый QR.</strong> Подписка выдаётся только после входа в тот же подтверждённый аккаунт на другом устройстве. Токен действует пять минут.</p>
+            <img id="account-handoff-image" alt="Одноразовый код переноса, действует пять минут" width="260" height="260" hidden>
+            <p id="account-handoff-status" role="status" aria-live="polite">QR не запрошен.</p>
+          </div>
+          <div id="account-qr-panel" class="account-qr-panel" hidden>
+            <p><strong>QR-код — это твой секретный ключ подписки.</strong> Показывай его только на собственном устройстве и не отправляй в общий чат.</p>
+            <img id="account-qr-image" alt="QR-код персональной VPN-подписки — не передавай посторонним" width="260" height="260" hidden>
+            <p id="account-qr-status" role="status" aria-live="polite">QR ещё не запрошен.</p>
+          </div>
+        </div>
+        <div class="account-row-actions">
+          <a href="plans.html" class="btn btn-border">Посмотреть тарифы</a><a href="assistant.html" class="btn btn-border">Подобрать тариф</a>
+          <button id="account-refresh" type="button" class="btn btn-quiet">↻ Обновить данные</button>
+          <a href="connection-check.html" class="btn btn-border">Диагностика Vainah Check</a>
+          <button id="account-calendar" type="button" class="btn btn-border" disabled>Напомнить о продлении · календарь</button>
+          <button id="account-support-summary" type="button" class="btn btn-border" disabled>Скопировать статус для поддержки</button>
+        </div>
+        <p id="account-calendar-status" class="account-action-status" role="status" aria-live="polite">Напоминание появится, когда H1Cloud подтвердит дату окончания подписки. Календарь не создаётся автоматически.</p>
+        <textarea id="account-support-manual" class="account-manual-report" aria-label="Статус без личных данных для ручного копирования" readonly hidden></textarea>
+      </section>
+
+      <aside class="account-panel" aria-labelledby="account-device-heading">
+        <div class="account-panel-head"><h2 id="account-device-heading">Мои устройства</h2></div>
+        <div class="account-device-stack">
+          <div class="account-device-info">
+            <small>Доступно по тарифу</small>
+            <strong id="account-device-limit">—</strong>
+            <p id="account-device-note">Лимит устройств появится после покупки.</p>
+          </div>
+          <div class="account-device-info">
+            <small>Состояние подключения H1Cloud</small>
+            <div id="account-h1-state" class="account-vpn-live" role="status" aria-live="polite" style="margin-top:8px">Проверяем…</div>
+          </div>
+        </div>
+        <div class="account-caution">Если H1Cloud временно недоступен, твои покупки сохраняются в PostgreSQL. Дата в базе не гарантирует, что VPN сейчас работает.</div>
+        <a href="my-devices.html" class="account-secondary-link">Мои устройства: сохранить названия →</a>
+        <a href="device-center.html" class="account-secondary-link">Мастер подключения для моего устройства →</a>
+      </aside>
+    </div>
+
+    <section id="account-test-vpn" class="account-panel account-history" hidden aria-labelledby="account-test-vpn-heading">
+      <div class="account-panel-head">
+        <h2 id="account-test-vpn-heading">Тестовые VPN-подписки</h2>
+        <span class="account-chip dim">Без списания денег</span>
+      </div>
+      <p>Тестовая выдача отображается отдельно от реальных покупок. Личная ссылка доступна только аккаунту, оформившему заказ.</p>
+      <div id="account-test-vpn-list" aria-live="polite"></div>
+    </section>
+
+    <section class="account-panel account-history" aria-labelledby="account-history-heading">
+      <div class="account-panel-head">
+        <h2 id="account-history-heading">История покупок <span id="account-history-count" class="account-chip dim">0</span></h2>
+        <span id="account-history-hint" class="muted" style="font-size:12px">Показываем реальные заказы</span>
+      </div>
+      <div class="account-order-tools" aria-label="Управление историей заказов">
+        <label for="account-order-search">Поиск тарифа
+          <input id="account-order-search" type="search" autocomplete="off" maxlength="90"
+            placeholder="Например: 1 год">
+        </label>
+        <label for="account-order-filter">Статус
+          <select id="account-order-filter">
+            <option value="all">Все статусы</option>
+            <option value="delivered">Выданные</option>
+            <option value="waiting">Ожидающие</option>
+            <option value="closed">Завершённые / ошибки</option>
+          </select>
+        </label>
+        <label for="account-order-sort">Порядок
+          <select id="account-order-sort">
+            <option value="newest">Сначала новые</option>
+            <option value="oldest">Сначала старые</option>
+          </select>
+        </label>
+        <button type="button" id="account-order-export" class="btn btn-border" disabled>
+          Скачать историю CSV
+        </button>
+      </div>
+      <p id="account-history-match" class="account-history-match" role="status" aria-live="polite">Нет подтверждённых покупок</p>
+      <div class="account-order-head" aria-hidden="true">
+        <span>Тариф</span><span>Дата</span><span>Сумма</span><span>Статус</span>
+      </div>
+      <div id="account-order-list" class="account-history-list" aria-live="polite">
+        <div class="account-empty">Загружаем историю покупок…</div>
+      </div>
+    </section>
+  </div>
+</main><footer><div class="container"><div class="footer-grid"><div><a class="logo" href="/"><span class="logo-mark" aria-hidden="true"><svg fill="none" viewBox="0 0 32 32"><path d="m6 9 10 15L26 9" stroke="#fff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/><path d="m16 6 5 8-5 11" stroke="#d1f7ff" stroke-width="2.4" stroke-linecap="round"/></svg></span><span>VAINAH <em>VPN</em></span></a><p>Твоё соединение. Твои правила.</p><p>Управление доступом и понятные инструкции. Для подключения к сети нужен совместимый VPN-клиент.</p></div><div><h4>Сервис</h4><a href="plans.html">Тарифы</a><a href="servers.html">Локации</a><a href="guide.html">Как подключиться</a><a href="about.html">О Vainah VPN</a></div><div><h4>Информация</h4><a href="help.html">Вопросы и ответы</a><a href="contact.html">Поддержка</a><a href="privacy.html">Конфиденциальность</a><a href="terms.html">Условия сервиса</a></div></div><div class="footer-bottom"><span>© 2026 Vainah VPN. Твоё соединение. Твои правила.</span><span>Актуальные тарифы — на сайте · RollyPay и Platega · выбор при оформлении</span></div></div><div class="container site-explore-links" style="border-top:1px solid #34384e;padding:24px 32px;font-size:13px;display:flex;gap:16px;flex-wrap:wrap;color:#cbbaff"><a href="features.html">Возможности</a><a href="devices.html">Устройства</a><a href="security.html">Безопасность</a><a href="speed.html">Скорость</a><a href="troubleshooting.html">Диагностика</a></div><div class="container" style="border-top:1px solid #34384e;padding:24px 32px;display:flex;gap:12px 22px;flex-wrap:wrap;font-size:13px;color:#cbbaff">
+<a href="start.html">🚀 Быстрый старт</a>
+<a href="glossary.html">📚 Словарь VPN</a>
+<a href="checklist.html">✅ Чек-лист</a>
+<a href="devices.html">📱 Устройства</a>
+<a href="security.html">🛡️ Безопасность</a>
+<a href="troubleshooting.html">🧩 Решение проблем</a>
+<a href="referrals.html">↗ Реферальная ссылка</a>
+<a href="rewards.html">★ Vainah Rewards</a>
+<a href="gifts.html">♢ Подарки</a>
+<a href="notifications.html">✉ Мои уведомления</a>
+
+</div></footer><script>
+(() => {
+  const $ = (s, p=document) => p.querySelector(s);
+  const $$ = (s, p=document) => [...p.querySelectorAll(s)];
+  const menu = $('[data-menu-button]');
+  const mobile = $('[data-mobile-nav]');
+  if (menu && mobile) {
+    menu.addEventListener('click', () => {
+      const open = mobile.classList.toggle('open');
+      menu.setAttribute('aria-expanded', String(open));
+      menu.setAttribute('aria-label', open ? 'Закрыть меню' : 'Открыть меню');
+    });
+    $$('.mobile-nav a').forEach(a => a.addEventListener('click', () => {mobile.classList.remove('open');menu.setAttribute('aria-expanded', 'false');}));
+  }
+  $$('.pill-tab').forEach(b => b.addEventListener('click', () => {
+    $$('.pill-tab').forEach(item => {item.classList.remove('active');item.setAttribute('aria-selected','false');});
+    b.classList.add('active');b.setAttribute('aria-selected','true');
+    $$('.tab-body').forEach(panel => {panel.hidden = panel.id !== b.dataset.tab;});
+  }));
+  const search = $('[data-faq-search]');
+  if (search) search.addEventListener('input', () => {
+    let visible = 0;
+    $$('.faqs details').forEach(d => { const found=d.textContent.toLowerCase().includes(search.value.toLowerCase().trim());d.hidden=!found;if(found) visible++; });
+    const empty=$('[data-no-results]'); if(empty) empty.style.display=visible?'none':'block';
+  });
+  $$('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{
+    try {await navigator.clipboard.writeText(b.dataset.copy);const old=b.textContent;b.textContent='Скопировано ✓';setTimeout(()=>{b.textContent=old},1800);}catch{b.textContent='Не удалось скопировать';}
+  }));
+  // Public locations and prices are loaded from the backend; never invent actual live VPN availability.
+  (async()=>{
+    try {
+      const response=await fetch('/api/site/locations',{headers:{Accept:'application/json'}});
+      if(!response.ok) return;
+      const result=await response.json();
+      const box=$('[data-live-locations]');
+      if(!box||!Array.isArray(result.locations)||!result.locations.length) return;
+      box.replaceChildren();
+      result.locations.forEach(loc=>{
+        const article=document.createElement('article');article.className='location';
+        const flag=document.createElement('span');flag.className='flag';flag.textContent=loc.flag||'🌐';
+        const meta=document.createElement('div');const name=document.createElement('strong');name.textContent=loc.name;const detail=document.createElement('small');detail.textContent='Локация VPN';meta.append(name,detail);
+        article.append(flag,meta);
+        box.append(article);
+      });
+    }catch{};
+  })();
+  const form=$('[data-support-form]');
+  if(form) form.addEventListener('submit',async(event)=>{
+    event.preventDefault();
+    const submit=$('[type=submit]',form),status=$('[data-form-status]');
+    status.textContent='Отправляем обращение…';status.className='form-status';submit.disabled=true;
+    const values=Object.fromEntries(new FormData(form).entries());
+    try{
+      const reply=await fetch('/api/site/tickets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});
+      const result=await reply.json();
+      if(!reply.ok) throw Error(result.error||'Не удалось отправить обращение');
+      status.textContent=`Обращение № ${result.ticketId} принято. Сохрани номер, чтобы уточнить статус.`;status.classList.add('success');form.reset();
+    }catch(e){status.textContent=e.message||'Ошибка связи с сервером. Попробуйте позже.';status.classList.add('error');}
+    finally{submit.disabled=false;}
+  });
+})();
+
+</script>
+</body></html>

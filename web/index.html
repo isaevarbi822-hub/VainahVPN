@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c101b">
+  <meta name="description" content="Vainah VPN Next — личный кабинет, устройства, серверы, диагностика и управление подпиской.">
+  <title>Vainah VPN — Next</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Главное меню">
+      <a href="#overview" class="brand" aria-label="Vainah VPN, главная">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 42 42" fill="none"><path d="M8 11 21 33 34 11" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 11h12" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".45"/></svg></span>
+        <span class="brand-name">Vainah<span>VPN</span><small>NEXT GENERATION</small></span>
+      </a>
+      <div class="workspace"><span class="workspace-avatar">V</span><span><strong>Моё пространство</strong><small>Предпросмотр платформы</small></span><span class="workspace-arrow">⌄</span></div>
+      <div class="menu-caption">УПРАВЛЕНИЕ</div>
+      <nav id="main-nav" class="main-nav"></nav>
+      <div class="sidebar-bottom">
+        <div class="side-note"><span class="side-note-icon">✳</span><strong>Разработка Vainah Next</strong><p>Новая платформа. Сейчас без реальных аккаунтов и VPN-туннеля.</p><a href="#updates" data-nav="updates">План разработки <span aria-hidden="true">↗</span></a></div>
+        <div class="side-footer"><span class="online-indicator"></span><span>Preview · v0.1.0</span><span>© Vainah</span></div>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim" hidden></div>
+    <div class="main-area">
+      <header class="topbar">
+        <div class="topbar-left"><button class="icon-button mobile-menu" id="menu-toggle" aria-label="Открыть меню" aria-expanded="false"><span id="menu-icon"></span></button><div class="breadcrumb"><span>Личный кабинет</span><span class="breadcrumb-divider">/</span><strong id="breadcrumb-current">Обзор</strong></div></div>
+        <div class="topbar-right"><span class="environment-pill"><span class="pill-dot"></span> PREVIEW MODE</span><button class="icon-button theme-toggle" id="theme-toggle" aria-label="Переключить тему"></button><span class="user-avatar" title="Демо-профиль">V</span></div>
+      </header>
+      <main class="content" id="content" tabindex="-1"><div class="loading-state">Загрузка панели…</div></main>
+      <footer class="page-footer">Vainah VPN Next <span>·</span> Твоё соединение. Твои правила. <span class="footer-right">Сервис в разработке — реальные подписки не активированы.</span></footer>
+    </div>
+  </div>
+  <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+</body>
+</html>

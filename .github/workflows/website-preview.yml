@@ -1,0 +1,50 @@
+name: Vainah Website Preview ZIP
+on:
+  push:
+    branches: [feat/restore-site-rollypay-checkout]
+    paths:
+      - "backend/**"
+      - "web/**"
+      - "storefront/**"
+      - "preview_server.py"
+      - "start_windows.cmd"
+      - "TEST_ON_WINDOWS.md"
+      - ".github/workflows/website-preview.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - "web/**"
+      - "storefront/**"
+      - "preview_server.py"
+      - "start_windows.cmd"
+      - "TEST_ON_WINDOWS.md"
+      - ".github/workflows/website-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    name: Package test-only storefront for Windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check local server launcher
+        run: python3 -m py_compile preview_server.py
+      - name: Package site, API and launchers
+        run: |
+          mkdir -p preview_package
+          cp -R backend web storefront preview_package/
+          cp preview_server.py start_windows.cmd TEST_ON_WINDOWS.md preview_package/
+          find preview_package -type d -name '__pycache__' -prune -exec rm -rf '{}' +
+          find preview_package -type f -name '*.pyc' -delete
+          test -f preview_package/storefront/checkout.html
+          test -f preview_package/backend/vainah/billing.py
+          test -f preview_package/start_windows.cmd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VainahVPN-Website-Test-Preview
+          path: preview_package/
+          if-no-files-found: error
+          retention-days: 7

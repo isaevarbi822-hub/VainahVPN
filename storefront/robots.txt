@@ -1,0 +1,9 @@
+# Vainah VPN public static website
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /payment-return.html
+Disallow: /app
+Disallow: /docs
+Disallow: /openapi.json
+Sitemap: https://vainahvpn.online/sitemap.xml

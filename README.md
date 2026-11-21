@@ -2,7 +2,9 @@
 
 **Новый репозиторий для переработанного Vainah VPN.**
 
-> Статус: разработка. Это **не** готовая публичная версия VPN.
+> Публичные страницы сайта размещаются на Render, а подтверждение покупки,
+> выдача VPN, настройки кассы и состояние backend проверяются отдельно.
+> Код сайта нельзя считать доказательством доступности платёжной кассы.
 > Исходный Android-клиент ранее подключался с VLESS + REALITY, однако
 > обновление HTTPS-подписки давало HTTP 403. Новая архитектура должна
 > исправить диагностику и разделить компоненты, не выдавая успешную
@@ -15,8 +17,8 @@
   и реальная диагностика — без ложных надписей «Подключено».
 - **Clerk**: нативная авторизация; никаких секретных ключей в APK.
 - **Python/Render**: единый сервер для кабинета и подписок после полного
-  переноса и тестирования. Не используем устаревший Netlify как
-  необъявленную зависимость.
+  переноса и тестирования. Веб-сайт и Python API развёрнуты на Render;
+  публичный адрес сайта: https://vainahvpn.online/.
 - **Оплата**: отключена до отдельной проверки RollyPay, базы, прав доступа,
   вебхуков и подтверждённой выдачи VPN.
 - **iOS, Windows и macOS**: отдельные последующие этапы с платформенными
@@ -37,8 +39,34 @@
 ## Репозитории
 
 - Новый проект: [VainahVPN](https://github.com/isaevarbi822-hub/VainahVPN).
-- Исходная реализация для сверки, **не для прямого развёртывания**:
-  [Vainahvpn_bot](https://github.com/isaevarbi822-hub/Vainahvpn_bot).
+- Все рабочие веб-компоненты публикуются из этого репозитория на Render.
 
 **Не публикуйте** токены H1Cloud, Clerk secret key, приватные ссылки
 подписок и ключи RollyPay в GitHub, сообщениях или отчётах об ошибках.
+
+## Unified development branch
+
+The combined Android libbox client and Python/FastAPI cabinet live on
+`feat/unified-android-python`. Review both workflows before merging.
+
+- Android source: `android/`; test build via `.github/workflows/android.yml`.
+- Python API: `backend/`; live dashboard routes in `web/`.
+- Local run: `cd backend && pip install -e ".[dev]" && uvicorn vainah.main:app --reload`.
+- Automated tests: `cd backend && python -m pytest -q`.
+- Android libbox adapter is compiled only with `-PvainahEnableLibbox=true`.
+- Python does not execute the Android VPN tunnel. Android VpnService/libbox does.
+- Native Android real-device traffic, DNS, IPv6 and handover are unverified.
+- Проверяйте актуальную доступность Clerk/H1Cloud и RollyPay через безопасные диагностические пути. Не публикуйте утверждение об отключённой или работающей кассе только на основании README.
+
+Never publish user subscription URLs, UUIDs, API tokens or live payment keys.
+
+## Текущие адреса и развёртывание
+
+- Публичный сайт: https://vainahvpn.online/
+- Python backend: https://vainahvpn-python-preview.onrender.com/
+- Оба сервиса Render используют ветку `feat/restore-site-rollypay-checkout`; `main` не является источником действующей публикации.
+- Новая интерактивная страница: `/command-hub.html`. Поиск разделов, подбор устройства и тарифа не обрабатывают платежи.
+- Безопасная публичная диагностика: `python scripts/audit_public_site.py`. Инструмент делает только GET-запросы.
+- Прежде чем публиковать обновление, выполняйте регрессионные тесты и проверяйте checkout отдельно без создания реальных счетов.
+
+Клиентская часть никогда не должна утверждать, что VPN подключён, пока реальный системный VPN-клиент не подтвердил туннель. Личные подписки и ключи — только в защищённом кабинете.

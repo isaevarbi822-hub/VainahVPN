@@ -1,0 +1,153 @@
+/* Site quality refresh · additive styling, leaves existing account/payment logic intact. */
+:root{
+  --vxq-surface: #141a2b;
+  --vxq-raised: #1d2440;
+  --vxq-stroke: rgba(187,167,255,.22);
+  --vxq-focus: #9de4fc;
+  --vxq-glow: rgba(154,116,255,.17);
+}
+body:not(.vx-hub-body){
+  background-image:radial-gradient(ellipse 65vw 28vw at 83% 0%,rgba(111,77,184,.14),transparent 85%),
+    radial-gradient(ellipse 44vw 32vw at 0% 62%,rgba(65,99,168,.08),transparent 85%);
+}
+body > header .nav-wrap{min-height:72px}
+:is(.tariff-card,.shop-panel,.refresh-feature,.location){
+  border-color:var(--vxq-stroke);
+  box-shadow:0 12px 35px rgba(1,3,15,.14);
+}
+:is(.tariff-card,.shop-plan,.location,.refresh-feature){
+  transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease;
+}
+@media(hover:hover) and (pointer:fine){
+  :is(.tariff-card,.location,.refresh-feature):hover{
+    border-color:rgba(186,157,255,.45);
+    box-shadow:0 18px 46px rgba(1,3,15,.25),0 0 25px var(--vxq-glow);
+    transform:translateY(-2px);
+  }
+}
+:where(button,a,input,select,textarea):focus-visible{
+  outline:3px solid var(--vxq-focus)!important;
+  outline-offset:3px;
+}
+:where(.btn,.shop-submit,.shop-filter-controls input,.shop-filter-controls select){
+  touch-action:manipulation;
+}
+.checkout-next .shop-panel{
+  background:linear-gradient(145deg,rgba(29,35,57,.98),rgba(16,21,38,.98));
+  border-color:rgba(175,153,245,.3);
+  box-shadow:0 18px 65px rgba(2,5,20,.29);
+}
+.checkout-next .shop-total{
+  background:rgba(153,120,255,.085);
+  border-radius:14px;
+  padding:16px 14px;
+}
+.checkout-next .shop-total strong{font-variant-numeric:tabular-nums}
+.checkout-next .payment-method{margin:9px 0}
+.checkout-next .payment-method label{
+  min-width:0;
+  width:100%;
+  min-height:70px;
+  border:1px solid rgba(169,153,234,.35);
+  border-radius:16px;
+  padding:13px 15px;
+  background:linear-gradient(115deg,rgba(27,32,57,.96),rgba(15,21,38,.96));
+  transition:border-color .2s,background .2s,box-shadow .2s;
+}
+.checkout-next .payment-method label:focus-within{
+  outline:2px solid var(--vxq-focus);
+  outline-offset:2px;
+}
+.checkout-next .payment-method label:has(input:checked){
+  border-color:#bba3ff;
+  background:linear-gradient(114deg,rgba(75,53,129,.45),rgba(25,36,66,.94));
+  box-shadow:inset 0 0 0 1px rgba(187,163,255,.23),0 8px 25px rgba(102,70,188,.14);
+}
+.checkout-next .payment-method label:has(input:disabled){opacity:.55;cursor:not-allowed}
+.checkout-next .payment-method label input{width:18px;height:18px;flex:0 0 auto;accent-color:#b59bff}
+.checkout-next .payment-method small{display:block;margin-top:3px;line-height:1.45}
+.checkout-next .shop-submit:not(:disabled){
+  background:linear-gradient(112deg,#bca4ff,#8fbeeb);
+  color:#110d23;
+  box-shadow:0 12px 25px rgba(120,105,235,.25);
+}
+.checkout-next .shop-submit:disabled{cursor:not-allowed;opacity:.56}
+.checkout-next .shop-filter-controls input[type="search"]::-webkit-search-cancel-button{
+  cursor:pointer;
+}
+.directory-toolbar :is(input,select,button){min-height:46px}
+.directory-favorite:hover{color:#ffe0a2}
+.vx-live-trigger{
+  appearance:none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  color:#e9e6ff;
+  font:700 12px/1.25 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  white-space:nowrap;
+  padding:10px 12px;
+  min-height:40px;
+  border:1px solid rgba(177,157,255,.33);
+  border-radius:13px;
+  background:rgba(29,31,59,.82);
+  cursor:pointer;
+  transition:background .16s ease,border-color .16s ease;
+}
+.vx-live-trigger:hover{background:rgba(68,48,108,.8);border-color:#bda4ff}
+.vx-live-dot{
+  width:9px;height:9px;flex:0 0 9px;
+  border-radius:50%;
+  background:#a38eff;
+  box-shadow:0 0 0 3px rgba(163,142,255,.14);
+}
+.vx-live-dialog{
+  box-sizing:border-box;
+  position:fixed;
+  inset:auto;
+  max-height:min(90vh,720px);
+  overflow-y:auto;
+  width:min(520px,calc(100vw - 24px));
+  padding:0;
+  background:#10162a;
+  border:1px solid rgba(181,165,248,.38);
+  border-radius:24px;
+  color:#f4f5ff;
+  box-shadow:0 30px 120px rgba(0,0,0,.72);
+}
+.vx-live-dialog::backdrop{background:rgba(1,3,13,.78);backdrop-filter:blur(6px)}
+.vx-live-panel{padding:26px}
+.vx-live-panel-top{display:flex;justify-content:space-between;align-items:start;gap:18px}
+.vx-live-kicker{color:#ad9aff;font-weight:800;font-size:11px;letter-spacing:.14em}
+.vx-live-panel h2{font-size:clamp(23px,4.5vw,31px);line-height:1.15;margin:10px 0 0;letter-spacing:-.04em;color:#fff}
+.vx-live-close{border:1px solid #52536e;border-radius:12px;background:#252b42;color:#fff;min-width:42px;min-height:42px;font-size:26px;cursor:pointer}
+.vx-live-explain{font-size:14px;line-height:1.65;color:#b8c4df;margin:19px 0}
+.vx-live-services{border:1px solid #4c4b6b;border-radius:16px;overflow:hidden}
+.vx-live-services>div{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;background:#1b2238}
+.vx-live-services>div+div{border-top:1px solid #4c4b6b}
+.vx-live-services strong{font-size:14px}
+.vx-live-services span{font-size:12px;text-align:right;color:#cad2e4}
+.vx-live-services span[data-ready="true"]{color:#a8ebd0}
+.vx-live-services span[data-ready="false"]{color:#ffc8a8}
+.vx-live-note{min-height:22px;color:#bec8e3;font-size:13px;line-height:1.5;margin:17px 0}
+.vx-live-actions{display:flex;gap:10px;flex-wrap:wrap}
+.vx-live-actions>*{flex:1 1 150px;display:grid;place-items:center;text-align:center;min-height:47px;padding:10px 12px;border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;text-decoration:none}
+.vx-live-recheck{background:#b39df5;color:#111529;border:0}
+.vx-live-recheck:disabled{opacity:.6;cursor:wait}
+.vx-live-actions a{border:1px solid #6d629a;background:#242a42;color:#f5f1ff}
+.vx-live-footnote{color:#a9b4cf;font-size:11px;line-height:1.6;margin:18px 0 0}
+@media(max-width:1050px){
+  .vx-live-trigger{padding:10px;min-width:40px}
+  .vx-live-label{display:none}
+}
+@media(max-width:600px){
+  body:not(.vx-hub-body) .container{max-width:100%}
+  .checkout-next .shop-panel{padding:18px}
+  .checkout-next .payment-method label{padding:12px;min-height:68px}
+  .vx-live-panel{padding:20px 16px}
+  .vx-live-services>div{padding:13px}
+}
+@media(prefers-reduced-motion:reduce){
+  :is(.tariff-card,.shop-plan,.location,.refresh-feature,.vx-live-trigger,.checkout-next .payment-method label){transition:none!important}
+  :is(.tariff-card,.location,.refresh-feature):hover{transform:none}
+}

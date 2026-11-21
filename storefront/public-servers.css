@@ -1,0 +1,13 @@
+/* Public-location controls; never contain customer VPN credentials. */
+.directory-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 14px}
+.directory-toolbar input,.directory-toolbar select{min-width:170px;flex:1 1 220px;max-width:100%;min-height:44px;border-radius:12px;border:1px solid #4e5571;background:#101626;color:#f5f6ff;padding:9px 14px}
+.directory-toolbar button{min-height:44px;padding:10px 13px;border:1px solid #676087;border-radius:12px;background:#1b2440;color:#f5f6ff}
+.directory-toolbar button[aria-pressed="true"]{background:#4b377c;border-color:#aa88ef}
+.directory-controls-note{color:#b5c0d8;font-size:12px;margin:0 0 14px}
+.directory-details{min-width:0;flex:1 1 auto}
+.directory-details strong{overflow-wrap:anywhere}
+.directory-details small{display:block;color:#a0a9bf;font-size:12px}
+.directory-favorite{flex:0 0 48px;min-height:48px;margin-left:auto;border:0;background:transparent;color:#cdb5ff;font-size:26px;cursor:pointer}
+.directory-favorite[aria-pressed="true"]{color:#ffcf7b}
+.directory-empty{color:#c3cbe1;padding:18px 21px;background:#141c2f;border:1px solid #3a4763;border-radius:14px}
+@media(max-width:650px){.directory-toolbar{display:grid;grid-template-columns:1fr 1fr}.directory-toolbar input{grid-column:1/-1}.directory-toolbar input,.directory-toolbar select{min-width:0;width:100%}.directory-toolbar button{width:100%}}

@@ -1,0 +1,313 @@
+/* Vainah VPN adaptive fit / tablet Safari, zoomed laptop & mobile.
+   A single final layout layer fixes the screenshot's crowded header without
+   affecting authentication, payment, backend requests or data. */
+body > header,
+body > .site-header { box-sizing:border-box; max-width:100%; }
+body > header .nav-wrap,
+body > .site-header .header-inner {
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  min-width:0;
+}
+body > header .nav-wrap > .logo,
+body > .site-header .header-inner > .logo {
+  display:inline-flex;
+  align-items:center;
+  flex:0 0 auto;
+  min-width:0;
+  white-space:nowrap;
+}
+body > header .nav-side,
+body > .site-header .header-actions {
+  display:flex;
+  align-items:center;
+  flex:0 0 auto;
+  min-width:0;
+  margin-left:auto;
+}
+body > header .desktop-nav,
+body > .site-header .header-links {
+  min-width:0;
+  flex:1 1 auto;
+}
+body > header .vx-live-trigger,
+body > .site-header .vx-live-trigger {
+  flex:0 0 auto;
+  min-width:44px;
+  min-height:44px;
+}
+body > header .vx-live-trigger .vx-live-label,
+body > .site-header .vx-live-trigger .vx-live-label {
+  white-space:nowrap;
+}
+body > header .mobile-nav,
+body > .site-header .drawer {
+  box-sizing:border-box;
+  max-width:100%;
+}
+body > header .mobile-nav a,
+body > header .mobile-nav button,
+body > .site-header .drawer a,
+body > .site-header .drawer button {
+  box-sizing:border-box;
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+body main :is(.refresh-hero,.refresh-hero-copy,.refresh-orbit,.vx-next-layout,.vx-next-config,.vx-next-side,.refresh-section-heading) {
+  min-width:0;
+}
+body .refresh-hero-copy h1 { overflow-wrap:normal; }
+body .refresh-orbit-label {
+  max-width:50%;
+  box-sizing:border-box;
+  overflow-wrap:break-word;
+}
+body .refresh-orbit-label.label-top{right:0}
+body .refresh-orbit-label.label-bottom{left:0}
+body .refresh-device-option,
+body .vx-next-choice,
+body .vx-next-side,
+body .tariff-card { min-width:0; }
+
+/* Wide desktops have enough actual space for the extended navigation. */
+@media(min-width:1681px){
+  body > header .nav-wrap{
+    width:calc(100% - 56px)!important;
+    max-width:1760px!important;
+    padding-inline:0!important;
+    gap:clamp(12px,1.2vw,24px)!important;
+  }
+  body > header .desktop-nav {gap:clamp(9px,.85vw,16px)!important;font-size:clamp(11px,.76vw,13px)!important}
+  body > header .vx-control-nav {font-size:12px;padding:8px 10px}
+  body > header .nav-side{gap:9px}
+}
+/* iPad Pro landscape, tablets, split-screen and mid-size laptop screens:
+   never squeeze twelve header actions across one line. */
+@media(max-width:1680px){
+  body > header .nav-wrap{
+    width:calc(100% - 40px)!important;
+    max-width:1280px!important;
+    padding-inline:0!important;
+    height:auto!important;
+    min-height:72px!important;
+    gap:12px!important;
+    justify-content:space-between!important;
+  }
+  body > header .desktop-nav,
+  body > .site-header .header-links {display:none!important}
+  body > header .hamburger,
+  body > .site-header .menu-toggle {
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    flex:0 0 44px!important;
+    width:44px!important;
+    height:44px!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  body > header .nav-side,
+  body > .site-header .header-actions {gap:8px!important;min-width:0}
+  body > header .nav-side .tiny {display:none!important}
+  body > header .nav-side>a[href="contact.html"]{display:none!important}
+  body > header .nav-side>a.vainah-login {
+    display:inline-flex!important;
+    flex:0 0 auto!important;
+    min-height:43px!important;
+    padding:9px 14px!important;
+    font-size:12px!important;
+  }
+  body > header .vx-header-search {
+    display:inline-grid!important;
+    width:44px!important;
+    height:44px!important;
+    min-width:44px!important;
+    flex:0 0 44px!important;
+    font-size:24px!important;
+  }
+  body > header .vx-live-trigger{
+    min-height:44px;
+    padding:9px 12px;
+    max-width:132px;
+  }
+  body > header .vx-live-label {display:none!important}
+  body > header .vx-live-trigger::after{
+    content:"Статус";
+    font-size:12px;
+    font-weight:800;
+    color:#e5dcff;
+  }
+  body > header .mobile-nav.open,
+  body > .site-header .drawer.open{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:8px!important;
+    max-height:min(68vh,550px)!important;
+    max-height:min(68dvh,550px)!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:contain;
+    margin:0!important;
+    padding:14px max(20px,calc((100vw - 1240px)/2)) 18px!important;
+    border-top:1px solid #494064!important;
+    background:#101629!important;
+    scrollbar-width:thin;
+  }
+  body > header .mobile-nav.open .vx-mobile-search{
+    grid-column:1/-1;
+    min-width:0;
+  }
+  body > header .mobile-nav a{
+    min-height:43px;
+    padding:10px 12px;
+    font-size:13px;
+  }
+  body[data-refresh-home] .refresh-hero{
+    min-height:0!important;
+    padding-block:clamp(40px,5vw,70px)!important;
+  }
+  body[data-refresh-home] .refresh-hero h1{
+    font-size:clamp(44px,4.75vw,68px)!important;
+    line-height:1.08!important;
+    max-width:12ch;
+  }
+  body[data-refresh-home] .refresh-lead{
+    font-size:clamp(13px,1.05vw,16px);
+    line-height:1.65;
+  }
+  body[data-refresh-home] .refresh-orbit{
+    max-width:440px;
+    width:min(100%,440px);
+    justify-self:center;
+  }
+  body[data-refresh-home] .refresh-orbit-label {
+    padding:10px 12px;
+    font-size:clamp(9px,.8vw,12px);
+    line-height:1.4;
+  }
+}
+/* Tablet portrait and two-window view. */
+@media(max-width:1120px){
+  body > header .nav-wrap {width:calc(100% - 32px)!important;min-height:68px!important}
+  body > header .nav-wrap .logo {font-size:clamp(13px,1.6vw,17px)!important;gap:9px!important}
+  body > header .nav-wrap .logo-mark {width:39px!important;height:39px!important;flex:0 0 39px}
+  body > header .mobile-nav.open {grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  body > header .vx-live-trigger{padding:9px!important;max-width:44px}
+  body > header .vx-live-trigger::after{content:none}
+  body[data-refresh-home] .refresh-hero{gap:16px!important}
+  body[data-refresh-home] .refresh-hero h1{font-size:clamp(39px,5vw,55px)!important}
+  body[data-refresh-home] .refresh-orbit{max-width:360px;width:min(100%,360px)}
+  body[data-refresh-home] .refresh-orbit-label{max-width:56%}
+  body .refresh-device-choices{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+/* Phones and smaller portrait tablets: headline and globe stack naturally. */
+@media(max-width:760px){
+  body > header .nav-wrap{
+    width:calc(100% - 28px)!important;
+    min-height:66px!important;
+    gap:7px!important;
+  }
+  body > header .nav-side{gap:5px!important}
+  body > header .mobile-nav.open{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    padding:12px 14px 16px!important;
+    max-height:min(70vh,490px)!important;
+    max-height:min(70dvh,490px)!important;
+  }
+  body > header .vx-header-search{
+    width:40px!important;min-width:40px!important;height:42px!important;
+    flex-basis:40px!important;
+  }
+  body > header .vx-live-trigger{
+    min-width:40px;max-width:40px;min-height:42px;
+    padding:0!important;
+  }
+  body > header .hamburger{width:42px!important;height:42px!important;flex-basis:42px!important}
+  body > header .nav-side>a.vainah-login{padding:9px 11px!important;font-size:12px!important}
+  body[data-refresh-home] .refresh-hero{
+    grid-template-columns:minmax(0,1fr)!important;
+    padding-block:40px 28px!important;
+    gap:14px!important;
+  }
+  body[data-refresh-home] .refresh-hero h1{
+    font-size:clamp(39px,8vw,58px)!important;
+    max-width:100%;
+    margin:18px 0!important;
+  }
+  body[data-refresh-home] .refresh-orbit{
+    width:min(75vw,330px)!important;
+    max-width:330px!important;
+    margin:10px auto 0!important;
+  }
+  body[data-refresh-home] .refresh-orbit-label{font-size:10px!important;padding:8px!important}
+  body[data-refresh-home] .refresh-actions{gap:14px}
+  body .refresh-device-choices{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+/* Narrow phones and browser text enlargement. */
+@media(max-width:430px){
+  body > header .nav-wrap{width:calc(100% - 20px)!important;gap:4px!important}
+  body > header .nav-wrap .logo{font-size:12px!important;letter-spacing:0!important;gap:5px!important}
+  body > header .nav-wrap .logo-mark{width:32px!important;height:32px!important;flex-basis:32px}
+  body > header .nav-side{gap:3px!important}
+  body > header .vx-header-search{min-width:38px!important;width:38px!important;flex-basis:38px!important}
+  body > header .vx-live-trigger{min-width:38px;max-width:38px}
+  body > header .hamburger{width:39px!important;height:39px!important;flex-basis:39px!important}
+  body > header .nav-side>a.vainah-login{font-size:11px!important;padding:7px 8px!important;min-height:40px!important}
+  body > header .mobile-nav.open{grid-template-columns:minmax(0,1fr)!important}
+  body[data-refresh-home] .refresh-hero h1{font-size:clamp(34px,10vw,44px)!important}
+  body[data-refresh-home] .refresh-orbit{width:min(83vw,285px)!important}
+  body .refresh-device-choices{grid-template-columns:minmax(0,1fr)}
+}
+/* Respect the iPad's short usable height in landscape. */
+@media(max-height:570px) and (orientation:landscape){
+  body > header .mobile-nav.open{max-height:calc(100dvh - 86px)!important}
+  body[data-refresh-home] .refresh-hero{padding-block:24px!important}
+}
+/* Prevent form focus zoom and inaccessible off-edge controls on touch devices. */
+@media(pointer:coarse) and (max-width:760px){
+  body :is(input:not([type=checkbox]):not([type=radio]),textarea,select){font-size:16px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  body[data-refresh-home] .refresh-orbit-ring,
+  body[data-refresh-home] .refresh-globe,
+  body[data-refresh-home] .refresh-orbit-label{animation:none!important}
+}
+
+/* Runtime overflow fallback for unusually large desktop zoom settings. */
+body > header.vx-header-collapsed .desktop-nav{display:none!important}
+body > header.vx-header-collapsed .hamburger{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  min-width:44px!important;width:44px!important;height:44px!important;
+}
+body > header.vx-header-collapsed .nav-side>a[href="contact.html"],
+body > header.vx-header-collapsed .nav-side .tiny{display:none!important}
+body > header.vx-header-collapsed .mobile-nav.open{
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  max-height:65vh;max-height:65dvh;overflow-y:auto;
+  gap:9px;padding:14px 24px;
+  background:#101629;border-top:1px solid #494064;
+}
+body > header.vx-header-collapsed .nav-wrap{gap:12px!important}
+
+body > header .mobile-nav .vx-mobile-status {
+  grid-column:1/-1;
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  min-height:44px;
+  padding:10px 13px;
+  text-align:left;
+  font-size:13px;
+  font-weight:800;
+  color:#f1eaff;
+  background:#2a2349;
+  border:1px solid #8069b8;
+  border-radius:12px;
+  cursor:pointer;
+}
+body > header .mobile-nav .vx-mobile-status:focus-visible{
+  outline:3px solid #a6e5f7;outline-offset:-3px;
+}
+@media(max-width:360px){
+  body > header .nav-side .vx-live-trigger{display:none!important}
+}
